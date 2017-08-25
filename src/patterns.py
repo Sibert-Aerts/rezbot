@@ -130,7 +130,8 @@ class Patterns:
         
         attack = Attack(l, w, r)
         
-        print('left: "%s"\t weapon: "%s"\t right: "%s"' % (attack.left, attack.weapon, attack.right))
+        # Don't uncomment this, linux doesn't like printing emoji
+        # print('left: "%s"\t weapon: "%s"\t right: "%s"' % (attack.left, attack.weapon, attack.right))
         
         def corpse():
             return choose(self.corpses)
