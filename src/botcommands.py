@@ -32,6 +32,12 @@ class BotCommands(MyCommands):
         await self._die()
 
 
+    @commands.command(pass_context=True)
+    async def echo(self, ctx):
+        '''Repeat your message in a code block (for emoji related purposes).'''
+        await self.say('`{}`'.format(util.get_args(ctx))
+
+
     # toy command
     @commands.command(pass_context=True)
     async def kill(self, ctx):
