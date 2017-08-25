@@ -1,0 +1,1 @@
+__all__ = ['bot', 'mycommands', 'patterns', 'botcommands', 'permissions']
