@@ -70,13 +70,43 @@ class BotCommands(MyCommands):
         await self.say(r.headers['Location'])
 
 
+    triviaCategories = {
+        'general'      : 9 ,
+        'books'        : 10,
+        'film'         : 11,
+        'music'        : 12,
+        'musicals'     : 13,
+        'tv'           : 14,
+        'videogames'   : 15,
+        'board games'  : 16,
+        'science'      : 17,
+        'computers'    : 18,
+        'maths'        : 19,
+        'mythology'    : 20,
+        'sports'       : 21,
+        'geography'    : 22,
+        'history'      : 23,
+        'politics'     : 24,
+        'art'          : 25,
+        'celebrities'  : 26,
+        'animals'      : 27,
+        'vehicles'     : 28,
+        'comics'       : 29,
+        'gadgets'      : 30,
+        'anime'        : 31,
+        'cartoon'      : 32,
+    }
+
     @commands.command()
     async def trivia(self, category:str=None):
         '''
         Posts an absolutely legitimate trivia question.
         '''
         amount = 2
-        r = requests.get('https://opentdb.com/api.php', params={'amount': amount + 1})
+        params = {'amount': amount + 1}
+        if category is not None:
+            params['category'] = self.triviaCategories[category.lower()]
+        r = requests.get('https://opentdb.com/api.php', params=params)
         results = r.json()['results']
 
         decode = html.unescape
