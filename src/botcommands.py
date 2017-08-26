@@ -58,8 +58,8 @@ class BotCommands(MyCommands):
     async def cat(self, ctx):
         '''Posts a random cat picture, courtesy of http://thecatapi.com/'''
         r = requests.get('http://thecatapi.com/api/images/get',
-            params={'api_key': 'MjE4MjM2'})
-        await self.say(r.url)
+            params={'api_key': 'MjE4MjM2'}, allow_redirects=False)
+        await self.say(r.headers['Location'])
 
 
     @commands.command(pass_context=True)
