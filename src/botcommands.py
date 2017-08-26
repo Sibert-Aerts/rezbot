@@ -3,6 +3,7 @@ import re
 import random
 import time
 import requests
+import html
 
 import discord
 from discord.ext import commands
@@ -67,6 +68,38 @@ class BotCommands(MyCommands):
         r = requests.get('http://thecatapi.com/api/images/get', params=params, allow_redirects=False)
         await self.say(r.headers['Location'])
 
+
+    @commands.command()
+    async def trivia(self, category:str=None):
+        '''
+        Posts an absolutely legitimate trivia question.
+        '''
+        amount = 2
+        r = requests.get('https://opentdb.com/api.php', params={'amount': amount + 1})
+        results = r.json()['results']
+
+        decode = html.unescape
+
+        question = decode(results[0]['question'])
+
+        wrongAnswerPool = []
+        incorrect = [decode(i) for i in results[0]['incorrect_answers']]
+        wrongAnswerPool += incorrect + [texttools.letterize(i, 0.2) for i in incorrect]
+
+        other_question = [decode(a) for i in range(amount) for a in results[i+1]['incorrect_answers'] + [results[i+1]['correct_answer']]]
+        wrongAnswerPool += other_question
+        
+        correctAnswer = decode(results[0]['correct_answer'])
+        wrongAnswerPool += [texttools.letterize(i, 0.4) for i in [correctAnswer]*4]
+
+        random.shuffle(wrongAnswerPool)
+        chosenAnswers = wrongAnswerPool[:3] + [correctAnswer]
+        random.shuffle(chosenAnswers)
+
+        text = question + '\n'
+        for answ in chosenAnswers:
+            text += '\n 🔘 ' + answ
+        await self.say(text)
 
     @commands.command(pass_context=True)
     async def expand(self, ctx):
