@@ -35,9 +35,11 @@ def parse_args(signature, text):
             sig = signature[s]
             split = text.split(' ', 1)
             val = split[0]
-            args[s] = sig.type(val)
-            if sig.check is None or sig.check(args[s]):
-                return (split[1] if len(split) > 1 else '', args)
+            # if the "found" argument is the empty string we didnt actually find anything
+            if val.strip() != '':
+                args[s] = sig.type(val)
+                if sig.check is None or sig.check(args[s]):
+                    return (split[1] if len(split) > 1 else '', args)
         except:
             pass
 

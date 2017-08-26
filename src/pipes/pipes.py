@@ -20,6 +20,13 @@ def print_pipe(input):
     return input
 
 @make_pipe({
+    'on': Sig(str, '\s*\n+\s*', 'Pattern to split on (regex)')
+}, expandable=False )
+def split_pipe(inputs, on):
+    '''Split the input into multiple outputs.'''
+    return [x for y in inputs for x in re.split(on, y) if x.strip() != '']
+
+@make_pipe({
     'fro': Sig(str, None, 'Pattern to replace (regex)'),
     'to' : Sig(str, None, 'Replacement string'),
 })
