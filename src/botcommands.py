@@ -22,6 +22,13 @@ from mycommands import MyCommands
 Main command module, contains a bunch of random functionality.
 '''
 
+triviaCategories = {
+    'general' : 9 , 'books' : 10, 'film' : 11, 'music' : 12, 'musicals' : 13, 'tv' : 14, 'videogames' : 15,
+    'board games' : 16, 'science' : 17, 'computers' : 18, 'maths' : 19, 'mythology' : 20, 'sports' : 21,
+    'geography' : 22, 'history' : 23, 'politics' : 24, 'art' : 25, 'celebrities' : 26, 'animals' : 27,
+    'vehicles' : 28, 'comics' : 29, 'gadgets' : 30, 'anime' : 31, 'cartoon' : 32,
+}
+
 class BotCommands(MyCommands):
     def __init__(self, bot):
         super().__init__(bot)
@@ -70,37 +77,13 @@ class BotCommands(MyCommands):
         await self.say(r.headers['Location'])
 
 
-    triviaCategories = {
-        'general'      : 9 ,
-        'books'        : 10,
-        'film'         : 11,
-        'music'        : 12,
-        'musicals'     : 13,
-        'tv'           : 14,
-        'videogames'   : 15,
-        'board games'  : 16,
-        'science'      : 17,
-        'computers'    : 18,
-        'maths'        : 19,
-        'mythology'    : 20,
-        'sports'       : 21,
-        'geography'    : 22,
-        'history'      : 23,
-        'politics'     : 24,
-        'art'          : 25,
-        'celebrities'  : 26,
-        'animals'      : 27,
-        'vehicles'     : 28,
-        'comics'       : 29,
-        'gadgets'      : 30,
-        'anime'        : 31,
-        'cartoon'      : 32,
-    }
-
     @commands.command()
+    @util.format_doc(categories=', '.join([c for c in triviaCategories]))
     async def trivia(self, category:str=None):
         '''
         Posts an absolutely legitimate trivia question.
+
+        Categories: {categories}
         '''
         amount = 2
         params = {'amount': amount + 1}
@@ -121,7 +104,7 @@ class BotCommands(MyCommands):
         wrongAnswerPool += other_question
         
         correctAnswer = decode(results[0]['correct_answer'])
-        wrongAnswerPool += [texttools.letterize(i, 0.3) for i in [correctAnswer]*3]
+        wrongAnswerPool += [texttools.letterize(i, 0.4) for i in [correctAnswer]*3]
 
         if chance(0.4):
             wrongAnswerPool += ['Maybe']
