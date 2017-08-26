@@ -54,11 +54,17 @@ class BotCommands(MyCommands):
             await self.say('killed {0}'.format( ctx.message.author.name if (subject == "me") else subject))
 
 
-    @commands.command(pass_context=True)
-    async def cat(self, ctx):
-        '''Posts a random cat picture, courtesy of http://thecatapi.com/'''
-        r = requests.get('http://thecatapi.com/api/images/get',
-            params={'api_key': 'MjE4MjM2'}, allow_redirects=False)
+    @commands.command()
+    async def cat(self, category:str=None):
+        '''
+        Posts a random cat picture, courtesy of http://thecatapi.com/
+        
+        Optional categories: hats, space, funny, sunglasses, boxes, caturday, ties, dream, kittens, sinks, clothes
+        '''
+        params = {'api_key': 'MjE4MjM2'}
+        if category is not None:
+            params['category'] = category
+        r = requests.get('http://thecatapi.com/api/images/get', params=params, allow_redirects=False)
         await self.say(r.headers['Location'])
 
 
