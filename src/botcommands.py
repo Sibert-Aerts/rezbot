@@ -13,6 +13,7 @@ import utils.util as util
 import utils.texttools as texttools
 import utils.benedict as benedict
 from utils.ctree import CTree
+from utils.rand import *
 from utils.meal import Meal
 from utils.attack import Attack
 from mycommands import MyCommands
@@ -84,13 +85,18 @@ class BotCommands(MyCommands):
 
         wrongAnswerPool = []
         incorrect = [decode(i) for i in results[0]['incorrect_answers']]
-        wrongAnswerPool += incorrect + [texttools.letterize(i, 0.2) for i in incorrect]
+        wrongAnswerPool += incorrect
 
         other_question = [decode(a) for i in range(amount) for a in results[i+1]['incorrect_answers'] + [results[i+1]['correct_answer']]]
         wrongAnswerPool += other_question
         
         correctAnswer = decode(results[0]['correct_answer'])
-        wrongAnswerPool += [texttools.letterize(i, 0.4) for i in [correctAnswer]*4]
+        wrongAnswerPool += [texttools.letterize(i, 0.3) for i in [correctAnswer]*3]
+
+        if chance(0.4):
+            wrongAnswerPool += ['Maybe']
+
+        wrongAnswerPool = [x for x in util.remove_duplicates(wrongAnswerPool) if x != correctAnswer]
 
         random.shuffle(wrongAnswerPool)
         chosenAnswers = wrongAnswerPool[:3] + [correctAnswer]
