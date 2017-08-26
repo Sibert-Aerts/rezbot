@@ -88,7 +88,7 @@ class BotCommands(MyCommands):
         amount = 2
         params = {'amount': amount + 1}
         if category is not None:
-            params['category'] = self.triviaCategories[category.lower()]
+            params['category'] = triviaCategories[category.lower()]
         r = requests.get('https://opentdb.com/api.php', params=params)
         results = r.json()['results']
 
