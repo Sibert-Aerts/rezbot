@@ -2,6 +2,7 @@ import asyncio
 import re
 import random
 import time
+import requests
 
 import discord
 from discord.ext import commands
@@ -51,6 +52,14 @@ class BotCommands(MyCommands):
                 await self.say('no')
         else:
             await self.say('killed {0}'.format( ctx.message.author.name if (subject == "me") else subject))
+
+
+    @commands.command(pass_context=True)
+    async def cat(self, ctx):
+        '''Posts a random cat picture, courtesy of http://thecatapi.com/'''
+        r = requests.get('http://thecatapi.com/api/images/get',
+            params={'api_key': 'MjE4MjM2'})
+        await self.say(r.url)
 
 
     @commands.command(pass_context=True)
