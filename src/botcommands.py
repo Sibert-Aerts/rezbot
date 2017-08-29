@@ -12,6 +12,7 @@ import permissions
 import utils.util as util
 import utils.texttools as texttools
 import utils.benedict as benedict
+import utils.soapstone as soapstone
 from utils.ctree import CTree
 from utils.rand import *
 from utils.meal import Meal
@@ -119,6 +120,16 @@ class BotCommands(MyCommands):
         for answ in chosenAnswers:
             text += '\n 🔘 ' + answ
         await self.say(text)
+
+    @commands.command()
+    async def soapstone(self, which:str=''):
+        '''Post a random Dark Souls soapstone message. Game number as argument'''
+        if which == '':
+            which = choose(['1', '2'])
+        if which == '1':
+            await self.say(soapstone.DarkSouls1.get())
+        if which == '2':
+            await self.say(soapstone.DarkSouls2.get())
 
     @commands.command(pass_context=True)
     async def expand(self, ctx):
