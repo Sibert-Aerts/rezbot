@@ -122,14 +122,16 @@ class BotCommands(MyCommands):
         await self.say(text)
 
     @commands.command()
-    async def soapstone(self, which:str=''):
+    async def soapstone(self, count:int=1, which:str=''):
         '''Post a random Dark Souls soapstone message. Game number as argument'''
-        if which == '':
-            which = choose(['1', '2'])
-        if which == '1':
-            await self.say(soapstone.DarkSouls1.get())
-        if which == '2':
-            await self.say(soapstone.DarkSouls2.get())
+        messages = []
+        for _ in range(min(count, 10)):
+            w = which if which != '' else choose(['1', '2'])
+            if w == '1':
+                messages.append(soapstone.DarkSouls1.get())
+            if w == '2':
+                messages.append(soapstone.DarkSouls2.get())
+        await self.say('\n'.join(messages))
 
     @commands.command(pass_context=True)
     async def expand(self, ctx):
