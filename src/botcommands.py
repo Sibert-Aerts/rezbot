@@ -13,6 +13,7 @@ import utils.util as util
 import utils.texttools as texttools
 import utils.benedict as benedict
 import utils.soapstone as soapstone
+import utils.biogenerator
 from utils.ctree import CTree
 from utils.rand import *
 from utils.meal import Meal
@@ -121,6 +122,7 @@ class BotCommands(MyCommands):
             text += '\n 🔘 ' + answ
         await self.say(text)
 
+
     @commands.command()
     async def soapstone(self, count:int=1, which:str=''):
         '''Post a random Dark Souls soapstone message. Game number as argument'''
@@ -132,6 +134,16 @@ class BotCommands(MyCommands):
             if w == '2':
                 messages.append(soapstone.DarkSouls2.get())
         await self.say('\n'.join(messages))
+
+
+    @commands.command()
+    async def bio(self, count:int=1):
+        '''Post a random twitter bio, credit to Jon Hendren (@fart)'''
+        messages = []
+        for _ in range(min(count, 10)):
+            messages.append(utils.biogenerator.get())
+        await self.say('\n'.join(messages))
+
 
     @commands.command(pass_context=True)
     async def expand(self, ctx):

@@ -35,6 +35,9 @@ def pSub(fro, to):
         return re.sub(fro, lambda c: c.group(0) if not chance(p) else matchCase(choose(to), c.group(0)), str)
     return func
 
+def camel_case(s):
+    return ''.join(s.title().split())
+
 vowelize = pSub('(?i)[aeiou]', 'aeiou')
 consonize = pSub('(?i)[bcdfgjklmnpqrstvwxz]', 'bbbddnnmmlgh')
 
