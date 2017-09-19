@@ -133,6 +133,8 @@ class BotCommands(MyCommands):
                 messages.append(soapstone.DarkSouls1.get())
             if w == '2':
                 messages.append(soapstone.DarkSouls2.get())
+            if w == '3':
+                messages.append(soapstone.DarkSouls3.get())
         await self.say('\n'.join(messages))
 
 

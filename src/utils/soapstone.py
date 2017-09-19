@@ -1,4 +1,4 @@
-from random import choice
+from .rand import choose, chance
 
 class DarkSouls1:
     phrases = [
@@ -50,9 +50,9 @@ class DarkSouls1:
     categories = [characters, objects, techniques, actions, geography, orientation, bodyParts, attribute, concepts]
 
     def get():
-        phrase = choice(DarkSouls1.phrases)
+        phrase = choose(DarkSouls1.phrases)
         if phrase.find('%') > -1:
-            phrase = phrase.replace('%', choice(choice(DarkSouls1.categories)))
+            phrase = phrase.replace('%', choose(choose(DarkSouls1.categories)))
         return phrase
 
 class DarkSouls2:
@@ -117,11 +117,88 @@ class DarkSouls2:
     categories = [creatures, objects, techniques, actions, geography, orientation, bodyParts, attribute, concepts]
 
     def get():
-        phrase = choice(DarkSouls2.phrases)
+        phrase = choose(DarkSouls2.phrases)
         while phrase.find('%') > -1:
-            phrase = phrase.replace('%', choice(DarkSouls2.subPhrases), 1)
+            phrase = phrase.replace('%', choose(DarkSouls2.subPhrases), 1)
         while phrase.find('$') > -1:
-            phrase = phrase.replace('$', choice(choice(DarkSouls2.categories)), 1)
+            phrase = phrase.replace('$', choose(choose(DarkSouls2.categories)), 1)
         while phrase.find('£') > -1:
-            phrase = phrase.replace('£', choice(choice(DarkSouls2.categories + [DarkSouls2.musings])), 1)
+            phrase = phrase.replace('£', choose(choose(DarkSouls2.categories + [DarkSouls2.musings])), 1)
+        return phrase
+
+
+class DarkSouls3:
+    phrases = [
+        '% ahead', 'No % ahead', '% required ahead', 'be wary of %', 'try %', 'Could this be a %?', 'If only I had a %...',
+        'visions of %... ', 'Time for %', '%', '%!', '%?', '%...', 'Huh. It\'s a %...', 'praise the %!', 'Let there be %', 'Ahh, %...'
+    ]
+
+    conjunctions = [' and then ', ' but ', ' therefore ', ' in short ', ' or ', ' only ', ' by the way ', ' so to speak ', ' all the more ', ', ']
+
+    creatures = [
+        'enemy', 'monster', 'mob enemy', 'tough enemy', 'critical foe', 'Hollow', 'pilgrim', 'prisoner', 'monstrosity', 'skeleton', 'ghost', 'beast', 'lizard',
+        'bug', 'grub', 'crab', 'dwarf', 'giant', 'demon', 'dragon', 'knight', 'sellsword', 'warrior', 'herald', 'bandit', 'assassin', 'sorcerer', 'pyromancer',
+        'cleric', 'deprived', 'sniper', 'duo', 'trio', 'you', 'you bastard', 'good fellow', 'saint', 'wretch', 'charmer', 'poor soul', 'oddball', 'nimble one',
+        'laggard', 'moneybags', 'beggard', 'miscreant', 'liar', 'fatty', 'beanpole', 'youth', 'elder', 'old codger', 'old dear', 'merchant', 'artisan', 'master',
+        'sage', 'champion', 'Lord of Cinder', 'king', 'queen', 'prince', 'princess', 'angel', 'god', 'friend', 'ally', 'spouse', 'covenantor', 'Phantom', 'Dark Spirit'
+    ]
+
+    objects = [
+        'bonfire', 'ember', 'fog wall', 'lever', 'contraption', 'key', 'trap', 'torch', 'door', 'treasure', 'chest', 'something', 'quite something', 'rubbish',
+        'filth', 'weapon', 'shield', 'projectile', 'armor', 'item', 'ring', 'ore', 'coal', 'transposing kiln', 'scroll', 'umbral ash', 'throne', 'rite',
+        'coffin', 'cinder', 'ash', 'moon', 'eye', 'brew', 'soup', 'message', 'bloodstain', 'illusion'
+    ]
+
+    techniques = [
+        'close-ranged battle', 'ranged battle', 'eliminating one at a time', 'luring it out', 'beating to a pulp', 'ambush', 'pincer attack',
+        'hitting them in one swoop', 'dual-wielding', 'stealth', 'mimicry', 'fleeing', 'charging', 'jumping off', 'dashing through', 'circling around',
+        'trapping inside', 'rescue', 'Skill', 'sorcery', 'pyromancy', 'miracles', 'pure luck', 'prudence', 'brief respite', 'play dead'
+    ]
+
+    actions = [
+        'jog', 'dash', 'rolling', 'backstepping', 'jumping', 'attacking', 'jump attack', 'dash attack', 'counter attack', 'stabbing in the back',
+        'guard stun & stab', 'plunging attack', 'sweeping attack', 'shield breaking', 'blocking', 'parrying', 'locking-on', 'no lock-on',
+        'two-handing', 'gesture', 'control', 'destroy'
+    ]
+
+    geography = [
+        'boulder', 'lava', 'poison gas', 'enemy horde', 'forest', 'swamp', 'cave', 'shortcut', 'detour', 'hidden path', 'secret passage', 'dead end',
+        'labyrinth', 'hole', 'bright spot', 'dark spot', 'open area', 'tight spot', 'safe zone', 'danger zone', 'sniper spot', 'hiding place', 'illusory wall',
+        'ladder', 'lift', 'gorgeous view', 'looking away', 'overconfidence', 'slip-up', 'oversight', 'fatigue', 'bad luck', 'inattention', 'loss of stamina',
+        'chance encounter', 'planned encounter'
+    ]
+
+    orientation = ['front', 'back', 'left', 'right', 'up', 'down', 'below', 'above', 'behind']
+
+    bodyParts = [
+        'head', 'neck', 'stomach', 'back', 'arm', 'finger', 'leg', 'rear', 'tail', 'wings', 'anywhere', 'tongue', 'right arm', 'left arm', 'thumb',
+        'indexfinger', 'longfinger', 'ringfinger', 'smallfinger', 'right leg', 'left leg', 'right side', 'left side', 'pincer', 'wheel', 'core', 'mount'
+    ]
+
+    attribute = [
+        'regular', 'strike', 'thrust', 'slash', 'magic', 'crystal', 'fire', 'chaos', 'lightning', 'blessing', 'dark',
+        'critical hits', 'bleeding', 'poison', 'toxic', 'frost', 'curse', 'equipment breakage'
+    ]
+
+    concepts = [
+        'chance', 'quagmire', 'hint', 'secret', 'sleeptalk', 'happiness', 'misfortune', 'life', 'death', 'demise', 'joy', 'fury', 'agony',
+        'sadness', 'tears', 'loyalty', 'betrayal', 'hope', 'despair', 'fear', 'losing sanity', 'victory', 'defeat', 'sacrifice', 'light', 'dark',
+        'bravery', 'confidence', 'vigor', 'revenge', 'resignation', 'overwhelming', 'regret', 'pointless', 'man', 'woman', 'friendship',
+        'love', 'recklessness', 'composure', 'guts', 'comfort', 'silence', 'deep', 'dregs'
+    ]
+
+    musings = [
+        'good luck', 'fine work', 'I did it!', 'I\'ve failed...', 'here!', 'not here!', 'I can\'t take this...', 'lonely...', 'don\'t you dare!', 'do it!',
+        'look carefully', 'listen carefully', 'think carefully', 'this place again?', 'now the real fight begins', 'you don\'t deserve this',
+        'keep moving', 'pull back', 'give it up', 'don\'t give up', 'help me...', 'impossible...', 'bloody expensive...', 'let me out of here...',
+        'stay calm', 'like a dream...', 'seems familiar...', 'are you ready?', 'it\'ll happen to you too', 'praise the Sun!', 'may the flames guide thee'
+    ]
+    
+    categories = [creatures, objects, techniques, actions, geography, orientation, bodyParts, attribute, concepts, musings]
+
+    def get():
+        this = DarkSouls3
+        phrase = choose(this.phrases).replace('%', choose(choose(this.categories)))
+        if chance(0.9):
+            phrase += choose(this.conjunctions) + choose(this.phrases).replace('%', choose(choose(this.categories)))
         return phrase
