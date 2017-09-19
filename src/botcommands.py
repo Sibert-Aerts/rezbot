@@ -124,11 +124,11 @@ class BotCommands(MyCommands):
 
 
     @commands.command()
-    async def soapstone(self, count:int=1, which:str=''):
+    async def soapstone(self, count:int=1, game:str=''):
         '''Post a random Dark Souls soapstone message. Game number as argument'''
         messages = []
         for _ in range(min(count, 10)):
-            w = which if which != '' else choose(['1', '2'])
+            w = game if game != '' else choose(['1', '2'])
             if w == '1':
                 messages.append(soapstone.DarkSouls1.get())
             if w == '2':
