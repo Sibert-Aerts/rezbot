@@ -124,8 +124,13 @@ class BotCommands(MyCommands):
 
 
     @commands.command(pass_context=True)
+    @util.format_doc(categories=', '.join([c for c in soapstone.phraseDict]))
     async def soapstone(self, ctx, count:int=1):
-        '''Post a random Dark Souls soapstone message. Game number or phrase as argument'''
+        '''
+        Post a random Dark Souls soapstone message. Game number or phrase as argument.
+        
+        Categories to use in phrases: {categories}
+        '''
         messages = []
         arg = ' '.join(ctx.message.content.split(' ')[2:])
         for _ in range(min(count, 10)):
