@@ -1,4 +1,5 @@
 from .rand import choose, chance
+import re
 
 class DarkSouls1:
     phrases = [
@@ -202,3 +203,27 @@ class DarkSouls3:
         if chance(0.9):
             phrase += choose(this.conjunctions) + choose(this.phrases).replace('%', choose(choose(this.categories)))
         return phrase
+
+
+phrasePattern = re.compile(r'([^\[]*)\[([^\]]*)]([^\[]*)')
+
+phraseDict = {
+    'creature': DarkSouls1.characters + DarkSouls2.creatures + DarkSouls3.creatures,
+    'object': DarkSouls1.objects + DarkSouls2.objects + DarkSouls3.objects,
+    'technique': DarkSouls1.techniques + DarkSouls2.techniques + DarkSouls3.techniques,
+    'action': DarkSouls1.actions + DarkSouls2.actions + DarkSouls3.actions,
+    'geography': DarkSouls1.geography + DarkSouls2.geography + DarkSouls3.geography,
+    'orientation': DarkSouls1.orientation + DarkSouls2.orientation + DarkSouls3.orientation,
+    'body part': DarkSouls1.bodyParts + DarkSouls2.bodyParts + DarkSouls3.bodyParts,
+    'attribute': DarkSouls1.attribute + DarkSouls2.attribute + DarkSouls3.attribute,
+    'concept': DarkSouls1.concepts + DarkSouls2.concepts + DarkSouls3.concepts,
+    'musing': DarkSouls2.musings + DarkSouls3.musings,
+}
+
+def makePhrase(phrase):
+    out = ''
+    for a, b, c in re.findall(phrasePattern, phrase):
+        out += a
+        out += choose(phraseDict[b.lower()])
+        out += c
+    return out
