@@ -135,7 +135,10 @@ class BotCommands(MyCommands):
         arg = ' '.join(ctx.message.content.split(' ')[2:])
         for _ in range(min(count, 10)):
             try:
-                game = int(arg)
+                if arg == '':
+                    game = choose([1, 2, 3])
+                else:
+                    game = int(arg)
                 if game == 1:
                     messages.append(soapstone.DarkSouls1.get())
                 if game == 2:
