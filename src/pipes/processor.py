@@ -1,4 +1,5 @@
 from .pipes import *
+from .pipecommands import customPipes
 
 import permissions
 import utils.texttools as texttools
@@ -8,8 +9,9 @@ import utils.texttools as texttools
 ################################################################
 
 class PipeProcessor:
-    def __init__(self, bot):
+    def __init__(self, bot, prefix):
         self.bot = bot
+        self.prefix = prefix
         self.prevOutput = []
 
     async def pipe_say(self, dest, output):
@@ -40,18 +42,22 @@ class PipeProcessor:
         output = texttools.block_format('\n'.join(rows))
         await self.bot.send_message(dest, output)
 
+    def parse_sequence(seq):
+        # Literally just find-and-replace arrows for print pipes
+        seq = re.sub('->', '>print>', seq)
+
+        # Split on > to determine pipes
+        seq = [p.strip() for p in seq.split('>')]
+        return seq
+
     async def process_pipes(self, message):
         content = message.content
 
-        if content[:3] != '>>>': 
+        if not content.startswith(self.prefix):
             return False
-        content = content[3:]
+        content = content[len(self.prefix):]
 
-        # Literally just find-and-replace arrows for print pipes
-        content = re.sub('->', '>print>', content)
-
-        # Split on > to determine pipes
-        pipes = [p.strip() for p in content.split('>')]
+        pipes = PipeProcessor.parse_sequence(content)
 
         printValues = []
 
@@ -78,6 +84,14 @@ class PipeProcessor:
             # Expand the input value, that's a neat trick
             values = CTree.get_all('[' + pipes[0] + ']')
 
+        i = 1
+        while i < len(pipes):
+            name = pipes[i].split(' ')[0]
+            if name not in pipeNames and name in customPipes:
+                pipes[i:i+1] = PipeProcessor.parse_sequence(customPipes[name]['code'])
+                continue
+            i += 1
+
         for pipe in pipes[1:]:
             split = pipe.split(' ', 1)
             name = split[0]
@@ -87,9 +101,9 @@ class PipeProcessor:
                 # hard-coded special case
                 printValues.append(values)
                 continue
-            try:
+            if name in pipeNames:
                 values = pipeNames[name](values, args)
-            except KeyError:
+            else:
                 print('Error: Unknown pipe ' + name)
 
             if len(values) > 10 and not permissions.has(message.author.id, 'owner'):

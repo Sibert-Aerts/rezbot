@@ -1,4 +1,5 @@
 from functools import wraps
+import pickle
 
 import discord
 from discord.ext import commands
@@ -29,6 +30,13 @@ For example, a valid pipe command could be:
 
 Note that `->` is shorthand for `> print >`, and that after the final pipe a `> print` is automatically added.
 '''
+
+customPipes = {}
+try:
+    customPipes = pickle.load(open('custompipes.p', 'rb'))
+    print(len(customPipes), 'custom pipes loaded.')
+except:
+    pass
 
 ###############################################################
 #              An extra command module for pipes              #
@@ -133,6 +141,78 @@ class PipesCommands(MyCommands):
                 info = name + ' ' * (colW-len(name))
                 if pipe.__doc__ is not None:
                     info += pipe.__doc__
+                infos.append(info)
+        
+        text = texttools.block_format('\n'.join(infos))
+        await self.say(text)
+
+    # Custom pipes down here
+
+    @commands.command(pass_context=True)
+    async def define(self, ctx, name=''):
+        '''Define a custom pipe. First argument is the name, everything after that is the code.'''
+        name = name.lower()
+        if name in pipeNames or name in customPipes:
+            await self.say('A pipe by that name already exists, try >redefine instead.')
+            return
+        code = re.split('\s+', ctx.message.content, 2)[2]
+        customPipes[name] = {'desc': None, 'code': code}
+        await self.say('Defined a new pipe called `{}` as `{}`'.format(name, customPipes[name]['code']))
+        pickle.dump(customPipes, open('custompipes.p', 'wb'))
+
+
+    @commands.command(pass_context=True)
+    async def redefine(self, ctx, name=''):
+        '''Redefine a custom pipe. First argument is the name, everything after that is the code.'''
+        name = name.lower()
+        if name not in customPipes:
+            await self.say('A custom pipe by that name was not found!')
+            return
+        code = re.split('\s+', ctx.message.content, 2)[2]
+        customPipes[name]['code'] = code
+        await self.say('Redefined `{}` as `{}`'.format(name, customPipes[name]['code']))
+        pickle.dump(customPipes, open('custompipes.p', 'wb'))
+
+
+    @commands.command(pass_context=True)
+    async def describe(self, ctx, name=''):
+        '''Describe a custom pipe. First argument is the name, everything after that is the description.'''
+        name = name.lower()
+        if name not in customPipes:
+            await self.say('A custom pipe by that name was not found!')
+            return
+        desc = re.split('\s+', ctx.message.content, 2)[2]
+        customPipes[name]['desc'] = desc
+        await self.say('Described `{}` as `{}`'.format(name, customPipes[name]['desc']))
+        pickle.dump(customPipes, open('custompipes.p', 'wb'))
+
+
+    @commands.command()
+    async def custom_pipes(self, name=''):
+        '''Print a list of all custom pipes and their descriptions, or details on a specific custom pipe.'''
+        infos = []
+
+        # Info on a specific pipe
+        if name != '' and name in customPipes:
+            pipe = customPipes[name]
+            info = name + ':'
+            if pipe['desc'] is not None:
+                info += '\n\t' + pipe['desc']
+            info += '\n\t`{}`'.format(['code'])
+            # if pipe.signature:
+            #     info += '\n\tArguments:'
+            #     info += '\n\t • ' + '\n\t • '.join(pipe.signature)
+            infos.append(info)
+
+        # Info on all pipes
+        else:
+            infos.append('Here\'s a list of all custom pipes, use >custom_pipes [name] to see more info on a specific one.\n')
+            colW = len(max(customPipes, key=len)) + 2
+            for name in customPipes:
+                pipe = customPipes[name]
+                info = name + ' ' * (colW-len(name))
+                if pipe['desc'] is not None:
+                    info += pipe['desc']
                 infos.append(info)
         
         text = texttools.block_format('\n'.join(infos))

@@ -15,13 +15,14 @@ config = ConfigParser()
 config.read('config.ini')
 
 command_prefix = config['BOT']['prefix']
+pipe_prefix = config['BOT']['pipe_prefix']
 
 # bot happens here
 bot = commands.Bot(command_prefix=command_prefix)
 
 # initialise some of my own stuffs
 patterns = patterns.Patterns(bot)
-pipeProcessor = PipeProcessor(bot)
+pipeProcessor = PipeProcessor(bot, pipe_prefix)
 
 
 @bot.event

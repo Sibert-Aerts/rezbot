@@ -48,3 +48,4 @@ Temporary Items
 .vscode/settings.json
 src/config.ini
 *.pyc
+src/.vscode/settings.json
