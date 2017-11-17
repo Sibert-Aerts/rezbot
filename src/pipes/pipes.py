@@ -5,14 +5,14 @@ from .pipe_decorations import *
 #####################################################
 
 @make_pipe( {'n': Sig(int, 2, 'Number of times repeated', lambda x: (x <= 10)),
-}, expandable=False )
+}, expandable=False)
 def repeat_pipe(input, n):
     '''Repeats the input, branching the resulting output.'''
     # Isn't decorated as_map so both input and output are expected to be arrays.
     return [i for i in input for _ in range(n)]
 
 
-@make_pipe({}, expandable=False )
+@make_pipe({}, expandable=False)
 def print_pipe(input):
     '''Adds the series of inputs to the final output, without affecting them.'''
     # This function is never actually called since 'print' is a special case
@@ -21,19 +21,19 @@ def print_pipe(input):
 
 @make_pipe({
     'on': Sig(str, '\s*\n+\s*', 'Pattern to split on (regex)')
-}, expandable=False )
+}, expandable=False)
 def split_pipe(inputs, on):
     '''Split the input into multiple outputs.'''
     return [x for y in inputs for x in re.split(on, y) if x.strip() != '']
 
 @make_pipe({
-    'fro': Sig(str, None, 'Pattern to replace (regex)'),
+    'from': Sig(str, None, 'Pattern to replace (regex)'),
     'to' : Sig(str, None, 'Replacement string'),
-})
+}, expandable=False)
 @as_map
-def sub_pipe(text, fro, to):
+def sub_pipe(text, to, **argc):
     '''Substitutes patterns in the input.'''
-    return re.sub(fro, to, text)
+    return re.sub(argc['from'], to, text)
 
 @make_pipe({
     'p': Sig(str, None, 'Case pattern to obey'),
@@ -101,13 +101,13 @@ def min_dist_pipe(text, min):
 
 randomLanguage = ['rand', 'random', '?']
 @make_pipe({
-    'fro': Sig(str, 'auto', None, lambda x: x in translateLanguages + ['auto']),
+    'from': Sig(str, 'auto', None, lambda x: x in translateLanguages + ['auto']),
     'to' : Sig(str, 'random', None, lambda x: x in translateLanguages + randomLanguage),
 })
 @as_map
-def translate_pipe(text, fro, to):
+def translate_pipe(text, to, **argc):
     '''Translates the input using the internet.'''
     if to in randomLanguage:
-        return translate(text, fro, choose(translateLanguages))
-    text = translate(text, fro, to)
+        return translate(text, argc['from'], choose(translateLanguages))
+    text = translate(text, argc['from'], to)
     return text
