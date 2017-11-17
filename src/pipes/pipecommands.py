@@ -198,7 +198,8 @@ class PipesCommands(MyCommands):
             info = name + ':'
             if pipe['desc'] is not None:
                 info += '\n\t' + pipe['desc']
-            info += '\n\t`{}`'.format(['code'])
+            info += '\nCode:'
+            info += '\n\t' + pipe['code']
             # if pipe.signature:
             #     info += '\n\tArguments:'
             #     info += '\n\t • ' + '\n\t • '.join(pipe.signature)
