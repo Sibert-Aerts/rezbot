@@ -9,7 +9,7 @@ from .pipe_decorations import *
 def repeat_pipe(input, n):
     '''Repeats the input, branching the resulting output.'''
     # Isn't decorated as_map so both input and output are expected to be arrays.
-    return [i for i in input for _ in range(n)]
+    return [i for _ in range(n) for i in input]
 
 
 @make_pipe({}, expandable=False)
@@ -96,6 +96,15 @@ def katakana_pipe(text):
 def min_dist_pipe(text, min):
     '''Replaces words with their nearest dictionary words.'''
     return ' '.join(min_dist(w, min) for w in text.split(' '))
+
+
+@make_pipe({
+    'f' : Sig(str, '{0}', 'The format string'),
+    'n' : Sig(int, 1, 'The amount of strings fed into the format'),
+}, expandable=False)
+def format_pipe(input, f, n):
+    '''Format one or more rows into a single row according to a format string.'''
+    return [f.format(*input[i:i+n]) for i in range(0, len(input), n)]
 
 
 
