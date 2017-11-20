@@ -28,7 +28,7 @@ def parse_args(signature, text):
     args = {}
 
     # Very ungeneral special case for dealing with ordered args:
-    # if there's only one argument, it is always ordered.
+    # if there's only one argument, it is always ordered!
     if len(signature) == 1:
         try:
             s = next(iter(signature))
@@ -47,8 +47,18 @@ def parse_args(signature, text):
         sig = signature[s]
         try:
             # Try to find and parse the argument value, and remove it from the text
-            given = re.search('\\b'+s+'='+'[^\\s]+\\s*', text)
+            # This regex matches the following formats:
+            # arg=valueWithoutSpaces
+            # arg="value with spaces" arg2="" (for the empty string)
+            # arg='value with spaces' arg=''
+            # Doesn't match:
+            # arg=value with spaces
+            # arg="value with "quotes""
+            # arg= (for the empty string)
+            given = re.search('\\b'+s+'=([^\\s"][^\\s]*\\s*|"[^"]*"|\'[^\']*\')', text)
             val = given.group(0).split('=')[1].strip()
+            if val[0] == val[-1] and (val[0] == '\'' or val[0] == '"'):
+                val = val[1:-1]
             args[s] = sig.type(val)
 
             if sig.check and not sig.check(args[s]):
