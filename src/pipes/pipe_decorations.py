@@ -56,7 +56,7 @@ def parse_args(signature, text):
             # arg="value with "quotes""
             # arg= (for the empty string)
             given = re.search('\\b'+s+'=([^\\s"][^\\s]*\\s*|"[^"]*"|\'[^\']*\')', text)
-            val = given.group(0).split('=')[1].strip()
+            val = given.group(0).split('=', 1)[1].strip()
             if val[0] == val[-1] and (val[0] == '\'' or val[0] == '"'):
                 val = val[1:-1]
             args[s] = sig.type(val)
