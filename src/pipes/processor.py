@@ -92,20 +92,24 @@ class PipeProcessor:
                 continue
             i += 1
 
-        for pipe in pipes[1:]:
-            split = pipe.split(' ', 1)
-            name = split[0]
-            args = split[1] if len(split) > 1 else ''
-            
-            if name == 'print':
-                # hard-coded special case
-                printValues.append(values)
-                continue
-            if name in pipeNames:
-                values = pipeNames[name](values, args)
-            else:
-                print('Error: Unknown pipe ' + name)
-
+        for bigPipe in pipes[1:]:
+            simulPipes = CTree.get_all('[' + bigPipe + ']')
+            newValues = []
+            for pipe in simulPipes:
+                pipe = pipe.strip()
+                split = pipe.split(' ', 1)
+                name = split[0]
+                args = split[1] if len(split) > 1 else ''
+                
+                if name == 'print':
+                    # hard-coded special case
+                    printValues.append(values)
+                    continue
+                if name in pipeNames:
+                    newValues.extend(pipeNames[name](values, args))
+                else:
+                    print('Error: Unknown pipe ' + name)
+            values = newValues
             if len(values) > 10 and not permissions.has(message.author.id, 'owner'):
                 await self.bot.send_message(message.channel, bot_format('that\'s a bit much don\'t you think'))
                 return True
