@@ -14,22 +14,22 @@ class CTree:
 
     Couldn't be bothered to look up how to implement the iterator pattern but it works so idc :-D
     '''
-    class Str:
-        def __init__(self, str):
-            self.str = str
+    class Text:
+        def __init__(self, text):
+            self.text = text if text == '' else ''.join(text.asList())
             self.reset()
 
-        __str__ = __repr__ = lambda s: s.str
+        __str__ = __repr__ = lambda s: s.text
 
         def next(self):
             self.done = True
-            return self.str
+            return self.text
 
         def reset(self):
             self.done = False
 
         def current(self):
-            return self.str
+            return self.text
 
     class Choice:
         def __init__(self, vals):
@@ -92,20 +92,24 @@ class CTree:
         def current(self):
             return ''.join([c.current() for c in self.vals])
 
+    escapedLbr = Literal('\\[').suppress().setParseAction(lambda x: '[')
+    escapedRbr = Literal('\\]').suppress().setParseAction(lambda x: ']')
+    escapedDiv = Literal('\\|').suppress().setParseAction(lambda x: '|')
     lbr = Literal('[').suppress()
     rbr = Literal(']').suppress()
     div = Literal('|').suppress()
-    str = Regex('[^\[\|\]]+').setParseAction(lambda t: CTree.Str(t[0]))
-    eStr = Empty().setParseAction(lambda t: CTree.Str(''))
+    _text = Regex('[^\\[\\|\\]\\\\]+')
+    text = pGroup(OneOrMore(escapedLbr|escapedRbr|escapedDiv|_text)).setParseAction(lambda t: CTree.Text(t[0]))
+    eStr = Empty().setParseAction(lambda t: CTree.Text(''))
     group = Forward()
     choice = pGroup(lbr + group + ZeroOrMore(div + group) + rbr).setParseAction(lambda t: CTree.Choice(t[0]))
-    group << pGroup(OneOrMore(choice|str) | eStr).setParseAction(lambda t: CTree.Group(t[0])).leaveWhitespace()
+    group << pGroup(OneOrMore(text|choice) | eStr).setParseAction(lambda t: CTree.Group(t[0])).leaveWhitespace()
 
-    def parse(str):
-        return CTree.group.parseString(str).asList()[0]
+    def parse(text):
+        return CTree.group.parseString(text).asList()[0]
 
-    def get_all(str):
-        tree = CTree.parse(str)
+    def get_all(text):
+        tree = CTree.parse(text)
         out = []
         while not tree.done:
             out.append(tree.next())
