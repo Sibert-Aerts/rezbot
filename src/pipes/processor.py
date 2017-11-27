@@ -44,8 +44,7 @@ class PipeProcessor:
 
     def parse_sequence(seq):
         # Literally just find-and-replace arrows for print pipes
-        seq = re.sub('->', '>print>', seq)
-
+        seq = seq.replace('->', '>print>')
         # Split on > to determine pipes
         seq = [p.strip() for p in seq.split('>')]
         return seq
@@ -58,8 +57,6 @@ class PipeProcessor:
         content = content[len(self.prefix):]
 
         pipes = PipeProcessor.parse_sequence(content)
-
-        printValues = []
 
         # Determine our starting values
         # todo: genericize this
@@ -84,6 +81,7 @@ class PipeProcessor:
             # Expand the input value, that's a neat trick
             values = CTree.get_all('[' + pipes[0] + ']')
 
+        printValues = []
         i = 1
         while i < len(pipes):
             name = pipes[i].split(' ')[0]
@@ -93,7 +91,7 @@ class PipeProcessor:
             i += 1
 
         for bigPipe in pipes[1:]:
-            simulPipes = CTree.get_all('[' + bigPipe + ']')
+            simulPipes = CTree.get_all('['+bigPipe+']')
             newValues = []
             for pipe in simulPipes:
                 pipe = pipe.strip()
@@ -104,11 +102,12 @@ class PipeProcessor:
                 if name == 'print':
                     # hard-coded special case
                     printValues.append(values)
-                    continue
-                if name in pipeNames:
+                    newValues.extend(values)
+                elif name in pipeNames:
                     newValues.extend(pipeNames[name](values, args))
                 else:
                     print('Error: Unknown pipe ' + name)
+                    newValues.extend(values)
             values = newValues
             if len(values) > 10 and not permissions.has(message.author.id, 'owner'):
                 await self.bot.send_message(message.channel, bot_format('that\'s a bit much don\'t you think'))
