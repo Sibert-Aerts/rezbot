@@ -99,7 +99,7 @@ class CTree:
     lbr = Literal('[').suppress()
     rbr = Literal(']').suppress()
     div = Literal('|').suppress()
-    _text = Regex('[^\\[\\|\\]\\\\]+')
+    _text = Regex('[^\\[\\|\\]]+') # any sequence of characters not containing '[', ']' or '|'
     text = pGroup(OneOrMore(escapedLbr|escapedRbr|escapedDiv|escapedEsc|_text)).setParseAction(lambda t: CTree.Text(t[0]))
     eStr = Empty().setParseAction(lambda t: CTree.Text(''))
     group = Forward()
