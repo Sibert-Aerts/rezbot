@@ -4,12 +4,21 @@ from .pipe_decorations import *
 #                       Pipes                       #
 #####################################################
 
-@make_pipe( {'n': Sig(int, 2, 'Number of times repeated', lambda x: (x <= 10)),
+repeat_hows = ['place', 'group']
+@make_pipe( {
+    'n'  : Sig(int, 2, 'Number of times repeated', lambda x: (x <= 100)),
+    'lim': Sig(int, -1, 'Limit to total number of resulting rows, -1 for no limit.'),
+    'how': Sig(str, 'group', 'How repeating the input rows happens: \
+    "place": [a,b]*2 -> [a,a,b,b], "group": [a,b]*2 → [a,b,a,b]', lambda x: x in repeat_hows),
 }, expandable=False)
-def repeat_pipe(input, n):
-    '''Repeats the input, branching the resulting output.'''
+def repeat_pipe(input, n, lim, how):
+    '''Repeats each row a given number of times.'''
     # Isn't decorated as_map so both input and output are expected to be arrays.
-    return [i for _ in range(n) for i in input]
+    if lim == -1: lim = n*len(input)
+    if how == 'group':
+        return [i for _ in range(n) for i in input][:lim]
+    elif how == 'place':
+        return [i for i in input for _ in range(n)][:lim]
 
 
 @make_pipe({}, expandable=False)
@@ -19,12 +28,14 @@ def print_pipe(input):
     # It's in here to add print to the >pipes command info list
     return input
 
+
 @make_pipe({
     'on': Sig(str, '\s*\n+\s*', 'Pattern to split on (regex)')
 }, expandable=False)
 def split_pipe(inputs, on):
     '''Split the input into multiple outputs.'''
     return [x for y in inputs for x in re.split(on, y) if x.strip() != '']
+
 
 @make_pipe({
     'from': Sig(str, None, 'Pattern to replace (regex)'),
@@ -34,6 +45,7 @@ def split_pipe(inputs, on):
 def sub_pipe(text, to, **argc):
     '''Substitutes patterns in the input.'''
     return re.sub(argc['from'], to, text)
+
 
 @make_pipe({
     'p': Sig(str, None, 'Case pattern to obey'),
