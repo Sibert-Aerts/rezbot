@@ -363,17 +363,19 @@ class Patterns:
 
     # Patterns only applied when the bot recognises it's directly or implicitly addressed
     addressedPaterns = [
-        {'pattern': ('\\b(hi(ya)?|h[aeu]ll?o|hey|hoi|henlo)', re.I),
+        {'pattern': ('\\b(hi(ya)?|h[aeu][lw]+o|hey|hoi|henlo)', re.I),
          'function': make_reply('`hello.`')},
         {'pattern': ('\\bthanks?( (yo)?u)?', re.I),
          'function': make_react(':yaranaika:245987292513173505', '🙂')},
         {'pattern': ('\\b(goo?d|nice|beautiful|amazing)( ?(j[oa]b|work))?', re.I), 
          'function': make_react(':yaranaika:245987292513173505', '🙂')},
-        {'pattern': ('i l[ou]ve? ((yo)?u|th(e|is))', re.I),
+        {'pattern': ('\\bi l[ou]ve? ((yo)?u|th(e|is))', re.I),
          'function': make_react(':yaranaika:245987292513173505', '🙂')},
 
-        {'pattern': ('i h(ate?|8) ?((yo)?u|th(e|is))?', re.I),
+        {'pattern': ('\\b(bad|stupid|dumb)', re.I),
          'function': make_react(':angery:245586525457350667', '😠')},
-        {'pattern': ('f[aou](g|c?k) ?((yu?o)?u|th(e|is))', re.I),
+        {'pattern': ('\\bi h(ate?|8) ?((yo)?u|th(e|is))?', re.I),
+         'function': make_react(':angery:245586525457350667', '😠')},
+        {'pattern': ('\\bf[aou](g|c?k) ?((yu?o)?u|th(e|is))', re.I),
          'function': make_react(':angery:245586525457350667', '😠')},
     ]
