@@ -1,3 +1,6 @@
+import unicodedata
+import emoji
+
 from .pipe_decorations import *
 
 #####################################################
@@ -98,16 +101,31 @@ def convert_pipe(text, to):
 @make_pipe({})
 @as_map
 def katakana_pipe(text):
-    '''Converts text to japanese phonetic characters using http://www.sljfaq.org/cgi/e2k.cgi.'''
+    '''Converts English to Japanese phonetic characters using http://www.sljfaq.org/cgi/e2k.cgi.'''
     return katakana(text)
 
 
+@make_pipe({})
+@as_map
+def romaji_pipe(text):
+    '''Converts Japanese kana to English phonetics using http://www.sljfaq.org/cgi/kana-romaji.cgi.'''
+    return romaji(text)
+
+
 @make_pipe({
-    'min': Sig(int, 0, 'Upper limit on minimum distance (e.g. 1 to never get the same word).'),})
+    'min': Sig(int, 0, 'Upper limit on minimum distance (e.g. 1 to never get the same word).')
+})
 @as_map
 def min_dist_pipe(text, min):
     '''Replaces words with their nearest dictionary words.'''
     return ' '.join(min_dist(w, min) for w in text.split(' '))
+
+
+@make_pipe({})
+@as_map
+def demoji_pipe(text):
+    '''Replaces emojis with their official description.'''
+    return ''.join([unicodedata.name(c) if c in emoji.UNICODE_EMOJI else c for c in text])
 
 
 @make_pipe({

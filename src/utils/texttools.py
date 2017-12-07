@@ -1,6 +1,7 @@
 import editdistance
 import re
 import requests
+from bs4 import BeautifulSoup
 
 import utils.util as util
 from .rand import *
@@ -125,3 +126,9 @@ def katakana(text):
     r = requests.get('http://www.sljfaq.org/cgi/e2k.cgi',
         params={'o': 'json', 'word': text})
     return '・'.join(map(lambda w: w['j_pron_spell'], r.json()['words']))
+
+def romaji(text, style='common', vowel_style='none'):
+    r = requests.get('http://www.sljfaq.org/cgi/kana-romaji.cgi',
+        params={'text': text, 'style': style, 'vowel_style': vowel_style})
+    soup = BeautifulSoup(r.text, 'lxml')
+    return soup.find('div', {'id':'converter'}).form.table.findAll('tr')[4].findAll('td')[1].text

@@ -85,6 +85,22 @@ class PipesCommands(MyCommands):
         text = katakana_pipe(text)
         await self.say(text)
 
+
+    @commands.command(pass_context=True)
+    async def romaji(self, ctx):
+        '''Converts Japanese kana to English phonetics using http://www.sljfaq.org/cgi/kana-romaji.cgi.'''
+        text = util.get_args(ctx)
+        text = romaji_pipe(text)
+        await self.say(text)
+
+
+    @commands.command(pass_context=True)
+    async def demoji(self, ctx):
+        '''Replaces emojis with their official description.'''
+        text = util.get_args(ctx)
+        text = demoji_pipe(text)
+        await self.say(text)
+
         
     @commands.command(pass_context=True)
     async def translate(self, ctx):
