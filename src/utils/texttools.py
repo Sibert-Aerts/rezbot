@@ -131,4 +131,8 @@ def romaji(text, style='common', vowel_style='none'):
     r = requests.get('http://www.sljfaq.org/cgi/kana-romaji.cgi',
         params={'text': text, 'style': style, 'vowel_style': vowel_style})
     soup = BeautifulSoup(r.text, 'lxml')
-    return soup.find('div', {'id':'converter'}).form.table.findAll('tr')[4].findAll('td')[1].text
+    # Find the output inside the html document we got as a reply
+    text = soup.find('div', {'id':'converter'}).form.table.findAll('tr')[4].findAll('td')[1].text
+    # Slice off newlines inserted at the start and end
+    text = text[1:-1]
+    return text
