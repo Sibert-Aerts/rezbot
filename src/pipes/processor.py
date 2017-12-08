@@ -109,7 +109,7 @@ class PipeProcessor:
                     print('Error: Unknown pipe ' + name)
                     newValues.extend(values)
             values = newValues
-            if len(values) > 10 and not permissions.has(message.author.id, 'owner'):
+            if len(values) > 20 and not permissions.has(message.author.id, 'owner'):
                 await self.bot.send_message(message.channel, bot_format('that\'s a bit much don\'t you think'))
                 return True
 
