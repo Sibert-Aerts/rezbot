@@ -90,11 +90,15 @@ def letterize_pipe(text, p, dp, mapIndex=0):
 
 
 @make_pipe({
-    'to' : Sig(str, None, 'Which conversion should be used, choose from: ' + ', '.join([t for t in converters]), lambda x: x in converters),
+    'to' : Sig(str, None, 'Which conversion should be used.', lambda x: x in converters),
 })
 @as_map
+@util.format_doc(convs=', '.join([c for c in converters]))
 def convert_pipe(text, to):
-    '''Converts characters to different characters.'''
+    '''
+    Convert text using a variety of settings.
+    Valid conversions: {convs}
+    '''
     return converters[to](text)
 
 

@@ -36,6 +36,7 @@ try:
     customPipes = pickle.load(open('custompipes.p', 'rb'))
     print(len(customPipes), 'custom pipes loaded.')
 except:
+    print('Could not load custompipes.p!')
     pass
 
 ###############################################################
@@ -45,82 +46,6 @@ except:
 class PipesCommands(MyCommands):
     def __init__(self, bot):
         super().__init__(bot)
-
-    @commands.command(pass_context=True)
-    async def vowelize(self, ctx):
-        '''Vowelize a piece of text.'''
-        text = util.get_args(ctx)
-        text = vowelize_pipe(text)
-        await self.say(text)
-
-
-    @commands.command(pass_context=True)
-    async def consonize(self, ctx):
-        '''Consonize a piece of text.'''
-        text = util.get_args(ctx)
-        text = consonize_pipe(text)
-        await self.say(text)
-
-
-    @commands.command(pass_context=True)
-    async def letterize(self, ctx):
-        '''Both vowelize and consonize a piece of text.'''
-        text = util.get_args(ctx)
-        text = letterize_pipe(text)
-        await self.say(text)
-
-
-    @commands.command(pass_context=True)
-    async def min_dist(self, ctx):
-        '''Replace a sequence of words with a minimum distance dictionary word.'''
-        text = util.get_args(ctx)
-        text = min_dist_pipe(text)
-        await self.say(text)
-
-
-    @commands.command(pass_context=True)
-    async def katakana(self, ctx):
-        '''Converts text to japanese phonetic characters using http://www.sljfaq.org/cgi/e2k.cgi'''
-        text = util.get_args(ctx)
-        text = katakana_pipe(text)
-        await self.say(text)
-
-
-    @commands.command(pass_context=True)
-    async def romaji(self, ctx):
-        '''Converts Japanese kana to English phonetics using http://www.sljfaq.org/cgi/kana-romaji.cgi.'''
-        text = util.get_args(ctx)
-        text = romaji_pipe(text)
-        await self.say(text)
-
-
-    @commands.command(pass_context=True)
-    async def demoji(self, ctx):
-        '''Replaces emojis with their official description.'''
-        text = util.get_args(ctx)
-        text = demoji_pipe(text)
-        await self.say(text)
-
-        
-    @commands.command(pass_context=True)
-    async def translate(self, ctx):
-        '''Translate something. Arguments: 'from' and 'to', 2-letter language codes.'''
-        text = util.get_args(ctx)
-        text = translate_pipe(text)
-        await self.say(text)
-
-        
-    @commands.command(pass_context=True)
-    @util.format_doc(convs=', '.join([c for c in texttools.converters]))
-    async def convert(self, ctx):
-        '''
-        Convert text using a variety of settings:
-        
-        Valid conversions: {convs}
-        '''
-        text = util.get_args(ctx)
-        text = convert_pipe(text)
-        await self.say(text)
 
     @commands.command()
     async def languages(self, name=''):
@@ -235,6 +160,21 @@ class PipesCommands(MyCommands):
         text = texttools.block_format('\n'.join(infos))
         await self.say(text)
 
+# List of pipes that are also usable as a regular command:
+command_pipes = \
+    [ vowelize_pipe, consonize_pipe, letterize_pipe, min_dist_pipe, katakana_pipe, romaji_pipe, demoji_pipe, translate_pipe, convert_pipe]
+
+# Turn those pipes into discord.py bot commands!
+for pipe in command_pipes:
+    async def func(self, ctx):
+        text = util.get_args(ctx)
+        text = pipe(text)
+        await self.say(text)
+    func.__name__ = pipe.__name__.split('_pipe', 1)[0]
+    func.__doc__ = pipe.__doc__
+    # manually call the function decorator to make func into a bot command
+    command = commands.command(pass_context=True)(func)
+    setattr(PipesCommands, func.__name__, command)
 
 def setup(bot):
     bot.add_cog(PipesCommands(bot))

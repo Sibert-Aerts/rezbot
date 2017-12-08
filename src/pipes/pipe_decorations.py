@@ -159,6 +159,6 @@ def make_pipe(sig, expandable=True):
         if expandable:
             func = expandable_signature(func)
         global pipeNames
-        pipeNames[func.__name__.split('_pipe')[0]] = func
+        pipeNames[func.__name__.split('_pipe', 1)[0]] = func
         return func
     return _make_pipe
