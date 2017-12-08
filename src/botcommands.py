@@ -90,7 +90,7 @@ class BotCommands(MyCommands):
         text = '\n'.join(all)
         await self.say(text)
 
-    # todo: extend this so the bot remembers which of its messages where caused by whom
+    # TODO: extend this so the bot remembers which of its messages where caused by whom
     # so that you're allowed to >delet the bot's message if you were the one that 'caused' it
     # to self-moderate bot spam, or to fix your own slip-ups
     @commands.command(pass_context=True, hidden=True)

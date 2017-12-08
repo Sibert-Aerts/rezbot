@@ -104,7 +104,11 @@ class PipeProcessor:
                     printValues.append(values)
                     newValues.extend(values)
                 elif name in pipeNames:
-                    newValues.extend(pipeNames[name](values, args))
+                    try:
+                        newValues.extend(pipeNames[name](values, args))
+                    except:
+                        print('Failed to process pipe "{}" with args "{}"'.format(name, args))
+                        newValues.extend(values)
                 else:
                     print('Error: Unknown pipe ' + name)
                     newValues.extend(values)
