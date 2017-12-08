@@ -1,4 +1,4 @@
-import unicodedata
+import unicodedata2
 import emoji
 
 from .pipe_decorations import *
@@ -129,7 +129,7 @@ def min_dist_pipe(text, min):
 @as_map
 def demoji_pipe(text):
     '''Replaces emojis with their official description.'''
-    return ''.join([unicodedata.name(c) if c in emoji.UNICODE_EMOJI else c for c in text])
+    return ''.join([unicodedata2.name(c) if c in emoji.UNICODE_EMOJI else c for c in text])
 
 
 @make_pipe({
