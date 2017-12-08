@@ -164,15 +164,19 @@ class PipesCommands(MyCommands):
 command_pipes = \
     [ vowelize_pipe, consonize_pipe, letterize_pipe, min_dist_pipe, katakana_pipe, romaji_pipe, demoji_pipe, translate_pipe, convert_pipe]
 
-# Turn those pipes into discord.py bot commands!
-for pipe in command_pipes:
+def pipe_to_func(pipe):
     async def func(self, ctx):
         text = util.get_args(ctx)
         text = pipe(text)
         await self.say(text)
     func.__name__ = pipe.__name__.split('_pipe', 1)[0]
     func.__doc__ = pipe.__doc__
-    # manually call the function decorator to make func into a bot command
+    return func
+
+# Turn those pipes into discord.py bot commands!
+for pipe in command_pipes:
+    func = pipe_to_func(pipe)
+    # manually call the function decorator to make func into a command
     command = commands.command(pass_context=True)(func)
     setattr(PipesCommands, func.__name__, command)
 
