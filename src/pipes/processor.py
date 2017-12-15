@@ -1,4 +1,5 @@
 from .pipes import *
+from .sources import *
 from .pipecommands import customPipes
 
 import permissions
@@ -12,7 +13,9 @@ class PipeProcessor:
     def __init__(self, bot, prefix):
         self.bot = bot
         self.prefix = prefix
-        self.prevOutput = []
+
+        # Pretty smelly, assumes only one bot will ever run per client... which is kind of a safe assumption tbh...
+        SourceResources.bot = bot
 
     async def pipe_say(self, dest, output):
         ''' Nicely print the output in rows and columns and even with little arrows.'''
@@ -43,6 +46,7 @@ class PipeProcessor:
         await self.bot.send_message(dest, output)
 
     def parse_sequence(seq):
+        # TODO: Instead of just splitting on > make it SMARTER for BETTER BRANCHES (pyparsing or something?!)
         # Literally just find-and-replace arrows for print pipes
         seq = seq.replace('->', '>print>')
         # Split on > to determine pipes
@@ -57,29 +61,32 @@ class PipeProcessor:
         content = content[len(self.prefix):]
 
         pipes = PipeProcessor.parse_sequence(content)
+        source = pipes[0]
+        pipes = pipes[1:]
 
-        # Determine our starting values
-        # todo: genericize this
-        if pipes[0][:6] == '{prev}':
-            # prev: use the previous output
-            values = self.prevOutput
-            index = re.match('\[\d*\]', pipes[0][6:])
-            if index is not None:
-                try:
-                    index = int(index.group(0)[1:-1].strip())
-                    print(index)
-                    values = [values[index]]
-                except:
-                    pass
-                    
-        elif pipes[0][:6] == '{that}':
-            # that: use the contents of the previous message in chat
-            # (requires the bot to have been online when it was posted since I don't want to mess with logs...)
-            msg = [m for m in self.bot.messages if m.channel == message.channel][-2]
-            values = [msg.content]
+        # Use the Source to determine a starting value
+
+        # Matches: '{<sourceName> <args>}'
+        sourceMatch = re.match('{([^}\s]+)(\s+([^\s][^{]*)?)?}', source)
+
+        if sourceMatch is None:
+            # No source pipe given. Simply interpret the source as a string.
+            # ...but expand it first, because that's a nice feature...
+            values = CTree.get_all('[' + source + ']')
         else:
-            # Expand the input value, that's a neat trick
-            values = CTree.get_all('[' + pipes[0] + ']')
+            # A source was specified
+            sourceName, _, args = sourceMatch.groups()
+            sourceName = sourceName.lower()
+            print('SOURCE:', sourceName)
+            print('ARGS:', args)
+
+            if sourceName in sourceNames:
+                print('Found it!')
+                values = sourceNames[sourceName](message, args)
+            else:
+                print('Error: Unknown source ' + sourceName)
+                print([i for i in sourceNames])
+                return
 
         printValues = []
         i = 1
@@ -90,7 +97,7 @@ class PipeProcessor:
                 continue
             i += 1
 
-        for bigPipe in pipes[1:]:
+        for bigPipe in pipes:
             simulPipes = CTree.get_all('['+bigPipe+']')
             newValues = []
             for pipe in simulPipes:
@@ -118,6 +125,7 @@ class PipeProcessor:
                 return True
 
         printValues.append(values)
-        self.prevOutput = values
+        print(SourceResources.previous_pipe_output)
+        SourceResources.previous_pipe_output = values
         await self.pipe_say(message.channel, printValues)
         return True

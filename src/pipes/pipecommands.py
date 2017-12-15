@@ -10,25 +10,33 @@ import utils.texttools as texttools
 import utils.util as util
 
 infoText = '''
-Pipes are a weird text-manipulation tool/toy I came up with in a dream.
-The idea is that you give some kind of text input, and put it through a series of pipes,
-each of which takes text input, changes it and gives it to the next pipe.
-Like a game of telephone.
+Pipes are a weird text-manipulation toy that came to me in a dream and that I forgot about in another dream.
+The concept is that pieces of input text are transformed by a series of methods called "pipes"
+in order to produce fun and unpredictable output text, like a game of telephone.
 
-You can execute a series of pipes by typing something like this:
-  `>>> [start] > [pipe] > [pipe] > ...`
+You can execute a pipeline by typing something of the form:
+    `>>> [source] > [pipe] > [pipe] > ...`
 
-Where:
-  [start] can just be plain text, e.g. `Quentin Tarantino`.
-    or it can be **`{prev}`** to use the output from the previous pipe command.
-  Each [pipe] is an item from the list of pipes (which you can see by typing `>pipes`).
-    Some pipes take arguments by typing `argument=value` (or ignore the first bit if it only takes one argument.)
-    e.g. `translate from=en to=ja`, `print`, `repeat n=3` or just `repeat 3`
+[source] can just be text, e.g. `Quentin Tarantino`.
+It can also be a special source that finds/produces text, written as `{sourceName [args]}`, e.g. `{random}`.
 
-For example, a valid pipe command could be:
-  `>>> Quentin Tarantino > repeat 4 -> letterize p=0.5 > min_dist`
+The list of possible sources can be seen by typing `>sources`
 
-Note that `->` is shorthand for `> print >`, and that after the final pipe a `> print` is automatically added.
+Each [pipe] is an item of the form `pipeName [args]`.
+    e.g. `print`, `repeat n=3`, `translate from=en to=fr`
+
+The list of possible pipes can be seen by typing `>pipes`
+
+For both pipes and sources, [args] is a list of arguments: `[arg] [arg] [arg] ...`
+Each [arg] can be of the form `argName=valueNoSpaces` or `argName="value with spaces"`.
+
+Several example pipelines that you can try out:
+    `>>> Quentin Tarantino > repeat 4 -> letterize p=0.5 -> min_dist`
+    `>>> {prev} > case A > convert fullwidth`
+    `>>> {that} > case Aa`
+
+
+PS: `->` is short for `> print >`
 '''
 
 customPipes = {}
@@ -53,7 +61,7 @@ class PipesCommands(MyCommands):
         await self.say(' '.join(texttools.translateLanguages))
 
     @commands.command()
-    async def pipe(self):
+    async def pipes_help(self):
         '''Print general info on how to use my wacky system of pipes.'''
         await self.say(infoText)
 
@@ -82,6 +90,36 @@ class PipesCommands(MyCommands):
                 info = name + ' ' * (colW-len(name))
                 if pipe.__doc__ is not None:
                     info += pipe.__doc__
+                infos.append(info)
+        
+        text = texttools.block_format('\n'.join(infos))
+        await self.say(text)
+
+    @commands.command()
+    async def sources(self, name=''):
+        '''Print a list of all sources and their descriptions, or details on a specific pipe.'''
+        infos = []
+
+        # Info on a specific source
+        if name != '' and sourceNames.get(name) is not None:
+            source = sourceNames[name]
+            info = name
+            if source.__doc__ is not None:
+                info += ':\n\t' + source.__doc__
+            if source.signature:
+                info += '\n\tArguments:'
+                info += '\n\t • ' + '\n\t • '.join(source.signature)
+            infos.append(info)
+
+        # Info on all sources
+        else:
+            infos.append('Here\'s a list of sources, use >sources [source name] to see more info on a specific one.\n')
+            colW = len(max(sourceNames, key=len)) + 2
+            for name in sourceNames:
+                source = sourceNames[name]
+                info = name + ' ' * (colW-len(name))
+                if source.__doc__ is not None:
+                    info += source.__doc__
                 infos.append(info)
         
         text = texttools.block_format('\n'.join(infos))

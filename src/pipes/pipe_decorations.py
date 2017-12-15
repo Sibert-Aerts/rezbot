@@ -119,7 +119,7 @@ def expandable_signature(func):
     return _exp_sig
 
 
-def with_signature(sig):
+def pipe_signature(sig):
     '''Decorator that turns a string input into a string and arguments input, with the arguments removed from the string.'''
     def decorate(func):
         @signature_docstring(sig)
@@ -155,10 +155,37 @@ pipeNames = {}
 def make_pipe(sig, expandable=True):
     '''Makes a pipe out of something, with the given signature.'''
     def _make_pipe(func):
-        func = with_signature(sig)(func)
+        func = pipe_signature(sig)(func)
         if expandable:
             func = expandable_signature(func)
         global pipeNames
         pipeNames[func.__name__.split('_pipe', 1)[0]] = func
         return func
     return _make_pipe
+
+
+def source_signature(sig, pass_message):
+    '''Decorator that parses a string input as actual function arguments.'''
+    def decorate(func):
+        @signature_docstring(sig)
+        @wraps(func)
+        def _func(message, argstr):
+            if pass_message:
+                (_, args) = parse_args(sig, argstr)
+                return func(message, **args)
+            else:
+                (_, args) = parse_args(sig, argstr)
+                return func(**args)
+        return _func
+    return decorate
+
+sourceNames = {}
+
+def make_source(sig, pass_message=False):
+    '''Makes a source out of something, with the given signature.'''
+    def _make_source(func):
+        func = source_signature(sig, pass_message)(func)
+        global sourceNames
+        sourceNames[func.__name__.split('_source', 1)[0]] = func
+        return func
+    return _make_source
