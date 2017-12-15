@@ -77,25 +77,24 @@ class PipeProcessor:
             # A source was specified
             sourceName, _, args = sourceMatch.groups()
             sourceName = sourceName.lower()
-            print('SOURCE:', sourceName)
-            print('ARGS:', args)
 
             if sourceName in sourceNames:
-                print('Found it!')
                 values = sourceNames[sourceName](message, args)
             else:
                 print('Error: Unknown source ' + sourceName)
                 print([i for i in sourceNames])
                 return
 
-        printValues = []
-        i = 1
+        # Increment i manually because we're doing some funny stuff
+        i = 0
         while i < len(pipes):
             name = pipes[i].split(' ')[0]
             if name not in pipeNames and name in customPipes:
                 pipes[i:i+1] = PipeProcessor.parse_sequence(customPipes[name]['code'])
                 continue
             i += 1
+
+        printValues = []
 
         for bigPipe in pipes:
             simulPipes = CTree.get_all('['+bigPipe+']')
@@ -125,7 +124,6 @@ class PipeProcessor:
                 return True
 
         printValues.append(values)
-        print(SourceResources.previous_pipe_output)
         SourceResources.previous_pipe_output = values
         await self.pipe_say(message.channel, printValues)
         return True

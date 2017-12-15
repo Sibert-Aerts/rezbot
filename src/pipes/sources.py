@@ -39,3 +39,13 @@ def that_source(message):
 def random_source(n):
     '''One or more random words from the dictionary.'''
     return [choose(allWords) for i in range(n)]
+
+
+@make_source({
+    'pattern': Sig(str, None, 'The pattern to look for (regex)'),
+    'n'      : Sig(int, 1, 'The number of sampled words.')
+})
+def find_source(pattern, n):
+    '''Find random words in the dictionary matching a regex pattern.'''
+    pattern = re.compile(pattern)
+    return random.sample([w for w in allWords if pattern.search(w) is not None], n)
