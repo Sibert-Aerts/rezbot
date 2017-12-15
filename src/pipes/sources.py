@@ -48,4 +48,5 @@ def random_source(n):
 def find_source(pattern, n):
     '''Find random words in the dictionary matching a regex pattern.'''
     pattern = re.compile(pattern)
-    return random.sample([w for w in allWords if pattern.search(w) is not None], n)
+    items = [w for w in allWords if pattern.search(w) is not None]
+    return random.sample(items, min(n, len(items)))
