@@ -99,8 +99,9 @@ class CTree:
     lbr = Literal('[').suppress()
     rbr = Literal(']').suppress()
     div = Literal('|').suppress()
-    _text = Regex('[^\\[\\|\\]]+') # any sequence of characters not containing '[', ']' or '|'
-    text = pGroup(OneOrMore(escapedLbr|escapedRbr|escapedDiv|escapedEsc|_text)).setParseAction(lambda t: CTree.Text(t[0]))
+    esc = Literal('\\').suppress().setParseAction(lambda x: '\\')
+    _text = Regex('[^\\[\\|\\]\\\\]+') # any sequence of characters not containing '[', ']', '|' or '\'
+    text = pGroup(OneOrMore(escapedLbr|escapedRbr|escapedDiv|escapedEsc|esc|_text)).setParseAction(lambda t: CTree.Text(t[0]))
     eStr = Empty().setParseAction(lambda t: CTree.Text(''))
     group = Forward()
     choice = pGroup(lbr + group + ZeroOrMore(div + group) + rbr).setParseAction(lambda t: CTree.Choice(t[0]))
