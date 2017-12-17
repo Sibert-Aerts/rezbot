@@ -1,3 +1,5 @@
+import emoji
+
 from .pipe_decorations import *
 from utils.texttools import *
 from utils.rand import *
@@ -70,6 +72,15 @@ def soapstone_source(game, phrase, multi_index):
     'n' : Sig(int, 1, 'The amount of names.')
 }, command=True)
 @multi_source
-def cumberbatch():
+def cumberbatch_source():
     '''A name that resembles that of Benedict Cumberbatch.'''
     return benedict.generate()
+
+
+@make_source({
+    'n' : Sig(int, 1, 'The amount of emoji.')
+}, command=True)
+@multi_source
+def emoji_source():
+    '''A random emoji'''
+    return choose(list(emoji.UNICODE_EMOJI.keys())).replace(' ', '')
