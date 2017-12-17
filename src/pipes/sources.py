@@ -1,6 +1,7 @@
 from .pipe_decorations import *
 from utils.texttools import *
 from utils.rand import *
+import utils.soapstone as soapstone
 
 # Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.
 class SourceResources:
@@ -50,3 +51,21 @@ def find_source(pattern, n):
     pattern = re.compile(pattern)
     items = [w for w in allWords if pattern.search(w) is not None]
     return random.sample(items, min(n, len(items)))
+
+
+@make_source({
+    'game': Sig(str, '?', 'Which Dark Souls game should be used (? for random).', lambda x:x in ['?','1','2','3']),
+    'phrase': Sig(str, '%phrase%', 'Overrides game argument: Construct a custom phrase using the following categories:\n{}'.format(', '.join([c for c in soapstone.phraseDict])))
+}, command=True)
+def soapstone_source(game, phrase):
+    '''Generate a randomised Dark Souls soapstone message.'''
+    if phrase != '%phrase%':
+        return [soapstone.makePhrase(phrase)]
+    if game == '?':
+        game = choose(['1','2','3'])
+    if game == '1':
+        return [soapstone.DarkSouls1.get()]
+    if game == '2':
+        return [soapstone.DarkSouls2.get()]
+    if game == '3':
+        return [soapstone.DarkSouls3.get()]

@@ -204,8 +204,8 @@ class DarkSouls3:
             phrase += choose(this.conjunctions) + choose(this.phrases).replace('%', choose(choose(this.categories)))
         return phrase
 
-
-phrasePattern = re.compile(r'([^\[]*)\[([^\]]*)]([^\[]*)')
+# Matches: group1%group2%group3
+phrasePattern = re.compile(r'([^%]*)(%([^%]*)%([^%]*))?')
 
 phraseDict = {
     'creature': DarkSouls1.characters + DarkSouls2.creatures + DarkSouls3.creatures,
@@ -222,8 +222,12 @@ phraseDict = {
 
 def makePhrase(phrase):
     out = ''
-    for a, b, c in re.findall(phrasePattern, phrase):
+    for a, bc, b, c in re.findall(phrasePattern, phrase):
         out += a
-        out += choose(phraseDict[b.lower()])
+        try:
+            out += choose(phraseDict[b.lower()])
+        except:
+            if bc != '':
+                out += '%' + b + '%'
         out += c
     return out
