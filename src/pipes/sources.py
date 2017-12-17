@@ -16,9 +16,10 @@ class SourceResources:
     'test': Sig(str, 'DEFAULT', 'A test string inserted into the message!'),
     'n': Sig(int, 1, 'amount of times the message is repeated')
 }, command=True)
-def test_source(test, n):
+@multi_source
+def testsource_source(test):
     '''(A test source)'''
-    return ['This is a test! {}!'.format(test) for _ in range(n)]
+    return 'This is a test! {}!'.format(test)
 
 
 @make_source({})
@@ -54,18 +55,20 @@ def find_source(pattern, n):
 
 
 @make_source({
-    'game': Sig(str, '?', 'Which Dark Souls game should be used (? for random).', lambda x:x in ['?','1','2','3']),
-    'phrase': Sig(str, '%phrase%', 'Overrides game argument: Construct a custom phrase using the following categories:\n{}'.format(', '.join([c for c in soapstone.phraseDict])))
+    'n'     : Sig(int, 1, 'The number of generated messages.'),
+    'game'  : Sig(str, '?', 'Which Dark Souls game should be used (? for random).', lambda x:x in ['?','1','2','3']),
+    'phrase': Sig(str, '%phrase%', 'Overrides game argument. Construct a custom phrase using the following categories:\n{}'.format(', '.join([c for c in soapstone.phraseDict])))
 }, command=True)
-def soapstone_source(game, phrase):
+@multi_source
+def soapstone_source(game, phrase, multi_index):
     '''Generate a randomised Dark Souls soapstone message.'''
     if phrase != '%phrase%':
-        return [soapstone.makePhrase(phrase)]
+        return soapstone.makePhrase(phrase)
     if game == '?':
         game = choose(['1','2','3'])
     if game == '1':
-        return [soapstone.DarkSouls1.get()]
+        return soapstone.DarkSouls1.get()
     if game == '2':
-        return [soapstone.DarkSouls2.get()]
+        return soapstone.DarkSouls2.get()
     if game == '3':
-        return [soapstone.DarkSouls3.get()]
+        return soapstone.DarkSouls3.get()

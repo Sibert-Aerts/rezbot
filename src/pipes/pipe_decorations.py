@@ -137,6 +137,7 @@ def pipe_signature(sig):
 def as_map(func):
     '''
     Decorate a function to accept an array of first arguments:
+
     f: (x, *args) -> y      becomes     f': ([x], args) -> [y]
     e.g.
     pow(3, 2) -> 9          becomes     pow'([3, 4, 5], 2) -> [9, 16, 25]
@@ -178,6 +179,22 @@ def source_signature(sig, pass_message):
                 return func(**args)
         return _func
     return decorate
+
+def multi_source(func):
+    '''
+    Decorates a function to take an argument 'n' that simply calls the function multiple times.
+
+    f: (*args) -> y      becomes     f': (*args, n=1) -> [y]
+    e.g.
+    rand()   -> 0.1      becomes     rand'(n=3) -> [0.5, 0.2, 0.3]
+    '''
+    @wraps(func)
+    def _multi_source(*args, n, **kwargs):
+        try:
+            return [func(*args, **kwargs, multi_index=i) for i in range(n)]
+        except:
+            return [func(*args, **kwargs) for i in range(n)]
+    return _multi_source
 
 
 sources = {}
