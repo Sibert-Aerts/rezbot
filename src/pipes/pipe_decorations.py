@@ -151,15 +151,15 @@ def as_map(func):
 
 
 pipeNames = {}
+command_pipes = []
 
-def make_pipe(sig, expandable=True):
-    '''Makes a pipe out of something, with the given signature.'''
+def make_pipe(sig, command=False):
+    '''Makes a pipe out of a function.'''
     def _make_pipe(func):
         func = pipe_signature(sig)(func)
-        if expandable:
-            func = expandable_signature(func)
         global pipeNames
         pipeNames[func.__name__.split('_pipe', 1)[0]] = func
+        if command: command_pipes.append(func)
         return func
     return _make_pipe
 
@@ -179,13 +179,16 @@ def source_signature(sig, pass_message):
         return _func
     return decorate
 
-sourceNames = {}
 
-def make_source(sig, pass_message=False):
-    '''Makes a source out of something, with the given signature.'''
+sourceNames = {}
+command_sources = []
+
+def make_source(sig, pass_message=False, command=False):
+    '''Makes a source out of a function'''
     def _make_source(func):
         func = source_signature(sig, pass_message)(func)
         global sourceNames
         sourceNames[func.__name__.split('_source', 1)[0]] = func
+        if command: command_sources.append(func)
         return func
     return _make_source

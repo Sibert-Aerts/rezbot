@@ -104,7 +104,7 @@ class PipeProcessor:
                 split = pipe.split(' ', 1)
                 name = split[0]
                 args = split[1] if len(split) > 1 else ''
-                
+
                 if name == 'print':
                     # hard-coded special case
                     printValues.append(values)

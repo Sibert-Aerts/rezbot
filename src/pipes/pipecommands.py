@@ -198,9 +198,9 @@ class PipesCommands(MyCommands):
         text = texttools.block_format('\n'.join(infos))
         await self.say(text)
 
-# List of pipes that are also usable as a regular command:
-command_pipes = \
-    [ vowelize_pipe, consonize_pipe, letterize_pipe, min_dist_pipe, katakana_pipe, romaji_pipe, demoji_pipe, translate_pipe, convert_pipe]
+###############################################################
+#                  Turn pipes into commands!                  #
+###############################################################
 
 def pipe_to_func(pipe):
     async def func(self, ctx):
@@ -214,6 +214,26 @@ def pipe_to_func(pipe):
 # Turn those pipes into discord.py bot commands!
 for pipe in command_pipes:
     func = pipe_to_func(pipe)
+    # manually call the function decorator to make func into a command
+    command = commands.command(pass_context=True)(func)
+    setattr(PipesCommands, func.__name__, command)
+
+###############################################################
+#                 Turn sources into commands!                 #
+###############################################################
+
+def source_to_func(source):
+    async def func(self, ctx):
+        args = util.get_args(ctx)
+        text = source(ctx.message, args)
+        await self.say('\n'.join(text))
+    func.__name__ = source.__name__.split('_source', 1)[0]
+    func.__doc__ = source.__doc__
+    return func
+
+# Turn those sources into discord.py bot commands!
+for source in command_sources:
+    func = source_to_func(source)
     # manually call the function decorator to make func into a command
     command = commands.command(pass_context=True)(func)
     setattr(PipesCommands, func.__name__, command)

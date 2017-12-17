@@ -14,7 +14,7 @@ class SourceResources:
 @make_source({
     'test': Sig(str, 'DEFAULT', 'A test string inserted into the message!'),
     'n': Sig(int, 1, 'amount of times the message is repeated')
-})
+}, command=True)
 def test_source(test, n):
     '''(A test source)'''
     return ['This is a test! {}!'.format(test) for _ in range(n)]
@@ -35,7 +35,7 @@ def that_source(message):
 
 @make_source({
     'n': Sig(int, 1, 'The amount of random words')
-})
+}, command=True)
 def random_source(n):
     '''One or more random words from the dictionary.'''
     return [choose(allWords) for i in range(n)]
@@ -44,7 +44,7 @@ def random_source(n):
 @make_source({
     'pattern': Sig(str, None, 'The pattern to look for (regex)'),
     'n'      : Sig(int, 1, 'The number of sampled words.')
-})
+}, command=True)
 def find_source(pattern, n):
     '''Find random words in the dictionary matching a regex pattern.'''
     pattern = re.compile(pattern)
