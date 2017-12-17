@@ -224,16 +224,6 @@ class BotCommands(MyCommands):
         await self.bot.say(Meal.generateMenu(kind))
 
 
-    @commands.command()
-    async def cumberbatch(self, count=1):
-        '''Generate a name that mimics "Benedict Cumberbatch".'''
-        if count > 10:
-            await self.say('that\'s a bit much don\'t you think')
-            return
-        text = '\n'.join([benedict.generate() for _ in range(count)])
-        await self.say(text)
-
-
     @commands.command(pass_context=True)
     async def image_split(self, ctx):
         '''Splits a series of image urls into groups of 5 and posts them.'''

@@ -2,6 +2,7 @@ from .pipe_decorations import *
 from utils.texttools import *
 from utils.rand import *
 import utils.soapstone as soapstone
+import utils.benedict as benedict
 
 # Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.
 class SourceResources:
@@ -63,3 +64,12 @@ def soapstone_source(game, phrase, multi_index):
         return soapstone.DarkSouls2.get()
     if game == '3':
         return soapstone.DarkSouls3.get()
+
+
+@make_source({
+    'n' : Sig(int, 1, 'The amount of names.')
+}, command=True)
+@multi_source
+def cumberbatch():
+    '''A name that resembles that of Benedict Cumberbatch.'''
+    return benedict.generate()
