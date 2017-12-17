@@ -132,6 +132,13 @@ def demoji_pipe(text):
     return ''.join([unicodedata2.name(c) if c in emoji.UNICODE_EMOJI else c for c in text])
 
 
+@make_pipe({}, command=True)
+@as_map
+def unicode_pipe(text):
+    '''Replaces unicode characters with their official description.'''
+    return ', '.join([unicodedata2.name(c) for c in text])
+
+
 @make_pipe({
     'f' : Sig(str, '{0}', 'The format string'),
     'n' : Sig(int, 1, 'The amount of strings fed into the format'),
