@@ -12,15 +12,6 @@ class SourceResources:
 #                      Sources                      #
 #####################################################
 
-@make_source({
-    'test': Sig(str, 'DEFAULT', 'A test string inserted into the message!'),
-    'n': Sig(int, 1, 'amount of times the message is repeated')
-}, command=True)
-@multi_source
-def testsource_source(test):
-    '''(A test source)'''
-    return 'This is a test! {}!'.format(test)
-
 
 @make_source({})
 def prev_source():
@@ -30,7 +21,7 @@ def prev_source():
 
 @make_source({}, pass_message=True)
 def that_source(message):
-    '''The contents of the previous message in the channel.'''
+    '''The previous message in the channel.'''
     msg = [m for m in SourceResources.bot.messages if m.channel == message.channel][-2]
     return [msg.content]
 
@@ -39,7 +30,7 @@ def that_source(message):
     'n': Sig(int, 1, 'The amount of random words')
 }, command=True)
 def random_source(n):
-    '''One or more random words from the dictionary.'''
+    '''Random dictionary words.'''
     return [choose(allWords) for i in range(n)]
 
 
@@ -48,7 +39,7 @@ def random_source(n):
     'n'      : Sig(int, 1, 'The number of sampled words.')
 }, command=True)
 def find_source(pattern, n):
-    '''Find random words in the dictionary matching a regex pattern.'''
+    '''Random dictionary words matching a pattern.'''
     pattern = re.compile(pattern)
     items = [w for w in allWords if pattern.search(w) is not None]
     return random.sample(items, min(n, len(items)))
@@ -61,7 +52,7 @@ def find_source(pattern, n):
 }, command=True)
 @multi_source
 def soapstone_source(game, phrase, multi_index):
-    '''Generate a randomised Dark Souls soapstone message.'''
+    '''Random Dark Souls soapstone messages.'''
     if phrase != '%phrase%':
         return soapstone.makePhrase(phrase)
     if game == '?':
