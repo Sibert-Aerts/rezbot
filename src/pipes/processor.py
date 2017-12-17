@@ -1,5 +1,6 @@
 from .pipes import *
 from .sources import *
+from .pipe_decorations import pipes, sources
 from .pipecommands import customPipes
 
 import permissions
@@ -60,9 +61,9 @@ class PipeProcessor:
             return False
         content = content[len(self.prefix):]
 
-        pipes = PipeProcessor.parse_sequence(content)
-        source = pipes[0]
-        pipes = pipes[1:]
+        pipeLine = PipeProcessor.parse_sequence(content)
+        source = pipeLine[0]
+        pipeLine = pipeLine[1:]
 
         # Use the Source to determine a starting value
 
@@ -78,25 +79,25 @@ class PipeProcessor:
             sourceName, _, args = sourceMatch.groups()
             sourceName = sourceName.lower()
 
-            if sourceName in sourceNames:
-                values = sourceNames[sourceName](message, args)
+            if sourceName in sources:
+                values = sources[sourceName](message, args)
             else:
                 print('Error: Unknown source ' + sourceName)
-                print([i for i in sourceNames])
+                print([i for i in sources])
                 return
 
         # Increment i manually because we're doing some funny stuff
         i = 0
-        while i < len(pipes):
-            name = pipes[i].split(' ')[0]
-            if name not in pipeNames and name in customPipes:
-                pipes[i:i+1] = PipeProcessor.parse_sequence(customPipes[name]['code'])
+        while i < len(pipeLine):
+            name = pipeLine[i].split(' ')[0]
+            if name not in pipes and name in customPipes:
+                pipeLine[i:i+1] = PipeProcessor.parse_sequence(customPipes[name]['code'])
                 continue
             i += 1
 
         printValues = []
 
-        for bigPipe in pipes:
+        for bigPipe in pipeLine:
             simulPipes = CTree.get_all('['+bigPipe+']')
             newValues = []
             for pipe in simulPipes:
@@ -109,9 +110,9 @@ class PipeProcessor:
                     # hard-coded special case
                     printValues.append(values)
                     newValues.extend(values)
-                elif name in pipeNames:
+                elif name in pipes:
                     try:
-                        newValues.extend(pipeNames[name](values, args))
+                        newValues.extend(pipes[name](values, args))
                     except:
                         print('Failed to process pipe "{}" with args "{}"'.format(name, args))
                         newValues.extend(values)

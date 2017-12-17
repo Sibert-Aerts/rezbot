@@ -71,8 +71,8 @@ class PipesCommands(MyCommands):
         infos = []
 
         # Info on a specific pipe
-        if name != '' and pipeNames.get(name) is not None:
-            pipe = pipeNames[name]
+        if name != '' and pipes.get(name) is not None:
+            pipe = pipes[name]
             info = name
             if pipe.__doc__ is not None:
                 info += ':\n\t' + pipe.__doc__
@@ -84,9 +84,9 @@ class PipesCommands(MyCommands):
         # Info on all pipes
         else:
             infos.append('Here\'s a list of pipes, use >pipes [pipe name] to see more info on a specific one.\n')
-            colW = len(max(pipeNames, key=len)) + 2
-            for name in pipeNames:
-                pipe = pipeNames[name]
+            colW = len(max(pipes, key=len)) + 2
+            for name in pipes:
+                pipe = pipes[name]
                 info = name + ' ' * (colW-len(name))
                 if pipe.__doc__ is not None:
                     info += pipe.__doc__
@@ -101,8 +101,8 @@ class PipesCommands(MyCommands):
         infos = []
 
         # Info on a specific source
-        if name != '' and sourceNames.get(name) is not None:
-            source = sourceNames[name]
+        if name != '' and sources.get(name) is not None:
+            source = sources[name]
             info = name
             if source.__doc__ is not None:
                 info += ':\n\t' + source.__doc__
@@ -114,9 +114,9 @@ class PipesCommands(MyCommands):
         # Info on all sources
         else:
             infos.append('Here\'s a list of sources, use >sources [source name] to see more info on a specific one.\n')
-            colW = len(max(sourceNames, key=len)) + 2
-            for name in sourceNames:
-                source = sourceNames[name]
+            colW = len(max(sources, key=len)) + 2
+            for name in sources:
+                source = sources[name]
                 info = name + ' ' * (colW-len(name))
                 if source.__doc__ is not None:
                     info += source.__doc__
@@ -131,7 +131,7 @@ class PipesCommands(MyCommands):
     async def define(self, ctx, name=''):
         '''Define a custom pipe. First argument is the name, everything after that is the code.'''
         name = name.lower()
-        if name in pipeNames or name in customPipes:
+        if name in pipes or name in customPipes:
             await self.say('A pipe by that name already exists, try >redefine instead.')
             return
         code = re.split('\s+', ctx.message.content, 2)[2]
