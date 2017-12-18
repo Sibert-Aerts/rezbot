@@ -5,6 +5,8 @@ from utils.texttools import *
 from utils.rand import *
 import utils.soapstone as soapstone
 import utils.benedict as benedict
+import utils.frinkiac as frinkiac
+import utils.util as util
 
 # Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.
 class SourceResources:
@@ -73,7 +75,7 @@ def soapstone_source(game, phrase, multi_index):
 }, command=True)
 @multi_source
 def cumberbatch_source():
-    '''A name that resembles that of Benedict Cumberbatch.'''
+    '''Names that resembles that of Benedict Cumberbatch.'''
     return benedict.generate()
 
 
@@ -82,5 +84,20 @@ def cumberbatch_source():
 }, command=True)
 @multi_source
 def emoji_source():
-    '''A random emoji'''
+    '''Random emoji.'''
     return choose(list(emoji.UNICODE_EMOJI.keys())).replace(' ', '')
+
+
+@make_source({
+    'n'         : Sig(int, 1, 'The amount of captions.'),
+    'multiline' : Sig(util.parse_bool, True, 'Allow captions longer than one line.')
+}, command=True)
+def simpsquote_source(n, multiline):
+    '''Random simpsons captions from the Frinkiac.com API.'''
+    out = []
+    for i in range(n):
+        if multiline:
+            out.extend(frinkiac.random_caption().split('\n'))
+        else:
+            out.append(choose(frinkiac.random_caption().split('\n')))
+    return out

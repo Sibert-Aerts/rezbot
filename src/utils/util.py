@@ -28,8 +28,11 @@ def remove_duplicates(list):
 
 def get_args(ctx):
     '''Takes a Discord.py ctx object and return the message content with the first word (command name) removed.'''
-    return ' '.join(ctx.message.content.split(' ')[1:])
+    s = ctx.message.content.split(' ', 1)
+    return s[1] if len(s) > 1 else ''
 
+def parse_bool(s):
+    return s.lower() in ['t', 'true', '1', 't', 'y', 'yes']
 
 def format_doc(**kwargs):
     '''Decorator that formats the function's docstring.'''

@@ -13,6 +13,7 @@ import utils.util as util
 import utils.texttools as texttools
 import utils.benedict as benedict
 import utils.soapstone as soapstone
+import utils.frinkiac as frinkiac
 import utils.biogenerator
 from utils.ctree import CTree
 from utils.rand import *
@@ -216,6 +217,16 @@ class BotCommands(MyCommands):
             for i in range(12):
                 mySheriff = mySheriff.replace(':100:', bodyParts[i % len(bodyParts)], 1)
         await self.bot.say(mySheriff)
+
+
+    @commands.command(pass_context=True)
+    async def simpscap(self, ctx):
+        '''Search for a Simpsons screencap matching a query (or a random one if no query is given).'''
+        query = util.get_args(ctx)
+        if query == '':
+            await self.say(frinkiac.random_image())
+        else:
+            await self.say(frinkiac.search_image(query))
 
 
     @commands.command()
