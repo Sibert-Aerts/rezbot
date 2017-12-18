@@ -37,6 +37,25 @@ def search_image(query):
     image = choose(results[:8])
     return _get_image_url(image)
 
+def search_caption(query):
+    query = re.sub('\s+', '+', query)
+    r = requests.get('https://frinkiac.com/api/search?q='+query)
+    if r.status_code != 200: raise Exception('Status code {}!'.format(r.status_code))
+    results = r.json()
+    if len(results) == 0: raise ValueError('No results for that query!')
+
+    # results is a list of {id, episode, timestamp} pairs, pick a random one from the 4 first results (the rest is probably bogus)
+    frame = choose(results[:4])
+    ep = frame['Episode']
+    time = frame['Timestamp']
+
+    # Get the caption
+    r = requests.get('https://frinkiac.com/api/caption?e={}&t={}'.format(ep, time))
+    if r.status_code != 200: raise Exception('Status code {}!'.format(r.status_code))
+    json = r.json()
+    caption = '\n'.join([subtitle['Content'] for subtitle in json['Subtitles']])
+    return caption
+
 def search(query):
     query = re.sub('\s+', '+', query)
     r = requests.get('https://frinkiac.com/api/search?q='+query)

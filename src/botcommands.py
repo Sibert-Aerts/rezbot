@@ -220,8 +220,8 @@ class BotCommands(MyCommands):
 
 
     @commands.command(pass_context=True)
-    async def simpscap(self, ctx):
-        '''Search for a Simpsons screencap matching a query (or a random one if no query is given).'''
+    async def simpsons(self, ctx):
+        '''Search for a Simpsons screencap and caption matching a query (or a random one if no query is given).'''
         query = util.get_args(ctx)
         if query == '':
             im, cap = frinkiac.random()

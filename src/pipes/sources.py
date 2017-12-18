@@ -90,14 +90,19 @@ def emoji_source():
 
 @make_source({
     'n'         : Sig(int, 1, 'The amount of captions.'),
+    'q'         : Sig(str, '', 'Search query, empty for a random quote'),
     'multiline' : Sig(util.parse_bool, True, 'Allow captions longer than one line.')
-}, command=True)
-def simpsquote_source(n, multiline):
+})
+def simpsons_source(n, q, multiline):
     '''Random simpsons captions from the Frinkiac.com API.'''
     out = []
     for i in range(n):
-        if multiline:
-            out.extend(frinkiac.random_caption().split('\n'))
+        if q == '':
+            val = frinkiac.random_caption().split('\n')
         else:
-            out.append(choose(frinkiac.random_caption().split('\n')))
+            val = frinkiac.search_caption(q).split('\n')
+        if multiline:
+            out.extend(val)
+        else:
+            out.append(choose(val))
     return out
