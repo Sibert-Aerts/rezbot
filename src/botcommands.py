@@ -224,10 +224,11 @@ class BotCommands(MyCommands):
         '''Search for a Simpsons screencap matching a query (or a random one if no query is given).'''
         query = util.get_args(ctx)
         if query == '':
-            await self.say(frinkiac.random_image())
+            im, cap = frinkiac.random()
         else:
-            await self.say(frinkiac.search_image(query))
-
+            im, cap = frinkiac.search(query)
+        await self.say(im)
+        await self.say(cap)
 
     @commands.command()
     async def lunch(self, kind='regular'):
