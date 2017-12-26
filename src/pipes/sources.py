@@ -6,6 +6,7 @@ from utils.rand import *
 import utils.soapstone as soapstone
 import utils.benedict as benedict
 import utils.frinkiac as frinkiac
+import resource.tweets as tweets
 import utils.util as util
 
 # Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.
@@ -106,3 +107,17 @@ def simpsons_source(n, q, multiline):
         else:
             out.append(choose(val))
     return out
+
+
+@make_source({
+    'q' : Sig(str, '', 'Search query, empty for random tweets.'),
+    'n' : Sig(int, 1, 'The amount of tweets.')
+})
+def dril_source(q, n):
+    '''Random dril tweets.'''
+    out = []
+    if q == '':
+        out = tweets.dril.sample(n)
+    else:
+        out = tweets.dril.search(q, n)
+    return [t['text'] for t in out]

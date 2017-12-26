@@ -14,6 +14,7 @@ import utils.texttools as texttools
 import utils.benedict as benedict
 import utils.soapstone as soapstone
 import utils.frinkiac as frinkiac
+import resource.tweets as tweets
 import utils.biogenerator
 from utils.ctree import CTree
 from utils.rand import *
@@ -229,6 +230,18 @@ class BotCommands(MyCommands):
             im, cap = frinkiac.search(query)
         await self.say(im)
         await self.say(cap)
+
+
+    @commands.command(pass_context=True)
+    async def dril(self, ctx):
+        '''Search for a dril tweet matching a query (or a random one if no query is given).'''
+        query = util.get_args(ctx)
+        if query == '':
+            tweet = tweets.dril.random()
+        else:
+            tweet = choose(tweets.dril.search(query, 8))
+        await self.say(tweet['href'])
+
 
     @commands.command()
     async def lunch(self, kind='regular'):
