@@ -72,7 +72,7 @@ class Patterns:
                     await pattern['function'](self, message)
                     return
 
-        elif await self.implicitAddress(message):
+        if await self.implicitAddress(message):
             for pattern in self.addressedPaterns:
                 if matches(pattern['pattern'], text):
                     print('I\'ve been implicitly addressed, reacting.')
@@ -335,11 +335,11 @@ class Patterns:
 
         return try_react
 
-    robotRegexRaw = '\\b(m(iste)?r\\.? ?)?(ro|rez)?bot'
+    robotRegexRaw = '\\b(m(iste)?r\\.? ?)?(ro|rez)?bot\\b'
     robotRegex = re.compile(robotRegexRaw, re.I)
 
     def addresses_bot(self, pattern):
-        return '(' + self.robotRegexRaw + '\s*[,.]+ ' + pattern + '|' + pattern + "[,.]* ((yo)?u )?([^\s]+ )?" + self.robotRegexRaw + ')'
+        return '(' + self.robotRegexRaw + '\s*[,.]* ' + pattern + '|' + pattern + "[,.]* ((yo)?u )?([^\s]+ )?" + self.robotRegexRaw + ')'
 
     happyDayText = 'pls rember that wen u feel scare or frigten\nnever forget ttimes wen u feeled happy\n\nwen day is dark alway rember happy day'
 
@@ -376,6 +376,6 @@ class Patterns:
          'function': make_react(':angery:245586525457350667', '😠')},
         {'pattern': ('\\bi h(ate?|8) ?((yo)?u|th(e|is))?', re.I),
          'function': make_react(':angery:245586525457350667', '😠')},
-        {'pattern': ('\\bf[aou](g|c?k) ?((yu?o)?u|th(e|is))', re.I),
+        {'pattern': ('\\bf[aou](g|c?k) ?((yu?o)?u|th(e|is)|off?)', re.I),
          'function': make_react(':angery:245586525457350667', '😠')},
     ]
