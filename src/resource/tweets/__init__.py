@@ -1,10 +1,13 @@
 import json
 import random
 import os
+import re
 
 class TweetHistory:
     def __init__(self, file):
         self.data = json.loads(open(file, encoding='utf-8').read())
+        for t in self.data:
+            t['search'] = t['text'].lower()
 
     def random(self):
         return random.choice(self.data)
@@ -13,7 +16,15 @@ class TweetHistory:
         return random.sample(self.data, amount)
 
     def search(self, query, amount=1):
-        results = list(filter(lambda t: query in t['text'], self.data))
+        query = query.lower()
+
+        # Extract absolute matches "of this form" from the query
+        a = query.split('"')
+        absolutes = [a[i] for i in range(1, len(a), 2)]
+        others = re.split('\s+', ''.join([a[i] for i in range(0, len(a), 2)]).strip())
+        queries = absolutes + others
+
+        results = list(filter(lambda t: all([q in t['search'] for q in queries]), self.data))
         return random.sample(results, min(len(results), amount))
 
 dril = TweetHistory(os.path.join(os.path.dirname(__file__), 'dril.json'))
