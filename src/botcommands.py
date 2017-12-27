@@ -244,6 +244,12 @@ class BotCommands(MyCommands):
 
 
     @commands.command()
+    async def dril_ebook(self, max_length=140):
+        '''Generate a random dril tweet'''
+        await self.say(tweets.dril_model.make_short_sentence(max_length))
+
+
+    @commands.command()
     async def lunch(self, kind='regular'):
         '''Generate a fake lunch menu in Dutch. If the first argument is "weird" it will produce a weirder menu.'''
         await self.bot.say(Meal.generateMenu(kind))

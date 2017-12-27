@@ -50,3 +50,4 @@ src/config.ini
 *.pyc
 src/.vscode/settings.json
 src/custompipes.p
+src/resource/tweets/dril-model.json
