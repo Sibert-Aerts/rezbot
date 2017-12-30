@@ -29,10 +29,17 @@ def parse_args(signature, text):
 
     # Very ungeneral special case for dealing with ordered args:
     # if there's only one argument, it is always ordered!
+    # TODO: Parse multiple, ordered, unnamed arguments?
     if len(signature) == 1:
         try:
             s = next(iter(signature))
             sig = signature[s]
+
+            # Just in case, look if the argument isn't given as arg="value"
+            # If it is: Leave this special case alone and fall back to the block below
+            if re.search('\\b'+s+'=([^\\s"][^\\s]*\\s*|"[^"]*"|\'[^\']*\')', text): raise ValueError()
+
+            # Take the first word and try if that works
             split = text.split(' ', 1)
             val = split[0]
             # if the "found" argument is the empty string we didnt actually find anything
@@ -48,21 +55,21 @@ def parse_args(signature, text):
         try:
             # Try to find and parse the argument value, and remove it from the text
             # This regex matches the following formats:
-            # arg=valueWithoutSpaces
-            # arg="value with spaces" arg2="" (for the empty string)
-            # arg='value with spaces' arg=''
+            #   arg=valueWithoutSpaces
+            #   arg="value with spaces" arg="" (for the empty string)
+            #   arg='value with spaces' arg=''
             # Doesn't match:
-            # arg=value with spaces
-            # arg="value with "quotes""
-            # arg= (for the empty string)
+            #   arg=value with spaces
+            #   arg="value with "quotes""
+            #   arg= (for the empty string)
             given = re.search('\\b'+s+'=([^\\s"][^\\s]*\\s*|"[^"]*"|\'[^\']*\')', text)
             val = given.group(0).split('=', 1)[1].strip()
             if val[0] == val[-1] and (val[0] == '\'' or val[0] == '"'):
                 val = val[1:-1]
             args[s] = sig.type(val)
 
+            # Verify that the value meets the check function (if one exists)
             if sig.check and not sig.check(args[s]):
-                # Value doesn't meet the check: Invalid!
                 raise ArgumentError('Invalid argument value {} as "{}".'.format(args[s], s))
 
             text = text[:given.start(0)] + text[given.end(0):]
@@ -134,6 +141,7 @@ def pipe_signature(sig):
         return _func
     return decorate
 
+
 def as_map(func):
     '''
     Decorate a function to accept an array of first arguments:
@@ -144,10 +152,9 @@ def as_map(func):
     '''
     @wraps(func)
     def _as_map(input, *args, **kwargs):
-        try:
-            return [func(input[i], mapIndex=i, *args, **kwargs) for i in range(len(input))]
-        except:
-            return [func(i, *args, **kwargs) for i in input]
+        # try:
+        #     return [func(input[i], mapIndex=i, *args, **kwargs) for i in range(len(input))]
+        return [func(i, *args, **kwargs) for i in input]
     return _as_map
 
 
@@ -179,6 +186,7 @@ def source_signature(sig, pass_message):
                 return func(**args)
         return _func
     return decorate
+
 
 def multi_source(func):
     '''

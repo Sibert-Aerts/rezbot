@@ -33,21 +33,16 @@ def that_source(message):
 
 
 @make_source({
-    'n': Sig(int, 1, 'The amount of random words')
+    'pattern': Sig(str, '', 'The pattern to look for (regex)'),
+    'n'      : Sig(int, 1,  'The number of sampled words.')
 }, command=True)
-def random_source(n):
-    '''Random dictionary words.'''
-    return [choose(allWords) for i in range(n)]
-
-
-@make_source({
-    'pattern': Sig(str, None, 'The pattern to look for (regex)'),
-    'n'      : Sig(int, 1, 'The number of sampled words.')
-}, command=True)
-def find_source(pattern, n):
-    '''Random dictionary words matching a pattern.'''
-    pattern = re.compile(pattern)
-    items = [w for w in allWords if pattern.search(w) is not None]
+def words_source(pattern, n):
+    '''Random dictionary words, optionally matching a pattern.'''
+    if pattern != '':
+        pattern = re.compile(pattern)
+        items = [w for w in allWords if pattern.search(w) is not None]
+    else:
+        items = allWords
     return random.sample(items, min(n, len(items)))
 
 

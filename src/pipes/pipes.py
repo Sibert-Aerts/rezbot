@@ -11,17 +11,12 @@ repeat_hows = ['place', 'group']
 @make_pipe( {
     'n'  : Sig(int, 2, 'Number of times repeated', lambda x: (x <= 100)),
     'lim': Sig(int, -1, 'Limit to total number of resulting rows, -1 for no limit.'),
-    'how': Sig(str, 'group', 'How repeating the input rows happens: \
-    "place": [a,b]*2 -> [a,a,b,b], "group": [a,b]*2 → [a,b,a,b]', lambda x: x in repeat_hows),
 })
 def repeat_pipe(input, n, lim, how):
     '''Repeats each row a given number of times.'''
     # Isn't decorated as_map so both input and output are expected to be arrays.
     if lim == -1: lim = n*len(input)
-    if how == 'group':
-        return [i for _ in range(n) for i in input][:lim]
-    elif how == 'place':
-        return [i for i in input for _ in range(n)][:lim]
+    return [i for _ in range(n) for i in input][:lim]
 
 
 @make_pipe({})
@@ -61,32 +56,29 @@ def case_pipe(text, p):
 
 @make_pipe({
     'p' : Sig(float, 0.4, 'Character swap probability'),
-    'dp': Sig(float, 0.0, 'Increase in p per row'),
 }, command=True)
 @as_map
-def vowelize_pipe(text, p, dp, mapIndex=0):
+def vowelize_pipe(text, p):
     '''Randomly replaces vowels.'''
-    return vowelize(text, p + mapIndex * dp)
+    return vowelize(text, p)
 
 
 @make_pipe({
     'p' : Sig(float, 0.4, 'Character swap probability'),
-    'dp': Sig(float, 0.0, 'Increase in p per row'),
 }, command=True)
 @as_map
-def consonize_pipe(text, p, dp, mapIndex=0):
+def consonize_pipe(text, p):
     '''Randomly replaces consonants with funnier ones.'''
-    return consonize(text, p + mapIndex * dp)
+    return consonize(text, p)
 
 
 @make_pipe({
     'p' : Sig(float, 0.2, 'Character swap probability'),
-    'dp': Sig(float, 0.0, 'Increase in p per row'),
 }, command=True)
 @as_map
-def letterize_pipe(text, p, dp, mapIndex=0):
+def letterize_pipe(text, p):
     '''Both vowelizes and consonizes.'''
-    return letterize(text, p + mapIndex * dp)
+    return letterize(text, p)
 
 
 @make_pipe({
@@ -129,7 +121,7 @@ def min_dist_pipe(text, min):
 @as_map
 def demoji_pipe(text):
     '''Replaces emojis with their official description.'''
-    return ''.join([unicodedata2.name(c) if c in emoji.UNICODE_EMOJI else c for c in text])
+    return ' '.join([unicodedata2.name(c) if c in emoji.UNICODE_EMOJI else c for c in text])
 
 
 @make_pipe({}, command=True)
@@ -140,19 +132,17 @@ def unicode_pipe(text):
 
 
 @make_pipe({
-    'f' : Sig(str, '{0}', 'The format string'),
-    'n' : Sig(int, -1, 'DEPRECATED'),
+    'f' : Sig(str, '{0}', 'The format string')
 })
-def format_pipe(input, f, n):
+def format_pipe(input, f):
     '''Format one or more rows into a single row according to a format string.'''
     return [f.format(*input)]
 
 
 @make_pipe({
-    's' : Sig(str, '', 'The separator inserted between two items.'),
-    'n' : Sig(int, -1, 'DEPRECATED'),
+    's' : Sig(str, '', 'The separator inserted between two items.')
 })
-def join_pipe(input, s, n):
+def join_pipe(input, s):
     '''Join rows into a single row.'''
     return [s.join(input)]
 
