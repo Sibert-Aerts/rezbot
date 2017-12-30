@@ -141,21 +141,20 @@ def unicode_pipe(text):
 
 @make_pipe({
     'f' : Sig(str, '{0}', 'The format string'),
-    'n' : Sig(int, 1, 'The amount of strings fed into the format'),
+    'n' : Sig(int, -1, 'DEPRECATED'),
 })
 def format_pipe(input, f, n):
     '''Format one or more rows into a single row according to a format string.'''
-    return [f.format(*input[i:i+n]) for i in range(0, len(input), n)]
+    return [f.format(*input)]
 
 
 @make_pipe({
     's' : Sig(str, '', 'The separator inserted between two items.'),
-    'n' : Sig(int, -1, 'The max amount of strings used in a single join, -1 for no limit.'),
+    'n' : Sig(int, -1, 'DEPRECATED'),
 })
 def join_pipe(input, s, n):
     '''Join rows into a single row.'''
-    if n == -1: n = len(input)
-    return [s.join(input[i:i+n]) for i in range(0, len(input), n)]
+    return [s.join(input)]
 
 
 randomLanguage = ['rand', 'random', '?']

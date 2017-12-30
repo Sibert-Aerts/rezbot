@@ -76,6 +76,7 @@ class PipeProcessor:
             values = CTree.get_all('[' + source + ']')
         else:
             # A source was specified
+            # TODO: CTree this
             sourceName, _, args = sourceMatch.groups()
             sourceName = sourceName.lower()
 
@@ -98,28 +99,67 @@ class PipeProcessor:
         printValues = []
 
         for bigPipe in pipeLine:
-            simulPipes = CTree.get_all('['+bigPipe+']')
-            newValues = []
-            for pipe in simulPipes:
+
+            # Special bigPipe flag that determines how multiPipes are applied
+            # e.g. "2*format [fraktur|script]" or "4% join 
+            m = re.match('(\d*)(\*|%)', bigPipe)
+            if m is not None:
+                groupSize = m.groups()[0]
+                groupSize = int(groupSize) if groupSize else 1
+                multiply = m.groups()[1] == '*'
+                bigPipe = bigPipe[len(m.group()):]
+            else:
+                multiply = False
+                groupSize = 1
+
+            multiPipes = CTree.get_all('[' + bigPipe + ']')
+            
+            parsedPipes = []
+
+            for pipe in multiPipes:
                 pipe = pipe.strip()
                 split = pipe.split(' ', 1)
                 name = split[0]
                 args = split[1] if len(split) > 1 else ''
+                parsedPipes.append({'name': name, 'args': args})
 
-                if name == 'print':
-                    # hard-coded special case
-                    printValues.append(values)
-                    newValues.extend(values)
-                elif name in pipes:
-                    try:
-                        newValues.extend(pipes[name](values, args))
-                    except:
-                        print('Failed to process pipe "{}" with args "{}"'.format(name, args))
-                        newValues.extend(values)
+            newValues = []
+            newPrintValues = []
+
+            for i in range(0, len(values), groupSize):
+                # Slice the inputs according to group size
+                vals = values[i: i+groupSize]
+
+                if multiply:
+                    thePipes = parsedPipes
                 else:
-                    print('Error: Unknown pipe ' + name)
-                    newValues.extend(values)
+                    # i/groupSize is always an integer, but we must cast it else python gets mad
+                    thePipes = [parsedPipes[int(i/groupSize) % len(parsedPipes)]]
+
+                for pipe in thePipes:
+                    name = pipe['name']
+                    args = pipe['args']
+
+                    if name == 'print':
+                        # hard-coded special case
+                        newPrintValues.extend(vals)
+                        newValues.extend(vals)
+                    elif name == '':
+                        newValues.extend(vals)
+                    elif name in pipes:
+                        try:
+                            newValues.extend(pipes[name](vals, args))
+                        except Exception as e:
+                            print('Failed to process pipe "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
+                            newValues.extend(vals)
+                    else:
+                        print('Error: Unknown pipe ' + name)
+                        newValues.extend(vals)
+
             values = newValues
+            if len(newPrintValues):
+                printValues.append(newPrintValues)
+
             if len(values) > 20 and not permissions.has(message.author.id, 'owner'):
                 await self.bot.send_message(message.channel, bot_format('that\'s a bit much don\'t you think'))
                 return True
