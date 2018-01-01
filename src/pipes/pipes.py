@@ -8,7 +8,6 @@ from .pipe_decorations import *
 #                       Pipes                       #
 #####################################################
 
-repeat_hows = ['place', 'group']
 @make_pipe( {
     'n'  : Sig(int, 2, 'Number of times repeated', lambda x: (x <= 100)),
     'lim': Sig(int, -1, 'Limit to total number of resulting rows, -1 for no limit.'),
@@ -18,6 +17,12 @@ def repeat_pipe(input, n, lim, how):
     # Isn't decorated as_map so both input and output are expected to be arrays.
     if lim == -1: lim = n*len(input)
     return [i for _ in range(n) for i in input][:lim]
+
+
+@make_pipe({})
+def delete_pipe(input):
+    '''Deletes its input.'''
+    return []
 
 
 @make_pipe({})
