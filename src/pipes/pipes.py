@@ -36,11 +36,12 @@ def print_pipe(input):
 @make_pipe({
     'on' : Sig(str, r'\s*\n+\s*', 'Pattern to split on (regex)'),
     'lim': Sig(int, 0, 'Maximum number of splits. (0 for no limit)'),
-    'keep_whitespace': Sig(util.parse_bool, False, 'Whether or not to remove empty/whitespace items')
+    'keep_whitespace': Sig(util.parse_bool, False, 'Whether or not to remove whitespace items'),
+    'keep_empty': Sig(util.parse_bool, False, 'Whether or not to remove empty items')
 })
-def split_pipe(inputs, on, lim, keep_whitespace):
+def split_pipe(inputs, on, lim, keep_whitespace, keep_empty):
     '''Split the input into multiple outputs.'''
-    return [x for y in inputs for x in re.split(on, y, maxsplit=lim) if keep_whitespace or x.strip() != '']
+    return [x for y in inputs for x in re.split(on, y, maxsplit=lim) if x.strip() != '' or (keep_whitespace and x != '') or (keep_empty and x == '')]
 
 
 @make_pipe({
