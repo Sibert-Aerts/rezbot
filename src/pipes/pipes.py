@@ -1,5 +1,6 @@
 import unicodedata2
 import emoji
+import utils.util as util
 
 from .pipe_decorations import *
 
@@ -28,11 +29,13 @@ def print_pipe(input):
 
 
 @make_pipe({
-    'on': Sig(str, '\s*\n+\s*', 'Pattern to split on (regex)')
+    'on' : Sig(str, r'\s*\n+\s*', 'Pattern to split on (regex)'),
+    'lim': Sig(int, 0, 'Maximum number of splits. (0 for no limit)'),
+    'keep_whitespace': Sig(util.parse_bool, False, 'Whether or not to remove empty/whitespace items')
 })
-def split_pipe(inputs, on):
+def split_pipe(inputs, on, lim, keep_whitespace):
     '''Split the input into multiple outputs.'''
-    return [x for y in inputs for x in re.split(on, y) if x.strip() != '']
+    return [x for y in inputs for x in re.split(on, y, maxsplit=lim) if keep_whitespace or x.strip() != '']
 
 
 @make_pipe({
