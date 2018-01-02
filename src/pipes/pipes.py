@@ -1,6 +1,7 @@
 import unicodedata2
 import emoji
 import utils.util as util
+import random
 
 from .pipe_decorations import *
 
@@ -10,9 +11,9 @@ from .pipe_decorations import *
 
 @make_pipe( {
     'n'  : Sig(int, 2, 'Number of times repeated', lambda x: (x <= 100)),
-    'lim': Sig(int, -1, 'Limit to total number of resulting rows, -1 for no limit.'),
+    'lim': Sig(int, -1, 'Limit to total number of resulting rows, -1 for no limit.')
 })
-def repeat_pipe(input, n, lim, how):
+def repeat_pipe(input, n, lim):
     '''Repeats each row a given number of times.'''
     # Isn't decorated as_map so both input and output are expected to be arrays.
     if lim == -1: lim = n*len(input)
@@ -47,13 +48,18 @@ def tr_pipe(input, w, h):
     else:
         w = int(len(input) / h)
 
-    print(w, h)
-
     if w == 0 or h == 0:
         return input
 
     # I figured this line out by trial-and-error :)
     return [input[i*w + j] for j in range(w) for i in range(h)]
+
+
+@make_pipe({})
+def shuffle_pipe(input):
+    '''Randomly shuffles grouped input values.'''
+    random.shuffle(input)
+    return input
 
 
 @make_pipe({
