@@ -101,8 +101,10 @@ class PipeProcessor:
         for bigPipe in pipeLine:
 
             # Special bigPipe flag that determines how multiPipes are applied
-            # e.g. "2*format [fraktur|script]" or "4% join 
-            m = re.match('(\d*)(\*|%)', bigPipe)
+            # e.g. "2 * format [fraktur|script]" or "4%join"
+            # no number: "% join" == "1% join"
+            # no flag: "join" == "9999% join" (all input as one big group)
+            m = re.match('(\d*)\s*(\*|%)', bigPipe)
             if m is not None:
                 groupSize = m.groups()[0]
                 groupSize = int(groupSize) if groupSize else 1
@@ -110,7 +112,7 @@ class PipeProcessor:
                 bigPipe = bigPipe[len(m.group()):]
             else:
                 multiply = False
-                groupSize = 1
+                groupSize = len(values)
 
             multiPipes = CTree.get_all('[' + bigPipe + ']')
             
