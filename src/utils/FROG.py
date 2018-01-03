@@ -1,6 +1,7 @@
 import requests
 
 # PYTHON WRAPPER FOR THE FROG TIPS API
+# FOR MORE INFORMATION PLEASE CONSULT HTTPS://FROG.TIPS/API/1/
 
 API_ENDPOINT = 'https://frog.tips/api/1/tips/'
 

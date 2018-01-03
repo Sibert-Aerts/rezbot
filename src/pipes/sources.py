@@ -124,6 +124,10 @@ def dril_source(q, n):
     'N' : Sig(int, 1, 'NUMBER OF FROG TIPS.')
 }, command=True)
 def FROG_source(N):
-    '''FROG TIPS FOR HOME CONSUMERS, AS SEEN ON HTTPS://FROG.TIPS.'''
+    '''
+    FROG TIPS FOR HOME CONSUMERS, AS SEEN ON HTTPS://FROG.TIPS.
+    
+    FOR MORE INFORMATION PLEASE CONSULT HTTPS://FROG.TIPS/API/1/.
+    '''
     TIPS = [FROG.GET_RANDOM() for _ in range(N)]
     return [T['tip'] for T in TIPS]
