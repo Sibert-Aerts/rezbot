@@ -3,6 +3,7 @@ import emoji
 from .pipe_decorations import *
 from utils.texttools import *
 from utils.rand import *
+from utils.FROG import FROG
 import utils.soapstone as soapstone
 import utils.benedict as benedict
 import utils.frinkiac as frinkiac
@@ -116,3 +117,13 @@ def dril_source(q, n):
     else:
         out = tweets.dril.search(q, n)
     return [t['text'] for t in out]
+
+
+@make_source({
+    # 'TIP' : Sig(int, -1, 'THE SPECIFIC FROG TIP YOU WISH TO SEE.'),
+    'N' : Sig(int, 1, 'NUMBER OF FROG TIPS.')
+}, command=True)
+def FROG_source(N):
+    '''FROG TIPS FOR HOME CONSUMERS, AS SEEN ON HTTPS://FROG.TIPS.'''
+    TIPS = [FROG.GET_RANDOM() for _ in range(N)]
+    return [T['tip'] for T in TIPS]

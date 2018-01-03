@@ -213,7 +213,7 @@ def make_source(sig, pass_message=False, command=False):
     def _make_source(func):
         func = source_signature(sig, pass_message)(func)
         global sources
-        sources[func.__name__.split('_source', 1)[0]] = func
+        sources[func.__name__.split('_source', 1)[0].lower()] = func
         if command: command_sources.append(func)
         return func
     return _make_source
