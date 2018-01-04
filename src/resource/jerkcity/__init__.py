@@ -16,10 +16,10 @@ class ISSUE:
         self.DIALOG = ISSUE[2].text
 
     def URL(self):
-        return f'https://jerkcity.com/jerkcity{self.NUM}.html'
+        return 'https://jerkcity.com/jerkcity{}.html'.format(self.NUM)
 
     def IMAGE_URL(self):
-        return f'https://jerkcity.com/jerkcity{self.NUM}.gif'
+        return 'https://jerkcity.com/jerkcity{}.gif'.format(self.NUM)
 
 class __JERKCITY__:
     def __init__(self):
