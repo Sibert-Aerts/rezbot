@@ -34,7 +34,6 @@ class TweetHistory:
 
 dril = TweetHistory(_HERE('dril.json'))
 
-
 if os.path.isfile(_HERE('dril-model.json')):
     with open(_HERE('dril-model.json'), encoding='utf-8') as f:
         dril_model = markovify.NewlineText.from_json(f.read())

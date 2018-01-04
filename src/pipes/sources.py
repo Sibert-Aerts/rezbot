@@ -8,6 +8,7 @@ import utils.soapstone as soapstone
 import utils.benedict as benedict
 import utils.frinkiac as frinkiac
 import resource.tweets as tweets
+from resource.jerkcity import JERKCITY
 import utils.util as util
 
 # Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.
@@ -131,3 +132,36 @@ def FROG_source(N):
     '''
     TIPS = [FROG.GET_RANDOM() for _ in range(N)]
     return [T['tip'] for T in TIPS]
+
+
+@make_source({
+    'COMIC' : Sig(int, -1, 'EXACT COMIC NUMBER, -1 FOR QUERY COMIC.'),
+    'Q'     : Sig(str, '', 'TITLE OR DIALOG TO LOOK FOR, EMPTY FOR RANDOM COMICS.'),
+    'N'     : Sig(int, 1, 'NUMBER OF COMICS TO LOAD LINES FROM.', lambda x: x>0),
+    'LINES' : Sig(int, 1, 'NUMBER OF LINES PER COMIC (0 FOR ALL LINES).'),
+    'NAMES' : Sig(util.parse_bool, True, 'WHETHER OR NOT DIALOG ATTRIBUTIONS ("spigot: ") ARE KEPT')
+})
+def JERKCITY_source(COMIC, Q, N, LINES, NAMES):
+    ''' JERKCITY COMIC DIALOG '''
+    ISSUES = []
+    if COMIC == -1:
+        if Q == '':
+            ISSUES = JERKCITY.GET_RANDOM(N)
+        else:
+            ISSUES = JERKCITY.SEARCH(Q, N)
+    else:
+        ISSUES = [JERKCITY.GET(COMIC)] * N
+
+    _LINES = []
+    if LINES == 0:
+        _LINES = [LINE for ISSUE in ISSUES for LINE in ISSUE.DIALOG.split('\n') if LINE.strip() != '']
+    else:
+        for ISSUE in ISSUES:
+            THESE_LINES = [LINE for LINE in ISSUE.DIALOG.split('\n') if LINE.strip() != '']
+            I = random.randint(0, len(THESE_LINES) - LINES) if len(THESE_LINES) >= LINES else 0
+            _LINES.extend(THESE_LINES[I:I+LINES])
+
+    if not NAMES:
+        _LINES = [re.split(':\s*', LINE, 1)[1] for LINE in _LINES]
+
+    return _LINES

@@ -15,6 +15,7 @@ import utils.benedict as benedict
 import utils.soapstone as soapstone
 import utils.frinkiac as frinkiac
 import resource.tweets as tweets
+from resource.jerkcity import JERKCITY
 import utils.biogenerator
 from utils.ctree import CTree
 from utils.rand import *
@@ -247,6 +248,17 @@ class BotCommands(MyCommands):
     async def dril_ebook(self, max_length=140):
         '''Generate a random dril tweet'''
         await self.say(tweets.dril_model.make_short_sentence(max_length))
+
+
+    @commands.command(pass_context=True)
+    async def JERKCITY(self, CTX):
+        '''SEARCH FOR A JERKCITY COMIC BASED ON TITLE OR DIALOGUE (OR NO QUERY FOR A RANDOM ONE)'''
+        QUERY = util.get_args(CTX)
+        if QUERY == '':
+            ISSUE = JERKCITY.GET_RANDOM()
+        else:
+            ISSUE = JERKCITY.SEARCH(QUERY)
+        await self.say(ISSUE.URL())
 
 
     @commands.command()

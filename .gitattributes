@@ -15,3 +15,6 @@
 *.PDF	 diff=astextplain
 *.rtf	 diff=astextplain
 *.RTF	 diff=astextplain
+
+# this file too big to diff
+src/resource/jerkcity/dialog.xml    -text diff
