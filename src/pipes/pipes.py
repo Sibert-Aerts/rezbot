@@ -4,6 +4,7 @@ import utils.util as util
 import random
 
 from .pipe_decorations import *
+from .sources import SourceResources
 
 #####################################################
 #                       Pipes                       #
@@ -24,6 +25,13 @@ def repeat_pipe(input, n, lim):
 def delete_pipe(input):
     '''Deletes its input.'''
     return []
+
+
+@make_pipe({'name' : Sig(str, None, 'The variable name')})
+def set_pipe(input, name):
+    '''Temporarily stores the input as a variable with the given name.'''
+    SourceResources.var_dict[name] = input
+    return input
 
 
 @make_pipe({})

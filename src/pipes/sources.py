@@ -14,6 +14,7 @@ import utils.util as util
 # Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.
 class SourceResources:
     previous_pipe_output = ['Nothing here']
+    var_dict = {'TEST': ['testing', '1', '2', 'three!']}
     bot = None
 
 #####################################################
@@ -32,6 +33,12 @@ def that_source(message):
     '''The previous message in the channel.'''
     msg = [m for m in SourceResources.bot.messages if m.channel == message.channel][-2]
     return [msg.content]
+
+
+@make_source({'name' : Sig(str, None, 'The variable name')})
+def get_source(name):
+    '''Loads input stored using the "set" pipe'''
+    return SourceResources.var_dict[name]
 
 
 @make_source({
