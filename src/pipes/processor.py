@@ -15,7 +15,7 @@ class PipeProcessor:
         self.bot = bot
         self.prefix = prefix
 
-        # Pretty smelly, assumes only one bot will ever run per client... which is kind of a safe assumption tbh...
+        # Pretty smelly, assumes only one bot will ever run per client... which is kind of a safe assumption...
         SourceResources.bot = bot
 
     async def pipe_say(self, dest, output):
@@ -57,6 +57,7 @@ class PipeProcessor:
     async def process_pipes(self, message):
         content = message.content
 
+        # Test for the pipe command prefix (Default: '>>>')
         if not content.startswith(self.prefix):
             return False
         content = content[len(self.prefix):]
@@ -67,8 +68,8 @@ class PipeProcessor:
 
         # Use the Source to determine a starting value
 
-        # Matches: '{<sourceName> <args>}'
-        sourceMatch = re.match('{([^}\s]+)(\s+([^\s][^{]*)?)?}', source)
+        # Matches '{<sourceName> <args>}' but is slightly smart and doesnt care about }'s inside quotes
+        sourceMatch = re.match('{(\S+)\s*([^}\s]("[^"]*"|[^}])*)?}', source)
 
         if sourceMatch is None:
             # No source pipe given. Simply interpret the source as a string.
@@ -77,7 +78,7 @@ class PipeProcessor:
         else:
             # A source was specified
             # TODO: CTree this
-            sourceName, _, args = sourceMatch.groups()
+            sourceName, args, _ = sourceMatch.groups()
             sourceName = sourceName.lower()
 
             if sourceName in sources:
@@ -116,8 +117,8 @@ class PipeProcessor:
 
             multiPipes = CTree.get_all('[' + bigPipe + ']')
             
+            # "Parse" pipes as a list of {name, args}
             parsedPipes = []
-
             for pipe in multiPipes:
                 pipe = pipe.strip()
                 split = pipe.split(' ', 1)

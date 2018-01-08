@@ -42,6 +42,7 @@ class __JERKCITY__:
             self.DIALOG = QUERY
 
     def SEARCH(self, QUERY, AMOUNT=0):
+        # TODO: MAKE THIS LESS FUZZY
         QUERY = __JERKCITY__.__QUERY__(QUERY)
         # PARTIAL_RATIO FEELS RIGHT
         RESULTS = process.extract(QUERY, self.ISSUES, processor=lambda X: X.TITLE+'\n'+X.DIALOG, scorer= fuzz.partial_ratio, limit=max(5, AMOUNT))

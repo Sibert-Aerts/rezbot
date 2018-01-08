@@ -22,6 +22,7 @@ class TweetHistory:
 
     def search(self, query, amount=1):
         query = query.lower()
+        # TODO: Make this fuzzy
 
         # Extract absolute matches "of this form" from the query
         a = query.split('"')
