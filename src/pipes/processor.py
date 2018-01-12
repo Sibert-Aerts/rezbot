@@ -1,3 +1,5 @@
+from enum import Enum
+
 from .pipes import *
 from .sources import *
 from .pipe_decorations import pipes, sources
@@ -54,6 +56,26 @@ class PipeProcessor:
         seq = [p.strip() for p in seq.split('>')]
         return seq
 
+    def parse_group_flag(bigPipe):
+        # Special bigPipe flag that determines how multiPipes are applied
+        # e.g. "2 * format [fraktur|script]" or "%4join"
+        # no number: "% join" == "%1 join"
+        # no flag: "join" == "%9999 join" (all input as one big group)
+
+        m = re.match('(\*|%)\s*(\d*)\s*', bigPipe)
+        if m is not None:
+            flag = m.group()
+            print('FLAG:', flag)
+            mode, size = m.groups()
+            size = int(size) if size else 1
+            mode = 'MULTIPLY' if mode == '*' else 'NORMAL'
+            bigPipe = bigPipe[len(flag):]
+        else:
+            mode = 'NORMAL'
+            size = -1
+        return bigPipe, mode, size
+
+
     async def process_pipes(self, message):
         content = message.content
 
@@ -101,22 +123,11 @@ class PipeProcessor:
 
         for bigPipe in pipeLine:
 
-            # Special bigPipe flag that determines how multiPipes are applied
-            # e.g. "2 * format [fraktur|script]" or "4%join"
-            # no number: "% join" == "1% join"
-            # no flag: "join" == "9999% join" (all input as one big group)
-            m = re.match('(\d*)\s*(\*|%)', bigPipe)
-            if m is not None:
-                groupSize = m.groups()[0]
-                groupSize = int(groupSize) if groupSize else 1
-                multiply = m.groups()[1] == '*'
-                bigPipe = bigPipe[len(m.group()):]
-            else:
-                multiply = False
-                groupSize = len(values)
+            bigPipe, groupMode, groupSize = PipeProcessor.parse_group_flag(bigPipe)
+            if groupSize == -1: groupSize = len(values)
 
             multiPipes = CTree.get_all('[' + bigPipe + ']')
-            
+
             # "Parse" pipes as a list of {name, args}
             parsedPipes = []
             for pipe in multiPipes:
@@ -133,9 +144,9 @@ class PipeProcessor:
                 # Slice the inputs according to group size
                 vals = values[i: i+groupSize]
 
-                if multiply:
+                if groupMode == 'MULTIPLY':
                     thePipes = parsedPipes
-                else:
+                elif groupMode == 'NORMAL':
                     # i/groupSize is always an integer, but we must cast it else python gets mad
                     thePipes = [parsedPipes[int(i/groupSize) % len(parsedPipes)]]
 
