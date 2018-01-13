@@ -4,6 +4,7 @@ from .pipes import *
 from .sources import *
 from .pipe_decorations import pipes, sources
 from .pipecommands import customPipes
+import pipes.groupmodes as groupmodes
 
 import permissions
 import utils.texttools as texttools
@@ -56,25 +57,6 @@ class PipeProcessor:
         seq = [p.strip() for p in seq.split('>')]
         return seq
 
-    def parse_group_flag(bigPipe):
-        # Special bigPipe flag that determines how multiPipes are applied
-        # e.g. "2 * format [fraktur|script]" or "%4join"
-        # no number: "% join" == "%1 join"
-        # no flag: "join" == "%9999 join" (all input as one big group)
-
-        m = re.match('(\*|%)\s*(\d*)\s*', bigPipe)
-        if m is not None:
-            flag = m.group()
-            print('FLAG:', flag)
-            mode, size = m.groups()
-            size = int(size) if size else 1
-            mode = 'MULTIPLY' if mode == '*' else 'NORMAL'
-            bigPipe = bigPipe[len(flag):]
-        else:
-            mode = 'NORMAL'
-            size = -1
-        return bigPipe, mode, size
-
 
     async def process_pipes(self, message):
         content = message.content
@@ -123,8 +105,9 @@ class PipeProcessor:
 
         for bigPipe in pipeLine:
 
-            bigPipe, groupMode, groupSize = PipeProcessor.parse_group_flag(bigPipe)
-            if groupSize == -1: groupSize = len(values)
+            bigPipe, groupMode = groupmodes.parse(bigPipe)
+
+            print('GROUPMODE:', str(groupMode))
 
             multiPipes = CTree.get_all('[' + bigPipe + ']')
 
@@ -140,35 +123,25 @@ class PipeProcessor:
             newValues = []
             newPrintValues = []
 
-            for i in range(0, len(values), groupSize):
-                # Slice the inputs according to group size
-                vals = values[i: i+groupSize]
+            for vals, pipe in groupMode.apply(values, parsedPipes):
+                name = pipe['name']
+                args = pipe['args']
 
-                if groupMode == 'MULTIPLY':
-                    thePipes = parsedPipes
-                elif groupMode == 'NORMAL':
-                    # i/groupSize is always an integer, but we must cast it else python gets mad
-                    thePipes = [parsedPipes[int(i/groupSize) % len(parsedPipes)]]
-
-                for pipe in thePipes:
-                    name = pipe['name']
-                    args = pipe['args']
-
-                    if name == 'print':
-                        # hard-coded special case
-                        newPrintValues.extend(vals)
+                if name == 'print':
+                    # hard-coded special case
+                    newPrintValues.extend(vals)
+                    newValues.extend(vals)
+                elif name == '':
+                    newValues.extend(vals)
+                elif name in pipes:
+                    try:
+                        newValues.extend(pipes[name](vals, args))
+                    except Exception as e:
+                        print('Failed to process pipe "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
                         newValues.extend(vals)
-                    elif name == '':
-                        newValues.extend(vals)
-                    elif name in pipes:
-                        try:
-                            newValues.extend(pipes[name](vals, args))
-                        except Exception as e:
-                            print('Failed to process pipe "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
-                            newValues.extend(vals)
-                    else:
-                        print('Error: Unknown pipe ' + name)
-                        newValues.extend(vals)
+                else:
+                    print('Error: Unknown pipe ' + name)
+                    newValues.extend(vals)
 
             values = newValues
             if len(newPrintValues):
