@@ -2,6 +2,7 @@ import unicodedata2
 import emoji
 import utils.util as util
 import random
+import textwrap
 
 from .pipe_decorations import *
 from .sources import SourceResources
@@ -20,11 +21,19 @@ def repeat_pipe(input, n, lim):
     if lim == -1: lim = n*len(input)
     return [i for _ in range(n) for i in input][:lim]
 
-
-@make_pipe({})
-def delete_pipe(input):
-    '''Deletes its input.'''
-    return []
+delete_whats = ['a', 'e', 'w']
+@make_pipe({
+    'what': Sig(str, 'all', 'What to delete. All/empty/whitespace', lambda x: x[0].lower() in delete_whats)
+})
+def delete_pipe(input, what):
+    '''Deletes its input, or specific input.'''
+    what = what[0].lower()
+    if what == 'a': # all
+        return []
+    if what == 'w': # whitespace (and empty too)
+        return [x for x in input if x.trim() != '']
+    if what == 'e': # empty
+        return [x for x in input if x != '']
 
 
 @make_pipe({'name' : Sig(str, None, 'The variable name')})
@@ -79,6 +88,40 @@ def shuffle_pipe(input):
 def split_pipe(inputs, on, lim, keep_whitespace, keep_empty):
     '''Split the input into multiple outputs.'''
     return [x for y in inputs for x in re.split(on, y, maxsplit=lim) if x.strip() != '' or (keep_whitespace and x != '') or (keep_empty and x == '')]
+
+
+pad_modes = ['l', 'c', 'r']
+
+@make_pipe({
+    'where': Sig(str, 'right', 'Which side to pad on: left/center/right', lambda x: x[0].lower() in pad_modes),
+    'width': Sig(int, 0, 'The minimum width to pad to.'),
+    'fill' : Sig(str, ' ', 'The character used to pad out the string.'),
+})
+@as_map
+def pad_pipe(text, where, width, fill):
+    '''Pad the input to a certain width.'''
+    where = where[0].lower()
+    if where == 'l':
+        return text.rjust(width, fill)
+    if where == 'r':
+        return text.ljust(width, fill)
+    if where == 'c':
+        return text.center(width, fill)
+
+
+wrap_modes = ['d', 's']
+
+@make_pipe({
+    'mode' : Sig(str, 'smart', 'How to wrap: Dumb (char-by-char) or smart (on spaces).', lambda x: x[0].lower() in wrap_modes),
+    'width': Sig(int, 40, 'The minimum width to pad to.')
+})
+def wrap_pipe(inputs, mode, width):
+    '''Wrap the input to a certain width.'''
+    mode = mode[0].lower()
+    if mode == 'd':
+        return [text[i:i+width] for text in inputs for i in range(0, len(text), width)]
+    if mode == 's':
+        return [wrapped for text in inputs for wrapped in textwrap.wrap(text, width)]
 
 
 @make_pipe({

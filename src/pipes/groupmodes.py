@@ -108,12 +108,17 @@ class Interval(GroupMode):
         # TODO: crop rule
         nop = {'name':'', 'args':''}
         rval = self.rval if self.rval != 'LEN' else len(values)
-        out = [
-            (values[0: self.lval], nop),
-            (values[self.lval: rval], pipes[0]),
-            (values[rval: len(values)], nop),
-        ]
-        return out
+        lval = self.lval
+        while lval < 0: lval += len(values)
+        while rval < 0: rval += len(values)
+        if rval < lval: # negative range: nop
+            return [(values, nop)]
+        else:
+            return [
+                (values[0: lval], nop),
+                (values[lval: rval], pipes[0]),
+                (values[rval: len(values)], nop),
+            ]
 
 
 pattern = re.compile(r'(\*?)(\(|%|#|/|)\s*(-?\d*(?:\.\.+-?\d+)?|\d*)\s*\)?\s*')
