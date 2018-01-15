@@ -24,9 +24,10 @@ def bot_format(str):
         str += '.'
     return '`{0}`'.format(str)
 
-def block_format(str):
+def block_format(s):
     ''' Format text into a code block. '''
-    return '```\n{0}```'.format(str)
+    # put a zero-width space in there to prevent it from breaking our block
+    return '```\n{0}```'.format(s.replace('```','`­``'))
 
 def matchCase(char, case):
     return char.upper() if case.isupper() else char.lower()
