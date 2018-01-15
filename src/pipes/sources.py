@@ -1,4 +1,5 @@
 import emoji
+import random
 
 from .pipe_decorations import *
 from utils.texttools import *
@@ -39,6 +40,17 @@ def that_source(message):
 def get_source(name):
     '''Loads input stored using the "set" pipe'''
     return SourceResources.var_dict[name]
+
+
+@make_source({
+    'min': Sig(int, 1, 'The minimum value'),
+    'max': Sig(int, 6, 'The maximum value'),
+    'n'  : Sig(int, 1, 'The amount of rolls')
+}, command=True)
+@multi_source
+def roll_source(min, max):
+    '''A dice roll between min and max.'''
+    return str(random.randint(min, max))
 
 
 @make_source({
