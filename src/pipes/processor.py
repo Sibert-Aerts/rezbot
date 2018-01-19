@@ -82,9 +82,10 @@ class PipeProcessor:
         pipeLine = pipeLine[1:]
 
         # Use the Source to determine a starting value
+        # TODO: "{words} my {soapstone} and {roll}" -> "aubergine my Praise the sun! and 4"
 
         # Matches '{<sourceName> <args>}' but is slightly smart and doesnt care about }'s inside quotes
-        sourceMatch = re.match('{(\S+)\s*([^}\s]("[^"]*"|[^}])*)?}', source)
+        sourceMatch = re.match('{(\S+)\s*([^}\s]("[^"]*"|[^}])*)?}', source.strip())
 
         if sourceMatch is None:
             # No source pipe given. Simply interpret the source as a string.
@@ -100,8 +101,7 @@ class PipeProcessor:
                 values = sources[sourceName](message, args)
             else:
                 print('Error: Unknown source ' + sourceName)
-                print([i for i in sources])
-                return
+                values = [source]
 
         # Increment i manually because we're doing some funny stuff
         i = 0
@@ -137,12 +137,10 @@ class PipeProcessor:
             # "Parse" pipes as a list of {name, args}
             parsedPipes = []
             for pipe in multiPipes:
-                pipe = pipe.format_map(strDict)
-                print('PIPE:', pipe)
-                pipe = pipe.strip()
+                pipe = pipe.format_map(strDict).strip()
                 split = pipe.split(' ', 1)
                 name = split[0]
-                args = split[1] if len(split) > 1 else ''
+                args = ''.join(split[1:])
                 parsedPipes.append({'name': name, 'args': args})
 
             newValues = []
