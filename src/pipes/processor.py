@@ -50,12 +50,22 @@ class PipeProcessor:
         await self.bot.send_message(dest, output)
 
     def parse_sequence(seq):
-        # TODO: Instead of just splitting on > make it SMARTER for BETTER BRANCHES (pyparsing or something?!)
         # Literally just find-and-replace arrows for print pipes
         seq = seq.replace('->', '>print>')
-        # Split on > to determine pipes
-        seq = [p.strip() for p in seq.split('>')]
-        return seq
+        # Split on >'s outside of quote blocks to determine pipes (naively)
+        # I first tried doing this relying on .split but that's insanely hard and maybe slightly impossible
+        out = []
+        quotes = False
+        current = ''
+        for c in seq:
+            if not quotes and c == '>':
+                out.append(current)
+                current = ''
+            else:
+                current += c
+                quotes ^= c == '"'
+        out.append(current)
+        return out
 
 
     async def process_pipes(self, message):
