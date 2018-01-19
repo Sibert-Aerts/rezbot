@@ -44,6 +44,11 @@ def format_doc(**kwargs):
         return func
     return _format_doc
 
+'''A dict that returns "{key}" if it does not contain an entry for "key".'''
+class FormatDict(dict):
+    def __missing__(self, key):
+        return '{'+key+'}'
+
 theSheriff = '''
 ⠀　　　:cowboy:
 　　:100::100::100:

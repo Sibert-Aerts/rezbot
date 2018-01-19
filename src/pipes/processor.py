@@ -8,6 +8,7 @@ import pipes.groupmodes as groupmodes
 
 import permissions
 import utils.texttools as texttools
+import utils.util as util
 
 ################################################################
 #              The class that puts it all to work              #
@@ -119,11 +120,25 @@ class PipeProcessor:
 
             print('GROUPMODE:', str(groupMode))
 
+            # True and utter hack: Simply swipe triple-quoted strings out of the bigPipe and put them back
+            # in each of the pipes produced by CTree.get_all, so triple quotes escape all CTree expansion.
+            strDict = util.FormatDict()
+            def f(match):
+                i = '_' + str(random.randint(0, 999999))
+                while i in strDict: i = '_' + str(random.randint(0, 999999))
+                # Triple quotes are turned into regular quotes here, which may have unexpected consequences(?)
+                # Alternatively triple quotes as a way to parse arguments containing both 's and "s would be cute...
+                strDict[i] = '"' + match.groups()[0] + '"'
+                return '{' + i + '}'
+
+            bigPipe = re.sub(r'"""(("?"?[^"])+)"""', f, bigPipe)
             multiPipes = CTree.get_all('[' + bigPipe + ']')
 
             # "Parse" pipes as a list of {name, args}
             parsedPipes = []
             for pipe in multiPipes:
+                pipe = pipe.format_map(strDict)
+                print('PIPE:', pipe)
                 pipe = pipe.strip()
                 split = pipe.split(' ', 1)
                 name = split[0]
