@@ -60,12 +60,12 @@ class PipeProcessor:
         current = ''
         for c in seq:
             if not quotes and c == '>':
-                out.append(current)
+                out.append(current.strip())
                 current = ''
             else:
                 current += c
                 quotes ^= c == '"'
-        out.append(current)
+        out.append(current.strip())
         return out
 
 
@@ -85,7 +85,7 @@ class PipeProcessor:
         # TODO: "{words} my {soapstone} and {roll}" -> "aubergine my Praise the sun! and 4"
 
         # Matches '{<sourceName> <args>}' but is slightly smart and doesnt care about }'s inside quotes
-        sourceMatch = re.match('{(\S+)\s*([^}\s]("[^"]*"|[^}])*)?}', source.strip())
+        sourceMatch = re.match('{(\S+)\s*([^}\s]("[^"]*"|[^}])*)?}', source)
 
         if sourceMatch is None:
             # No source pipe given. Simply interpret the source as a string.
@@ -116,7 +116,7 @@ class PipeProcessor:
 
         for bigPipe in pipeLine:
 
-            bigPipe, groupMode = groupmodes.parse(bigPipe.strip())
+            bigPipe, groupMode = groupmodes.parse(bigPipe)
 
             print('GROUPMODE:', str(groupMode))
 
@@ -146,7 +146,7 @@ class PipeProcessor:
             # "Parse" pipes as a list of {name, args}
             parsedPipes = []
             for pipe in multiPipes:
-                pipe = pipe.format_map(strDict).strip()
+                pipe = pipe.format_map(strDict)
                 print("PIPE:" , pipe)
                 split = pipe.split(' ', 1)
                 name = split[0]
