@@ -116,28 +116,38 @@ class PipeProcessor:
 
         for bigPipe in pipeLine:
 
-            bigPipe, groupMode = groupmodes.parse(bigPipe)
+            bigPipe, groupMode = groupmodes.parse(bigPipe.strip())
 
             print('GROUPMODE:', str(groupMode))
 
             # True and utter hack: Simply swipe triple-quoted strings out of the bigPipe and put them back
             # in each of the pipes produced by CTree.get_all, so triple quotes escape all CTree expansion.
             strDict = util.FormatDict()
+            def geti(): return '_' + str(random.randint(0, 999999))
             def f(match):
-                i = '_' + str(random.randint(0, 999999))
-                while i in strDict: i = '_' + str(random.randint(0, 999999))
+                i = geti()
+                while i in strDict: i = geti()
                 # Triple quotes are turned into regular quotes here, which may have unexpected consequences(?)
                 # Alternatively triple quotes as a way to parse arguments containing both 's and "s would be cute...
                 strDict[i] = '"' + match.groups()[0] + '"'
                 return '{' + i + '}'
+            
+            def f2(match):
+                i = geti()
+                while i in strDict: i = geti()
+                strDict[i] = match.group()
+                return '{' + i + '}'
 
             bigPipe = re.sub(r'"""(("?"?[^"])+)"""', f, bigPipe)
+            bigPipe = re.sub(r'\{\d*\}', f2, bigPipe)
+            print('BIGPIPE:', bigPipe)
             multiPipes = CTree.get_all('[' + bigPipe + ']')
 
             # "Parse" pipes as a list of {name, args}
             parsedPipes = []
             for pipe in multiPipes:
                 pipe = pipe.format_map(strDict).strip()
+                print("PIPE:" , pipe)
                 split = pipe.split(' ', 1)
                 name = split[0]
                 args = ''.join(split[1:])
