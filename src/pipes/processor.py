@@ -118,7 +118,7 @@ class PipeProcessor:
 
             bigPipe, groupMode = groupmodes.parse(bigPipe)
 
-            print('GROUPMODE:', str(groupMode))
+            # print('GROUPMODE:', str(groupMode))
 
             # True and utter hack: Simply swipe triple-quoted strings out of the bigPipe and put them back
             # in each of the pipes produced by CTree.get_all, so triple quotes escape all CTree expansion.
@@ -132,22 +132,27 @@ class PipeProcessor:
                 strDict[i] = '"' + match.groups()[0] + '"'
                 return '{' + i + '}'
             
+            bigPipe = re.sub(r'"""(("?"?[^"])+)"""', f, bigPipe)
+            
+            # The absolute disgustingest hack of them all:
+            # Steal away all positional format strings {} and {0} etc. and also put them back later
+            # TODO: Good god clean this absolute garbage up. This is horrible. This is a crime. Don't use .format_map() for this, it's so bad
             def f2(match):
                 i = geti()
                 while i in strDict: i = geti()
                 strDict[i] = match.group()
                 return '{' + i + '}'
 
-            bigPipe = re.sub(r'"""(("?"?[^"])+)"""', f, bigPipe)
             bigPipe = re.sub(r'\{\d*\}', f2, bigPipe)
-            print('BIGPIPE:', bigPipe)
+
+            # print('BIGPIPE:', bigPipe)
             multiPipes = CTree.get_all('[' + bigPipe + ']')
 
             # "Parse" pipes as a list of {name, args}
             parsedPipes = []
             for pipe in multiPipes:
                 pipe = pipe.format_map(strDict)
-                print("PIPE:" , pipe)
+                # print("PIPE:" , pipe)
                 split = pipe.split(' ', 1)
                 name = split[0]
                 args = ''.join(split[1:])
