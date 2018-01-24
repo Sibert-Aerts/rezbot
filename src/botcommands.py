@@ -13,7 +13,7 @@ import utils.util as util
 import utils.texttools as texttools
 import utils.benedict as benedict
 import utils.soapstone as soapstone
-import utils.frinkiac as frinkiac
+from utils.frinkiac import simpsons, futurama
 import resource.tweets as tweets
 from resource.jerkcity import JERKCITY
 import utils.biogenerator
@@ -226,9 +226,21 @@ class BotCommands(MyCommands):
         '''Search for a Simpsons screencap and caption matching a query (or a random one if no query is given).'''
         query = util.get_args(ctx)
         if query == '':
-            im, cap = frinkiac.random()
+            im, cap = simpsons.random()
         else:
-            im, cap = frinkiac.search(query)
+            im, cap = simpsons.search(query)
+        await self.say(im)
+        await self.say(cap)
+
+
+    @commands.command(pass_context=True)
+    async def futurama(self, ctx):
+        '''Search for a Futurama screencap and caption matching a query (or a random one if no query is given).'''
+        query = util.get_args(ctx)
+        if query == '':
+            im, cap = futurama.random()
+        else:
+            im, cap = futurama.search(query)
         await self.say(im)
         await self.say(cap)
 
