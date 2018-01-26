@@ -121,29 +121,25 @@ class PipeProcessor:
             # print('GROUPMODE:', str(groupMode))
 
             # True and utter hack: Simply swipe triple-quoted strings out of the bigPipe and put them back
-            # in each of the pipes produced by CTree.get_all, so triple quotes escape all CTree expansion.
-            strDict = util.FormatDict()
-            def geti(): return '_' + str(random.randint(0, 999999))
-            def f(match):
-                i = geti()
-                while i in strDict: i = geti()
-                # Triple quotes are turned into regular quotes here, which may have unexpected consequences(?)
-                # Alternatively triple quotes as a way to parse arguments containing both 's and "s would be cute...
-                strDict[i] = '"' + match.groups()[0] + '"'
-                return '{' + i + '}'
-            
-            bigPipe = re.sub(r'"""(("?"?[^"])+)"""', f, bigPipe)
-            
-            # The absolute disgustingest hack of them all:
-            # Steal away all positional format strings {} and {0} etc. and also put them back later
-            # TODO: Good god clean this absolute garbage up. This is horrible. This is a crime. Don't use .format_map() for this, it's so bad
-            def f2(match):
-                i = geti()
-                while i in strDict: i = geti()
-                strDict[i] = match.group()
-                return '{' + i + '}'
+            # later in the expanded pipes, so triple quotes escape all CTree expansion.
+            tripleQuoteDict = {}
+            def geti(): return str(random.randint(0, 999999))
 
-            bigPipe = re.sub(r'\{\d*\}', f2, bigPipe)
+            def steal_triple_quotes(match):
+                i = geti()
+                while i in tripleQuoteDict: i = geti()
+                # Triple quotes are turned into regular quotes here, which may have unexpected consequences(?)
+                tripleQuoteDict[i] = '"' + match.groups()[0] + '"'
+                return '--//!!§§' + i + '§§!!//--'
+
+            def return_triple_quotes(pipe):
+                def f(m):
+                    i = m.groups()[0]
+                    if i in tripleQuoteDict: return tripleQuoteDict[i]
+                    else: return '--//!!§§' + i + '§§!!//--'
+                return re.sub(r'--//!!§§(.*?)§§!!//--', f, pipe)
+
+            bigPipe = re.sub(r'"""(.*?)"""', steal_triple_quotes, bigPipe)
 
             # print('BIGPIPE:', bigPipe)
             multiPipes = CTree.get_all('[' + bigPipe + ']')
@@ -151,9 +147,9 @@ class PipeProcessor:
             # "Parse" pipes as a list of {name, args}
             parsedPipes = []
             for pipe in multiPipes:
-                pipe = pipe.format_map(strDict)
-                # print("PIPE:" , pipe)
-                split = pipe.split(' ', 1)
+                # Put triple-quoted strings back in their positions
+                pipe = return_triple_quotes(pipe)
+                split = pipe.strip().split(' ', 1)
                 name = split[0]
                 args = ''.join(split[1:])
                 parsedPipes.append({'name': name, 'args': args})
