@@ -58,6 +58,7 @@ class PipesCommands(MyCommands):
     @commands.command()
     async def languages(self, name=''):
         '''Print the list of languages applicable for the translate command/pipe.'''
+        #TODO: put this in the language pipe's doc.
         await self.say(' '.join(texttools.translateLanguages))
 
     @commands.command()
@@ -70,8 +71,10 @@ class PipesCommands(MyCommands):
         '''Print a list of all pipes and their descriptions, or details on a specific pipe.'''
         infos = []
 
+        # TODO: if name in customPipes:
+
         # Info on a specific pipe
-        if name != '' and pipes.get(name) is not None:
+        if name != '' and name in pipes:
             pipe = pipes[name]
             info = name
             if pipe.__doc__ is not None:
@@ -209,6 +212,8 @@ def pipe_to_func(pipe):
         await self.say(text)
     func.__name__ = pipe.__name__.split('_pipe', 1)[0]
     func.__doc__ = pipe.__doc__
+    if pipe.signature:
+        func.__doc__ += '\nArguments:\n' + '\n'.join(' • ' + s for s in pipe.signature)
     return func
 
 # Turn those pipes into discord.py bot commands!
@@ -229,6 +234,8 @@ def source_to_func(source):
         await self.say('\n'.join(text))
     func.__name__ = source.__name__.split('_source', 1)[0]
     func.__doc__ = source.__doc__
+    if source.signature:
+        func.__doc__ += '\nArguments:\n' + '\n'.join(' • ' + s for s in source.signature)
     return func
 
 # Turn those sources into discord.py bot commands!
@@ -238,5 +245,7 @@ for source in command_sources:
     command = commands.command(pass_context=True)(func)
     setattr(PipesCommands, func.__name__, command)
 
+
+# Load the bot cog
 def setup(bot):
     bot.add_cog(PipesCommands(bot))

@@ -113,19 +113,6 @@ def signature_docstring(signature):
     return decorate
 
 
-def expandable_signature(func):
-    '''
-    Decorate a function that takes a signature to also accept expanding signatures.
-    e.g. f'("n=[10|20]") → [f("n=10"), f("n=20")]
-    '''
-    @wraps(func)
-    def _exp_sig(text, argstr=None):
-        if argstr is None:
-            return func(text, None)
-        return [f for a in CTree.get_all(argstr) for f in func(text, a)]
-    return _exp_sig
-
-
 def pipe_signature(sig):
     '''Decorator that turns a string input into a string and arguments input, with the arguments removed from the string.'''
     def decorate(func):
@@ -170,6 +157,11 @@ def make_pipe(sig, command=False):
         if command: command_pipes.append(func)
         return func
     return _make_pipe
+
+
+#########################################################
+#             The same block but for sources            #
+#########################################################
 
 
 def source_signature(sig, pass_message):

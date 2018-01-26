@@ -44,7 +44,7 @@ def get_source(name):
 
 @make_source({
     'min': Sig(int, 1, 'The minimum value'),
-    'max': Sig(int, 6, 'The maximum value'),
+    'max': Sig(int, 20, 'The maximum value'),
     'n'  : Sig(int, 1, 'The amount of rolls')
 }, command=True)
 @multi_source
@@ -56,7 +56,7 @@ def roll_source(min, max):
 @make_source({
     'pattern': Sig(str, '', 'The pattern to look for (regex)'),
     'n'      : Sig(int, 1,  'The number of sampled words.')
-}, command=True)
+})
 def words_source(pattern, n):
     '''Random dictionary words, optionally matching a pattern.'''
     if pattern != '':
@@ -144,7 +144,7 @@ def dril_source(q, n):
     'N' : Sig(int, 1, 'NUMBER OF FROG TIPS.')
 }, command=True)
 def FROG_source(N):
-    '''
+    '''\
     FROG TIPS FOR HOME CONSUMERS, AS SEEN ON HTTPS://FROG.TIPS.
     
     FOR MORE INFORMATION PLEASE CONSULT HTTPS://FROG.TIPS/API/1/.
