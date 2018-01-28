@@ -15,6 +15,7 @@ import utils.benedict as benedict
 import utils.soapstone as soapstone
 from utils.frinkiac import simpsons, futurama
 import resource.tweets as tweets
+import resource.youtubecaps as youtubecaps
 from resource.jerkcity import JERKCITY
 import utils.biogenerator
 from utils.ctree import CTree
@@ -243,6 +244,30 @@ class BotCommands(MyCommands):
             im, cap = futurama.search(query)
         await self.say(im)
         await self.say(cap)
+
+
+    @commands.command(pass_context=True)
+    async def youtube(self, ctx, command='', val=''):
+        '''Get a random caption from a youtube video from a list of saved youtube videos'''
+        if command == 'add':
+            try:
+                title, what = youtubecaps.download_subs(val)
+                await self.say('successfully saved {} for youtube video "{}"'.format(what, title))
+            except Exception as e:
+                print(e)
+                await self.say('something went wrong. make sure the url is correct and that the video has subtitles or automatic captions')
+            return
+        elif command in ['delete', 'remove']:
+            try:
+                youtubecaps.delete(val)
+                await self.say('successfully deleted captions for that youtube video.')
+            except:
+                await self.say('no captions for a video by that id was found.')
+            return
+        else:
+            cap, url = youtubecaps.get_random()
+            await self.say(url)
+            await self.say(cap)
 
 
     @commands.command(pass_context=True)
