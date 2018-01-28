@@ -35,13 +35,10 @@ def download_subs(url):
         url = video['automatic_captions']['en'][1]['url']
         what = 'automatic captions'
 
-    print('ABAA')
     response = requests.get(url)
     vtt = response.content
     with open(_SUBSDIR(make_filename(id, title)), 'wb') as file:
         file.write(vtt)
-
-    print('ABOO')
 
     load_subs_by_id_title(id, title)
 
