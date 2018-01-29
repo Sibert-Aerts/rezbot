@@ -7,7 +7,7 @@ from utils.rand import *
 from utils.FROG import FROG
 import utils.soapstone as soapstone
 import utils.benedict as benedict
-import utils.frinkiac as frinkiac
+from utils.frinkiac import simpsons, futurama
 import resource.tweets as tweets
 from resource.jerkcity import JERKCITY
 import utils.util as util
@@ -115,9 +115,29 @@ def simpsons_source(n, q, multiline):
     out = []
     for i in range(n):
         if q == '':
-            val = frinkiac.random_caption().split('\n')
+            val = simpsons.random_caption().split('\n')
         else:
-            val = frinkiac.search_caption(q).split('\n')
+            val = simpsons.search_caption(q).split('\n')
+        if multiline:
+            out.extend(val)
+        else:
+            out.append(choose(val))
+    return out
+
+
+@make_source({
+    'n'         : Sig(int, 1, 'The amount of captions.'),
+    'q'         : Sig(str, '', 'Search query, empty for a random quote'),
+    'multiline' : Sig(util.parse_bool, True, 'Allow captions longer than one line.')
+})
+def futurama_source(n, q, multiline):
+    '''Random futurama captions from the Morbotron.com API.'''
+    out = []
+    for i in range(n):
+        if q == '':
+            val = futurama.random_caption().split('\n')
+        else:
+            val = futurama.search_caption(q).split('\n')
         if multiline:
             out.extend(val)
         else:
