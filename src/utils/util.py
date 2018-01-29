@@ -26,7 +26,7 @@ def remove_duplicates(list):
     return out
 
 
-def get_args(ctx):
+def strip_command(ctx):
     '''Takes a Discord.py ctx object and return the message content with the first word (command name) removed.'''
     s = ctx.message.content.split(' ', 1)
     return s[1] if len(s) > 1 else ''

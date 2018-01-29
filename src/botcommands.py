@@ -15,7 +15,7 @@ import utils.benedict as benedict
 import utils.soapstone as soapstone
 from utils.frinkiac import simpsons, futurama
 import resource.tweets as tweets
-import resource.youtubecaps as youtubecaps
+from resource.youtubecaps import youtubeCaps
 from resource.jerkcity import JERKCITY
 import utils.biogenerator
 from utils.ctree import CTree
@@ -66,7 +66,7 @@ class BotCommands(MyCommands):
     @commands.command(pass_context=True, hidden=True)
     async def play(self, ctx):
         '''Set the currently played game.'''
-        game = util.get_args(ctx)
+        game = util.strip_command(ctx)
         if game == '':
             await self.bot.change_presence(game=None)
         else:
@@ -76,7 +76,7 @@ class BotCommands(MyCommands):
     @commands.command(pass_context=True, hidden=True)
     async def echo(self, ctx):
         '''Repeat your message in a code block (for emoji related purposes).'''
-        await self.say('`{}`'.format(util.get_args(ctx)))
+        await self.say('`{}`'.format(util.strip_command(ctx)))
 
 
     @commands.command(pass_context=True, hidden=True)
@@ -86,7 +86,7 @@ class BotCommands(MyCommands):
         
         "[a|b]c[d|e]" -> "acd", "bcd", "ace", "bce"
         '''
-        text = util.get_args(ctx)
+        text = util.strip_command(ctx)
         tree = CTree.parse(text)
         all = []
         while not tree.done:
@@ -225,7 +225,7 @@ class BotCommands(MyCommands):
     @commands.command(pass_context=True)
     async def simpsons(self, ctx):
         '''Search for a Simpsons screencap and caption matching a query (or a random one if no query is given).'''
-        query = util.get_args(ctx)
+        query = util.strip_command(ctx)
         if query == '':
             im, cap = simpsons.random()
         else:
@@ -237,7 +237,7 @@ class BotCommands(MyCommands):
     @commands.command(pass_context=True)
     async def futurama(self, ctx):
         '''Search for a Futurama screencap and caption matching a query (or a random one if no query is given).'''
-        query = util.get_args(ctx)
+        query = util.strip_command(ctx)
         if query == '':
             im, cap = futurama.random()
         else:
@@ -247,33 +247,84 @@ class BotCommands(MyCommands):
 
 
     @commands.command(pass_context=True)
-    async def youtube(self, ctx, command='', val=''):
+    async def youtube(self, ctx):
         '''Get a random caption from a youtube video from a list of saved youtube videos'''
-        if command == 'add':
-            try:
-                title, what = youtubecaps.download_subs(val)
-                await self.say('successfully saved {} for youtube video "{}"'.format(what, title))
-            except Exception as e:
-                print(e)
-                await self.say('something went wrong. make sure the url is correct and that the video has subtitles or automatic captions')
-            return
-        elif command in ['delete', 'remove']:
-            try:
-                youtubecaps.delete(val)
-                await self.say('successfully deleted captions for that youtube video.')
-            except:
-                await self.say('no captions for a video by that id was found.')
-            return
+        query = util.strip_command(ctx)
+        if query.strip() == '':
+            cap, url = youtubeCaps.get_random()
+            await self.say(url)
+            await self.say(cap)
         else:
-            cap, url = youtubecaps.get_random()
+            cap, url = youtubeCaps.search(query)
             await self.say(url)
             await self.say(cap)
 
 
     @commands.command(pass_context=True)
+    async def youtube_add(self, ctx, url, alias=None, *tags):
+        '''Add a video to the list of tracked videos'''
+        try:
+            title, what = youtubeCaps.download_subs(url, alias, tags)
+            aliastext = '' if alias is None else ' with alias "{}"'.format(alias)
+            tagstext = '' if len(tags) == 0 else ', tags: ' + ', '.join(tags)
+            await self.say('successfully saved {} for youtube video "{}"{}{}'.format(what, title, aliastext, tagstext))
+        except ValueError as e:
+            await self.say(e.what)
+        except Exception as e:
+            print(e)
+            await self.say('something went wrong. make sure the url is correct.')
+
+
+    @commands.command()
+    @permissions.check('owner')
+    async def youtube_delete(self, identifier):
+        '''Delete a video from the list of tracked videos'''
+        try:
+            title = youtubeCaps.delete(identifier)
+            await self.say('successfully deleted captions for video "{}".'.format(title))
+        except ValueError as e:
+            await self.say(e.what)
+
+
+    @commands.command()
+    async def youtube_alias(self, ident, alias):
+        '''Give a video (by id or title) an alias'''
+        video = youtubeCaps.identify(ident)
+        if video is None:
+            await self.say('"{}" does not uniquely identify a video.'.format(ident))
+            return
+        oldAlias = video.alias
+        video.alias = alias
+        if oldAlias is None:
+            await self.say('successfully set the alias for video "{}" to "{}".'.format(video.title, alias))
+        else:
+            await self.say('successfully changed the alias for video "{}" from "{}" to "{}".'.format(video.title, oldAlias, alias))
+
+
+    @commands.command()
+    async def youtube_add_tag(self, ident, *tags):
+        '''Give a video (by id or title or alias) new tags'''
+        video = youtubeCaps.identify(ident)
+        if video is None:
+            await self.say('"{}" does not uniquely identify a video.'.format(ident))
+        video.tags = list(set(video.tags).union(tags))
+        await self.say('successfully set tags to video "{}" to: {}.'.format(video.title, ', '.join(video.tags)))
+
+
+    @commands.command()
+    async def youtube_delete_tag(self, ident, *tags):
+        '''Remove tags from a video.'''
+        video = youtubeCaps.identify(ident)
+        if video is None:
+            await self.say('"{}" does not uniquely identify a video.'.format(ident))
+        video.tags = list(set(video.tags) - set(tags))
+        await self.say('successfully set tags to video "{}" to: {}.'.format(video.title, ', '.join(video.tags)))
+
+
+    @commands.command(pass_context=True)
     async def dril(self, ctx):
         '''Search for a dril tweet matching a query (or a random one if no query is given).'''
-        query = util.get_args(ctx)
+        query = util.strip_command(ctx)
         if query == '':
             tweet = tweets.dril.random()
         else:
@@ -290,7 +341,7 @@ class BotCommands(MyCommands):
     @commands.command(pass_context=True)
     async def JERKCITY(self, CTX):
         '''SEARCH FOR A JERKCITY COMIC BASED ON TITLE OR DIALOGUE (OR NO QUERY FOR A RANDOM ONE)'''
-        QUERY = util.get_args(CTX)
+        QUERY = util.strip_command(CTX)
         if QUERY == '':
             ISSUE = JERKCITY.GET_RANDOM()
         else:
@@ -307,7 +358,7 @@ class BotCommands(MyCommands):
     @commands.command(pass_context=True)
     async def image_split(self, ctx):
         '''Splits a series of image urls into groups of 5 and posts them.'''
-        urls = list(filter(lambda t: re.match('https?://', t) is not None, util.get_args(ctx).split()))[5:]
+        urls = list(filter(lambda t: re.match('https?://', t) is not None, util.strip_command(ctx).split()))[5:]
         for i in range(0, len(urls), 5):
             await self.say(' '.join(urls[i:i+5]))
 

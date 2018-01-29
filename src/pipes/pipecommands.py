@@ -207,7 +207,7 @@ class PipesCommands(MyCommands):
 
 def pipe_to_func(pipe):
     async def func(self, ctx):
-        text = util.get_args(ctx)
+        text = util.strip_command(ctx)
         text = pipe(text)
         await self.say(text)
     func.__name__ = pipe.__name__.split('_pipe', 1)[0]
@@ -229,7 +229,7 @@ for pipe in command_pipes:
 
 def source_to_func(source):
     async def func(self, ctx):
-        args = util.get_args(ctx)
+        args = util.strip_command(ctx)
         text = source(ctx.message, args)
         await self.say('\n'.join(text))
     func.__name__ = source.__name__.split('_source', 1)[0]
