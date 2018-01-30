@@ -5,6 +5,7 @@ import discord
 from discord.ext import commands
 
 from .pipes import *
+from .custompipes import CustomPipe, custom_pipes
 from mycommands import MyCommands
 import utils.texttools as texttools
 import utils.util as util
@@ -39,16 +40,8 @@ Several example pipelines that you can try out:
 PS: `->` is short for `> print >`
 '''
 
-customPipes = {}
-try:
-    customPipes = pickle.load(open('custompipes.p', 'rb'))
-    print(len(customPipes), 'custom pipes loaded.')
-except:
-    print('Could not load custompipes.p!')
-    pass
-
 ###############################################################
-#              An extra command module for pipes              #
+#            A module providing commands for pipes            #
 ###############################################################
 
 class PipesCommands(MyCommands):
@@ -71,7 +64,7 @@ class PipesCommands(MyCommands):
         '''Print a list of all pipes and their descriptions, or details on a specific pipe.'''
         infos = []
 
-        # TODO: if name in customPipes:
+        # TODO: if name in custom_pipes:
 
         # Info on a specific pipe
         if name != '' and name in pipes:
@@ -131,42 +124,53 @@ class PipesCommands(MyCommands):
     # Custom pipes down here
 
     @commands.command(pass_context=True)
-    async def define(self, ctx, name=''):
+    async def define_pipe(self, ctx, name=''):
         '''Define a custom pipe. First argument is the name, everything after that is the code.'''
-        name = name.lower()
-        if name in pipes or name in customPipes:
+        name = name.lower().split(' ')[0]
+        if name in pipes or name in custom_pipes:
             await self.say('A pipe by that name already exists, try >redefine instead.')
             return
         code = re.split('\s+', ctx.message.content, 2)[2]
-        customPipes[name] = {'desc': None, 'code': code}
-        await self.say('Defined a new pipe called `{}` as `{}`'.format(name, customPipes[name]['code']))
-        pickle.dump(customPipes, open('custompipes.p', 'wb'))
+        custom_pipes[name] = CustomPipe(name, code)
+        await self.say('Defined a new pipe called `{}` as `{}`'.format(name, code))
 
 
     @commands.command(pass_context=True)
-    async def redefine(self, ctx, name=''):
+    async def redefine_pipe(self, ctx, name=''):
         '''Redefine a custom pipe. First argument is the name, everything after that is the code.'''
-        name = name.lower()
-        if name not in customPipes:
+        name = name.lower().split(' ')[0]
+        if name not in custom_pipes:
             await self.say('A custom pipe by that name was not found!')
             return
         code = re.split('\s+', ctx.message.content, 2)[2]
-        customPipes[name]['code'] = code
-        await self.say('Redefined `{}` as `{}`'.format(name, customPipes[name]['code']))
-        pickle.dump(customPipes, open('custompipes.p', 'wb'))
+        custom_pipes[name].code = code
+        custom_pipes.write()
+        await self.say('Redefined `{}` as `{}`'.format(name, code))
 
 
     @commands.command(pass_context=True)
-    async def describe(self, ctx, name=''):
+    async def describe_pipe(self, ctx, name=''):
         '''Describe a custom pipe. First argument is the name, everything after that is the description.'''
-        name = name.lower()
-        if name not in customPipes:
+        name = name.lower().split(' ')[0]
+        if name not in custom_pipes:
             await self.say('A custom pipe by that name was not found!')
             return
         desc = re.split('\s+', ctx.message.content, 2)[2]
-        customPipes[name]['desc'] = desc
-        await self.say('Described `{}` as `{}`'.format(name, customPipes[name]['desc']))
-        pickle.dump(customPipes, open('custompipes.p', 'wb'))
+        custom_pipes[name].desc = desc
+        custom_pipes.write()
+        await self.say('Described `{}` as `{}`'.format(name, desc))
+
+
+    @commands.command(pass_context=True)
+    async def delete_pipe(self, ctx, name=''):
+        '''Delete a custom pipe by name.'''
+        name = name.lower().split(' ')[0]
+        if name not in custom_pipes:
+            await self.say('A custom pipe by that name was not found!')
+            return
+        del custom_pipes[name]
+        await self.say('Deleted custom pipe `{}`.'.format(name))
+
 
 
     @commands.command()
@@ -175,27 +179,22 @@ class PipesCommands(MyCommands):
         infos = []
 
         # Info on a specific pipe
-        if name != '' and name in customPipes:
-            pipe = customPipes[name]
-            info = name + ':'
-            if pipe['desc'] is not None:
-                info += '\n\t' + pipe['desc']
-            info += '\nCode:'
-            info += '\n\t' + pipe['code']
-            # if pipe.signature:
-            #     info += '\n\tArguments:'
-            #     info += '\n\t • ' + '\n\t • '.join(pipe.signature)
-            infos.append(info)
+        if name != '' and name in custom_pipes:
+            infos.append(custom_pipes[name].info())
 
         # Info on all pipes
         else:
+            if not custom_pipes:
+                await self.say('No custom pipes loaded! Try adding one using >define_pipe!')
+                return
+
             infos.append('Here\'s a list of all custom pipes, use >custom_pipes [name] to see more info on a specific one.\n')
-            colW = len(max(customPipes, key=len)) + 2
-            for name in customPipes:
-                pipe = customPipes[name]
+            colW = len(max(custom_pipes.pipes, key=len)) + 2
+            for name in custom_pipes:
+                pipe = custom_pipes[name]
                 info = name + ' ' * (colW-len(name))
-                if pipe['desc'] is not None:
-                    info += pipe['desc']
+                if pipe.desc is not None:
+                    info += pipe.desc
                 infos.append(info)
         
         text = texttools.block_format('\n'.join(infos))

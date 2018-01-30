@@ -52,3 +52,4 @@ src/.vscode/settings.json
 src/custompipes.p
 src/resource/tweets/dril-model.json
 *.vtt
+src/pipes/custom_pipes/custompipes.p
