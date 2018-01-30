@@ -139,7 +139,7 @@ class PipeProcessor:
                     else: return '--//!!§§' + i + '§§!!//--'
                 return re.sub(r'--//!!§§(.*?)§§!!//--', f, pipe)
 
-            bigPipe = re.sub(r'"""(.*?)"""', steal_triple_quotes, bigPipe)
+            bigPipe = re.sub(r'(?s)"""(.*?)"""', steal_triple_quotes, bigPipe)
 
             # print('BIGPIPE:', bigPipe)
             multiPipes = CTree.get_all('[' + bigPipe + ']')
