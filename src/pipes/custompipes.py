@@ -88,4 +88,4 @@ class CustomPipes:
 custom_pipes = CustomPipes(_DIR)
 
 # Comment out this line after the bot has ran once.
-custom_pipes.convert_v0('custompipes.p')
+# custom_pipes.convert_v0('custompipes.p')
