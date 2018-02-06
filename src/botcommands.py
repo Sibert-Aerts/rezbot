@@ -274,7 +274,7 @@ class BotCommands(MyCommands):
             tagstext = '' if len(tags) == 0 else ', tags: ' + ', '.join(tags)
             await self.say('successfully saved {} for youtube video "{}"{}{}'.format(what, title, aliastext, tagstext))
         except ValueError as e:
-            await self.say(e.what)
+            await self.say(e)
         except Exception as e:
             print(e)
             await self.say('something went wrong. make sure the url is correct.')
@@ -288,26 +288,19 @@ class BotCommands(MyCommands):
             title = youtubeCaps.delete(identifier)
             await self.say('successfully deleted captions for video "{}".'.format(title))
         except ValueError as e:
-            await self.say(e.what)
+            await self.say(e)
 
 
     @commands.command()
     async def youtube_alias(self, ident, alias):
         '''Give a video (by id or title) an alias'''
-        try:
-            video = youtubeCaps.identify(ident)
-        except Exception as e:
-            print(e)
-            exc_type, exc_value, exc_traceback = sys.exc_info()
-            traceback.print_tb(exc_traceback)
+        video = youtubeCaps.identify(ident)
         if video is None:
             await self.say('"{}" does not uniquely identify a video.'.format(ident))
             return
-        print('HEY')
         oldAlias = video.alias
         video.alias = alias
         video.write()
-        print('HO')
         if oldAlias is None:
             await self.say('successfully set the alias for video "{}" to "{}".'.format(video.title, alias))
         else:
