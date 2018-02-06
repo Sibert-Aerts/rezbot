@@ -56,13 +56,13 @@ def parse_args(signature, text):
             # Try to find and parse the argument value, and remove it from the text
             # This regex matches the following formats:
             #   arg=valueWithoutSpaces
-            #   arg="value with spaces" arg="" (for the empty string)
-            #   arg='value with spaces' arg=''
+            #   arg="value with spaces"     arg=""  (for the empty string)
+            #   arg='value with spaces'     arg=''
             # Doesn't match:
             #   arg=value with spaces
             #   arg="value with "quotes""
             #   arg= (for the empty string)
-            given = re.search('\\b'+s+'=([^\\s"][^\\s]*\\s*|"[^"]*"|\'[^\']*\')', text)
+            given = re.search('\\b'+s+r'=([^\\s"\'][^\\s]*\\s*|"[^"]*"|\'[^\']*\')', text)
             val = given.group(0).split('=', 1)[1].strip()
             if val[0] == val[-1] and (val[0] == '\'' or val[0] == '"'):
                 val = val[1:-1]
