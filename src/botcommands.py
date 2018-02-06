@@ -4,6 +4,7 @@ import random
 import time
 import requests
 import html
+import sys, traceback
 
 import discord
 from discord.ext import commands
@@ -255,15 +256,19 @@ class BotCommands(MyCommands):
             await self.say(url)
             await self.say(cap)
         else:
-            cap, url = youtubeCaps.search(query)
-            await self.say(url)
-            await self.say(cap)
+            try:
+                cap, url = youtubeCaps.search(query)
+                await self.say(url)
+                await self.say(cap)
+            except IndexError:
+                await self.say('no results found for search "{}".'.format(query))
 
 
     @commands.command(pass_context=True)
     async def youtube_add(self, ctx, url, alias=None, *tags):
         '''Add a video to the list of tracked videos'''
         try:
+            if url[0] == '<' and url[-1] == '>': url = url[1:-1]
             title, what = youtubeCaps.download_subs(url, alias, tags)
             aliastext = '' if alias is None else ' with alias "{}"'.format(alias)
             tagstext = '' if len(tags) == 0 else ', tags: ' + ', '.join(tags)
@@ -289,12 +294,20 @@ class BotCommands(MyCommands):
     @commands.command()
     async def youtube_alias(self, ident, alias):
         '''Give a video (by id or title) an alias'''
-        video = youtubeCaps.identify(ident)
+        try:
+            video = youtubeCaps.identify(ident)
+        except Exception as e:
+            print(e)
+            exc_type, exc_value, exc_traceback = sys.exc_info()
+            traceback.print_tb(exc_traceback)
         if video is None:
             await self.say('"{}" does not uniquely identify a video.'.format(ident))
             return
+        print('HEY')
         oldAlias = video.alias
         video.alias = alias
+        video.write()
+        print('HO')
         if oldAlias is None:
             await self.say('successfully set the alias for video "{}" to "{}".'.format(video.title, alias))
         else:
@@ -302,23 +315,47 @@ class BotCommands(MyCommands):
 
 
     @commands.command()
-    async def youtube_add_tag(self, ident, *tags):
+    async def youtube_add_tags(self, ident, *tags):
         '''Give a video (by id or title or alias) new tags'''
         video = youtubeCaps.identify(ident)
         if video is None:
             await self.say('"{}" does not uniquely identify a video.'.format(ident))
+            return
         video.tags = list(set(video.tags).union(tags))
-        await self.say('successfully set tags to video "{}" to: {}.'.format(video.title, ', '.join(video.tags)))
+        video.write()
+        await self.say('tags successfully added, tags for "{}" are now: {}.'.format(video.title, ', '.join(video.tags)))
 
 
     @commands.command()
-    async def youtube_delete_tag(self, ident, *tags):
+    async def youtube_delete_tags(self, ident, *tags):
         '''Remove tags from a video.'''
         video = youtubeCaps.identify(ident)
         if video is None:
             await self.say('"{}" does not uniquely identify a video.'.format(ident))
+            return
         video.tags = list(set(video.tags) - set(tags))
-        await self.say('successfully set tags to video "{}" to: {}.'.format(video.title, ', '.join(video.tags)))
+        video.write()
+        await self.say('tags successfully removed, tags for "{}" are now: {}.'.format(video.title, ', '.join(video.tags)))
+
+
+    @commands.command()
+    async def youtube_info(self, ident=''):
+        '''Get info on all loaded videos or a specific loaded video.'''
+        if ident == '':
+            info = '**Loaded videos:**\n'
+            for id in youtubeCaps.videos:
+                video = youtubeCaps.videos[id]
+                info += '• **{}**'.format(video.title)
+                if video.alias:
+                    info += ' AKA "{}"'.format(video.alias)
+                info += ', tags: `{}`\n'.format(', '.join(video.tags) if video.tags else '(None)')
+            await self.say(info)
+        else:
+            video = youtubeCaps.identify(ident)
+            if video is None:
+                await self.say('"{}" does not uniquely identify a video.'.format(ident))
+                return
+            # TODO
 
 
     @commands.command(pass_context=True)

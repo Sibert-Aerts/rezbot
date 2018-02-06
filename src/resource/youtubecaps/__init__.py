@@ -10,11 +10,17 @@ from webvtt import WebVTT
 def _CAPSDIR(filename=''):
     return os.path.join(os.path.dirname(__file__), 'caps', filename)
 
+searchify_regex = re.compile(r'[^a-z\s]')
+
+def searchify(text):
+    return searchify_regex.sub('', text.lower()).strip()
+
 class Video:
     class Cap:
         def __init__(self, time, text):
             self.time = time
             self.text = text
+            self.search = searchify(text)
 
     def __init__(self, title, id, filename, alias=None, tags=None):
         self.title = title
@@ -33,12 +39,38 @@ class Video:
 
         self.write()
 
+    def get_url(self, cap):
+        return 'https://youtu.be/{}?t={}'.format(self.id, cap.time)
+
     def get_random(self):
         i = random.randint(0, max(0, len(self.captions)-3))
         caps = self.captions[i:i+3]
-        url = 'https://youtu.be/{}?t={}'.format(self.id, caps[0].time)
+        url = self.get_url(caps[0])
         caption = '\n'.join(c.text for c in caps)
         return caption, url
+
+    def search(self, query, amount=1):
+        # TODO: This is copy-pasted from the dril search, make this smarter & fuzzier & put this in its own damn module
+    
+        # Extract absolute matches "of this form" from the query
+        a = query.split('"')
+        absolutes = [a[i] for i in range(1, len(a), 2)]
+        others = re.split('\s+', ''.join([a[i] for i in range(0, len(a), 2)]).strip())
+        queries = [searchify(q) for q in absolutes + others]
+
+        # results is a list of indices of /single captions/ that match the /entire query/
+        results = list(filter(lambda i: all([q in self.captions[i].search for q in queries]), range(len(self.captions))))
+
+        # Only take a few of them
+        sample = random.sample(results, min(len(results), amount))
+
+        out = []
+        for i in sample:
+            start = max(0, i-1)
+            url = self.get_url(self.captions[start])
+            text = '\n'.join(cap.text for cap in self.captions[start : i+2])
+            out.append((text, url))
+        return out
 
     def write(self):
         '''Write the caps to a file.'''
@@ -122,7 +154,7 @@ class _YoutubeCaps:
             return results[0]
 
         # By partial title/alias
-        results = [videos[v] for v in videos if ident_lower in videos[v].title_lower or ident_lower in videos[v].alias]
+        results = [videos[v] for v in videos if ident_lower in videos[v].title_lower or videos[v].alias is not None and ident_lower in videos[v].alias]
         if len(results) == 1:
             return results[0]
 
@@ -150,17 +182,9 @@ class _YoutubeCaps:
 
     def search(self, query, amount=1):
         query_lower = query.lower()
-        # TODO: Make this fuzzy
-
-        # Extract absolute matches "of this form" from the query
-        a = query_lower.split('"')
-        absolutes = [a[i] for i in range(1, len(a), 2)]
-        others = re.split('\s+', ''.join([a[i] for i in range(0, len(a), 2)]).strip())
-        queries = absolutes + others
 
         def video_filter(video):
             return query == video.id or query_lower in [video.title_lower, video.alias] or query_lower in video.tags
-
 
         # Look for an exact match on ID, title, alias or tags
         videoResults = list(filter(video_filter, [self.videos[v] for v in self.videos]))
@@ -169,11 +193,10 @@ class _YoutubeCaps:
             video = random.choice(videoResults)
             return video.get_random()
 
-        # The query did not relate to any specific videos: Search all known captions for fuzzy matches!
-        # TODO
-        raise NotImplementedError()
-        # results = list(filter(lambda t: all([q in t['search'] for q in queries]), self.data))
-        # return random.sample(results, min(len(results), amount))
+        # The query did not relate to any specific videos: Search all known videos for matches!
+        results = [result for id in self.videos for result in self.videos[id].search(query)]
+        cap, url = random.choice(results)
+        return cap, url
 
-# Initialise 
+# Initialise
 youtubeCaps = _YoutubeCaps(_CAPSDIR)
