@@ -7,18 +7,12 @@ from discord.ext import commands
 
 from mycommands import MyCommands
 from resource.youtubecaps import youtubeCaps
+import utils.util as util
 import permissions
 
 '''
 Main command module, contains a bunch of random functionality.
 '''
-
-triviaCategories = {
-    'general' : 9 , 'books' : 10, 'film' : 11, 'music' : 12, 'musicals' : 13, 'tv' : 14, 'videogames' : 15,
-    'board games' : 16, 'science' : 17, 'computers' : 18, 'maths' : 19, 'mythology' : 20, 'sports' : 21,
-    'geography' : 22, 'history' : 23, 'politics' : 24, 'art' : 25, 'celebrities' : 26, 'animals' : 27,
-    'vehicles' : 28, 'comics' : 29, 'gadgets' : 30, 'anime' : 31, 'cartoon' : 32,
-}
 
 class YoutubeCommands(MyCommands):
     def __init__(self, bot):
@@ -28,7 +22,9 @@ class YoutubeCommands(MyCommands):
     async def youtube(self, ctx):
         '''Get a random caption from a youtube video from a list of saved youtube videos'''
         query = util.strip_command(ctx)
-        if query.strip() == '':
+        if query.strip() in ['', 'help']:
+            await self.say('<info string goes here>')
+        elif query.strip().lower() == 'random':
             cap, url = youtubeCaps.get_random()
             await self.say(url)
             await self.say(cap)
@@ -70,7 +66,7 @@ class YoutubeCommands(MyCommands):
 
     @commands.command()
     async def youtube_alias(self, ident, alias):
-        '''Give a video (by id or title) an alias'''
+        '''Change a video's alias'''
         video = youtubeCaps.identify(ident)
         if video is None:
             await self.say('"{}" does not uniquely identify a video.'.format(ident))
@@ -86,7 +82,7 @@ class YoutubeCommands(MyCommands):
 
     @commands.command(aliases=['youtube_tag', 'youtube_add_tag'])
     async def youtube_add_tags(self, ident, *tags):
-        '''Give a video (by id or title or alias) new tags'''
+        '''Give a video new tags'''
         video = youtubeCaps.identify(ident)
         if video is None:
             await self.say('"{}" does not uniquely identify a video.'.format(ident))
@@ -108,9 +104,9 @@ class YoutubeCommands(MyCommands):
         await self.say('tags successfully removed, tags for "{}" are now: {}.'.format(video.title, ', '.join(video.tags)))
 
 
-    @commands.command()
-    async def youtube_info(self, ident=''):
-        '''Get info on all loaded videos or a specific loaded video.'''
+    @commands.command(aliases=['youtube_info'])
+    async def youtube_videos(self, ident=''):
+        '''List all known youtube videos.'''
         if ident == '':
             info = '**Loaded videos:**\n'
             for id in youtubeCaps.videos:
