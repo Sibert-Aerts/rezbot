@@ -280,7 +280,7 @@ class BotCommands(MyCommands):
             await self.say('something went wrong. make sure the url is correct.')
 
 
-    @commands.command()
+    @commands.command(aliases=['youtube_remove'])
     @permissions.check('owner')
     async def youtube_delete(self, identifier):
         '''Delete a video from the list of tracked videos'''
@@ -307,7 +307,7 @@ class BotCommands(MyCommands):
             await self.say('successfully changed the alias for video "{}" from "{}" to "{}".'.format(video.title, oldAlias, alias))
 
 
-    @commands.command()
+    @commands.command(aliases=['youtube_tag', 'youtube_add_tag'])
     async def youtube_add_tags(self, ident, *tags):
         '''Give a video (by id or title or alias) new tags'''
         video = youtubeCaps.identify(ident)
@@ -319,8 +319,8 @@ class BotCommands(MyCommands):
         await self.say('tags successfully added, tags for "{}" are now: {}.'.format(video.title, ', '.join(video.tags)))
 
 
-    @commands.command()
-    async def youtube_delete_tags(self, ident, *tags):
+    @commands.command(aliases=['youtube_remove_tag', 'youtube_delete_tags', 'youtube_delete_tag'])
+    async def youtube_remove_tags(self, ident, *tags):
         '''Remove tags from a video.'''
         video = youtubeCaps.identify(ident)
         if video is None:
