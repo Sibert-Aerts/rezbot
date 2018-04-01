@@ -1,4 +1,5 @@
 import re
+import datetime
 
 from .rand import *
 
@@ -95,5 +96,20 @@ class Meal:
         listItems = [':tea:', ':tomato:', ':poultry_leg:', ':meat_on_bone:', ':spaghetti:']
         for item in listItems:
             s += item + ' ' + Meal.generate(type == 'weird') + '\n'
+
+        return s
+
+    def generateMenu2(when=None):
+        date = datetime.date.today()
+        if when and when.lower() == 'tomorrow':
+            date += datetime.timedelta(days=1)
+        s = 'Menu komida CMI on ' + date.strftime('%A %d %B') + '\n'
+
+        listItems = [':tea:', ':tomato:', ':poultry_leg:', ':meat_on_bone:', ':spaghetti:']
+        for item in listItems:
+            price = random.randint(10, 80)
+            price2 = int(price*0.8)
+            pricestr = '(€%.2f / €%.2f)' % (price2/10, price/10)
+            s += item + ' ' + Meal.generate() + ' ' + pricestr + '\n'
 
         return s
