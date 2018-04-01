@@ -84,24 +84,27 @@ class PipeProcessor:
         # Use the Source to determine a starting value
         # TODO: "{words} my {soapstone} and {roll}" -> "aubergine my Praise the sun! and 4"
 
-        # Matches '{<sourceName> <args>}' but is slightly smart and doesnt care about }'s inside quotes
-        sourceMatch = re.match('{(\S+)\s*([^}\s]("[^"]*"|[^}])*)?}', source)
+        values = []
 
-        if sourceMatch is None:
-            # No source pipe given. Simply interpret the source as a string.
-            # ...but expand it first, because that's a nice feature...
-            values = CTree.get_all('[' + source + ']')
-        else:
-            # A source was specified
-            # TODO: CTree this
-            sourceName, args, _ = sourceMatch.groups()
-            sourceName = sourceName.lower()
+        for source in CTree.get_all('[' + source + ']'):
 
-            if sourceName in sources:
-                values = sources[sourceName](message, args)
+            # Matches '{<sourceName> <args>}' but is slightly smart and doesnt care about }'s inside quotes
+            sourceMatch = re.match('{(\S+)\s*([^}\s]("[^"]*"|[^}])*)?}', source)
+
+            if sourceMatch is None:
+                # No source pipe given. Simply interpret the source as a string.
+                values.append(source)
             else:
-                print('Error: Unknown source ' + sourceName)
-                values = [source]
+                # A source was specified
+                # TODO: CTree this
+                sourceName, args, _ = sourceMatch.groups()
+                sourceName = sourceName.lower()
+
+                if sourceName in sources:
+                    values.extend(sources[sourceName](message, args))
+                else:
+                    print('Error: Unknown source ' + sourceName)
+                    values.append(source)
 
         # Increment i manually because we're doing some funny stuff
         i = 0
@@ -121,7 +124,7 @@ class PipeProcessor:
             # print('GROUPMODE:', str(groupMode))
 
             # True and utter hack: Simply swipe triple-quoted strings out of the bigPipe and put them back
-            # later in the expanded pipes, so triple quotes escape all CTree expansion.
+            # later in the expanded pipes, so that triple quotes escape all CTree expansion.
             tripleQuoteDict = {}
             def geti(): return str(random.randint(0, 999999))
 

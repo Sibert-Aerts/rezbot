@@ -19,7 +19,8 @@ You can execute a pipeline by typing something of the form:
     `>>> [source] > [pipe] > [pipe] > ...`
 
 [source] can just be text, e.g. `Quentin Tarantino`.
-It can also be a special source that finds/produces text, written as `{sourceName [args]}`, e.g. `{random}`.
+It can also be a special source that finds/produces text, written as `{sourceName [args]}`.
+e.g. `{random}`, `{simpsons}`, `{dril q="my ass"}`.
 
 The list of possible sources can be seen by typing `>sources`
 
