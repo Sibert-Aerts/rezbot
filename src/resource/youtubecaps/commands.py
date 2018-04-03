@@ -14,16 +14,30 @@ import permissions
 Main command module, contains a bunch of random functionality.
 '''
 
+info_string = '''
+Commands for using the youtube captions feature:
+• **youtube_videos**: List all videos with saved captions
+• **youtube random**: Random caption from a random video
+• **youtube [video title, ID, alias or tag]**: Random caption from matching video(s)
+• **youtube [other query]**: Random caption that matches the query (from any video)
+
+Commands for moderating captions:
+• **youtube_add [video url or ID]**: Save video's captions
+• **youtube_remove [video]**: Delete video's saved captions
+• **youtube_alias [video] [alias]**: Set video's alias
+• **youtube_add/remove_tags [video] [...tags]**: Add/remove tags to video
+'''
+
 class YoutubeCommands(MyCommands):
     def __init__(self, bot):
         super().__init__(bot)
 
-    @commands.command(pass_context=True)
+    @commands.command(pass_context=True, aliases=['yt'])
     async def youtube(self, ctx):
         '''Get a random caption from a youtube video from a list of saved youtube videos'''
         query = util.strip_command(ctx)
         if query.strip() in ['', 'help']:
-            await self.say('<info string goes here>')
+            await self.say(info_string)
         elif query.strip().lower() == 'random':
             cap, url = youtubeCaps.get_random()
             await self.say(url)
@@ -35,6 +49,13 @@ class YoutubeCommands(MyCommands):
                 await self.say(cap)
             except IndexError:
                 await self.say('no results found for search "{}".'.format(query))
+
+    @commands.command(pass_context=True, hidden=True)
+    async def youtube_random(self, ctx):
+        '''Get a random caption from a youtube video from a list of saved youtube videos'''
+        cap, url = youtubeCaps.get_random()
+        await self.say(url)
+        await self.say(cap)
 
 
     @commands.command(pass_context=True)
@@ -108,7 +129,7 @@ class YoutubeCommands(MyCommands):
     async def youtube_videos(self, ident=''):
         '''List all known youtube videos.'''
         if ident == '':
-            info = '**Loaded videos:**\n'
+            info = 'Loaded videos:\n'
             for id in youtubeCaps.videos:
                 video = youtubeCaps.videos[id]
                 info += '• **{}**'.format(video.title)
