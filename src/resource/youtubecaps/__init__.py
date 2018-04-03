@@ -15,6 +15,14 @@ searchify_regex = re.compile(r'[^a-z\s]')
 def searchify(text):
     return searchify_regex.sub('', text.lower()).strip()
 
+# Convert a timecode string 'hh:mm:ss.µµµ' to a tuple of integers: (seconds, milliseconds)
+def timecode_to_sms(code):
+    hours, minutes, sms = code.split(':')
+    sec, msec = sms.split('.')
+    seconds = int(hours) * 3600 + int(minutes) * 60 + int(sec)
+    return (int(seconds), int(msec))
+
+
 class Video:
     class Cap:
         def __init__(self, time, text):
@@ -32,10 +40,26 @@ class Video:
         
         # Use WebVTT to read the captions file and parse its contents
         for cap in WebVTT().read(filename):
-            time = cap.start.split(':')
-            time[2] = time[2].split('.')[0]
-            time = '{}h{}m{}s'.format(*time)
-            self.captions.append(Video.Cap(time, cap.text))
+            startsec, startmsec = timecode_to_sms(cap.start)
+            endsec, endmsec = timecode_to_sms(cap.end)
+
+            # Clean up the messy captions:
+            # Step 1: Ignore "captions" that only stay visible for <50 milliseconds
+            if self.captions and (endsec*1000 + endmsec) - (startsec*1000 + startmsec) < 50:
+                continue
+
+            # Step 2: strip
+            text = cap.text.strip()
+
+            # Step 3: Remove the previous caption piggybacking on the start of the next caption
+            if self.captions:
+                prevtext = self.captions[-1].text
+                # I think this check always passes, but it's there for prudence's sake.
+                if prevtext == text[:len(prevtext)]:
+                    text = text[len(prevtext):].strip()
+
+            # print(str(startsec) + ' : ' + text)
+            self.captions.append(Video.Cap(startsec, text))
 
         self.write()
 
