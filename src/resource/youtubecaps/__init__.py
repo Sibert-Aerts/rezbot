@@ -10,7 +10,7 @@ from webvtt import WebVTT
 def _CAPSDIR(filename=''):
     return os.path.join(os.path.dirname(__file__), 'caps', filename)
 
-searchify_regex = re.compile(r'[^a-z\s]')
+searchify_regex = re.compile(r'[^a-z0-9\s]')
 
 def searchify(text):
     return searchify_regex.sub('', text.lower()).strip()
