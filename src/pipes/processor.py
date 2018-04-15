@@ -18,13 +18,11 @@ class PipeProcessor:
     def __init__(self, bot, prefix):
         self.bot = bot
         self.prefix = prefix
-
-        # Pretty smelly, assumes only one bot will ever run per client... which is kind of a safe assumption...
         SourceResources.bot = bot
+
 
     async def pipe_say(self, dest, output):
         ''' Nicely print the output in rows and columns and even with little arrows.'''
-
         # Don't apply any formatting if the output is just a single string
         if len(output) == 1 and len(output[0]) == 1:
             await self.bot.send_message(dest, output[0][0])
@@ -47,8 +45,11 @@ class PipeProcessor:
                     rows[r] += '   '
                     pass
 
+        # remove unnecessary padding
+        rows = [row.rstrip() for row in rows]
         output = texttools.block_format('\n'.join(rows))
         await self.bot.send_message(dest, output)
+
 
     def parse_sequence(seq):
         # Literally just find-and-replace arrows for print pipes
