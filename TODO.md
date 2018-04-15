@@ -14,16 +14,13 @@
         * {prev *n*} for the nth previous output
         * {that *n*} for the nth previous message in the channel
         * {next *n*} for the nth next message in the channel (for the next message by a certain user in the channel?)
-        * {rand} for a random word (?)
-        *
 
-    * Format pipe that combines one or more inputs into a single output:
-      `a | b | c > format %1 + %2 = %3` produces `a + b = c`
+    * new syntax: {n pipe} passes n to the pipe indicating the number of desired outputs
 
-    * Kana to romaji pipe
+    * `source-eval` function that evaluates and replaced instances of {source} in a string.
+        * Automatically `source-eval` all input in commands-from-pipes
 
-    * Ability to assign custom pipes:
-        * idk like `>>> telephone <- translate -> translate to=en`
-        and then `>>> something something > telephone` works
-        * allow for variables too: `>>> myPipe > translate to={var}` is then used like `>>> hello > myPipe var=fr` ?
-        * These should then also save to a file, and have functions to see/edit/describe/delete them
+    * in pipe/source arguments, replace \n to newlines
+
+    * Custom pipes with replacement rules:
+        * allow for variables too: `>define_pipe myPipe translate to={var}` is then used like `>>> hello > myPipe var=fr`
