@@ -4,6 +4,7 @@ from .pipes import *
 from .sources import *
 from .pipe_decorations import pipes, sources
 from .custompipes import custom_pipes
+from .source_eval import evaluate_all_sources, is_pure_source, evaluate_pure_source
 import pipes.groupmodes as groupmodes
 
 import permissions
@@ -78,47 +79,31 @@ class PipeProcessor:
             return False
         content = content[len(self.prefix):]
 
-        pipeLine = PipeProcessor.parse_sequence(content)
-        source = pipeLine[0]
-        pipeLine = pipeLine[1:]
-
-        # Use the Source to determine a starting value
-        # TODO: "{words} my {soapstone} and {roll}" -> "aubergine my Praise the sun! and 4"
+        pipeline = PipeProcessor.parse_sequence(content)
+        source_string = pipeline[0]
+        pipeline = pipeline[1:]
 
         values = []
 
-        for source in CTree.get_all('[' + source + ']'):
+        for source_string in CTree.get_all('[' + source_string + ']'):
 
-            # Matches '{<sourceName> <args>}' but is slightly smart and doesnt care about }'s inside quotes
-            sourceMatch = re.match('{(\S+)\s*([^}\s]("[^"]*"|[^}])*)?}', source)
-
-            if sourceMatch is None:
-                # No source pipe given. Simply interpret the source as a string.
-                values.append(source)
+            if is_pure_source(source_string.strip()):
+                values.extend(evaluate_pure_source(source_string, message))
             else:
-                # A source was specified
-                # TODO: CTree this
-                sourceName, args, _ = sourceMatch.groups()
-                sourceName = sourceName.lower()
-
-                if sourceName in sources:
-                    values.extend(sources[sourceName](message, args))
-                else:
-                    print('Error: Unknown source ' + sourceName)
-                    values.append(source)
+                values.append(evaluate_all_sources(source_string, message))
 
         # Increment i manually because we're doing some funny stuff
         i = 0
-        while i < len(pipeLine):
-            name = pipeLine[i].split(' ')[0]
+        while i < len(pipeline):
+            name = pipeline[i].split(' ')[0]
             if name not in pipes and name in custom_pipes:
-                pipeLine[i:i+1] = PipeProcessor.parse_sequence(custom_pipes[name].code)
+                pipeline[i:i+1] = PipeProcessor.parse_sequence(custom_pipes[name].code)
                 continue
             i += 1
 
         printValues = []
 
-        for bigPipe in pipeLine:
+        for bigPipe in pipeline:
 
             bigPipe, groupMode = groupmodes.parse(bigPipe)
 
