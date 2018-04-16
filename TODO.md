@@ -17,8 +17,7 @@
 
     * new syntax: {n pipe} passes n to the pipe indicating the number of desired outputs
 
-    * `source-eval` function that evaluates and replaced instances of {source} in a string.
-        * Automatically `source-eval` all input in commands-from-pipes
+    * Automatically `source-eval` all input in commands-from-pipes
 
     * in pipe/source arguments, replace \n to newlines
 

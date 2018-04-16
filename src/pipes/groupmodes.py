@@ -1,6 +1,136 @@
 import re
 import math
 
+# Pipe grouping syntax!
+
+### Intro
+# What happens here is how a pipe determines how different inputs are grouped when they are processed by pipes.
+# In many pipes "grouping" makes no difference, pipes such as "convert" or "translate" simply act on each individual input regardless of how they are grouped.
+
+# There are, however, pipes where it makes a difference. Take for example the "join" pipe:
+
+#   >>> [alpha|beta|gamma|delta] -> join s=", "
+# Output: alpha → alpha, beta, gamma, delta
+#         beta
+#         gamma
+#         delta
+
+#   >>> [alpha|beta|gamma|delta] -> (2) join s=", "
+# Output: alpha → alpha, beta
+#         beta  → gamma, delta
+#         gamma
+#         delta
+
+# The number of inputs it receives at once determine what its output looks like, and even how many outputs it produces!
+# Furthermore, even "normal" pipes make use of grouping, in the context of simultaneous pipes:
+
+#   >>> [alpha|beta|gamma|delta] > (1) convert [fraktur|fullwidth]
+# Output: 𝔞𝔩𝔭𝔥𝔞
+#         ｂｅｔａ
+#         𝔤𝔞𝔪𝔪𝔞
+#         ｄｅｌｔａ
+
+# This script divided the inputs into groups of 1, and fed them individually, simultaneously into either "convert fraktur" or "convert fullwidth".
+# These should make the utility and power of grouping clear.
+
+
+### Some quick syntax examples:
+
+#   >>> foo > bar > tox
+# Means: Take the string "foo", feed it into the pipe named "bar" and feed that output into the pipe named "tox" which produces the final output.
+
+#   >>> foo > *[bar|tox]
+# Means: Take the string "foo", feed it into BOTH the pipes "bar" and "tox", and the final output is the combined of those 2 pipes' outputs.
+#   So, if neither "bar" nor "tox" had any effects on the input string, the output would now be the string "foo", TWICE.
+
+#   >>> {foo} > (2) bar
+# Means: Fetch output produced by the source named "foo", which could be any number of strings, and feed it into the "bar" pipe in groups of 2.
+# e.g. >>> {words n=4} > (2) join sep=" and "
+# Might produce the following 2 rows of output: "trousers and presbyterian", "lettuce's and africanism"
+
+#   >>> {foo} > (2) [bar|tox]
+# Means: Fetch output from the source "foo", split it into groups of 2, feed the first group into "bar", the second into "tox", third into "bar", and so on,
+#   combining into a single column of output.
+
+#   >>> {foo} > *(2) [bar|tox]
+# Means: Fetch output from source "foo", split it in groups of 2, feed each group individually into "bar", and then feed each group into "tox",
+#   combining into a single column of output.
+
+
+### All syntax rules:
+
+## Multiplication mode:
+#   >>> {source} > * %%%% [pipe1|pipe2|...]
+# (With %%%% representing any group mode)
+# *Each* group of input is fed into *each* of the simultaneous pipes (pipe1, pipe2, etc)
+# Resulting in (number of groups) x (number of simultaneous pipes) pipe applications total, which is usually a lot.
+
+## Default grouping:
+#   >>> {source} > [pipe1|pipe2|...|pipex]
+# Feeds all input to pipe1 as a single group, ignoring pipe2 through pipex.
+# Identical to divide grouping with $n as 1.
+#   >>> [alpha|beta|gamma|delta] > convert [fraktur|fullwidth]
+# Output: 𝔞𝔩𝔭𝔥𝔞
+#         𝔟𝔢𝔱𝔞
+#         𝔤𝔞𝔪𝔪𝔞
+#         𝔡𝔢𝔩𝔱𝔞
+
+## Normal grouping:
+#   >>> {source} > ($n) [pipe1|pipe2|...|pipex]
+# Groups the first $n inputs and feeds them to pipe1, the second $n inputs to pipe2, ..., the x+1th group of $n inputs to pipe1 again, etc.
+# If the number of inputs doesn't divide by $n, the last group will contain less than $n items, 
+# unless $n starts with '0', then it will be padded out with empty strings.
+#   >>> [alpha|beta|gamma|delta] > (3) convert [fraktur|fullwidth]
+# Output: 𝔞𝔩𝔭𝔥𝔞
+#         𝔟𝔢𝔱𝔞
+#         𝔤𝔞𝔪𝔪𝔞
+#         ｄｅｌｔａ
+
+## Divide grouping:
+#   >>> {source} > /$n [pipe1|pipe2|...|pipex]
+# Splits the input into $n equally sized* groups of sequential inputs, and feeds the first group into pipe1, second into pipe2, etc.
+# Call $m the number of inputs to be grouped. In case $m is not divisible by $n:
+#   • If $n doesn't start with '0': Input is split into groups of ceil($m/$n), except the last group which may contain less items.
+#   • If $n starts with '0': Input is split into groups of ceil($m/$n), and the last group is padded out with empty strings.
+#   • (Currently no option to group inputs into groups of floor($m/$n), cropping out other inputs.)
+#   >>> [alpha|beta|gamma|delta] > /2 convert [fraktur|fullwidth]
+# Output: 𝔞𝔩𝔭𝔥𝔞
+#         𝔤𝔞𝔪𝔪𝔞
+#         ｂｅｔａ
+#         ｄｅｌｔａ
+
+## Modulo grouping:
+#   >>> {source} > %$n [pipe1|pipe2|...|pipex]
+# Splits the input into $n equally sized* groups of inputs that have the same index modulo $n.
+# Behaves identical to Divide grouping otherwise, including $n starting with '0' to pad each group out to equal size.
+#   >>> [alpha|beta|gamma|delta] > %2 convert [fraktur|fullwidth]
+# Output: 𝔞𝔩𝔭𝔥𝔞
+#         𝔟𝔢𝔱𝔞
+#         ｇａｍｍａ
+#         ｄｅｌｔａ
+
+## Interval grouping:
+#   >>> {source} > #$n..$m [pipe1|pipe2|...]
+# Groups inputs from index $n up to (not including) index $m as one group and applies them to pipe1.
+# All other input is kept in place, unaffected, all other pipes are ignored.
+# $n and $m can be negative, and follows python's negative index logic for those. (i.e. a[-1] == a[len(a)-1])
+#   >>> [alpha|beta|gamma|delta] > #1..3 convert fullwidth
+# Output: alpha
+#         ｂｅｔａ
+#         ｇａｍｍａ
+#         delta
+
+## Index grouping:
+#   >>> {source} > #$n [pipe1|pipe2|...]
+# Same as Interval grouping with $m = $n+1.
+#   >>> [alpha|beta|gamma|delta] > #2 convert fullwidth
+# Output: alpha
+#         beta
+#         ｇａｍｍａ
+#         delta
+
+pattern = re.compile(r'(\*?)(\(|%|#|/|)\s*(-?\d*(?:\.\.+-?\d+)?|\d*)\s*\)?\s*')
+
 class GroupMode:
     def __init__(self, multiply):
         self.multiply = multiply
@@ -37,8 +167,6 @@ class Default(GroupMode):
                 # (i/size) is always an int, we just cast it else % gets angry
                 out.append((vals, pipes[int(i/self.size) % len(pipes)]))
         return out
-
-
 
 class Divide(GroupMode):
     def __init__(self, multiply, count, padding):
@@ -120,8 +248,6 @@ class Interval(GroupMode):
                 (values[rval: len(values)], nop),
             ]
 
-
-pattern = re.compile(r'(\*?)(\(|%|#|/|)\s*(-?\d*(?:\.\.+-?\d+)?|\d*)\s*\)?\s*')
 
 def parse(bigPipe):
     m = re.match(pattern, bigPipe)
