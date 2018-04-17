@@ -3,7 +3,7 @@ from enum import Enum
 from .pipes import *
 from .sources import *
 from .pipe_decorations import pipes, sources
-from .custompipes import custom_pipes
+from .macros import pipe_macros, source_macros
 from .source_eval import evaluate_all_sources, is_pure_source, evaluate_pure_source
 import pipes.groupmodes as groupmodes
 
@@ -96,8 +96,8 @@ class PipeProcessor:
         i = 0
         while i < len(pipeline):
             name = pipeline[i].split(' ')[0]
-            if name not in pipes and name in custom_pipes:
-                pipeline[i:i+1] = PipeProcessor.parse_sequence(custom_pipes[name].code)
+            if name not in pipes and name in pipe_macros:
+                pipeline[i:i+1] = PipeProcessor.parse_sequence(pipe_macros[name].code)
                 continue
             i += 1
 

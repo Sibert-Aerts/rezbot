@@ -79,5 +79,6 @@ if __name__ == '__main__':
     token = config['BOT']['token']
     bot.load_extension('botcommands')
     bot.load_extension('pipes.pipecommands')
+    bot.load_extension('pipes.macrocommands')
     bot.load_extension('resource.youtubecaps.commands')
     bot.run(token)

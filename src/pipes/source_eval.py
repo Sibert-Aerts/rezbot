@@ -1,5 +1,6 @@
 import re
 from .pipe_decorations import sources
+from .macros import source_macros
 from .sources import *
 
 # this looks like a big disgusting hamburger because it is

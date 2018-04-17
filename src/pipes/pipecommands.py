@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 
 from .pipes import *
-from .custompipes import CustomPipe, custom_pipes
+from .macros import Macro, pipe_macros, source_macros
 from mycommands import MyCommands
 import utils.texttools as texttools
 import utils.util as util
@@ -65,7 +65,7 @@ class PipesCommands(MyCommands):
         '''Print a list of all pipes and their descriptions, or details on a specific pipe.'''
         infos = []
 
-        # TODO: if name in custom_pipes:
+        # TODO: if name in pipe_macros:
 
         # Info on a specific pipe
         if name != '' and name in pipes:
@@ -117,85 +117,6 @@ class PipesCommands(MyCommands):
                 info = name + ' ' * (colW-len(name))
                 if source.__doc__ is not None:
                     info += source.__doc__
-                infos.append(info)
-        
-        text = texttools.block_format('\n'.join(infos))
-        await self.say(text)
-
-    # Custom pipes down here
-
-    @commands.command(pass_context=True)
-    async def define_pipe(self, ctx, name=''):
-        '''Define a custom pipe. First argument is the name, everything after that is the code.'''
-        name = name.lower().split(' ')[0]
-        if name in pipes or name in custom_pipes:
-            await self.say('A pipe by that name already exists, try >redefine instead.')
-            return
-        code = re.split('\s+', ctx.message.content, 2)[2]
-        custom_pipes[name] = CustomPipe(name, code)
-        await self.say('Defined a new pipe called `{}` as `{}`'.format(name, code))
-
-
-    @commands.command(pass_context=True)
-    async def redefine_pipe(self, ctx, name=''):
-        '''Redefine a custom pipe. First argument is the name, everything after that is the code.'''
-        name = name.lower().split(' ')[0]
-        if name not in custom_pipes:
-            await self.say('A custom pipe by that name was not found!')
-            return
-        code = re.split('\s+', ctx.message.content, 2)[2]
-        custom_pipes[name].code = code
-        custom_pipes.write()
-        await self.say('Redefined `{}` as `{}`'.format(name, code))
-
-
-    @commands.command(pass_context=True)
-    async def describe_pipe(self, ctx, name=''):
-        '''Describe a custom pipe. First argument is the name, everything after that is the description.'''
-        name = name.lower().split(' ')[0]
-        if name not in custom_pipes:
-            await self.say('A custom pipe by that name was not found!')
-            return
-        desc = re.split('\s+', ctx.message.content, 2)[2]
-        custom_pipes[name].desc = desc
-        custom_pipes.write()
-        await self.say('Described `{}` as `{}`'.format(name, desc))
-
-
-    @commands.command(pass_context=True)
-    async def delete_pipe(self, ctx, name=''):
-        '''Delete a custom pipe by name.'''
-        name = name.lower().split(' ')[0]
-        if name not in custom_pipes:
-            await self.say('A custom pipe by that name was not found!')
-            return
-        del custom_pipes[name]
-        await self.say('Deleted custom pipe `{}`.'.format(name))
-
-
-
-    @commands.command()
-    async def custom_pipes(self, name=''):
-        '''Print a list of all custom pipes and their descriptions, or details on a specific custom pipe.'''
-        infos = []
-
-        # Info on a specific pipe
-        if name != '' and name in custom_pipes:
-            infos.append(custom_pipes[name].info())
-
-        # Info on all pipes
-        else:
-            if not custom_pipes:
-                await self.say('No custom pipes loaded! Try adding one using >define_pipe!')
-                return
-
-            infos.append('Here\'s a list of all custom pipes, use >custom_pipes [name] to see more info on a specific one.\n')
-            colW = len(max(custom_pipes.pipes, key=len)) + 2
-            for name in custom_pipes:
-                pipe = custom_pipes[name]
-                info = name + ' ' * (colW-len(name))
-                if pipe.desc is not None:
-                    info += pipe.desc
                 infos.append(info)
         
         text = texttools.block_format('\n'.join(infos))
