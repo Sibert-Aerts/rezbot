@@ -8,12 +8,13 @@ def DIR(filename=''):
 
 
 class Macro:
-    def __init__(self, name, code, authorName, authorId, desc=None):
+    def __init__(self, name, code, authorName, authorId, authorAvatarURL, desc=None):
         self.version = 1
         self.name = name
         self.code = code
         self.authorName = authorName
         self.authorId = authorId
+        self.authorAvatarURL = authorAvatarURL
         self.desc = desc
 
     def info(self):

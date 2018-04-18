@@ -18,7 +18,6 @@ class MyCommands:
         msg = await self.bot.say(str)
 
     async def send_message(self, channel, str):
-        str = texttools.bot_format(str)
         msg = await self.bot.send_message(channel, str)
 
     async def _die(self):

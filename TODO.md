@@ -19,6 +19,8 @@
 
     * Automatically `source-eval` all input in commands-from-pipes
 
+    * rewrite `help` to spam less
+
     * in pipe/source arguments, replace \n to newlines
 
     * Custom pipes with replacement rules:
