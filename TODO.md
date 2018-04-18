@@ -15,13 +15,14 @@
         * {that *n*} for the nth previous message in the channel
         * {next *n*} for the nth next message in the channel (for the next message by a certain user in the channel?)
 
-    * new syntax: {n pipe} passes n to the pipe indicating the number of desired outputs
+    * new syntax: `{N pipe}` passes N to the pipe as a "desired amount" parameter
 
     * Automatically `source-eval` all input in commands-from-pipes
 
     * rewrite `help` to spam less
 
+    * fix indentation/newlines in docstrings in `>pipes` and `>sources` list view
+
     * in pipe/source arguments, replace \n to newlines
 
-    * Custom pipes with replacement rules:
-        * allow for variables too: `>define_pipe myPipe translate to={var}` is then used like `>>> hello > myPipe var=fr`
+    * Variables in macros: `>define_pipe myPipe translate to=$VAR` is then used like `>>> hello > myPipe var=fr`

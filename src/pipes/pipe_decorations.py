@@ -98,11 +98,16 @@ def signature_docstring(signature):
 
         for s in signature:
             sig = signature[s]
-            sigdoc = s + ':'
+            sigdoc = '__' + s + ':__'
             if sig.desc is not None:
                 sigdoc += ' ' + sig.desc
             sigdoc += ' (' + sig.type.__name__ + ', '
-            sigdoc += 'REQUIRED' if sig.default is None else 'default: {}'.format(sig.default)
+            if sig.default is not None:
+                d = sig.default
+                if d == '': d ='""'
+                sigdoc += 'default: {}'.format(d)
+            else:
+                sigdoc += 'REQUIRED'
             sigdoc += ')'
             sigdocs.append(sigdoc)
             simpledocs.append(s + ': ' + sig.type.__name__)

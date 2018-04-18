@@ -64,7 +64,7 @@ class PipesCommands(MyCommands):
     def get_embed(self, name, item):
         embed = discord.Embed(title=name, description=item.__doc__, color=0xfdca4b)
         if item.signature:
-            sig = '• ' + '\n• '.join(item.signature)
+            sig = '\n'.join(item.signature)
             embed.add_field(name='Arguments', value=sig, inline=False)
         # bot takes credit for the method
         embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
@@ -85,7 +85,7 @@ class PipesCommands(MyCommands):
         # Info on all pipes
         else:
             infos = []
-            infos.append('Here\'s a list of pipes, use >pipes [pipe name] to see more info on a specific one.\n')
+            infos.append('Here\'s a list of pipes, use >pipes [pipe name] to see more info on a specific one.\nUse >pipe_macros for a list of user-defined pipes.\n')
             colW = len(max(pipes, key=len)) + 2
             for name in pipes:
                 pipe = pipes[name]
@@ -111,7 +111,7 @@ class PipesCommands(MyCommands):
         # Info on all sources
         else:
             infos = []
-            infos.append('Here\'s a list of sources, use >sources [source name] to see more info on a specific one.\n')
+            infos.append('Here\'s a list of sources, use >sources [source name] to see more info on a specific one.\nUse >source_macros for a list of user-defined sources.\n')
             colW = len(max(sources, key=len)) + 2
             for name in sources:
                 source = sources[name]

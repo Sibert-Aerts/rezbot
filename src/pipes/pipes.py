@@ -176,8 +176,9 @@ def letterize_pipe(text, p):
 @as_map
 @util.format_doc(convs=', '.join([c for c in converters]))
 def convert_pipe(text, to):
-    '''
+    '''\
     Convert text using a variety of settings.
+
     Valid conversions: {convs}
     '''
     return converters[to](text)

@@ -74,7 +74,7 @@ class MacroCommands(MyCommands):
                 await self.say('No pipe macros loaded! Try adding one using >define_pipe!')
                 return
 
-            infos.append('Here\'s a list of all pipe macros, use >pipe_macros [name] to see more info on a specific one.\n')
+            infos.append('Here\'s a list of all pipe macros, use >pipe_macros [name] to see more info on a specific one.\nUse >pipes for a list of native pipes.\n')
             colW = len(max(pipe_macros, key=len)) + 2
             for name in pipe_macros:
                 pipe = pipe_macros[name]
@@ -149,7 +149,7 @@ class MacroCommands(MyCommands):
                 await self.say('No source macros loaded! Try adding one using >define_source!')
                 return
 
-            infos.append('Here\'s a list of all source macros, use >source_macros [name] to see more info on a specific one.\n')
+            infos.append('Here\'s a list of all source macros, use >source_macros [name] to see more info on a specific one.\nUse >sources for a list of native sources.\n')
             colW = len(max(source_macros, key=len)) + 2
             for name in source_macros:
                 source = source_macros[name]
