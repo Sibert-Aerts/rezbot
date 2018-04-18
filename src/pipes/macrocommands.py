@@ -13,11 +13,6 @@ class MacroCommands(MyCommands):
     def __init__(self, bot):
         super().__init__(bot)
 
-    @commands.command(pass_context=True)
-    async def test(self, ctx, name=''):
-        e = discord.Embed(title='foof', type='rich', colour=0xFF11AA, description='TOETERNIETOET')
-        await self.bot.send_message(ctx.message.channel, embed=e)
-
     @commands.command(pass_context=True, aliases=['def_pipe'])
     async def define_pipe(self, ctx, name):
         '''Define a pipe macro. First argument is the name, everything after that is the code.'''
@@ -71,11 +66,7 @@ class MacroCommands(MyCommands):
 
         # Info on a specific pipe
         if name != '' and name in pipe_macros:
-            pipe = pipe_macros[name]
-            embed=discord.Embed(title=name, description=pipe.desc, color=0x06ff83)
-            embed.add_field(name='Code', value=texttools.block_format(pipe.code), inline=False)
-            embed.set_footer(text=pipe.authorName, icon_url=pipe.authorAvatarURL)
-            await self.bot.say(embed=embed)
+            await self.bot.say(embed=pipe_macros[name].embed())
 
         # Info on all pipes
         else:
@@ -150,11 +141,7 @@ class MacroCommands(MyCommands):
 
         # Info on a specific source
         if name != '' and name in source_macros:
-            source = source_macros[name]
-            embed=discord.Embed(title=name, description=source.desc, color=0x06ff83)
-            embed.add_field(name='Code', value=texttools.block_format(source.code), inline=False)
-            embed.set_footer(text=source.authorName, icon_url=source.authorAvatarURL)
-            await self.bot.say(embed=embed)
+            await self.bot.say(embed=source_macros[name].embed())
 
         # Info on all sources
         else:

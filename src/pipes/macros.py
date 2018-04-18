@@ -1,7 +1,8 @@
 import os
 import pickle
 from shutil import copyfile
-
+from discord import Embed
+import utils.texttools as texttools
 
 def DIR(filename=''):
     return os.path.join(os.path.dirname(__file__), 'macros', filename)
@@ -17,15 +18,11 @@ class Macro:
         self.authorAvatarURL = authorAvatarURL
         self.desc = desc
 
-    def info(self):
-        # TODO: nicer formatting
-        info = self.name + ':'
-        if self.desc is not None:
-            info += '\n\t' + self.desc
-        info += '\nAuthor: ' + self.authorName
-        info += '\nCode:'
-        info += '\n\t' + self.code
-        return info
+    def embed(self):
+        embed = Embed(title=self.name, description=self.desc, color=0x06ff83)
+        embed.add_field(name='Code', value=texttools.block_format(self.code), inline=False)
+        embed.set_footer(text=self.authorName, icon_url=self.authorAvatarURL)
+        return embed
 
 
 class Macros:
