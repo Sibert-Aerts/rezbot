@@ -59,27 +59,32 @@ class PipesCommands(MyCommands):
     async def pipes_help(self):
         '''Print general info on how to use my wacky system of pipes.'''
         await self.say(infoText)
+        
+    # TODO: refactor Pipes and Sources into actual classes with this as a method.
+    def get_embed(self, name, item):
+        embed = discord.Embed(title=name, description=item.__doc__, color=0xfdca4b)
+        if item.signature:
+            sig = '• ' + '\n• '.join(item.signature)
+            embed.add_field(name='Arguments', value=sig, inline=False)
+        # bot takes credit for the method
+        embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
+        return embed
 
-    @commands.command()
+    @commands.command(aliases=['pipe'])
     async def pipes(self, name=''):
         '''Print a list of all pipes and their descriptions, or details on a specific pipe.'''
-        infos = []
-
-        # TODO: if name in pipe_macros:
 
         # Info on a specific pipe
         if name != '' and name in pipes:
-            pipe = pipes[name]
-            info = name
-            if pipe.__doc__ is not None:
-                info += ':\n\t' + pipe.__doc__
-            if pipe.signature:
-                info += '\n\tArguments:'
-                info += '\n\t • ' + '\n\t • '.join(pipe.signature)
-            infos.append(info)
+            await self.bot.say(embed=self.get_embed(name, pipes[name]))
+
+        # Info on a macro pipe
+        elif name != '' and name in pipe_macros:
+            await self.bot.say(embed=pipe_macros[name].embed())
 
         # Info on all pipes
         else:
+            infos = []
             infos.append('Here\'s a list of pipes, use >pipes [pipe name] to see more info on a specific one.\n')
             colW = len(max(pipes, key=len)) + 2
             for name in pipes:
@@ -88,28 +93,24 @@ class PipesCommands(MyCommands):
                 if pipe.__doc__ is not None:
                     info += pipe.__doc__
                 infos.append(info)
-        
-        text = texttools.block_format('\n'.join(infos))
-        await self.say(text)
+            text = texttools.block_format('\n'.join(infos))
+            await self.say(text)
 
-    @commands.command()
+    @commands.command(aliases=['source'])
     async def sources(self, name=''):
-        '''Print a list of all sources and their descriptions, or details on a specific pipe.'''
-        infos = []
+        '''Print a list of all sources and their descriptions, or details on a specific source.'''
 
         # Info on a specific source
-        if name != '' and sources.get(name) is not None:
-            source = sources[name]
-            info = name
-            if source.__doc__ is not None:
-                info += ':\n\t' + source.__doc__
-            if source.signature:
-                info += '\n\tArguments:'
-                info += '\n\t • ' + '\n\t • '.join(source.signature)
-            infos.append(info)
+        if name != '' and name in sources:
+            await self.bot.say(embed=self.get_embed(name, sources[name]))
+
+        # Info on a macro source
+        elif name != '' and name in source_macros:
+            await self.bot.say(embed=source_macros[name].embed())
 
         # Info on all sources
         else:
+            infos = []
             infos.append('Here\'s a list of sources, use >sources [source name] to see more info on a specific one.\n')
             colW = len(max(sources, key=len)) + 2
             for name in sources:
@@ -118,9 +119,8 @@ class PipesCommands(MyCommands):
                 if source.__doc__ is not None:
                     info += source.__doc__
                 infos.append(info)
-        
-        text = texttools.block_format('\n'.join(infos))
-        await self.say(text)
+            text = texttools.block_format('\n'.join(infos))
+            await self.say(text)
 
 ###############################################################
 #                  Turn pipes into commands!                  #
