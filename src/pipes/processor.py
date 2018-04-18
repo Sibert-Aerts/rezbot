@@ -15,6 +15,10 @@ import utils.util as util
 #              The class that puts it all to work              #
 ################################################################
 
+class PipelineError(ValueError):
+    '''Special error for some invalid element when processing a pipeline.'''
+    pass
+
 class PipeProcessor:
     def __init__(self, bot, prefix):
         self.bot = bot
@@ -24,7 +28,8 @@ class PipeProcessor:
 
     async def pipe_say(self, dest, output):
         ''' Nicely print the output in rows and columns and even with little arrows.'''
-        # Don't apply any formatting if the output is just a single string
+
+        # Don't apply any formatting if the output is just a single row and column.
         if len(output) == 1 and len(output[0]) == 1:
             await self.bot.send_message(dest, output[0][0])
             return
@@ -46,23 +51,27 @@ class PipeProcessor:
                     rows[r] += '   '
                     pass
 
-        # remove unnecessary padding
+        # Remove unnecessary padding
         rows = [row.rstrip() for row in rows]
         output = texttools.block_format('\n'.join(rows))
         await self.bot.send_message(dest, output)
 
 
-    def parse_sequence(seq):
-        # Literally just find-and-replace arrows for print pipes
-        seq = seq.replace('->', '>print>')
-        # Split on >'s outside of quote blocks to determine pipes (naively)
-        # I first tried doing this relying on .split but that's insanely hard and maybe slightly impossible
+    def split_pipeline(seq):
+        '''
+        Split a sequence of pipes (one big string) into a list of pipes (list of strings).
+        Doesn't split on >'s inside quote blocks, and inserts "print"s on ->'s.
+        '''
         out = []
         quotes = False
         current = ''
         for c in seq:
             if not quotes and c == '>':
-                out.append(current.strip())
+                if current[-1] == '-': # the > was actually part of a ->
+                    out.append(current[:-1].strip())
+                    out.append('print')
+                else:
+                    out.append(current.strip())
                 current = ''
             else:
                 current += c
@@ -71,42 +80,12 @@ class PipeProcessor:
         return out
 
 
-    async def process_pipes(self, message):
-        content = message.content
-
-        # Test for the pipe command prefix (Default: '>>>')
-        if not content.startswith(self.prefix):
-            return False
-        content = content[len(self.prefix):]
-
-        pipeline = PipeProcessor.parse_sequence(content)
-        source_string = pipeline[0]
-        pipeline = pipeline[1:]
-
-        values = []
-
-        for source_string in CTree.get_all('[' + source_string + ']'):
-
-            if is_pure_source(source_string.strip()):
-                values.extend(evaluate_pure_source(source_string, message))
-            else:
-                values.append(evaluate_all_sources(source_string, message))
-
-        # Increment i manually because we're doing some funny stuff
-        i = 0
-        while i < len(pipeline):
-            name = pipeline[i].split(' ')[0]
-            if name not in pipes and name in pipe_macros:
-                pipeline[i:i+1] = PipeProcessor.parse_sequence(pipe_macros[name].code)
-                continue
-            i += 1
-
+    def apply_pipeline(values, pipeline):
+        '''Apply a list of *non-macro* pipe strings to a list of values'''
         printValues = []
 
         for bigPipe in pipeline:
-
             bigPipe, groupMode = groupmodes.parse(bigPipe)
-
             # print('GROUPMODE:', str(groupMode))
 
             # True and utter hack: Simply swipe triple-quoted strings out of the bigPipe and put them back
@@ -133,35 +112,46 @@ class PipeProcessor:
             # print('BIGPIPE:', bigPipe)
             multiPipes = CTree.get_all('[' + bigPipe + ']')
 
-            # "Parse" pipes as a list of {name, args}
+            # Parse the simultaneous pipes into a usable form: A list of {name, args}
             parsedPipes = []
             for pipe in multiPipes:
                 # Put triple-quoted strings back in their positions
                 pipe = return_triple_quotes(pipe)
                 split = pipe.strip().split(' ', 1)
                 name = split[0]
-                args = ''.join(split[1:])
+                args = ''.join(split[1:]) # split[1:] may be empty
                 parsedPipes.append({'name': name, 'args': args})
 
             newValues = []
             newPrintValues = []
 
+            # The group mode turns the lists of values and simultaneous pipes into tuples of values & the pipe they need to be applied to
+            # For more information: Check out groupmodes.py for a long, in-depth explanation.
             for vals, pipe in groupMode.apply(values, parsedPipes):
                 name = pipe['name']
                 args = pipe['args']
 
                 if name == 'print':
-                    # hard-coded special case
                     newPrintValues.extend(vals)
                     newValues.extend(vals)
-                elif name == '':
+
+                elif name in ['', 'nop']:
                     newValues.extend(vals)
+
                 elif name in pipes:
                     try:
                         newValues.extend(pipes[name](vals, args))
                     except Exception as e:
                         print('Failed to process pipe "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
                         newValues.extend(vals)
+                        
+                elif name in pipe_macros:
+                    # Apply the macro inline, as if it were a single operation!
+                    macro_pipeline = PipeProcessor.split_pipeline(pipe_macros[name].code)
+                    macro_values, macro_printValues = PipeProcessor.apply_pipeline(vals, macro_pipeline)
+                    newValues.extend(macro_values)
+                    # TODO: Do something with m_printvalues
+
                 else:
                     print('Error: Unknown pipe ' + name)
                     newValues.extend(vals)
@@ -170,9 +160,41 @@ class PipeProcessor:
             if len(newPrintValues):
                 printValues.append(newPrintValues)
 
-            if len(values) > 20 and not permissions.has(message.author.id, 'owner'):
-                await self.bot.send_message(message.channel, bot_format('that\'s a bit much don\'t you think'))
-                return True
+            MAXVALUES = 20
+            if len(values) > MAXVALUES and not permissions.has(message.author.id, 'owner'):
+                raise PipelineError('Attempted to process {} values at once, try staying under {}'.format(len(values), MAXVALUES))
+
+        return values, printValues
+
+    def apply_source_and_pipeline(source_and_pipeline, message):
+        source_and_pipeline = PipeProcessor.split_pipeline(source_and_pipeline)
+        source = source_and_pipeline[0]
+        pipeline = source_and_pipeline[1:]
+
+        values = []
+
+        # Determine which values we're working with.
+        for source in CTree.get_all('[' + source + ']'):
+            if is_pure_source(source.strip()):
+                values.extend(evaluate_pure_source(source, message))
+            else:
+                values.append(evaluate_all_sources(source, message))
+
+        return PipeProcessor.apply_pipeline(values, pipeline)
+
+    async def process_pipes(self, message):
+        content = message.content
+
+        # Test for the pipe command prefix (pipe_prefix in config.ini, default: '>>>')
+        if not content.startswith(self.prefix): return False
+        content = content[len(self.prefix):]
+
+        try:
+            values, printValues = PipeProcessor.apply_source_and_pipeline(content, message)
+        except PipelineError as e:
+            print('Error applying pipeline!')
+            print(e)
+            return True
 
         printValues.append(values)
         SourceResources.previous_pipe_output = values
