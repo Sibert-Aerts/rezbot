@@ -4,7 +4,6 @@ from .pipes import *
 from .sources import *
 from .pipe_decorations import pipes, sources
 from .macros import pipe_macros, source_macros
-from .source_eval import evaluate_all_sources, is_pure_source, evaluate_pure_source
 import pipes.groupmodes as groupmodes
 
 import permissions
@@ -166,6 +165,49 @@ class PipeProcessor:
 
         return values, printValues
 
+
+    # this looks like a big disgusting hamburger because it is
+    # matches: {source}, {source and some args}, {source args="{something}"}
+    _source_regex = r'{\s*([^\s}]+)\s*([^}\s](\"[^\"]*\"|[^}])*)?}'
+    source_regex = re.compile(_source_regex)
+    source_match_regex = re.compile(_source_regex + '$')
+
+    def is_pure_source(string):
+        return re.match(PipeProcessor.source_match_regex, string)
+
+    def evaluate_pure_source(string, message):
+        match = re.match(PipeProcessor.source_regex, string)
+        sourceName, args, _ = match.groups()
+        sourceName = sourceName.lower()
+
+        if sourceName in sources:
+            return sources[sourceName](message, args)
+        elif sourceName in source_macros:
+            code = source_macros[sourceName].code
+            values, printValues = PipeProcessor.apply_source_and_pipeline(code, message)
+            return values
+        else:
+            print('Error: Unknown source ' + sourceName)
+            return([match.group()])
+
+    def evaluate_all_sources(string, message):
+        '''Applies and replaces all {sources} in a string.'''
+        def eval_fun(match):
+            sourceName, args, _ = match.groups()
+            sourceName = sourceName.lower()
+            if sourceName in sources:
+                out = sources[sourceName](message, args)
+                return out[0] # ye gods! how stanky!
+            elif sourceName in source_macros:
+                code = source_macros[sourceName].code
+                values, printValues = PipeProcessor.apply_source_and_pipeline(code, message)
+                return values[0]
+            else:
+                print('Error: Unknown source ' + sourceName)
+                return(match.group())
+
+        return re.sub(PipeProcessor.source_regex, eval_fun, string)
+
     def apply_source_and_pipeline(source_and_pipeline, message):
         source_and_pipeline = PipeProcessor.split_pipeline(source_and_pipeline)
         source = source_and_pipeline[0]
@@ -175,12 +217,13 @@ class PipeProcessor:
 
         # Determine which values we're working with.
         for source in CTree.get_all('[' + source + ']'):
-            if is_pure_source(source.strip()):
-                values.extend(evaluate_pure_source(source, message))
+            if PipeProcessor.is_pure_source(source.strip()):
+                values.extend(PipeProcessor.evaluate_pure_source(source, message))
             else:
-                values.append(evaluate_all_sources(source, message))
+                values.append(PipeProcessor.evaluate_all_sources(source, message))
 
         return PipeProcessor.apply_pipeline(values, pipeline)
+
 
     async def process_pipes(self, message):
         content = message.content
