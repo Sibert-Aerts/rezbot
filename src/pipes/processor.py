@@ -79,7 +79,7 @@ class PipeProcessor:
         return out
 
 
-    def apply_pipeline(values, pipeline):
+    def apply_pipeline(values, pipeline, message):
         '''Apply a list of *non-macro* pipe strings to a list of values'''
         printValues = []
 
@@ -147,7 +147,7 @@ class PipeProcessor:
                 elif name in pipe_macros:
                     # Apply the macro inline, as if it were a single operation!
                     macro_pipeline = PipeProcessor.split_pipeline(pipe_macros[name].code)
-                    macro_values, macro_printValues = PipeProcessor.apply_pipeline(vals, macro_pipeline)
+                    macro_values, macro_printValues = PipeProcessor.apply_pipeline(vals, macro_pipeline, message)
                     newValues.extend(macro_values)
                     # TODO: Do something with m_printvalues
 
@@ -222,7 +222,7 @@ class PipeProcessor:
             else:
                 values.append(PipeProcessor.evaluate_all_sources(source, message))
 
-        return PipeProcessor.apply_pipeline(values, pipeline)
+        return PipeProcessor.apply_pipeline(values, pipeline, message)
 
 
     async def process_pipes(self, message):
