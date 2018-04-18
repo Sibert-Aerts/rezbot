@@ -36,7 +36,7 @@ class Macros:
         try:
             if not os.path.exists(DIR()): os.mkdir(DIR())
             self.macros = pickle.load(open(DIR(filename), 'rb+'))
-            print('{} macros loaded from "{}"!'.format(len(self.macros), DIR(filename)))
+            print('{} macros loaded from "{}"!'.format(len(self.macros), filename))
         except Exception as e:
             print(e)
             print('Failed to load macros from "{}"!'.format(DIR(filename)))
