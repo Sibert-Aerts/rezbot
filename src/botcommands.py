@@ -274,6 +274,13 @@ class BotCommands(MyCommands):
         await self.say(ISSUE.URL())
 
 
+    @commands.command(pass_context=True, hidden=True)
+    async def drump(self, ctx):
+        embed = discord.Embed(description=tweets.dril.random()['text'], color=0x4f545c)
+        embed.set_author(name='Donald J. Trump @realDonaldTrump', url='https://twitter.com/realDonaldTrump', icon_url='https://pbs.twimg.com/profile_images/874276197357596672/kUuht00m_bigger.jpg')
+        embed.set_footer(text='Twitter', icon_url='https://abs.twimg.com/icons/apple-touch-icon-192x192.png')
+        await self.bot.say(embed=embed)
+
     @commands.command()
     async def lunch(self, kind='regular'):
         '''Generate a fake lunch menu in Dutch. If the first argument is "weird" it will produce a weirder menu.'''

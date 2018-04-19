@@ -222,7 +222,7 @@ def unicode_pipe(text):
 
 
 @make_pipe({
-    'f' : Sig(str, '{0}', 'The format string')
+    'f' : Sig(str, '{0}', 'The format string, for syntax info: https://pyformat.info/')
 })
 def format_pipe(input, f):
     '''Format one or more rows into a single row according to a format string.'''
