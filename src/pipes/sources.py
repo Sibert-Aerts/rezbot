@@ -1,5 +1,6 @@
 import emoji
 import random
+from datetime import datetime
 
 from .pipe_decorations import *
 from utils.texttools import *
@@ -51,6 +52,14 @@ def get_source(name):
 def roll_source(min, max):
     '''A dice roll between min and max.'''
     return str(random.randint(min, max))
+
+
+@make_source({
+    'format': Sig(str, '%Y/%m/%d %H:%M:%S', 'The format string, see http://strftime.org/ for syntax.'),
+}, command=False)
+def datetime_source(format):
+    '''The current date and time, with optional custom formatting.'''
+    return [datetime.now().strftime(format)]
 
 
 @make_source({
