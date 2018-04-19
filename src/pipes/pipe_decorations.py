@@ -70,7 +70,7 @@ def parse_args(signature, text):
 
             # Verify that the value meets the check function (if one exists)
             if sig.check and not sig.check(args[s]):
-                raise ArgumentError('Invalid argument value {} as "{}".'.format(args[s], s))
+                raise ArgumentError('Invalid value "{}" for argument "{}".'.format(args[s], s))
 
             text = text[:given.start(0)] + text[given.end(0):]
 
@@ -81,7 +81,7 @@ def parse_args(signature, text):
             # Use the default argument value
             args[s] = sig.default
             if args[s] is None:
-                raise ArgumentError('Missing required argument "{}".'.format(s))
+                raise ArgumentError('Missing or invalid argument "{}".'.format(s))
 
     return (text, args)
 

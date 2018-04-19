@@ -1,4 +1,5 @@
-from enum import Enum
+from datetime import datetime
+import discord
 
 from .pipes import *
 from .sources import *
@@ -19,10 +20,50 @@ class PipelineError(ValueError):
     pass
 
 
+class ErrorLog:
+    def __init__(self):
+        self.errors = []
+        self.terminal = False
+        self.time = datetime.now().strftime('%z %c')
+
+    class ErrorMessage:
+        def __init__(self, message):
+            self.count = 1
+            self.message = message
+        def __str__(self):
+            return ('**(%d)** ' % self.count if self.count > 1 else '') + self.message
+
+    def __call__(self, message, terminal=False):
+        if self.errors and self.errors[-1].message == message:
+            self.errors[-1].count += 1
+        else:
+            print('Error logged: ' + message)
+            self.errors.append(ErrorLog.ErrorMessage(message))
+        self.terminal |= terminal
+
+    def extend(self, other, context=None):
+        '''extend another error log, prepending the given 'context' for each error.'''
+        for e in other.errors:
+            if context is not None: e.message = '**in {}:** '.format(context) + e.message
+            self.errors.append(e)
+
+    def __bool__(self): return len(self.errors) > 0
+    def __len__(self): return len(self.errors)
+
+    def embed(self):
+        desc = '\n'.join(str(m) for m in self.errors) if self.errors else 'No warnings!'
+        if self.terminal:
+            embed = discord.Embed(title="Error log", description=desc, color=0xff3366 if self.terminal else 0xff88)
+        else:
+            embed = discord.Embed(title="Warning log", description=desc, color=0xffdd33)
+        embed.set_footer(text=self.time)
+        return embed
+
 class Pipeline:
     def __init__(self, pipeline:str, message):
         self.pipeline_str = pipeline
         self.message = message
+        self.error_log = ErrorLog()
 
     def split(self):
         '''
@@ -56,35 +97,37 @@ class Pipeline:
 
     def evaluate_pure_source(self, source):
         match = re.match(Pipeline.source_regex, source)
-        sourceName, args, _ = match.groups()
-        sourceName = sourceName.lower()
+        name, args, _ = match.groups()
+        name = name.lower()
 
-        if sourceName in sources:
-            return sources[sourceName](self.message, args)
-        elif sourceName in source_macros:
-            code = source_macros[sourceName].code
+        if name in sources:
+            return sources[name](self.message, args)
+        elif name in source_macros:
+            code = source_macros[name].code
             source_pl = Pipeline(code, self.message)
+            self.error_log.extend(source_pl.error_log, name)
             return source_pl.apply_source_and_pipeline()
             # TODO: we throw away source_pl's printValues here, maybe they are still of use!
         else:
-            print('Error: Unknown source ' + sourceName)
+            self.error_log('Unknown source "{}".'.format(name))
             return([match.group()])
 
     def evaluate_all_sources(self, source):
         '''Applies and replaces all {sources} in a string.'''
         def eval_fun(match):
-            sourceName, args, _ = match.groups()
-            sourceName = sourceName.lower()
-            if sourceName in sources:
-                out = sources[sourceName](self.message, args)
+            name, args, _ = match.groups()
+            name = name.lower()
+            if name in sources:
+                out = sources[name](self.message, args)
                 return out[0] # ye gods! how stanky!
-            elif sourceName in source_macros:
-                code = source_macros[sourceName].code
+            elif name in source_macros:
+                code = source_macros[name].code
                 source_pl = Pipeline(code, self.message)
+                self.error_log.extend(source_pl.error_log, name)
                 return source_pl.apply_source_and_pipeline()[0]
                 # TODO: we throw away source_pl's printValues here, maybe they are still of use!
             else:
-                print('Error: Unknown source ' + sourceName)
+                self.error_log('Unknown source "{}".'.format(name))
                 return(match.group())
 
         return re.sub(Pipeline.source_regex, eval_fun, source)
@@ -167,19 +210,20 @@ class Pipeline:
                     try:
                         newValues.extend(pipes[name](vals, args))
                     except Exception as e:
-                        print('Failed to process pipe "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
+                        self.error_log('Failed to process pipe "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
                         newValues.extend(vals)
-                        
+
                 elif name in pipe_macros:
                     # Apply the macro inline, as if it were a single operation!
                     macroPipeline = Pipeline(pipe_macros[name].code, self.message)
                     macroPipeline.split()
                     macroValues = macroPipeline.apply_pipeline(vals)
                     newValues.extend(macroValues)
+                    self.error_log.extend(macroPipeline.error_log, name)
                     # TODO: Do something with macroPipeline.printValues
 
                 else:
-                    print('Error: Unknown pipe ' + name)
+                    self.error_log('Unknown pipe "{}".'.format(name))
                     newValues.extend(vals)
 
             values = newValues
@@ -188,7 +232,7 @@ class Pipeline:
 
             MAXVALUES = 20
             if len(values) > MAXVALUES and not permissions.has(self.message.author.id, 'owner'):
-                raise PipelineError('Attempted to process {} values at once, try staying under {}'.format(len(values), MAXVALUES))
+                raise PipelineError('Attempted to process {} values at once, try staying under {}.'.format(len(values), MAXVALUES))
 
         return values
 
@@ -248,8 +292,16 @@ class PipelineProcessor:
             printValues.append(values)
             await self.print(message.channel, printValues)
 
+            if pipeline.error_log:
+                await self.bot.send_message(message.channel, embed=pipeline.error_log.embed())
+
         except PipelineError as e:
             print('Error applying pipeline!')
             print(e)
+            try:
+                pipeline.error_log(str(e), True)
+                await self.bot.send_message(message.channel, embed=pipeline.error_log.embed())
+            except:
+                print('...Failed to send error log!')
 
         return True
