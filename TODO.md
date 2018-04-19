@@ -8,8 +8,25 @@
     * Permission assignment commands
     * Ability to disable specific features (commands, patterns, pipes) in specific channels/servers
     * Logging? lotta work but idk the data would be fun...
+    * rewrite `help` to spam less
 
 * **Pipes:**
+    * Youtube source
+
+    * Error output!!!
+
+    * >>>? to analyse a pipeline (to learn or debug!)
+
+    * Refactor apply_pipeline a little?
+
+    * native pipes and sources actually put into classes/data structures
+
+    * CTree flags:
+        * [?] to produce a single random line instead of all possible lines
+            [?] [alpha|beta] [gamma|delta] → alpha delta
+        * [-] to produce a minimal number of lines that reach each choice leaf at least once
+            [-] [alpha|beta] [gamma|delta] → alpha gamma, beta delta
+
     * Genericize pipe inputs:
         * {prev *n*} for the nth previous output
         * {that *n*} for the nth previous message in the channel
@@ -19,7 +36,7 @@
 
     * Automatically `source-eval` all input in commands-from-pipes
 
-    * rewrite `help` to spam less
+    * option to turn pipe/source macros into commands!!!!!!
 
     * fix indentation/newlines in docstrings in `>pipes` and `>sources` list view
 

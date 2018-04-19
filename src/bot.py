@@ -7,7 +7,7 @@ from discord.ext import commands
 
 import permissions
 import patterns
-from pipes.processor import PipeProcessor
+from pipes.processor import PipelineProcessor
 import utils.util as util
 
 # Open the config so we can read the bot token from it, later
@@ -22,7 +22,7 @@ bot = commands.Bot(command_prefix=command_prefix)
 
 # initialise some of my own stuffs
 patterns = patterns.Patterns(bot)
-pipeProcessor = PipeProcessor(bot, pipe_prefix)
+pipeProcessor = PipelineProcessor(bot, pipe_prefix)
 
 
 @bot.event

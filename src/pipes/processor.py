@@ -18,72 +18,98 @@ class PipelineError(ValueError):
     '''Special error for some invalid element when processing a pipeline.'''
     pass
 
-class PipeProcessor:
-    def __init__(self, bot, prefix):
-        self.bot = bot
-        self.prefix = prefix
-        SourceResources.bot = bot
 
+class Pipeline:
+    def __init__(self, pipeline:str, message):
+        self.pipeline_str = pipeline
+        self.message = message
 
-    async def pipe_say(self, dest, output):
-        ''' Nicely print the output in rows and columns and even with little arrows.'''
-
-        # Don't apply any formatting if the output is just a single row and column.
-        if len(output) == 1 and len(output[0]) == 1:
-            await self.bot.send_message(dest, output[0][0])
-            return
-
-        rowCount = len(max(output, key=len))
-        rows = [''] * rowCount
-        for c in range(len(output)):
-            col = output[c]
-            colWidth = len(max(col, key=len))
-            for r in range(rowCount):
-                if r < len(col):
-                    rows[r] += col[r] + ' ' * (colWidth - len(col[r]))
-                else:
-                    rows[r] += ' ' * colWidth 
-                try:
-                    output[c+1][r]
-                    rows[r] += ' → '
-                except:
-                    rows[r] += '   '
-                    pass
-
-        # Remove unnecessary padding
-        rows = [row.rstrip() for row in rows]
-        output = texttools.block_format('\n'.join(rows))
-        await self.bot.send_message(dest, output)
-
-
-    def split_pipeline(seq):
+    def split(self):
         '''
-        Split a sequence of pipes (one big string) into a list of pipes (list of strings).
+        Split the sequence of pipes (one big string) into a list of pipes (list of strings).
         Doesn't split on >'s inside quote blocks, and inserts "print"s on ->'s.
         '''
-        out = []
+        self.pipeline = []
         quotes = False
         current = ''
-        for c in seq:
+        for c in self.pipeline_str:
             if not quotes and c == '>':
                 if current[-1] == '-': # the > was actually part of a ->
-                    out.append(current[:-1].strip())
-                    out.append('print')
+                    self.pipeline.append(current[:-1].strip())
+                    self.pipeline.append('print')
                 else:
-                    out.append(current.strip())
+                    self.pipeline.append(current.strip())
                 current = ''
             else:
                 current += c
                 quotes ^= c == '"'
-        out.append(current.strip())
-        return out
+        self.pipeline.append(current.strip())
 
+    # this looks like a big disgusting hamburger because it is
+    # matches: {source}, {source and some args}, {source args="{something}"}
+    _source_regex = r'{\s*([^\s}]+)\s*([^}\s](\"[^\"]*\"|[^}])*)?}'
+    source_regex = re.compile(_source_regex)
+    source_match_regex = re.compile(_source_regex + '$')
 
-    def apply_pipeline(values, pipeline, message):
-        '''Apply a list of *non-macro* pipe strings to a list of values'''
-        printValues = []
+    def is_pure_source(self, source):
+        return re.match(Pipeline.source_match_regex, source)
 
-        for bigPipe in pipeline:
+    def evaluate_pure_source(self, source):
+        match = re.match(Pipeline.source_regex, source)
+        sourceName, args, _ = match.groups()
+        sourceName = sourceName.lower()
+
+        if sourceName in sources:
+            return sources[sourceName](self.message, args)
+        elif sourceName in source_macros:
+            code = source_macros[sourceName].code
+            source_pl = Pipeline(code, self.message)
+            return source_pl.apply_source_and_pipeline()
+            # TODO: we throw away source_pl's printValues here, maybe they are still of use!
+        else:
+            print('Error: Unknown source ' + sourceName)
+            return([match.group()])
+
+    def evaluate_all_sources(self, source):
+        '''Applies and replaces all {sources} in a string.'''
+        def eval_fun(match):
+            sourceName, args, _ = match.groups()
+            sourceName = sourceName.lower()
+            if sourceName in sources:
+                out = sources[sourceName](self.message, args)
+                return out[0] # ye gods! how stanky!
+            elif sourceName in source_macros:
+                code = source_macros[sourceName].code
+                source_pl = Pipeline(code, self.message)
+                return source_pl.apply_source_and_pipeline()[0]
+                # TODO: we throw away source_pl's printValues here, maybe they are still of use!
+            else:
+                print('Error: Unknown source ' + sourceName)
+                return(match.group())
+
+        return re.sub(Pipeline.source_regex, eval_fun, source)
+
+    def apply_source_and_pipeline(self):
+        self.split()
+        self.source = self.pipeline[0]
+        self.pipeline = self.pipeline[1:]
+
+        values = []
+
+        # Determine which values we're working with.
+        for source in CTree.get_all('[' + self.source + ']'):
+            if self.is_pure_source(source):
+                values.extend(self.evaluate_pure_source(source))
+            else:
+                values.append(self.evaluate_all_sources(source))
+
+        return self.apply_pipeline(values)
+
+    def apply_pipeline(self, values):
+        '''Apply a list of pipe strings to a list of values'''
+        self.printValues = []
+
+        for bigPipe in self.pipeline:
             bigPipe, groupMode = groupmodes.parse(bigPipe)
             # print('GROUPMODE:', str(groupMode))
 
@@ -146,10 +172,11 @@ class PipeProcessor:
                         
                 elif name in pipe_macros:
                     # Apply the macro inline, as if it were a single operation!
-                    macro_pipeline = PipeProcessor.split_pipeline(pipe_macros[name].code)
-                    macro_values, macro_printValues = PipeProcessor.apply_pipeline(vals, macro_pipeline, message)
-                    newValues.extend(macro_values)
-                    # TODO: Do something with m_printvalues
+                    macroPipeline = Pipeline(pipe_macros[name].code, self.message)
+                    macroPipeline.split()
+                    macroValues = macroPipeline.apply_pipeline(vals)
+                    newValues.extend(macroValues)
+                    # TODO: Do something with macroPipeline.printValues
 
                 else:
                     print('Error: Unknown pipe ' + name)
@@ -157,73 +184,50 @@ class PipeProcessor:
 
             values = newValues
             if len(newPrintValues):
-                printValues.append(newPrintValues)
+                self.printValues.append(newPrintValues)
 
             MAXVALUES = 20
-            if len(values) > MAXVALUES and not permissions.has(message.author.id, 'owner'):
+            if len(values) > MAXVALUES and not permissions.has(self.message.author.id, 'owner'):
                 raise PipelineError('Attempted to process {} values at once, try staying under {}'.format(len(values), MAXVALUES))
 
-        return values, printValues
+        return values
 
 
-    # this looks like a big disgusting hamburger because it is
-    # matches: {source}, {source and some args}, {source args="{something}"}
-    _source_regex = r'{\s*([^\s}]+)\s*([^}\s](\"[^\"]*\"|[^}])*)?}'
-    source_regex = re.compile(_source_regex)
-    source_match_regex = re.compile(_source_regex + '$')
+class PipelineProcessor:
+    def __init__(self, bot, prefix):
+        self.bot = bot
+        self.prefix = prefix
+        SourceResources.bot = bot
 
-    def is_pure_source(string):
-        return re.match(PipeProcessor.source_match_regex, string)
+    async def print(self, dest, output):
+        ''' Nicely print the output in rows and columns and even with little arrows.'''
 
-    def evaluate_pure_source(string, message):
-        match = re.match(PipeProcessor.source_regex, string)
-        sourceName, args, _ = match.groups()
-        sourceName = sourceName.lower()
+        # Don't apply any formatting if the output is just a single row and column.
+        if len(output) == 1 and len(output[0]) == 1:
+            await self.bot.send_message(dest, output[0][0])
+            return
 
-        if sourceName in sources:
-            return sources[sourceName](message, args)
-        elif sourceName in source_macros:
-            code = source_macros[sourceName].code
-            values, printValues = PipeProcessor.apply_source_and_pipeline(code, message)
-            return values
-        else:
-            print('Error: Unknown source ' + sourceName)
-            return([match.group()])
+        rowCount = len(max(output, key=len))
+        rows = [''] * rowCount
+        for c in range(len(output)):
+            col = output[c]
+            colWidth = len(max(col, key=len))
+            for r in range(rowCount):
+                if r < len(col):
+                    rows[r] += col[r] + ' ' * (colWidth - len(col[r]))
+                else:
+                    rows[r] += ' ' * colWidth 
+                try:
+                    output[c+1][r]
+                    rows[r] += ' → '
+                except:
+                    rows[r] += '   '
+                    pass
 
-    def evaluate_all_sources(string, message):
-        '''Applies and replaces all {sources} in a string.'''
-        def eval_fun(match):
-            sourceName, args, _ = match.groups()
-            sourceName = sourceName.lower()
-            if sourceName in sources:
-                out = sources[sourceName](message, args)
-                return out[0] # ye gods! how stanky!
-            elif sourceName in source_macros:
-                code = source_macros[sourceName].code
-                values, printValues = PipeProcessor.apply_source_and_pipeline(code, message)
-                return values[0]
-            else:
-                print('Error: Unknown source ' + sourceName)
-                return(match.group())
-
-        return re.sub(PipeProcessor.source_regex, eval_fun, string)
-
-    def apply_source_and_pipeline(source_and_pipeline, message):
-        source_and_pipeline = PipeProcessor.split_pipeline(source_and_pipeline)
-        source = source_and_pipeline[0]
-        pipeline = source_and_pipeline[1:]
-
-        values = []
-
-        # Determine which values we're working with.
-        for source in CTree.get_all('[' + source + ']'):
-            if PipeProcessor.is_pure_source(source.strip()):
-                values.extend(PipeProcessor.evaluate_pure_source(source, message))
-            else:
-                values.append(PipeProcessor.evaluate_all_sources(source, message))
-
-        return PipeProcessor.apply_pipeline(values, pipeline, message)
-
+        # Remove unnecessary padding
+        rows = [row.rstrip() for row in rows]
+        output = texttools.block_format('\n'.join(rows))
+        await self.bot.send_message(dest, output)
 
     async def process_pipes(self, message):
         content = message.content
@@ -232,14 +236,20 @@ class PipeProcessor:
         if not content.startswith(self.prefix): return False
         content = content[len(self.prefix):]
 
+        pipeline = Pipeline(content, message)
+
         try:
-            values, printValues = PipeProcessor.apply_source_and_pipeline(content, message)
+            values = pipeline.apply_source_and_pipeline()
+            
+            SourceResources.previous_pipe_output = values
+
+            # TODO: something happens here?
+            printValues = pipeline.printValues
+            printValues.append(values)
+            await self.print(message.channel, printValues)
+
         except PipelineError as e:
             print('Error applying pipeline!')
             print(e)
-            return True
 
-        printValues.append(values)
-        SourceResources.previous_pipe_output = values
-        await self.pipe_say(message.channel, printValues)
         return True
