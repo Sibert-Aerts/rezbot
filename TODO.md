@@ -23,6 +23,9 @@
     * Refactor apply_pipeline a little?
     * native pipes and sources actually put into classes/data structures
 
+    * cowsay complains about shit & shouldn't
+    * translate should return empty string when receiving empty string
+
     * in pipe/source arguments, replace `\n` to newlines
 
     * option to turn pipe/source macros into commands!!!!!!

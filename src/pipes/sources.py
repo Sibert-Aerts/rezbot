@@ -56,7 +56,7 @@ def roll_source(min, max):
 
 @make_source({
     'format': Sig(str, '%Y/%m/%d %H:%M:%S', 'The format string, see http://strftime.org/ for syntax.'),
-}, command=False)
+})
 def datetime_source(format):
     '''The current date and time, with optional custom formatting.'''
     return [datetime.now().strftime(format)]
@@ -74,6 +74,19 @@ def words_source(pattern, n):
     else:
         items = allWords
     return random.sample(items, min(n, len(items)))
+
+
+@make_source({'n' : Sig(int, 1, 'The amount of captions.')}, pass_message=True)
+def member_source(message, n):
+    '''Gets a random member.'''
+    members = list(message.server.members)
+    return [m.name for m in random.sample(members, min(n, len(members)))]
+
+
+@make_source({}, pass_message=True)
+def me_source(message):
+    '''The name of the user invoking the command.'''
+    return [message.author.name]
 
 
 @make_source({
