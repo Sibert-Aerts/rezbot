@@ -6,6 +6,7 @@ from discord.ext import commands
 
 from .pipes import *
 from .macros import Macro, pipe_macros, source_macros
+from .processor import Pipeline
 from mycommands import MyCommands
 import utils.texttools as texttools
 import utils.util as util
@@ -129,6 +130,8 @@ class PipesCommands(MyCommands):
 def pipe_to_func(pipe):
     async def func(self, ctx):
         text = util.strip_command(ctx)
+        pl = Pipeline('', ctx.message)
+        text = pl.evaluate_all_sources(text)
         text = pipe(text)
         await self.say(text)
     func.__name__ = pipe.__name__.split('_pipe', 1)[0]
