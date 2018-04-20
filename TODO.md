@@ -10,7 +10,8 @@
     * Logging? lotta work but idk the data would be fun...
     * rewrite `help` to spam less
     * post git commits to channel
-    * 
+    * clean out words.txt
+    * different txt's for other languages
 
 * **Pipes:**
     * Youtube source
@@ -23,8 +24,6 @@
     * native pipes and sources actually put into classes/data structures
 
     * in pipe/source arguments, replace `\n` to newlines
-
-    * fix indentation/newlines in docstrings in `>pipes` and `>sources` list view
 
     * option to turn pipe/source macros into commands!!!!!!
     * new syntax: `{N pipe}` passes N to the pipe as a "desired amount" parameter

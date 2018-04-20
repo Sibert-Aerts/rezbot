@@ -243,8 +243,13 @@ randomLanguage = ['rand', 'random', '?']
     'to' : Sig(str, 'random', None, lambda x: x in translateLanguages + randomLanguage),
 }, command=True)
 @as_map
+@util.format_doc(langs=' '.join([c for c in translateLanguages]))
 def translate_pipe(text, to, **argc):
-    '''Translates the input using the internet.'''
+    '''
+    Translates the input using the internet.
+    
+    Options: {langs}
+    '''
     if to in randomLanguage:
         return translate(text, argc['from'], choose(translateLanguages))
     text = translate(text, argc['from'], to)

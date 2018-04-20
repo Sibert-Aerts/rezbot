@@ -1,4 +1,5 @@
 from functools import wraps
+from textwrap import dedent
 
 from utils.texttools import *
 from utils.ctree import CTree
@@ -160,6 +161,12 @@ def make_pipe(sig, command=False):
         global pipes
         pipes[func.__name__.split('_pipe', 1)[0]] = func
         if command: command_pipes.append(func)
+
+        # fix the doc string a little
+        if func.__doc__ is not None:
+            func.__doc__ = dedent(func.__doc__).lstrip()
+            func.__small_doc__ = func.__doc__.split('\n')[0]
+
         return func
     return _make_pipe
 
@@ -212,5 +219,11 @@ def make_source(sig, pass_message=False, command=False):
         global sources
         sources[func.__name__.split('_source', 1)[0].lower()] = func
         if command: command_sources.append(func)
+
+        # fix the doc string a little
+        if func.__doc__ is not None:
+            func.__doc__ = dedent(func.__doc__).lstrip()
+            func.__small_doc__ = func.__doc__.split('\n')[0]
+
         return func
     return _make_source
