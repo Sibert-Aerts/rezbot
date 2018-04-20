@@ -186,7 +186,7 @@ class Pipeline:
                 # Put triple-quoted strings back in their positions
                 pipe = return_triple_quotes(pipe)
                 split = pipe.strip().split(' ', 1)
-                name = split[0]
+                name = split[0].lower()
                 args = ''.join(split[1:]) # split[1:] may be empty
                 parsedPipes.append({'name': name, 'args': args})
 
