@@ -110,10 +110,11 @@ import math
 #         ｄｅｌｔａ
 
 ## Interval grouping:
-#   >>> {source} > #$n..$m [pipe1|pipe2|...]
-# Groups inputs from index $n up to (not including) index $m as one group and applies them to pipe1.
+#   >>> {source} > #$i..$j [pipe1|pipe2|...]
+# Groups inputs from index $i up to (not including) index $j as one group and applies them to pipe1.
 # All other input is kept in place, unaffected, all other pipes are ignored.
-# $n and $m can be negative, and follows python's negative index logic for those. (i.e. a[-1] == a[len(a)-1])
+# $i and $j can be negative, and follows python's negative index logic for those. (e.g. a[-1] == a[len(a)-1])
+# $i and $j may also use '-0' to indicate the last position in the string. (i.e. '-0' -> len(inputs))
 #   >>> [alpha|beta|gamma|delta] > #1..3 convert fullwidth
 # Output: alpha
 #         ｂｅｔａ
@@ -121,8 +122,8 @@ import math
 #         delta
 
 ## Index grouping:
-#   >>> {source} > #$n [pipe1|pipe2|...]
-# Same as Interval grouping with $m = $n+1.
+#   >>> {source} > #$i [pipe1|pipe2|...]
+# Same as Interval grouping with $j = $i+1. (Except if $j == '-0' then $i == '-0' as well.)
 #   >>> [alpha|beta|gamma|delta] > #2 convert fullwidth
 # Output: alpha
 #         beta
