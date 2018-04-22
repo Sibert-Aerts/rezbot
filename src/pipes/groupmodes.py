@@ -235,17 +235,25 @@ class Interval(GroupMode):
     def apply(self, values, pipes):
         # TODO: crop rule
         nop = {'name':'', 'args':''}
-        rval = self.rval if self.rval != 'LEN' else len(values)
-        lval = self.lval
-        while lval < 0: lval += len(values)
-        while rval < 0: rval += len(values)
+        length = len(values)
+        lval = int(self.lval) if self.lval != '-0' else length
+        print('LVAL:', lval)
+        if self.rval is None:
+            if   self.lval == '-1': rval = length # Writing #-1 is equivalent to #-1..-0: The last element
+            elif self.lval == '-0': rval = length # Writing #-0 is equivalent to #-0..-0: The empty tail
+            else: rval = lval + 1
+        else:
+            rval = int(self.rval) if self.rval != '-0' else length
+        print('RVAL:', rval)
+        while lval < 0: lval += length
+        while rval < 0: rval += length
         if rval < lval: # negative range: nop
             return [(values, nop)]
         else:
             return [
                 (values[0: lval], nop),
                 (values[lval: rval], pipes[0]),
-                (values[rval: len(values)], nop),
+                (values[rval: length], nop),
             ]
 
 
@@ -276,13 +284,8 @@ def parse(bigPipe):
                 mode = Divide(multiply, value, padding)
         else:
             vals = re.split('\.+', value)
-            lval = int(vals[0])
-            if len(vals) == 2:
-                rval = int(vals[1])
-            elif lval == -1:
-                rval = 'LEN' # special case value because you can't slice from [-1: -0] to get the last character!!!!!!
-            else:
-                rval = lval + 1
+            lval = vals[0]
+            rval = vals[1] if len(vals)>1 else None
             mode = Interval(multiply, lval, rval)
 
         bigPipe = bigPipe[len(flag):]
