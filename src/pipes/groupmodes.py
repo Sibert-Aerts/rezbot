@@ -238,14 +238,12 @@ class Interval(GroupMode):
         nop = {'name':'', 'args':''}
         length = len(values)
         lval = int(self.lval) if self.lval != '-0' else length
-        print('LVAL:', lval)
         if self.rval is None:
             if   self.lval == '-1': rval = length # Writing #-1 is equivalent to #-1..-0: The last element
             elif self.lval == '-0': rval = length # Writing #-0 is equivalent to #-0..-0: The empty tail
             else: rval = lval + 1
         else:
             rval = int(self.rval) if self.rval != '-0' else length
-        print('RVAL:', rval)
         while lval < 0: lval += length
         while rval < 0: rval += length
         if rval < lval: # negative range: nop
