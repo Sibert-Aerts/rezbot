@@ -149,7 +149,6 @@ class Pipeline:
                     values.append(self.evaluate_composite_source(source))
         return values
 
-
     def apply_source_and_pipeline(self):
         self.split()
         self.source = self.pipeline[0]
@@ -304,7 +303,7 @@ class PipelineProcessor:
             if pipeline.error_log:
                 await self.bot.send_message(message.channel, embed=pipeline.error_log.embed())
 
-        except PipelineError as e:
+        except Exception as e:
             print('Error applying pipeline!')
             print(e)
             try:
