@@ -14,7 +14,7 @@ This is where the actual workings of pipes like letterize, convert etc. are impl
 # words
 allWords = open('resource/words.txt', encoding='utf-8').read().split()
 # remove proper nouns
-allWords = [w for w in allWords if not w[:1].isupper()]
+allWords = [w for w in allWords if not w[:1].isupper() and not w[-2:] == "'s"]
 
 
 def bot_format(str):
