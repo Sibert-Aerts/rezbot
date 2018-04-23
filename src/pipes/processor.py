@@ -59,6 +59,7 @@ class ErrorLog:
         embed.set_footer(text=self.time)
         return embed
 
+
 class Pipeline:
     def __init__(self, pipeline:str, message):
         self.pipeline_str = pipeline
@@ -112,7 +113,7 @@ class Pipeline:
             self.error_log('Unknown source "{}".'.format(name))
             return([match.group()])
 
-    def evaluate_all_sources(self, source):
+    def evaluate_composite_source(self, source):
         '''Applies and replaces all {sources} in a string.'''
         def eval_fun(match):
             name, args, _ = match.groups()
@@ -132,20 +133,28 @@ class Pipeline:
 
         return re.sub(Pipeline.source_regex, eval_fun, source)
 
+    def evaluate_source(self):
+        values = []
+        if self.source[:3] == '[?]':
+            source = CTree.get_random(self.source[3:])
+            if self.is_pure_source(source):
+                values.extend(self.evaluate_pure_source(source))
+            else:
+                values.append(self.evaluate_composite_source(source))
+        else:
+            for source in CTree.get_all('[' + self.source + ']'):
+                if self.is_pure_source(source):
+                    values.extend(self.evaluate_pure_source(source))
+                else:
+                    values.append(self.evaluate_composite_source(source))
+        return values
+
+
     def apply_source_and_pipeline(self):
         self.split()
         self.source = self.pipeline[0]
         self.pipeline = self.pipeline[1:]
-
-        values = []
-
-        # Determine which values we're working with.
-        for source in CTree.get_all('[' + self.source + ']'):
-            if self.is_pure_source(source):
-                values.extend(self.evaluate_pure_source(source))
-            else:
-                values.append(self.evaluate_all_sources(source))
-
+        values = self.evaluate_source()
         return self.apply_pipeline(values)
 
     def apply_pipeline(self, values):
@@ -284,7 +293,7 @@ class PipelineProcessor:
 
         try:
             values = pipeline.apply_source_and_pipeline()
-            
+
             SourceResources.previous_pipe_output = values
 
             # TODO: something happens here?

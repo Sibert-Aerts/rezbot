@@ -5,7 +5,7 @@ import random
 class CTree:
     '''
     Class that parses strings and returns combinations based on a "choice" system.
-    e.g. 
+    e.g.
         "abc[de|fg]" → ["abcde", "abcfg"]
         "I [eat|like] [|hot]dogs" → ["I eat dogs", "I like dogs", "I eat hotdogs", "I like hotdogs"]
 
@@ -23,6 +23,9 @@ class CTree:
 
         def next(self):
             self.done = True
+            return self.text
+
+        def random(self):
             return self.text
 
         def reset(self):
@@ -47,6 +50,9 @@ class CTree:
                 if self.i == len(self.vals):
                     self.done = True
             return out
+
+        def random(self):
+            return random.choice(self.vals).random()
 
         def reset(self):
             self.i = 0
@@ -85,6 +91,9 @@ class CTree:
 
             return out
 
+        def random(self):
+            return ''.join(v.random() for v in self.vals)
+
         def reset(self):
             self.done = False
             [c.reset() for c in self.vals]
@@ -116,3 +125,7 @@ class CTree:
         while not tree.done:
             out.append(tree.next())
         return out
+
+    def get_random(text):
+        tree = CTree.parse(text)
+        return tree.random()
