@@ -357,7 +357,7 @@ class Patterns:
          'function': current_year},
         #{ 'pattern' : (':pe:', re.I),
         #  'function' : make_reply('`{0}.`'.format(happyDayText)) },
-        {'pattern': ('^:pe:$', re.I),
+        {'pattern': ('^<:pe:245959018210656256>$', re.I),
          'function': make_react(':pe:245959018210656256')},
     ]
 

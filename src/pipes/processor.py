@@ -222,8 +222,23 @@ class Pipeline:
                         newValues.extend(vals)
 
                 elif name in pipe_macros:
-                    # Apply the macro inline, as if it were a single operation!
-                    macroPipeline = Pipeline(pipe_macros[name].code, self.message)
+                    # Apply the macro inline, as if it were a single operation
+                    code = pipe_macros[name].code
+
+                    # spicey!!!! definitely delete this entirely & pull it up into Macros!!!!!
+                    def argfunc(match):
+                        id = match.groups()[0].lower()
+                        print('ENCOUNTERED: ', id)
+                        try:
+                            val = re.search(id+'=(\S+)', args).groups()[0]
+                            print('FOUND VALUE ASSIGNMENT: ', val)
+                            return val
+                        except:
+                            print('ARGUMENT NOT GIVEN, LEAVING IT.')
+                            return match.group()
+
+                    code = re.sub(r'(?i)\$([A-Z]+)\$', argfunc, code)
+                    macroPipeline = Pipeline(code, self.message)
                     macroPipeline.split()
                     macroValues = macroPipeline.apply_pipeline(vals)
                     newValues.extend(macroValues)
