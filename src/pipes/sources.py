@@ -110,7 +110,7 @@ def words_source(pattern, n):
     return random.sample(items, min(n, len(items)))
 
 
-@make_source({'n' : Sig(int, 1, 'The amount of captions.')}, pass_message=True)
+@make_source({'n' : Sig(int, 1, 'The amount of members.')}, pass_message=True)
 def member_source(message, n):
     '''Gets a random member.'''
     members = list(message.server.members)
