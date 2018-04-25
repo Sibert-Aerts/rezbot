@@ -1,8 +1,10 @@
 import emoji
 import random
 from datetime import datetime
+from functools import wraps
 
-from .pipe_decorations import *
+from .signature import Sig
+from .pipe import Source, Pipes
 from utils.texttools import *
 from utils.rand import *
 from utils.FROG import FROG
@@ -12,6 +14,38 @@ from utils.frinkiac import simpsons, futurama
 import resource.tweets as tweets
 from resource.jerkcity import JERKCITY
 import utils.util as util
+
+
+#######################################################
+#                     Decorations                     #
+#######################################################
+
+def multi_source(func):
+    '''
+    Decorates a function to take an argument 'n' that simply calls the function multiple times.
+
+    f: (*args) -> y      becomes     f': (*args, n=1) -> [y]
+    e.g.
+    rand()   -> 0.1      becomes     rand'(n=3) -> [0.5, 0.2, 0.3]
+    '''
+    @wraps(func)
+    def _multi_source(*args, n, **kwargs):
+        return [func(*args, **kwargs) for i in range(n)]
+    return _multi_source
+
+sources = Pipes()
+sources.command_sources = []
+
+def make_source(signature, pass_message=False, command=False):
+    '''Makes a source out of a function'''
+    def _make_source(func):
+        source = Source(signature, func, pass_message)
+        global sources
+        sources[source.name] = source
+        if command:
+            sources.command_sources.append(source)
+        return func
+    return _make_source
 
 # Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.
 class SourceResources:
@@ -95,7 +129,7 @@ def me_source(message):
     'phrase': Sig(str, '%phrase%', 'Overrides game argument. Construct a custom phrase using the following categories:\n{}'.format(', '.join([c for c in soapstone.phraseDict])))
 }, command=True)
 @multi_source
-def soapstone_source(game, phrase, multi_index):
+def soapstone_source(game, phrase):
     '''Random Dark Souls soapstone messages.'''
     if phrase != '%phrase%':
         return soapstone.makePhrase(phrase)

@@ -1,11 +1,12 @@
 from datetime import datetime
 import discord
+import re
 
-from .pipes import *
-from .sources import *
-from .pipe_decorations import pipes, sources
+from .pipes import pipes
+from .sources import sources, SourceResources
 from .macros import pipe_macros, source_macros
 import pipes.groupmodes as groupmodes
+from utils.ctree import CTree
 
 import permissions
 import utils.texttools as texttools

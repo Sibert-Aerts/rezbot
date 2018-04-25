@@ -1,1 +1,1 @@
-__all__ = ['pipes', 'sources', 'pipecommands', 'pipe_decorations', 'processor', 'groupmodes', 'macros', 'macrocommands']
+__all__ = ['pipes', 'sources', 'pipecommands', 'processor', 'groupmodes', 'macros', 'macrocommands', 'pipe', 'signature']

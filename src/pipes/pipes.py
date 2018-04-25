@@ -3,9 +3,44 @@ import emoji
 import utils.util as util
 import random
 import textwrap
+import re
+from functools import wraps
 
-from .pipe_decorations import *
+from .signature import Sig
+from .pipe import Pipe, Pipes
 from .sources import SourceResources
+from utils.texttools import *
+
+#######################################################
+#                     Decorations                     #
+#######################################################
+
+def as_map(func):
+    '''
+    Decorate a function to accept an array of first arguments:
+
+    f: (x, *args) -> y      becomes     f': ([x], args) -> [y]
+    e.g.
+    pow(3, 2) -> 9          becomes     pow'([3, 4, 5], 2) -> [9, 16, 25]
+    '''
+    @wraps(func)
+    def _as_map(input, *args, **kwargs):
+        return [func(i, *args, **kwargs) for i in input]
+    return _as_map
+
+pipes = Pipes()
+pipes.command_pipes = []
+
+def make_pipe(signature, command=False):
+    '''Makes a Pipe out of a function.'''
+    def _make_pipe(func):
+        pipe = Pipe(signature, func)
+        global pipes
+        pipes[pipe.name] = pipe
+        if command:
+            pipes.command_pipes.append(pipe)
+        return func
+    return _make_pipe
 
 #####################################################
 #                       Pipes                       #

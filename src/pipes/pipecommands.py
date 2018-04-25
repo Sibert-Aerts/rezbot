@@ -4,8 +4,9 @@ import pickle
 import discord
 from discord.ext import commands
 
-from .pipes import *
-from .macros import Macro, pipe_macros, source_macros
+from .pipes import pipes
+from .sources import sources
+from .macros import pipe_macros, source_macros
 from .processor import Pipeline
 from mycommands import MyCommands
 import utils.texttools as texttools
@@ -47,7 +48,7 @@ PS: `->` is short for `> print >`
 #            A module providing commands for pipes            #
 ###############################################################
 
-class PipesCommands(MyCommands):
+class PipeCommands(MyCommands):
     def __init__(self, bot):
         super().__init__(bot)
 
@@ -55,24 +56,18 @@ class PipesCommands(MyCommands):
     async def pipes_help(self):
         '''Print general info on how to use my wacky system of pipes.'''
         await self.say(infoText)
-        
-    # TODO: refactor Pipes and Sources into actual classes with this as a method.
-    def get_embed(self, name, item):
-        embed = discord.Embed(title=name, description=item.__doc__, color=0xfdca4b)
-        if item.signature:
-            sig = '\n'.join(item.signature)
-            embed.add_field(name='Arguments', value=sig, inline=False)
-        # bot takes credit for the method
-        embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
-        return embed
 
     @commands.command(aliases=['pipe'])
     async def pipes(self, name=''):
         '''Print a list of all pipes and their descriptions, or details on a specific pipe.'''
+        name = name.lower()
 
         # Info on a specific pipe
         if name != '' and name in pipes:
-            await self.bot.say(embed=self.get_embed(name, pipes[name]))
+            embed = pipes[name].embed()
+            # bot takes credit for native pipes
+            embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
+            await self.bot.say(embed=embed)
 
         # Info on a macro pipe
         elif name != '' and name in pipe_macros:
@@ -86,8 +81,7 @@ class PipesCommands(MyCommands):
             for name in pipes:
                 pipe = pipes[name]
                 info = name + ' ' * (colW-len(name))
-                if pipe.__doc__ is not None:
-                    info += pipe.__small_doc__
+                if pipe.doc: info += pipe.small_doc
                 infos.append(info)
             text = texttools.block_format('\n'.join(infos))
             await self.say(text)
@@ -95,10 +89,14 @@ class PipesCommands(MyCommands):
     @commands.command(aliases=['source'])
     async def sources(self, name=''):
         '''Print a list of all sources and their descriptions, or details on a specific source.'''
+        name = name.lower()
 
         # Info on a specific source
         if name != '' and name in sources:
-            await self.bot.say(embed=self.get_embed(name, sources[name]))
+            embed = sources[name].embed()
+            # bot takes credit for native sources
+            embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
+            await self.bot.say(embed=embed)
 
         # Info on a macro source
         elif name != '' and name in source_macros:
@@ -112,8 +110,7 @@ class PipesCommands(MyCommands):
             for name in sources:
                 source = sources[name]
                 info = name + ' ' * (colW-len(name))
-                if source.__doc__ is not None:
-                    info += source.__small_doc__
+                if source.doc: info += source.small_doc
                 infos.append(info)
             text = texttools.block_format('\n'.join(infos))
             await self.say(text)
@@ -127,20 +124,18 @@ def pipe_to_func(pipe):
         text = util.strip_command(ctx)
         pl = Pipeline('', ctx.message)
         text = pl.evaluate_composite_source(text)
-        text = pipe(text)
+        text = '\n'.join(pipe.as_command(text))
         await self.say(text)
-    func.__name__ = pipe.__name__.split('_pipe', 1)[0]
-    func.__doc__ = pipe.__doc__
-    if pipe.signature:
-        func.__doc__ += '\nArguments:\n' + '\n'.join(' • ' + s for s in pipe.signature)
+    func.__name__ = pipe.name
+    func.__doc__ = pipe.command_doc()
     return func
 
 # Turn those pipes into discord.py bot commands!
-for pipe in command_pipes:
+for pipe in pipes.command_pipes:
     func = pipe_to_func(pipe)
     # manually call the function decorator to make func into a command
     command = commands.command(pass_context=True)(func)
-    setattr(PipesCommands, func.__name__, command)
+    setattr(PipeCommands, pipe.name, command)
 
 ###############################################################
 #                 Turn sources into commands!                 #
@@ -148,23 +143,23 @@ for pipe in command_pipes:
 
 def source_to_func(source):
     async def func(self, ctx):
-        args = util.strip_command(ctx)
-        text = source(ctx.message, args)
-        await self.say('\n'.join(text))
-    func.__name__ = source.__name__.split('_source', 1)[0]
-    func.__doc__ = source.__doc__
-    if source.signature:
-        func.__doc__ += '\nArguments:\n' + '\n'.join(' • ' + s for s in source.signature)
+        text = util.strip_command(ctx)
+        pl = Pipeline('', ctx.message)
+        text = pl.evaluate_composite_source(text)
+        text = '\n'.join(source(ctx.message, text))
+        await self.say(text)
+    func.__name__ = source.name
+    func.__doc__ = source.command_doc()
     return func
 
 # Turn those sources into discord.py bot commands!
-for source in command_sources:
+for source in sources.command_sources:
     func = source_to_func(source)
     # manually call the function decorator to make func into a command
     command = commands.command(pass_context=True)(func)
-    setattr(PipesCommands, func.__name__, command)
+    setattr(PipeCommands, source.name, command)
 
 
 # Load the bot cog
 def setup(bot):
-    bot.add_cog(PipesCommands(bot))
+    bot.add_cog(PipeCommands(bot))
