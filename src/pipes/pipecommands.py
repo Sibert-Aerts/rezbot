@@ -126,7 +126,7 @@ def pipe_to_func(pipe):
     async def func(self, ctx):
         text = util.strip_command(ctx)
         pl = Pipeline('', ctx.message)
-        text = pl.evaluate_all_sources(text)
+        text = pl.evaluate_composite_source(text)
         text = pipe(text)
         await self.say(text)
     func.__name__ = pipe.__name__.split('_pipe', 1)[0]
