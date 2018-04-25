@@ -130,8 +130,6 @@ import math
 #         ｇａｍｍａ
 #         delta
 
-pattern = re.compile(r'(\*?)(\(|%|#|/|)\s*(-?\d*(?:\.\.+-?\d+)?|\d*)\s*\)?\s*')
-
 class GroupMode:
     def __init__(self, multiply):
         self.multiply = multiply
@@ -235,7 +233,7 @@ class Interval(GroupMode):
 
     def apply(self, values, pipes):
         # TODO: crop rule
-        nop = {'name':'', 'args':''}
+        nop = None
         length = len(values)
         lval = int(self.lval) if self.lval != '-0' else length
         if self.rval is None:
@@ -255,24 +253,32 @@ class Interval(GroupMode):
                 (values[rval: length], nop),
             ]
 
+# pattern:
+# optionally starting with *
+# then either:
+#   % or # or / followed by -?\d* optionally followed by ..+-?\d+
+# or:
+#   ( \d+ )
+
+pattern = re.compile(r'(\*?)(?:(%|#|/)\s*(-?\d*(?:\.\.+-?\d+)?)|\(\s*(\d+)\s*\)|)\s*')
 
 def parse(bigPipe):
     m = re.match(pattern, bigPipe)
     if m is not None:
         flag = m.group()
-        multiply, mode, value = m.groups()
         # print('FLAG:', flag)
         # print('GROUPS:', m.groups())
+        multiply, mode, value, lparvalue = m.groups()
 
         multiply = (multiply == '*')
 
-        if not mode:
-            if not multiply:
-                return bigPipe, Divide(False, 1, False)
-            else:
-                mode = '('
+        if lparvalue is not None:
+            mode = '('
+            value = lparvalue
 
-        if mode in ['(', '%', '/']:
+        if not mode:
+            mode = Divide(multiply, 1, False)
+        elif mode in ['(', '%', '/']:
             padding = (value[0]=='0') if value else False # TODO: extend to 3-value enum: agnostic, pad and crop
             value = int(value) if value else 1
             if mode == '(':
@@ -295,11 +301,12 @@ def parse(bigPipe):
 
 
 if __name__ == '__main__':
-    tests = ['foo', '*foo', '10', '%4', '(20)', '/10', '#7', '#14..20', '/', '()', '#', '*% 2', '*(07)', '/010']
+    tests = ['foo', '*  foo', '10', '%4', '(20)', '/10', '#7', '#14..20', '/', '()', '#', '*% 2', '*(07)', '/010', '(8']
     print('TESTS:')
     for test in tests:
         try:
-            print(test + ' : ' + str(parse(test)[1]))
-        except:
-            print(test + ' : ' + 'INVALID!')
+            out, mode = parse(test)
+            print(test + ((' → "' + out + '"') if out else '') + ' : ' + str(mode))
+        except Exception as e:
+            print(test + ' : ' + 'ERROR! ' + str(e))
         print()

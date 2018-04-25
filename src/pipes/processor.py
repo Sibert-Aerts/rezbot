@@ -45,9 +45,17 @@ class ErrorLog:
 
     def extend(self, other, context=None):
         '''extend another error log, prepending the given 'context' for each error.'''
+        self.terminal |= other.terminal
         for e in other.errors:
             if context is not None: e.message = '**in {}:** '.format(context) + e.message
-            self.errors.append(e)
+            if self.errors and self.errors[-1].message == e.message:
+                self.errors[-1].count += 1
+            else:
+                self.errors.append(e)
+
+    def clear(self):
+        self.errors = []
+        self.terminal = False
 
     def __bool__(self): return len(self.errors) > 0
     def __len__(self): return len(self.errors)
@@ -61,6 +69,10 @@ class ErrorLog:
         embed.set_footer(text=self.time)
         return embed
 
+class ParsedPipe:
+    def __init__(self, name, argstr):
+        self.name = name
+        self.argstr = argstr
 
 class Pipeline:
     def __init__(self, pipeline:str, message):
@@ -71,22 +83,49 @@ class Pipeline:
     def split(self):
         '''
         Split the sequence of pipes (one big string) into a list of pipes (list of strings).
-        Doesn't split on >'s inside quote blocks, and inserts "print"s on ->'s.
+        Doesn't split on >'s inside quote blocks or within parentheses, and inserts "print"s on ->'s.
         '''
         self.pipeline = []
         quotes = False
+        parens = 0
         current = ''
+        prev = ''
+
         for c in self.pipeline_str:
-            if not quotes and c == '>':
-                if current[-1] == '-': # the > was actually part of a ->
+            if quotes: # Look for an unescaped quotation mark.
+                if c == '"':
+                    if prev != '\\': quotes = False
+                current += c
+
+            elif c == '"':
+                if prev != '\\': quotes = True
+                current += c
+
+            elif c == '\\' and prev == '\\':
+                current += c
+                c = '' # Prevent this backslash from escaping the next character
+
+            elif c == '(':
+                parens += 1
+                current += c
+
+            elif c == ')':
+                if parens > 0: parens -= 1
+                current += c
+
+            elif parens == 0 and c == '>':
+                if prev == '-': # The > was actually part of a ->
                     self.pipeline.append(current[:-1].strip())
                     self.pipeline.append('print')
                 else:
                     self.pipeline.append(current.strip())
                 current = ''
+
             else:
                 current += c
-                quotes ^= c == '"'
+
+            prev = c
+
         self.pipeline.append(current.strip())
 
     # this looks like a big disgusting hamburger because it is
@@ -158,47 +197,60 @@ class Pipeline:
         values = self.evaluate_source()
         return self.apply_pipeline(values)
 
+    wrapping_brackets_regex = re.compile(r'\(((.*)\)|(.*))')
+
+    def parse_simulpipe(self, simulpipe):
+        '''Turn a single string describing one or more simultaneous pipes into a list of ParsedPipes.'''
+
+        # True and utter hack: Simply swipe triple-quoted strings out of the simulpipe and put them back
+        # later in the expanded pipes, so that triple quotes escape all CTree expansion.
+        tripleQuoteDict = {}
+        def geti(): return str(random.randint(0, 999999))
+
+        def steal_triple_quotes(match):
+            i = geti()
+            while i in tripleQuoteDict: i = geti()
+            # Triple quotes are turned into regular quotes here, which may have unexpected consequences(?)
+            tripleQuoteDict[i] = '"' + match.groups()[0] + '"'
+            return '--//!!§§' + i + '§§!!//--'
+
+        def return_triple_quotes(pipe):
+            def f(m):
+                i = m.groups()[0]
+                if i in tripleQuoteDict: return tripleQuoteDict[i]
+                else: return '--//!!§§' + i + '§§!!//--'
+            return re.sub(r'--//!!§§(.*?)§§!!//--', f, pipe)
+
+        simulpipe = re.sub(r'(?s)"""(.*?)"""', steal_triple_quotes, simulpipe)
+
+        simulpipes = CTree.get_all('[' + simulpipe + ']')
+
+        # Parse the simultaneous pipes into a usable form: A list of {name, args}
+        parsedPipes = []
+        for pipe in simulpipes:
+            # Put triple-quoted strings back in their positions
+            pipe = return_triple_quotes(pipe)
+            if pipe and pipe[0] == '(':
+                m = re.match(Pipeline.wrapping_brackets_regex, pipe)
+                pipe = m.groups()[1] or m.groups()[2]
+                # print('INLINE PIPELINE: ' + pipe)
+                inline_pipeline = Pipeline(pipe, self.message)
+                parsedPipes.append(inline_pipeline)
+            else:
+                split = pipe.strip().split(' ', 1)
+                name = split[0].lower()
+                args = ''.join(split[1:]) # split[1:] may be empty
+                parsedPipes.append(ParsedPipe(name, args))
+
+        return parsedPipes
+
     def apply_pipeline(self, values):
         '''Apply a list of pipe strings to a list of values'''
         self.printValues = []
 
-        for bigPipe in self.pipeline:
-            bigPipe, groupMode = groupmodes.parse(bigPipe)
-            # print('GROUPMODE:', str(groupMode))
-
-            # True and utter hack: Simply swipe triple-quoted strings out of the bigPipe and put them back
-            # later in the expanded pipes, so that triple quotes escape all CTree expansion.
-            tripleQuoteDict = {}
-            def geti(): return str(random.randint(0, 999999))
-
-            def steal_triple_quotes(match):
-                i = geti()
-                while i in tripleQuoteDict: i = geti()
-                # Triple quotes are turned into regular quotes here, which may have unexpected consequences(?)
-                tripleQuoteDict[i] = '"' + match.groups()[0] + '"'
-                return '--//!!§§' + i + '§§!!//--'
-
-            def return_triple_quotes(pipe):
-                def f(m):
-                    i = m.groups()[0]
-                    if i in tripleQuoteDict: return tripleQuoteDict[i]
-                    else: return '--//!!§§' + i + '§§!!//--'
-                return re.sub(r'--//!!§§(.*?)§§!!//--', f, pipe)
-
-            bigPipe = re.sub(r'(?s)"""(.*?)"""', steal_triple_quotes, bigPipe)
-
-            # print('BIGPIPE:', bigPipe)
-            multiPipes = CTree.get_all('[' + bigPipe + ']')
-
-            # Parse the simultaneous pipes into a usable form: A list of {name, args}
-            parsedPipes = []
-            for pipe in multiPipes:
-                # Put triple-quoted strings back in their positions
-                pipe = return_triple_quotes(pipe)
-                split = pipe.strip().split(' ', 1)
-                name = split[0].lower()
-                args = ''.join(split[1:]) # split[1:] may be empty
-                parsedPipes.append({'name': name, 'args': args})
+        for simulpipe in self.pipeline:
+            simulpipe, groupMode = groupmodes.parse(simulpipe)
+            parsedPipes = self.parse_simulpipe(simulpipe)
 
             newValues = []
             newPrintValues = []
@@ -206,8 +258,20 @@ class Pipeline:
             # The group mode turns the lists of values and simultaneous pipes into tuples of values & the pipe they need to be applied to
             # For more information: Check out groupmodes.py for a long, in-depth explanation.
             for vals, pipe in groupMode.apply(values, parsedPipes):
-                name = pipe['name']
-                args = pipe['args']
+                if pipe is None: # None is a way for groupMode to convey a nop on a subset of values
+                    newValues.extend(vals)
+                    continue
+
+                if type(pipe) is Pipeline:
+                    pipe.split()
+                    values = pipe.apply_pipeline(vals)
+                    newValues.extend(values)
+                    self.error_log.extend(pipe.error_log, 'braces')
+                    pipe.error_log.clear()
+                    continue
+
+                name = pipe.name
+                args = pipe.argstr
 
                 if name == 'print':
                     newPrintValues.extend(vals)
@@ -228,18 +292,19 @@ class Pipeline:
                     code = pipe_macros[name].code
 
                     # spicey!!!! definitely delete this entirely & pull it up into Macros!!!!!
-                    def argfunc(match):
-                        id = match.groups()[0].lower()
-                        print('ENCOUNTERED: ', id)
-                        try:
-                            val = re.search(id+'=(\S+)', args).groups()[0]
-                            print('FOUND VALUE ASSIGNMENT: ', val)
-                            return val
-                        except:
-                            print('ARGUMENT NOT GIVEN, LEAVING IT.')
-                            return match.group()
+                    # def argfunc(match):
+                    #     id = match.groups()[0].lower()
+                    #     print('ENCOUNTERED: ', id)
+                    #     try:
+                    #         val = re.search(id+'=(\S+)', args).groups()[0]
+                    #         print('FOUND VALUE ASSIGNMENT: ', val)
+                    #         return val
+                    #     except:
+                    #         print('ARGUMENT NOT GIVEN, LEAVING IT.')
+                    #         return match.group()
 
-                    code = re.sub(r'(?i)\$([A-Z]+)\$', argfunc, code)
+                    # code = re.sub(r'(?i)\$([A-Z]+)\$', argfunc, code)
+
                     macroPipeline = Pipeline(code, self.message)
                     macroPipeline.split()
                     macroValues = macroPipeline.apply_pipeline(vals)
