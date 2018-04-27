@@ -135,48 +135,54 @@ class Pipeline:
         self.pipeline.append(current.strip())
 
     # this looks like a big disgusting hamburger because it is
-    # matches: {source}, {source and some args}, {source args="{something}"}
-    _source_regex = r'{\s*([^\s}]+)\s*([^}\s](\"[^\"]*\"|[^}])*)?}'
+    # matches: {source}, {source and some args}, {source args="{something}"}, {10 source}, etc.
+    _source_regex = r'{\s*(\d*)\s*([^\s}]+)\s*([^}\s](\"[^\"]*\"|[^}])*)?}'
     source_regex = re.compile(_source_regex)
     source_match_regex = re.compile(_source_regex + '$')
 
     def is_pure_source(self, source):
         return re.match(Pipeline.source_match_regex, source)
 
+    def evaluate_parsed_source(self, name, args, n):
+        # Try with AND without ending 's', hoping one of them is a known name!
+        # So whether you write 'word' OR 'words',
+        # It'll try to looking for sources named 'word' AND 'words'
+        names = [name+'s', name] if name[-1] != 's' else [name[:-1], name]
+
+        for name in names:
+            if name in sources:
+                return sources[name](self.message, args, n=n)
+            elif name in source_macros:
+                code = source_macros[name].code
+                source_pl = Pipeline(code, self.message)
+                # TODO: refactor the WHOLE ENTIRE PIPELINE to be reusable so I can call it `n` times here.
+                values = source_pl.apply_source_and_pipeline()
+                self.error_log.extend(source_pl.error_log, name)
+                return values
+                # TODO: we throw away source_pl's printValues here, maybe they are still of use!
+        return None
+
     def evaluate_pure_source(self, source):
         match = re.match(Pipeline.source_regex, source)
-        name, args, _ = match.groups()
+        n, name, args, _ = match.groups()
         name = name.lower()
 
-        if name in sources:
-            return sources[name](self.message, args)
-        elif name in source_macros:
-            code = source_macros[name].code
-            source_pl = Pipeline(code, self.message)
-            self.error_log.extend(source_pl.error_log, name)
-            return source_pl.apply_source_and_pipeline()
-            # TODO: we throw away source_pl's printValues here, maybe they are still of use!
-        else:
-            self.error_log('Unknown source "{}".'.format(name))
-            return([match.group()])
+        values = self.evaluate_parsed_source(name, args, n)
+        if values is not None: return values
+
+        self.error_log('Unknown source "{}".'.format(name))
+        return([match.group()])
 
     def evaluate_composite_source(self, source):
         '''Applies and replaces all {sources} in a string.'''
         def eval_fun(match):
-            name, args, _ = match.groups()
+            _, name, args, _ = match.groups()
             name = name.lower()
-            if name in sources:
-                out = sources[name](self.message, args)
-                return out[0] # ye gods! how stanky!
-            elif name in source_macros:
-                code = source_macros[name].code
-                source_pl = Pipeline(code, self.message)
-                self.error_log.extend(source_pl.error_log, name)
-                return source_pl.apply_source_and_pipeline()[0]
-                # TODO: we throw away source_pl's printValues here, maybe they are still of use!
-            else:
-                self.error_log('Unknown source "{}".'.format(name))
-                return(match.group())
+            values = self.evaluate_parsed_source(name, args, 1)
+            if values is not None:
+                return values[0] # Only use the first output value. Is there anything else I can do here?
+            self.error_log('Unknown source "{}".'.format(name))
+            return(match.group())
 
         return re.sub(Pipeline.source_regex, eval_fun, source)
 
@@ -337,10 +343,9 @@ class PipelineProcessor:
         # Don't apply any formatting if the output is just a single row and column.
         if len(output) == 1:
             if len(output[0]) == 1:
-                await self.bot.send_message(dest, output[0][0])
-            else:
-                await self.bot.send_message(dest, '`no output`')
-            return
+                await self.bot.send_message(dest, output[0][0]); return
+            elif len(output[0]) == 0:
+                await self.bot.send_message(dest, '`no output`'); return
 
         rowCount = len(max(output, key=len))
         rows = [''] * rowCount
@@ -394,6 +399,6 @@ class PipelineProcessor:
 
         except Exception as e:
             print('Error applying pipeline!')
-            pipeline.error_log(str(e), terminal=True)
+            pipeline.error_log(e.__class__.__name__ + ': ' + str(e), terminal=True)
             await self.bot.send_message(message.channel, embed=pipeline.error_log.embed())
         return True

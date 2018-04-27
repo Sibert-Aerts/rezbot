@@ -42,8 +42,11 @@ class Source(Pipe):
         self.pass_message = pass_message
         super().__init__(signature, function)
 
-    def __call__(self, message, argstr):
+    def __call__(self, message, argstr, n=None):
         _, args = parse_args(self.signature, argstr)
+        if n:
+            if 'n' in args: args['n'] = int(n)
+            elif 'N' in args: args['N'] = int(n)
         if self.pass_message:
             return self.function(message, **args)
         else:

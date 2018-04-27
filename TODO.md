@@ -25,8 +25,9 @@
     * in pipe/source arguments, replace `\n` to newlines
 
     * option to turn pipe/source macros into commands!!!!!!
-    * new syntax: `{N pipe}` passes N to the pipe as a "desired amount" parameter
     * Variables in macros: `>define_pipe myPipe translate to=$VAR` is then used like `>>> hello > myPipe var=fr`
+
+    * Argument parsing: `format Hello, {}!` should work the same as `format f="Hello, {}!"`
 
     * **SPECULATIVE:**
     * Option to hide warnings log
