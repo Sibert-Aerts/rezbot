@@ -75,7 +75,7 @@ class YoutubeCommands(MyCommands):
 
 
     @commands.command(aliases=['youtube_remove'])
-    @permissions.check('owner')
+    @permissions.check(permissions.owner)
     async def youtube_delete(self, identifier):
         '''Delete a video from the list of tracked videos'''
         try:

@@ -43,7 +43,7 @@ class BotCommands(MyCommands):
     ###################################
 
     @commands.command(hidden=True)
-    @permissions.check('owner')
+    @permissions.check(permissions.owner)
     async def die(self):
         '''Kill the bot.'''
         await self.say('dead.')
@@ -82,7 +82,7 @@ class BotCommands(MyCommands):
     # so that you're allowed to >delet the bot's message if you were the one that 'caused' it
     # to self-moderate bot spam, or to fix your own slip-ups
     @commands.command(pass_context=True, hidden=True)
-    @permissions.check('owner')
+    @permissions.check(permissions.owner)
     async def delet(self, ctx, upperBound = 1, lowerBound = 0):
         '''delet (owner only)'''
         print('Deleting messages in #{0} between {1} and {2}'.format(ctx.message.channel.name, lowerBound, upperBound))
@@ -104,7 +104,7 @@ class BotCommands(MyCommands):
         '''Kill someone'''
         subject = ctx.message.content[6:]
         if subject.lower() in ["yourself", "self", "myself", "rezbot"]:
-            if permissions.has(ctx.message.author.id, 'owner'):
+            if permissions.has(ctx.message.author.id, permissions.owner):
                 await self.say('killing self.')
                 await self._die()
             else:

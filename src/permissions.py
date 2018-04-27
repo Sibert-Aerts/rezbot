@@ -6,9 +6,9 @@ from discord.ext import commands
 # Allowed permission values:
 # I prefer having these as variables instead of strings
 # I think this is the python approach to enums anyway
-owner = 'owner'
-default = 'default'
-muted = 'muted'
+owner = object()
+default = object()
+muted = object()
 
 hierarchy = [muted, default, owner]
 
@@ -54,4 +54,4 @@ def check(permission):
 
 
 def is_muted(id):
-    return has_at_most(id, 'muted')
+    return has_at_most(id, muted)
