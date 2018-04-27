@@ -3,6 +3,7 @@ import pickle
 from shutil import copyfile
 from discord import Embed
 import utils.texttools as texttools
+import permissions
 
 def DIR(filename=''):
     return os.path.join(os.path.dirname(__file__), 'macros', filename)
@@ -23,6 +24,10 @@ class Macro:
         embed.add_field(name='Code', value=texttools.block_format(self.code), inline=False)
         embed.set_footer(text=self.authorName, icon_url=self.authorAvatarURL)
         return embed
+
+    def authorised(self, user):
+        '''Test whether or not the given user is authorised to modify this macro.'''
+        return permissions.has(user.id, permissions.owner) or user.id == self.authorId
 
 
 class Macros:

@@ -10,24 +10,28 @@ from mycommands import MyCommands
 import utils.texttools as texttools
 
 typedict = {'pipe': pipe_macros, 'source': source_macros}
-typedict_options = ', '.join(t for t in typedict)
+typedict_options = ', '.join('"' + t + '"' for t in typedict)
 
 class MacroCommands(MyCommands):
     def __init__(self, bot):
         super().__init__(bot)
+
+    async def what_complain(self):
+        await self.say('First argument must be one of: {}.'.format(typedict_options))
+
+    async def permission_complain(self):
+        await self.say('You are not authorised to modify that macro. Try defining a new one instead.')
 
     @commands.command(pass_context=True, aliases=['def'])
     async def define(self, ctx, what, name):
         '''Define a macro.'''
         what = what.lower()
         try: macros = typedict[what]
-        except:
-            await self.say('First argument must be one of: {}.'.format(typedict_options))
-            return
+        except: await self.what_complain(); return
 
         name = name.lower().split(' ')[0]
         if name in pipes or name in macros:
-            await self.say('A {} called "{}" already exists, try >redefine instead.'.format(what, name))
+            await self.say('A {0} called "{1}" already exists, try `>redefine {0}` instead.'.format(what, name))
             return
 
         code = re.split('\s+', ctx.message.content, 3)[3]
@@ -40,15 +44,16 @@ class MacroCommands(MyCommands):
         '''Redefine an existing macro.'''
         what = what.lower()
         try: macros = typedict[what]
-        except:
-            await self.say('First argument must be one of: {}.'.format(typedict_options))
-            return
+        except: await self.what_complain(); return
 
         name = name.lower().split(' ')[0]
         if name not in macros:
             await self.say('A {} macro by that name was not found.'.format(what))
             return
-        
+
+        if not macros[name].authorised(ctx.message.author):
+            await self.permission_complain(); return
+
         code = re.split('\s+', ctx.message.content, 3)[3]
         macros[name].code = code
         macros.write()
@@ -59,14 +64,15 @@ class MacroCommands(MyCommands):
         '''Describe an existing macro.'''
         what = what.lower()
         try: macros = typedict[what]
-        except:
-            await self.say('First argument must be one of: {}.'.format(typedict_options))
-            return
+        except: await self.what_complain(); return
 
         name = name.lower().split(' ')[0]
         if name not in macros:
             await self.say('A {} macro by that name was not found.'.format(what))
             return
+
+        if macros[name].desc and not macros[name].authorised(ctx.message.author):
+            await self.permission_complain(); return
 
         desc = re.split('\s+', ctx.message.content, 3)[3]
         macros[name].desc = desc
@@ -78,14 +84,15 @@ class MacroCommands(MyCommands):
         '''Delete a macro by name.'''
         what = what.lower()
         try: macros = typedict[what]
-        except:
-            await self.say('First argument must be one of: {}.'.format(typedict_options))
-            return
+        except: await self.what_complain(); return
 
         name = name.lower().split(' ')[0]
         if name not in macros:
             await self.say('A {} macro by that name was not found.'.format(what))
             return
+
+        if not macros[name].authorised(ctx.message.author):
+            await self.permission_complain(); return
 
         del macros[name]
         await self.say('Deleted {} macro `{}`.'.format(what, name))

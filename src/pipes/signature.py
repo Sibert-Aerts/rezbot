@@ -1,9 +1,6 @@
 from functools import wraps
 from textwrap import dedent
-
 from utils.texttools import *
-from utils.choicetree import ChoiceTree
-
 
 class ArgumentError(ValueError):
     '''Special error in case a bad argument is passed.'''
