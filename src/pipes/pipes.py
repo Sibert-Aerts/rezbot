@@ -287,5 +287,5 @@ def translate_pipe(text, to, **argc):
     '''
     if to in randomLanguage:
         return translate(text, argc['from'], choose(translateLanguages))
-    text = translate(text, argc['from'], to)
-    return text
+    if text.strip() == '': return text
+    return translate(text, argc['from'], to)

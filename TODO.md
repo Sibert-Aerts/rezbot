@@ -21,7 +21,6 @@
         * {next *n*} for the nth next message in the channel (for the next message by a certain user in the channel?)
 
     * cowsay complains about shit & shouldn't
-    * translate should return empty string when receiving empty string
 
     * in pipe/source arguments, replace `\n` to newlines
 
