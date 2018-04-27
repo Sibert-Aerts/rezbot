@@ -79,6 +79,12 @@ class Pipeline:
         self.pipeline_str = pipeline
         self.message = message
         self.error_log = ErrorLog()
+    
+    def check_values(self, values):
+        '''Raises errors if the user is not permitted to process a certain quantity of values.'''
+        MAXVALUES = 20
+        if len(values) > MAXVALUES and not permissions.has(self.message.author.id, permissions.owner):
+            raise PipelineError('Attempted to process {} values at once, try staying under {}.'.format(len(values), MAXVALUES))
 
     def split(self):
         '''
@@ -182,13 +188,6 @@ class Pipeline:
             else:
                 values.append(self.evaluate_composite_source(source))
         return values
-
-    def apply_source_and_pipeline(self):
-        self.split()
-        self.source = self.pipeline[0]
-        self.pipeline = self.pipeline[1:]
-        values = self.evaluate_source()
-        return self.apply_pipeline(values)
 
     wrapping_brackets_regex = re.compile(r'\(((.*)\)|(.*))')
 
@@ -313,11 +312,17 @@ class Pipeline:
             if len(newPrintValues):
                 self.printValues.append(newPrintValues)
 
-            MAXVALUES = 20
-            if len(values) > MAXVALUES and not permissions.has(self.message.author.id, 'owner'):
-                raise PipelineError('Attempted to process {} values at once, try staying under {}.'.format(len(values), MAXVALUES))
+            self.check_values(values)
 
         return values
+
+    def apply_source_and_pipeline(self):
+        self.split()
+        self.source = self.pipeline[0]
+        self.pipeline = self.pipeline[1:]
+        values = self.evaluate_source()
+        self.check_values(values)
+        return self.apply_pipeline(values)
 
 
 class PipelineProcessor:
@@ -357,34 +362,34 @@ class PipelineProcessor:
         await self.bot.send_message(dest, output)
 
     async def process_pipes(self, message):
-        content = message.content
+        text = message.content
 
-        # Test for the pipe command prefix (pipe_prefix in config.ini, default: '>>>')
-        if not content.startswith(self.prefix): return False
-        content = content[len(self.prefix):]
+        # Test for the pipeline prefix (pipe_prefix in config.ini, default: '>>>')
+        if not text.startswith(self.prefix): return False
+        text = text[len(self.prefix):]
 
-        pipeline = Pipeline(content, message)
+        pipeline = Pipeline(text, message)
 
         try:
+            #############################################
             values = pipeline.apply_source_and_pipeline()
+            #############################################
 
-            SourceResources.previous_pipe_output = values
+            SourceResources.previous_pipeline_output = values
 
-            # TODO: something happens here?
+            ### Print the output!
+            # TODO: something else happens here? maybe?
             printValues = pipeline.printValues
             printValues.append(values)
             await self.print(message.channel, printValues)
 
+            ### Print error output!
+            # TODO: Option to hide error log by default if not terminal / print it manually later if something didnt work
             if pipeline.error_log:
                 await self.bot.send_message(message.channel, embed=pipeline.error_log.embed())
 
         except Exception as e:
             print('Error applying pipeline!')
-            print(e)
-            try:
-                pipeline.error_log(str(e), True)
-                await self.bot.send_message(message.channel, embed=pipeline.error_log.embed())
-            except:
-                print('...Failed to send error log!')
-
+            pipeline.error_log(str(e), terminal=True)
+            await self.bot.send_message(message.channel, embed=pipeline.error_log.embed())
         return True
