@@ -100,16 +100,16 @@ class Pipeline:
         for c in self.pipeline_str:
             if quotes: # Look for an unescaped quotation mark.
                 if c == '"':
-                    if prev != '\\': quotes = False
+                    quotes = False
                 current += c
 
             elif c == '"':
-                if prev != '\\': quotes = True
+                quotes = True
                 current += c
 
-            elif c == '\\' and prev == '\\':
-                current += c
-                c = '' # Prevent this backslash from escaping the next character
+            # elif c == '\\' and prev == '\\':
+            #     current += c
+            #     c = '' # Prevent this backslash from escaping the next character
 
             elif c == '(':
                 parens += 1
