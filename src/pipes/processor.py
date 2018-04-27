@@ -335,14 +335,18 @@ class PipelineProcessor:
         ''' Nicely print the output in rows and columns and even with little arrows.'''
 
         # Don't apply any formatting if the output is just a single row and column.
-        if len(output) == 1 and len(output[0]) == 1:
-            await self.bot.send_message(dest, output[0][0])
+        if len(output) == 1:
+            if len(output[0]) == 1:
+                await self.bot.send_message(dest, output[0][0])
+            else:
+                await self.bot.send_message(dest, '`no output`')
             return
 
         rowCount = len(max(output, key=len))
         rows = [''] * rowCount
         for c in range(len(output)):
             col = output[c]
+            if len(col) == 0: continue
             colWidth = len(max(col, key=len))
             for r in range(rowCount):
                 if r < len(col):

@@ -65,7 +65,7 @@ import math
 # *Each* group of input is fed into *each* of the simultaneous pipes (pipe1, pipe2, etc)
 # Resulting in (number of groups) x (number of simultaneous pipes) pipe applications total, which is usually a lot.
 
-## Default grouping:
+## Group grouping:
 #   >>> {source} > [pipe1|pipe2|...|pipex]
 # Feeds all input to pipe1 as a single group, ignoring pipe2 through pipex.
 # Identical to divide grouping with $n as 1.
@@ -130,19 +130,23 @@ import math
 #         ｇａｍｍａ
 #         delta
 
+class GroupModeError(ValueError):
+    pass
+
 class GroupMode:
     def __init__(self, multiply):
         self.multiply = multiply
 
-    def __str__(self, ):
+    def __str__(self):
         return 'MULTIPLIED' if self.multiply else 'REGULAR'
 
-    def apply(self, *args, **kwargs):
+    def apply(self, values, pipes):
         raise NotImplementedError()
 
-class Default(GroupMode):
+class Group(GroupMode):
     def __init__(self, multiply, size, padding):
         super().__init__(multiply)
+        if size < 1: raise GroupModeError('Group size must be at least 1.')
         self.size = size
         self.padding = padding
 
@@ -170,6 +174,7 @@ class Default(GroupMode):
 class Divide(GroupMode):
     def __init__(self, multiply, count, padding):
         super().__init__(multiply)
+        if count < 1: raise GroupModeError('Divide count must be at least 1.')
         self.count = count
         self.padding = padding
 
@@ -179,7 +184,12 @@ class Divide(GroupMode):
     def apply(self, values, pipes):
         # TODO: crop rule
         size = math.ceil(len(values)/self.count)
-        # Same logic as Default
+        # Same logic as Group
+
+        if size == 0:
+            if self.multiply:
+                return [(values, pipe) for pipe in pipes]
+            else: return [(values, pipes[0])]
 
         if self.padding:
             values = values + (math.ceil(len(values)/size)*size - len(values)) * ['PADDING']
@@ -200,6 +210,7 @@ class Divide(GroupMode):
 class Modulo(GroupMode):
     def __init__(self, multiply, modulo, padding):
         super().__init__(multiply)
+        if modulo < 1: raise GroupModeError('Modulo value must be at least 1.')
         self.modulo = modulo
         self.padding = padding
 
@@ -264,25 +275,29 @@ pattern = re.compile(r'(\*?)(?:(%|#|/)\s*(-?\d*(?:\.\.+-?\d+)?)|\(\s*(\d+)\s*\)|
 
 def parse(bigPipe):
     m = re.match(pattern, bigPipe)
-    if m is not None:
-        flag = m.group()
-        # print('FLAG:', flag)
-        # print('GROUPS:', m.groups())
-        multiply, mode, value, lparvalue = m.groups()
 
-        multiply = (multiply == '*')
+    if m is None:
+        return bigPipe, Divide(False, 1, False)
 
-        if lparvalue is not None:
-            mode = '('
-            value = lparvalue
+    flag = m.group()
+    # print('FLAG:', flag)
+    # print('GROUPS:', m.groups())
+    multiply, mode, value, lparvalue = m.groups()
+    multiply = (multiply == '*')
 
+    if lparvalue is not None:
+        mode = '('
+        value = lparvalue
+
+    try:
         if not mode:
             mode = Divide(multiply, 1, False)
         elif mode in ['(', '%', '/']:
-            padding = (value[0]=='0') if value else False # TODO: extend to 3-value enum: agnostic, pad and crop
+            # TODO: extend to 3-value enum: agnostic, pad and crop
+            padding = (value[0]=='0') if value else False
             value = int(value) if value else 1
             if mode == '(':
-                mode = Default(multiply, value, padding)
+                mode = Group(multiply, value, padding)
             elif mode == '%':
                 mode = Modulo(multiply, value, padding)
             elif mode == '/':
@@ -293,13 +308,18 @@ def parse(bigPipe):
             rval = vals[1] if len(vals)>1 else None
             mode = Interval(multiply, lval, rval)
 
+        # Cut off the groupmode flag
         bigPipe = bigPipe[len(flag):]
+        return bigPipe, mode
 
-    else:
-        mode = Divide(False, 1, False)
-    return bigPipe, mode
+    except GroupModeError as e:
+        #TODO: get this warning up to the error log.
+        print('groupmode warning: ' + str(e))
+        bigPipe = bigPipe[len(flag):]
+        return bigPipe, Divide(False, 1, False)
 
 
+# Tests!
 if __name__ == '__main__':
     tests = ['foo', '*  foo', '10', '%4', '(20)', '/10', '#7', '#14..20', '/', '()', '#', '*% 2', '*(07)', '/010', '(8']
     print('TESTS:')
