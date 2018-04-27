@@ -2,7 +2,7 @@ from pyparsing import Literal, Regex, Group as pGroup, Forward, Empty, ZeroOrMor
 import functools
 import random
 
-class CTree:
+class ChoiceTree:
     '''
     Class that parses strings and returns combinations based on a "choice" system.
     e.g.
@@ -10,7 +10,7 @@ class CTree:
         "I [eat|like] [|hot]dogs" → ["I eat dogs", "I like dogs", "I eat hotdogs", "I like hotdogs"]
 
     Use:
-    `expandedList = CTree.get_all(text)`
+    `expandedList = ChoiceTree.get_all(text)`
 
     Couldn't be bothered to look up how to implement the iterator pattern but it works so idc :-D
     '''
@@ -110,22 +110,22 @@ class CTree:
     div = Literal('|').suppress()
     esc = Literal('\\').suppress().setParseAction(lambda x: '\\')
     _text = Regex('[^\\[\\|\\]\\\\]+') # any sequence of characters not containing '[', ']', '|' or '\'
-    text = pGroup(OneOrMore(escapedLbr|escapedRbr|escapedDiv|escapedEsc|esc|_text)).setParseAction(lambda t: CTree.Text(t[0]))
-    eStr = Empty().setParseAction(lambda t: CTree.Text(''))
+    text = pGroup(OneOrMore(escapedLbr|escapedRbr|escapedDiv|escapedEsc|esc|_text)).setParseAction(lambda t: ChoiceTree.Text(t[0]))
+    eStr = Empty().setParseAction(lambda t: ChoiceTree.Text(''))
     group = Forward()
-    choice = pGroup(lbr + group + ZeroOrMore(div + group) + rbr).setParseAction(lambda t: CTree.Choice(t[0]))
-    group << pGroup(OneOrMore(text|choice) | eStr).setParseAction(lambda t: CTree.Group(t[0])).leaveWhitespace()
+    choice = pGroup(lbr + group + ZeroOrMore(div + group) + rbr).setParseAction(lambda t: ChoiceTree.Choice(t[0]))
+    group << pGroup(OneOrMore(text|choice) | eStr).setParseAction(lambda t: ChoiceTree.Group(t[0])).leaveWhitespace()
 
     def parse(text):
-        return CTree.group.parseString(text).asList()[0]
+        return ChoiceTree.group.parseString(text).asList()[0]
 
     def get_all(text):
-        tree = CTree.parse(text)
+        tree = ChoiceTree.parse(text)
         out = []
         while not tree.done:
             out.append(tree.next())
         return out
 
     def get_random(text):
-        tree = CTree.parse(text)
+        tree = ChoiceTree.parse(text)
         return tree.random()

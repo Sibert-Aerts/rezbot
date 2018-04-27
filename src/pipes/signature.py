@@ -2,7 +2,7 @@ from functools import wraps
 from textwrap import dedent
 
 from utils.texttools import *
-from utils.ctree import CTree
+from utils.choicetree import ChoiceTree
 
 
 class ArgumentError(ValueError):

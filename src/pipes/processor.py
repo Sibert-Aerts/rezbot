@@ -7,7 +7,7 @@ from .pipes import pipes
 from .sources import sources, SourceResources
 from .macros import pipe_macros, source_macros
 import pipes.groupmodes as groupmodes
-from utils.ctree import CTree
+from utils.choicetree import ChoiceTree
 
 import permissions
 import utils.texttools as texttools
@@ -177,13 +177,13 @@ class Pipeline:
     def evaluate_source(self):
         values = []
         if self.source[:3] == '[?]':
-            source = CTree.get_random(self.source[3:])
+            source = ChoiceTree.get_random(self.source[3:])
             if self.is_pure_source(source):
                 values.extend(self.evaluate_pure_source(source))
             else:
                 values.append(self.evaluate_composite_source(source))
         else:
-            for source in CTree.get_all('[' + self.source + ']'):
+            for source in ChoiceTree.get_all('[' + self.source + ']'):
                 if self.is_pure_source(source):
                     values.extend(self.evaluate_pure_source(source))
                 else:
@@ -203,7 +203,7 @@ class Pipeline:
         '''Turn a single string describing one or more simultaneous pipes into a list of ParsedPipes.'''
 
         # True and utter hack: Simply swipe triple-quoted strings out of the simulpipe and put them back
-        # later in the expanded pipes, so that triple quotes escape all CTree expansion.
+        # later in the expanded pipes, so that triple quotes escape all ChoiceTree expansion.
         tripleQuoteDict = {}
         def geti(): return str(random.randint(0, 999999))
 
@@ -223,7 +223,7 @@ class Pipeline:
 
         simulpipe = re.sub(r'(?s)"""(.*?)"""', steal_triple_quotes, simulpipe)
 
-        simulpipes = CTree.get_all('[' + simulpipe + ']')
+        simulpipes = ChoiceTree.get_all('[' + simulpipe + ']')
 
         # Parse the simultaneous pipes into a usable form: A list of {name, args}
         parsedPipes = []

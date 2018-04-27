@@ -18,7 +18,7 @@ import resource.tweets as tweets
 from resource.youtubecaps import youtubeCaps
 from resource.jerkcity import JERKCITY
 import utils.biogenerator
-from utils.ctree import CTree
+from utils.choicetree import ChoiceTree
 from utils.rand import *
 from utils.meal import Meal
 from utils.attack import Attack
@@ -87,7 +87,7 @@ class BotCommands(MyCommands):
         "[a|b]c[d|e]" -> "acd", "bcd", "ace", "bce"
         '''
         text = util.strip_command(ctx)
-        tree = CTree.parse(text)
+        tree = ChoiceTree.parse(text)
         all = []
         while not tree.done:
             all.append(tree.next())
