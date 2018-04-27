@@ -1,6 +1,7 @@
 from pyparsing import Literal, Regex, Group as pGroup, Forward, Empty, ZeroOrMore, OneOrMore
 import functools
 import random
+import np
 
 class ChoiceTree:
     '''
@@ -9,14 +10,12 @@ class ChoiceTree:
         "abc[de|fg]" → ["abcde", "abcfg"]
         "I [eat|like] [|hot]dogs" → ["I eat dogs", "I like dogs", "I eat hotdogs", "I like hotdogs"]
 
-    Use:
-    `expandedList = ChoiceTree.get_all(text)`
-
     Couldn't be bothered to look up how to implement the iterator pattern but it works so idc :-D
     '''
     class Text:
         def __init__(self, text):
             self.text = text if text == '' else ''.join(text.asList())
+            self.count = 1
             self.reset()
 
         __str__ = __repr__ = lambda s: s.text
@@ -37,6 +36,7 @@ class ChoiceTree:
     class Choice:
         def __init__(self, vals):
             self.vals = vals.asList()
+            self.count = sum(v.count for v in self.vals)
             self.reset()
 
         __str__ = __repr__ = lambda s: '[{}]'.format('|'.join([str(v) for v in s.vals]))
@@ -52,7 +52,8 @@ class ChoiceTree:
             return out
 
         def random(self):
-            return random.choice(self.vals).random()
+            # Weighted based on the number of different possible branches each child has.
+            return np.random.choice(self.vals, p=list(v.count/self.count for v in self.vals)).random()
 
         def reset(self):
             self.i = 0
@@ -65,6 +66,7 @@ class ChoiceTree:
     class Group:
         def __init__(self, vals):
             self.vals = vals.asList()
+            self.count = functools.reduce(lambda x,y: x*y, (c.count for c in self.vals), 1)
             self.reset()
 
         __str__ = __repr__ = lambda s: ''.join([str(v) for v in s.vals])
@@ -116,16 +118,26 @@ class ChoiceTree:
     choice = pGroup(lbr + group + ZeroOrMore(div + group) + rbr).setParseAction(lambda t: ChoiceTree.Choice(t[0]))
     group << pGroup(OneOrMore(text|choice) | eStr).setParseAction(lambda t: ChoiceTree.Group(t[0])).leaveWhitespace()
 
-    def parse(text):
-        return ChoiceTree.group.parseString(text).asList()[0]
+    def __init__(self, text, parse_flags=False, add_brackets=False):
+        self.flag_random = False
+        if parse_flags:
+            if text[:3] == '[?]':
+                text = text[3:]
+                self.flag_random = True
 
-    def get_all(text):
-        tree = ChoiceTree.parse(text)
+        if add_brackets: text = '[' + text + ']'
+
+        self.tree = ChoiceTree.group.parseString(text).asList()[0]
+        self.count = self.tree.count
+
+    def all(self):
+        if self.flag_random:
+            return [self.random()]
         out = []
-        while not tree.done:
-            out.append(tree.next())
+        while not self.tree.done:
+            out.append(self.tree.next())
+        self.tree.reset()
         return out
 
-    def get_random(text):
-        tree = ChoiceTree.parse(text)
-        return tree.random()
+    def random(self):
+        return self.tree.random()

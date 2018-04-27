@@ -18,7 +18,6 @@ import resource.tweets as tweets
 from resource.youtubecaps import youtubeCaps
 from resource.jerkcity import JERKCITY
 import utils.biogenerator
-from utils.choicetree import ChoiceTree
 from utils.rand import *
 from utils.meal import Meal
 from utils.attack import Attack
@@ -78,21 +77,6 @@ class BotCommands(MyCommands):
         '''Repeat your message in a code block (for emoji related purposes).'''
         await self.say('`{}`'.format(util.strip_command(ctx)))
 
-
-    @commands.command(pass_context=True, hidden=True)
-    async def expand(self, ctx):
-        '''
-        expand.
-        
-        "[a|b]c[d|e]" -> "acd", "bcd", "ace", "bce"
-        '''
-        text = util.strip_command(ctx)
-        tree = ChoiceTree.parse(text)
-        all = []
-        while not tree.done:
-            all.append(tree.next())
-        text = '\n'.join(all)
-        await self.say(text)
 
     # TODO: extend this so the bot remembers which of its messages where caused by whom
     # so that you're allowed to >delet the bot's message if you were the one that 'caused' it

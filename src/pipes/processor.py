@@ -176,18 +176,11 @@ class Pipeline:
 
     def evaluate_source(self):
         values = []
-        if self.source[:3] == '[?]':
-            source = ChoiceTree.get_random(self.source[3:])
+        for source in ChoiceTree(self.source, parse_flags=True, add_brackets=True).all():
             if self.is_pure_source(source):
                 values.extend(self.evaluate_pure_source(source))
             else:
                 values.append(self.evaluate_composite_source(source))
-        else:
-            for source in ChoiceTree.get_all('[' + self.source + ']'):
-                if self.is_pure_source(source):
-                    values.extend(self.evaluate_pure_source(source))
-                else:
-                    values.append(self.evaluate_composite_source(source))
         return values
 
     def apply_source_and_pipeline(self):
@@ -223,7 +216,7 @@ class Pipeline:
 
         simulpipe = re.sub(r'(?s)"""(.*?)"""', steal_triple_quotes, simulpipe)
 
-        simulpipes = ChoiceTree.get_all('[' + simulpipe + ']')
+        simulpipes = ChoiceTree(simulpipe, parse_flags=True, add_brackets=True).all()
 
         # Parse the simultaneous pipes into a usable form: A list of {name, args}
         parsedPipes = []
