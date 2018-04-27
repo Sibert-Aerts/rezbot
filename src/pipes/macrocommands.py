@@ -19,6 +19,9 @@ class MacroCommands(MyCommands):
     async def what_complain(self):
         await self.say('First argument must be one of: {}.'.format(typedict_options))
 
+    async def not_found_complain(self, what):
+        await self.say('A {} macro by that name was not found.'.format(what))
+
     async def permission_complain(self):
         await self.say('You are not authorised to modify that macro. Try defining a new one instead.')
 
@@ -48,8 +51,7 @@ class MacroCommands(MyCommands):
 
         name = name.lower().split(' ')[0]
         if name not in macros:
-            await self.say('A {} macro by that name was not found.'.format(what))
-            return
+            await self.not_found_complain(what); return
 
         if not macros[name].authorised(ctx.message.author):
             await self.permission_complain(); return
@@ -68,8 +70,7 @@ class MacroCommands(MyCommands):
 
         name = name.lower().split(' ')[0]
         if name not in macros:
-            await self.say('A {} macro by that name was not found.'.format(what))
-            return
+            await self.not_found_complain(what); return
 
         if macros[name].desc and not macros[name].authorised(ctx.message.author):
             await self.permission_complain(); return
@@ -88,8 +89,7 @@ class MacroCommands(MyCommands):
 
         name = name.lower().split(' ')[0]
         if name not in macros:
-            await self.say('A {} macro by that name was not found.'.format(what))
-            return
+            await self.not_found_complain(what); return
 
         if not macros[name].authorised(ctx.message.author):
             await self.permission_complain(); return
