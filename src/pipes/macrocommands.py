@@ -120,6 +120,7 @@ class MacroCommands(MyCommands):
         del macros[name]
         await self.say('Deleted {} macro `{}`.'.format(what, name))
 
+
     async def _macros(self, ctx, what, name):
         macros, _ = typedict[what]
 
@@ -158,14 +159,14 @@ class MacroCommands(MyCommands):
 
     @commands.command(pass_context=True, aliases=['pipe_macro', 'macro_pipes', 'macro_pipe'])
     async def pipe_macros(self, ctx, name=''):
-        '''Print a list of all pipe macros and their descriptions, or details on a specific pipe macro.'''
+        '''A list of all pipe macros, or details on a specific pipe macro.'''
         await self._macros(ctx, 'pipe', name)
 
     # I just copy-pasted the whole function and replaced "pipe" with "source", sue me.
 
     @commands.command(pass_context=True, aliases=['source_macro', 'macro_sources', 'macro_source'])
     async def source_macros(self, ctx, name=''):
-        '''Print a list of all source macros and their descriptions, or details on a specific source macro.'''
+        '''A list of all source macros, or details on a specific source macro.'''
         await self._macros(ctx, 'source', name)
 
 
