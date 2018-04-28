@@ -60,3 +60,4 @@ src/resource/youtubecaps/caps/OHxyZaZlaOs.p
 src/komidanot.py
 src/pipes/macros/source_macros.p
 src/pipes/macros/pipe_macros.p
+*.v1_backup

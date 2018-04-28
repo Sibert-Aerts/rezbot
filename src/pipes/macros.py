@@ -10,17 +10,25 @@ def DIR(filename=''):
 
 
 class Macro:
-    def __init__(self, name, code, authorName, authorId, authorAvatarURL, desc=None):
-        self.version = 1
+    def __init__(self, name, code, authorName, authorId, authorAvatarURL, desc=None, visible=True, command=False):
+        self.version = 2
         self.name = name
         self.code = code
         self.authorName = authorName
         self.authorId = authorId
         self.authorAvatarURL = authorAvatarURL
         self.desc = desc
+        self.visible = visible
+        self.command = command
+
+    def v1_to_v2(m):
+        if m.version != 1: return m
+        return Macro(m.name, m.code, m.authorName, m.authorId, m.authorAvatarURL, m.desc, True, False)
 
     def embed(self):
-        embed = Embed(title=self.name, description=self.desc, color=0x06ff83)
+        title = self.name
+        desc = (self.desc if self.desc else '') + ('\n`hidden`' if not self.visible else '')
+        embed = Embed(title=title, description=desc, color=0x06ff83)
         embed.add_field(name='Code', value=texttools.block_format(self.code), inline=False)
         embed.set_footer(text=self.authorName, icon_url=self.authorAvatarURL)
         return embed
@@ -38,33 +46,38 @@ class Macros:
         try:
             if not os.path.exists(DIR()): os.mkdir(DIR())
             self.macros = pickle.load(open(DIR(filename), 'rb+'))
+            self.convert_v1_to_v2()
             print('{} macros loaded from "{}"!'.format(len(self.macros), filename))
         except Exception as e:
             print(e)
             print('Failed to load macros from "{}"!'.format(DIR(filename)))
 
-    # def convert_(self, file):
-    #     try:
-    #         copyfile(self.DIR(file), self.DIR(self.filename))
-    #         newMacros = pickle.load(open(self.DIR(self.filename), 'rb+'))
-    #         count = 0
-    #         for name in newMacros:
-    #             if name in self.macros: continue
-    #             macro = newMacros[name]
-    #             self[name] = Macro(macro.name, macro.code, 'Rezuaq', '154597714619793408', macro.desc)
-    #             count += 1
-    #         self.write()
-    #         print('{} macros successfully converted and added from "{}"!'.format(count, file))
-
-    #     except Exception as e:
-    #         print(e)
-    #         print('Failed to convert macros from "{}"!'.format(file))
+    def convert_v1_to_v2(self):
+        try:
+            copyfile(self.DIR(self.filename), self.DIR(self.filename + '.v1_backup'))
+            count = 0
+            for name in self.macros:
+                m = self.macros[name]
+                if m.version == 1:
+                    self.macros[name] = Macro.v1_to_v2(m)
+                    count += 1
+            self.write()
+            if count: print('{} macros successfully converted and added from "{}"!'.format(count, self.filename))
+        except Exception as e:
+            print(e)
+            print('Failed to convert macros from "{}"!'.format(self.filename))
 
     def __contains__(self, name):
         return name in self.macros
 
     def __iter__(self):
         return (i for i in self.macros)
+
+    def visible(self):
+        return [i for i in self.macros if self.macros[i].visible]
+
+    def hidden(self):
+        return [i for i in self.macros if not self.macros[i].visible]
 
     def __getitem__(self, name):
         return self.macros[name]
@@ -93,6 +106,3 @@ class Macros:
 
 pipe_macros = Macros(DIR, 'pipe_macros.p')
 source_macros = Macros(DIR, 'source_macros.p')
-
-# Comment out this line after the bot has ran once.
-# pipe_macros.convert_v1_to_v2('custompipes.p')

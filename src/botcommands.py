@@ -51,13 +51,13 @@ class BotCommands(MyCommands):
 
 
     @commands.command(hidden=True)
-    async def hide(self):
+    async def hide_self(self):
         '''Go invisible.'''
         await self.bot.change_presence(status=discord.Status.invisible)
 
 
     @commands.command(hidden=True)
-    async def unhide(self):
+    async def unhide_self(self):
         '''Go visible.'''
         await self.bot.change_presence(status=discord.Status.online)
 

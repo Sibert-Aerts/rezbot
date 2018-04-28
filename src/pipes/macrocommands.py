@@ -9,7 +9,12 @@ from .macros import Macro, pipe_macros, source_macros
 from mycommands import MyCommands
 import utils.texttools as texttools
 
-typedict = {'pipe': pipe_macros, 'source': source_macros}
+typedict = {
+    'pipe': (pipe_macros, True),
+    'hiddenpipe': (pipe_macros, False),
+    'source': (source_macros, True),
+    'hiddensource': (source_macros, False),
+}
 typedict_options = ', '.join('"' + t + '"' for t in typedict)
 
 class MacroCommands(MyCommands):
@@ -29,7 +34,7 @@ class MacroCommands(MyCommands):
     async def define(self, ctx, what, name):
         '''Define a macro.'''
         what = what.lower()
-        try: macros = typedict[what]
+        try: macros, visible = typedict[what]
         except: await self.what_complain(); return
 
         name = name.lower().split(' ')[0]
@@ -39,14 +44,14 @@ class MacroCommands(MyCommands):
 
         code = re.split('\s+', ctx.message.content, 3)[3]
         author = ctx.message.author
-        macros[name] = Macro(name, code, author.name, author.id, author.avatar_url)
+        macros[name] = Macro(name, code, author.name, author.id, author.avatar_url, visible=visible)
         await self.say('Defined a new {} called `{}` as {}'.format(what, name, texttools.block_format(code)))
 
     @commands.command(pass_context=True, aliases=['redef'])
     async def redefine(self, ctx, what, name):
         '''Redefine an existing macro.'''
         what = what.lower()
-        try: macros = typedict[what]
+        try: macros, _ = typedict[what]
         except: await self.what_complain(); return
 
         name = name.lower().split(' ')[0]
@@ -65,7 +70,7 @@ class MacroCommands(MyCommands):
     async def describe(self, ctx, what, name):
         '''Describe an existing macro.'''
         what = what.lower()
-        try: macros = typedict[what]
+        try: macros, _ = typedict[what]
         except: await self.what_complain(); return
 
         name = name.lower().split(' ')[0]
@@ -79,12 +84,30 @@ class MacroCommands(MyCommands):
         macros[name].desc = desc
         macros.write()
         await self.say('Described {} `{}` as `{}`'.format(what, name, desc))
+        
+    @commands.command(pass_context=True, aliases=['unhide'])
+    async def hide(self, ctx, what, name):
+        '''Toggle whether the given macro is hidden.'''
+        what = what.lower()
+        try: macros, _ = typedict[what]
+        except: await self.what_complain(); return
+
+        name = name.lower().split(' ')[0]
+        if name not in macros:
+            await self.not_found_complain(what); return
+
+        if not macros[name].authorised(ctx.message.author):
+            await self.permission_complain(); return
+
+        macros[name].visible ^= True
+        macros.write()
+        await self.say('{} {} `{}`'.format('Unhid' if macros[name].visible else 'Hid', what, name))
 
     @commands.command(pass_context=True, aliases=['del'])
     async def delete(self, ctx, what, name):
         '''Delete a macro by name.'''
         what = what.lower()
-        try: macros = typedict[what]
+        try: macros, _ = typedict[what]
         except: await self.what_complain(); return
 
         name = name.lower().split(' ')[0]
@@ -97,61 +120,53 @@ class MacroCommands(MyCommands):
         del macros[name]
         await self.say('Deleted {} macro `{}`.'.format(what, name))
 
-    @commands.command(pass_context=True, aliases=['pipe_macro', 'macro_pipes', 'macro_pipe'])
-    async def pipe_macros(self, ctx, name=''):
-        '''Print a list of all pipe macros and their descriptions, or details on a specific pipe macro.'''
-        infos = []
+    async def _macros(self, ctx, what, name):
+        macros, _ = typedict[what]
 
-        # Info on a specific pipe
-        if name != '' and name in pipe_macros:
-            await self.bot.say(embed=pipe_macros[name].embed())
+        # Info on a specific macro
+        if name != '' and name in macros:
+            await self.bot.say(embed=macros[name].embed())
 
-        # Info on all pipes
+        # Info on all of them
         else:
-            if not pipe_macros:
-                await self.say('No pipe macros loaded. Try adding one using >define.')
+            if name == 'hidden':
+                what2 = 'hidden' + what
+                filtered_macros = macros.hidden()
+            else:
+                what2 = what
+                filtered_macros = macros.visible()
+
+            if not filtered_macros:
+                await self.say('No {0} macros loaded. Try adding one using >define {0}.'.format(what2))
                 return
 
-            infos.append('Here\'s a list of all pipe macros, use >pipe_macros [name] to see more info on a specific one.\nUse >pipes for a list of native pipes.\n')
-            colW = len(max(pipe_macros, key=len)) + 2
-            for name in pipe_macros:
-                pipe = pipe_macros[name]
+            infos = []
+            infos.append('Here\'s a list of all {what2} macros, use >{what}_macros [name] to see more info on a specific one.'.format(what2=what2, what=what))
+            infos.append('Use >{what}s for a list of native {what}s.\n'.format(what=what))
+
+            colW = len(max(filtered_macros, key=len)) + 2
+            for name in filtered_macros:
+                print('Wahoo')
+                macro = macros[name]
                 info = name + ' ' * (colW-len(name))
-                if pipe.desc is not None:
-                    info += pipe.desc
+                if macro.desc is not None:
+                    info += macro.desc
                 infos.append(info)
 
             text = texttools.block_format('\n'.join(infos))
             await self.say(text)
+
+    @commands.command(pass_context=True, aliases=['pipe_macro', 'macro_pipes', 'macro_pipe'])
+    async def pipe_macros(self, ctx, name=''):
+        '''Print a list of all pipe macros and their descriptions, or details on a specific pipe macro.'''
+        await self._macros(ctx, 'pipe', name)
 
     # I just copy-pasted the whole function and replaced "pipe" with "source", sue me.
 
     @commands.command(pass_context=True, aliases=['source_macro', 'macro_sources', 'macro_source'])
     async def source_macros(self, ctx, name=''):
         '''Print a list of all source macros and their descriptions, or details on a specific source macro.'''
-        infos = []
-
-        # Info on a specific source
-        if name != '' and name in source_macros:
-            await self.bot.say(embed=source_macros[name].embed())
-
-        # Info on all sources
-        else:
-            if not source_macros:
-                await self.say('No source macros loaded. Try adding one using >define.')
-                return
-
-            infos.append('Here\'s a list of all source macros, use >source_macros [name] to see more info on a specific one.\nUse >sources for a list of native sources.\n')
-            colW = len(max(source_macros, key=len)) + 2
-            for name in source_macros:
-                source = source_macros[name]
-                info = name + ' ' * (colW-len(name))
-                if source.desc is not None:
-                    info += source.desc
-                infos.append(info)
-
-            text = texttools.block_format('\n'.join(infos))
-            await self.say(text)
+        await self._macros(ctx, 'source', name)
 
 
 # Load the bot cog
