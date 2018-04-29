@@ -29,6 +29,9 @@
 
     * Argument parsing: `format Hello, {}!` should work the same as `format f="Hello, {}!"`
 
+    * **BUGS:**
+    * Sources can't contain >'s or ('s (without putting it in quotes which is dumb)
+
     * **SPECULATIVE:**
     * Option to hide warnings log
     * Command to show most recent warnings log

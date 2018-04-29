@@ -82,7 +82,7 @@ class Pipeline:
     
     def check_values(self, values):
         '''Raises errors if the user is not permitted to process a certain quantity of values.'''
-        MAXVALUES = 20
+        MAXVALUES = 100
         if len(values) > MAXVALUES and not permissions.has(self.message.author.id, permissions.owner):
             raise PipelineError('Attempted to process {} values at once, try staying under {}.'.format(len(values), MAXVALUES))
 

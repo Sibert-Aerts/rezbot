@@ -147,7 +147,6 @@ class MacroCommands(MyCommands):
 
             colW = len(max(filtered_macros, key=len)) + 2
             for name in filtered_macros:
-                print('Wahoo')
                 macro = macros[name]
                 info = name + ' ' * (colW-len(name))
                 if macro.desc is not None:
@@ -161,8 +160,6 @@ class MacroCommands(MyCommands):
     async def pipe_macros(self, ctx, name=''):
         '''A list of all pipe macros, or details on a specific pipe macro.'''
         await self._macros(ctx, 'pipe', name)
-
-    # I just copy-pasted the whole function and replaced "pipe" with "source", sue me.
 
     @commands.command(pass_context=True, aliases=['source_macro', 'macro_sources', 'macro_source'])
     async def source_macros(self, ctx, name=''):
