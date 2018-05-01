@@ -156,7 +156,7 @@ class Group(GroupMode):
     def apply(self, values, pipes):
         # TODO: crop rule
         if self.padding:
-            values = values + (math.ceil(len(values)/self.size)*self.size - len(values)) * ['PADDING']
+            values = values + (math.ceil(len(values)/self.size)*self.size - len(values)) * ['']
         out = []
 
         for i in range(0, len(values), self.size):
@@ -183,28 +183,25 @@ class Divide(GroupMode):
 
     def apply(self, values, pipes):
         # TODO: crop rule
-        size = math.ceil(len(values)/self.count)
-        # Same logic as Group
+        num = len(values)
+        size = math.floor(num/self.count)
+        rest = num % self.count
 
-        if size == 0:
-            if self.multiply:
-                return [(values, pipe) for pipe in pipes]
-            else: return [(values, pipes[0])]
+            values = values + (self.count - rest) * ['']
+            size += 1
+            rest = 0
 
-        if self.padding:
-            values = values + (math.ceil(len(values)/size)*size - len(values)) * ['PADDING']
         out = []
 
-        for i in range(0, len(values), size):
-            # Slice the inputs according to group size
-            vals = values[i: i+size]
+        for i in range(0, self.count):
+            left = i * size + min(rest, i)
+            vals = values[left: right]
 
             if self.multiply:
                 for pipe in pipes:
                     out.append((vals, pipe))
             else:
-                # (i/size) is always an int, we just cast it else % gets angry
-                out.append((vals, pipes[int(i/size) % len(pipes)]))
+                out.append((vals, pipes[i % len(pipes)]))
         return out
 
 class Modulo(GroupMode):
@@ -220,7 +217,7 @@ class Modulo(GroupMode):
     def apply(self, values, pipes):
         # TODO: crop rule
         if self.padding:
-            values = values + (math.ceil(len(values)/self.modulo)*self.modulo - len(values)) * ['PADDING']
+            values = values + (math.ceil(len(values)/self.modulo)*self.modulo - len(values)) * ['']
 
         out = []
         for i in range(0, self.modulo):
