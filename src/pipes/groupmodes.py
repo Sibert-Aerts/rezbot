@@ -187,6 +187,7 @@ class Divide(GroupMode):
         size = math.floor(num/self.count)
         rest = num % self.count
 
+        if size == 0 or (self.padding and rest):
             values = values + (self.count - rest) * ['']
             size += 1
             rest = 0
@@ -195,6 +196,7 @@ class Divide(GroupMode):
 
         for i in range(0, self.count):
             left = i * size + min(rest, i)
+            right = (i+1) * size + min(rest, i+1)
             vals = values[left: right]
 
             if self.multiply:
