@@ -245,6 +245,9 @@ class Interval(GroupMode):
         # TODO: crop rule
         nop = None
         length = len(values)
+
+        if length == 0: return [(values, nop)]
+
         lval = int(self.lval) if self.lval != '-0' else length
         if self.rval is None:
             if   self.lval == '-1': rval = length # Writing #-1 is equivalent to #-1..-0: The last element
