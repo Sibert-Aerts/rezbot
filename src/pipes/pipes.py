@@ -206,6 +206,16 @@ def letterize_pipe(text, p):
 
 
 @make_pipe({
+    'p1' : Sig(float, 0.4, 'Smart character swap probability'),
+    'p2' : Sig(float, 0.0, 'Dumb character swap probability'),
+}, command=True)
+@as_map
+def letterize2_pipe(text, p1, p2):
+    '''Letterize, but smarter™.'''
+    return letterize2(text, p1, p2)
+
+
+@make_pipe({
     'to' : Sig(str, None, 'Which conversion should be used.', lambda x: x in converters),
 }, command=True)
 @as_map

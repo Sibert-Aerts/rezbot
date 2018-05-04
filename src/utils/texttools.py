@@ -11,6 +11,12 @@ Bunch of text utility functions, some more general purpose than others.
 This is where the actual workings of pipes like letterize, convert etc. are implemented, so you can mess with those here.
 '''
 
+abc = 'abcdefghijklmnopqrstuvwxyz'
+vowels = 'aeiouy'
+consonants = 'bcdfghjklmnpqrstvwxz'
+digs = '0123456789'
+ABCabc = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+
 # words
 allWords = open('resource/words.txt', encoding='utf-8').read().split()
 # remove proper nouns
@@ -43,6 +49,70 @@ def camel_case(s):
 vowelize = pSub('(?i)[aeiou]', 'aeiou')
 consonize = pSub('(?i)[bcdfgjklmnpqrstvwxz]', 'bbbddnnmmlgh')
 
+def letterize(str, p):
+    return vowelize(consonize(str, p), p*2/3)
+
+letterize2Dict = {
+    'a': 'eiou',
+    'e': 'aiou',
+    'i': 'aaeeoouuy',
+    'o': 'aeu',
+    'u': 'aaaeeeoooy',
+    'y': 'iu',
+
+    'b': 'p',
+    'p': 'b',
+
+    'c': 'gk',
+    'g': 'kkkhhhj',
+    'h': 'gggj',
+    'j': 'hj',
+    'k': 'cccgggq',
+    'q': 'cgk',
+
+    'm': 'n',
+    'n': 'm',
+
+    'd': 't',
+    't': 'd',
+
+    'f': 'v',
+    'v': 'fw',
+    'w': 'vvvw',
+
+    'l': 'llrw', # These two maps to themselves since they're kinda special...
+    'r': 'lrrg', # They also map to chars that don't map back to them... they're special....
+
+    's': 'xzzzzzz',
+    'x': 'sz',
+    'z': 'ssssssx',
+}
+
+def letterize2(s, p1, p2=0):
+    out = ''
+    pv1 = p1 * 2/3
+    pv2 = p2 * 2/3
+    for c in s:
+        cl = c.lower()
+        if cl in vowels:
+            if chance(pv1):
+                out += matchCase(random.choice(letterize2Dict[cl]), c)
+            elif chance(pv2/(1-pv1)): # Truly random replacement?
+                out += matchCase(random.choice(vowels), c)
+            else:
+                out += c
+        elif cl in consonants:
+            if chance(p1):
+                out += matchCase(random.choice(letterize2Dict[cl]), c)
+            elif chance(p2/(1-p1)): # Truly random replacement?
+                out += matchCase(random.choice(consonants), c)
+            else:
+                out += c
+        else:
+            out += c
+    return out
+
+
 def alpha_sub(fro, to, text, ignoreCase=False):
     '''Performs alphabetic substitution, so a character from `fro` is replaced with the equivalent in `to`.'''
     w = len(to) / len(fro)
@@ -54,10 +124,6 @@ def alpha_sub(fro, to, text, ignoreCase=False):
     return ''.join([_sub(t) for t in text])
 
 # A couple of fun alphabetic substitutions
-abc = 'abcdefghijklmnopqrstuvwxyz'
-digs = '0123456789'
-ABCabc = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-
 smallcaps = lambda x : alpha_sub(abc, 'ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢ', x, ignoreCase=True)
 squared   = lambda x : alpha_sub(abc, '🇦­🇧­🇨­🇩­🇪­🇫­🇬­🇭­🇮­🇯­🇰­🇱­🇲­🇳­🇴­🇵­🇶­🇷­🇸­🇹­🇺­🇻­🇼­🇽­🇾­🇿­', alpha_sub(digs, '0⃣1⃣2⃣3⃣4⃣5⃣6⃣7⃣8⃣9⃣', x), ignoreCase=True) # Warning: There's an &shy; between each character!
 circled   = lambda x : alpha_sub(ABCabc + digs, 'ⒶⒷⒸⒹⒺⒻⒼⒽⒾⒿⓀⓁⓂⓃⓄⓅⓆⓇⓈⓉⓊⓋⓌⓍⓎⓏⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ' '0①②③④⑤⑥⑦⑧⑨', x)
@@ -85,9 +151,6 @@ converters = {
     'sans' : sans,
     'superscript' : superscript,
 }
-
-def letterize(str, p):
-    return vowelize(consonize(str, p), p*2/3)
 
 # Edit distance
 def ed(x, y):
