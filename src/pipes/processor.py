@@ -153,7 +153,7 @@ class Pipeline:
             if name in sources:
                 return sources[name](self.message, args, n=n)
             elif name in source_macros:
-                code = source_macros[name].code
+                code = source_macros[name].apply_args(args)
                 source_pl = Pipeline(code, self.message)
                 # TODO: refactor the WHOLE ENTIRE PIPELINE to be reusable so I can call it `n` times here.
                 values = source_pl.apply_source_and_pipeline()
@@ -286,23 +286,8 @@ class Pipeline:
                         newValues.extend(vals)
 
                 elif name in pipe_macros:
+                    code = pipe_macros[name].apply_args(args)
                     # Apply the macro inline, as if it were a single operation
-                    code = pipe_macros[name].code
-
-                    # spicey!!!! definitely delete this entirely & pull it up into Macros!!!!!
-                    # def argfunc(match):
-                    #     id = match.groups()[0].lower()
-                    #     print('ENCOUNTERED: ', id)
-                    #     try:
-                    #         val = re.search(id+'=(\S+)', args).groups()[0]
-                    #         print('FOUND VALUE ASSIGNMENT: ', val)
-                    #         return val
-                    #     except:
-                    #         print('ARGUMENT NOT GIVEN, LEAVING IT.')
-                    #         return match.group()
-
-                    # code = re.sub(r'(?i)\$([A-Z]+)\$', argfunc, code)
-
                     macroPipeline = Pipeline(code, self.message)
                     macroPipeline.split()
                     macroValues = macroPipeline.apply_pipeline(vals)
