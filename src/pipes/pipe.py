@@ -20,7 +20,7 @@ class Pipe:
         return self.function(values, **args)
 
     def as_command(self, text):
-        text, args = parse_args(self.signature, text)
+        text, args = parse_args(self.signature, text, greedy=False)
         return self.function([text], **args)
 
     def command_doc(self):

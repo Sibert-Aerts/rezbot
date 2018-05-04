@@ -9,12 +9,27 @@ class ArgumentError(ValueError):
 
 class Sig:
     '''Class representing a single item in a function signature.'''
-    def __init__(self, type, default=None, desc=None, check=None):
+    def __init__(self, type, default=None, desc=None, check=None, required=None):
         self.type = type
         self.default = default
         self.desc = desc
         self.check = check
+        self.required = required if required is not None else (default is None)
+        self._re = None
         self.str = None
+
+    def re(self, name):
+        # This regex matches the following formats:
+        #   name=valueWithoutSpaces
+        #   name="value with spaces"     name=""  (for the empty string)
+        #   name='value with spaces'     name=''
+        # Doesn't match:
+        #   name=value with spaces
+        #   name="value with "quotes""
+        #   name= (for the empty string)
+        if self._re is None:
+            self._re = re.compile('\\b' + name + '=("[^"]*"|\'[^\']*\'|\S+)\\s*')
+        return self._re
 
     def __str__(self):
         if self.str: return self.str
@@ -35,64 +50,68 @@ class Sig:
         return out
 
 
-def parse_args(signature, text):
+def parse_args(signature, text, greedy=True):
     '''Parses and removes args from a string of text.'''
     args = {}
 
-    # Very ungeneral special case for dealing with ordered args:
-    # if there's only one argument, it is always ordered!
-    # TODO: Parse multiple, ordered, unnamed arguments?
-    if len(signature) == 1:
-        try:
-            s = next(iter(signature))
-            sig = signature[s]
+    # TODO: Only one non-required argument?
+    required = [s for s in signature if signature[s].required]
+    if len(required) == 1:
+        s = required[0]
+        sig = signature[s]
 
-            # Just in case, look if the argument isn't given as arg="value"
-            # If it is: Leave this special case alone and fall back to the block below
-            if re.search('\\b'+s+'=([^\\s"][^\\s]*\\s*|"[^"]*"|\'[^\']*\')', text): raise ValueError()
+        # Just in case, look if the argument isn't given as "arg=val"
+        # If it is: Leave this special case alone and fall back to the block below
+        if re.search(sig.re(s), text) is None:
 
-            # Take the first word and try if that works
-            split = text.split(' ', 1)
-            val = split[0]
-            # if the "found" argument is the empty string we didnt actually find anything
+            if greedy: # Greedy: Assume the entire input string is the argument value.
+                val = text
+                text = ''
+
+            else: # Not greedy: Only try the first word
+                split = text.split(' ', 1)
+                val = split[0]
+                text = split[1] if len(split) > 1 else ''
+
+            # If the "found" argument is the empty string we didnt actually find anything
             if val.strip() != '':
-                args[s] = sig.type(val)
-                if sig.check is None or sig.check(args[s]):
-                    return (split[1] if len(split) > 1 else '', args)
-        except:
-            pass
+                # Try casting what we found and see if it works
+                try:
+                    args[s] = sig.type(val)
+                    if sig.check is None or sig.check(args[s]):
+                        return (text, args)
+                except:
+                    # We know that there's no "arg=val" present in the string, the arg is required and we can't find it blindly:
+                    raise ArgumentError('Missing or invalid argument "{}".'.format(s))
 
     for s in signature:
         sig = signature[s]
+        # If at any point here any exception occurs, it'll try to use the default value instead.
         try:
-            # Try to find and parse the argument value, and remove it from the text
-            # This regex matches the following formats:
-            #   arg=valueWithoutSpaces
-            #   arg="value with spaces"     arg=""  (for the empty string)
-            #   arg='value with spaces'     arg=''
-            # Doesn't match:
-            #   arg=value with spaces
-            #   arg="value with "quotes""
-            #   arg= (for the empty string)
-            given = re.search('\\b'+s+'=([^\\s"\'][^\\s]*\\s*|"[^"]*"|\'[^\']*\')', text)
-            val = given.group(0).split('=', 1)[1].strip()
-            if val[0] == val[-1] and (val[0] == '\'' or val[0] == '"'):
+            # Find and parse the argument value, and remove it from the text.
+            given = re.search(sig.re(s), text)
+            val = given.groups()[0].strip()
+
+            # Strip quote marks
+            if val[0] == val[-1] and val[0] in ["'", '"']:
                 val = val[1:-1]
+
+            # Cast to the desired type
             args[s] = sig.type(val)
 
             # Verify that the value meets the check function (if one exists)
             if sig.check and not sig.check(args[s]):
                 raise ArgumentError('Invalid value "{}" for argument "{}".'.format(args[s], s))
 
+            # Remove the argument string from the text
             text = text[:given.start(0)] + text[given.end(0):]
 
         except ArgumentError as e:
             raise e
 
         except:
-            # Use the default argument value
-            args[s] = sig.default
-            if args[s] is None:
+            if sig.required:
                 raise ArgumentError('Missing or invalid argument "{}".'.format(s))
+            args[s] = sig.default
 
     return (text, args)
