@@ -54,10 +54,18 @@ def parse_args(signature, text, greedy=True):
     '''Parses and removes args from a string of text.'''
     args = {}
 
-    # TODO: Only one non-required argument?
-    required = [s for s in signature if signature[s].required]
-    if len(required) == 1:
-        s = required[0]
+    the_one = None
+    required = False
+
+    reqs = [s for s in signature if signature[s].required]
+    if len(reqs) == 1:
+        the_one = reqs[0]
+        required = True
+    elif len(signature) == 1:
+        the_one = next(iter(signature))
+
+    if the_one:
+        s = the_one
         sig = signature[s]
 
         # Just in case, look if the argument isn't given as "arg=val"
@@ -82,7 +90,7 @@ def parse_args(signature, text, greedy=True):
                         return (text, args)
                 except:
                     # We know that there's no "arg=val" present in the string, the arg is required and we can't find it blindly:
-                    raise ArgumentError('Missing or invalid argument "{}".'.format(s))
+                    if required: raise ArgumentError('Missing or invalid argument "{}".'.format(s))
 
     for s in signature:
         sig = signature[s]
