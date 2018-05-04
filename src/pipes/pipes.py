@@ -58,10 +58,10 @@ def repeat_pipe(input, n, lim):
 
 delete_whats = ['a', 'e', 'w']
 @make_pipe({
-    'what': Sig(str, 'all', 'What to delete. All/empty/whitespace', lambda x: x[0].lower() in delete_whats)
+    'what': Sig(str, 'all', 'What to delete: all/empty/whitespace', lambda x: x[0].lower() in delete_whats)
 })
 def delete_pipe(input, what):
-    '''Deletes its input, or specific input.'''
+    '''Deletes all inputs, or specific types of input.'''
     what = what[0].lower()
     if what == 'a': # all
         return []
@@ -80,7 +80,7 @@ def set_pipe(input, name):
 
 @make_pipe({})
 def print_pipe(input):
-    '''Adds the series of inputs to the final output, without affecting them.'''
+    '''Appends the input to the output message, without affecting it.'''
     # This function is never actually called since 'print' is a special case
     # It's in here to add print to the >pipes command info list
     return input
@@ -94,7 +94,7 @@ def tr_pipe(input, w, h):
     '''Transpose the input as if it were a matrix'''
     if w == h == -1:
         return input
-    
+
     if w != -1:
         h = int(len(input) / w)
     else:
@@ -229,18 +229,26 @@ def convert_pipe(text, to):
     return converters[to](text)
 
 
-@make_pipe({}, command=True)
-@as_map
-def katakana_pipe(text):
-    '''Converts English to Japanese phonetic characters using http://www.sljfaq.org/cgi/e2k.cgi.'''
-    return katakana(text)
+# @make_pipe({})
+# @as_map
+# def katakana_pipe(text):
+#     '''
+#     DEFUNCT! The kind people on the website have made it clear they don't like people using it in this way.
+#     (Convert English to Japanese phonetic characters using http://www.sljfaq.org/cgi/e2k.cgi.)
+#     '''
+#     return text
+#     return katakana(text)
 
 
-@make_pipe({}, command=True)
-@as_map
-def romaji_pipe(text):
-    '''Converts Japanese kana to English phonetics using http://www.sljfaq.org/cgi/kana-romaji.cgi.'''
-    return romaji(text)
+# @make_pipe({})
+# @as_map
+# def romaji_pipe(text):
+#     '''
+#     DEFUNCT! The kind people on the website have made it clear they don't like people using it in this way.
+#     (Convert Japanese kana to English phonetics using http://www.sljfaq.org/cgi/kana-romaji.cgi.)
+#     '''
+#     return text
+#     return romaji(text)
 
 
 @make_pipe({
@@ -267,7 +275,7 @@ def unicode_pipe(text):
 
 
 @make_pipe({
-    'f' : Sig(str, '{0}', 'The format string, for syntax info: https://pyformat.info/')
+    'f' : Sig(str, None, 'The format string, for syntax info: https://pyformat.info/')
 })
 def format_pipe(input, f):
     '''Format one or more rows into a single row according to a format string.'''
@@ -278,7 +286,7 @@ def format_pipe(input, f):
     's' : Sig(str, '', 'The separator inserted between two items.')
 })
 def join_pipe(input, s):
-    '''Join rows into a single row.'''
+    '''Joins rows into a single row, separated by the given separator.'''
     return [s.join(input)]
 
 
