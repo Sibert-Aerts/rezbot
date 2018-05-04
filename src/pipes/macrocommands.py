@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 
 from .pipes import *
-from .macros import Macro, pipe_macros, source_macros
+from .macros import Macro, MacroSig, pipe_macros, source_macros
 from mycommands import MyCommands
 import utils.texttools as texttools
 
@@ -84,7 +84,7 @@ class MacroCommands(MyCommands):
         macros[name].desc = desc
         macros.write()
         await self.say('Described {} `{}` as `{}`'.format(what, name, desc))
-        
+
     @commands.command(pass_context=True, aliases=['unhide'])
     async def hide(self, ctx, what, name):
         '''Toggle whether the given macro is hidden.'''
@@ -119,6 +119,44 @@ class MacroCommands(MyCommands):
 
         del macros[name]
         await self.say('Deleted {} macro `{}`.'.format(what, name))
+
+
+    @commands.command(pass_context=True, aliases=['set_sig', 'add_sig', 'add_arg'])
+    async def set_arg(self, ctx, what, name, signame, sigdefault, sigdesc=None):
+        '''Describe an existing macro.'''
+        what = what.lower()
+        try: macros, _ = typedict[what]
+        except: await self.what_complain(); return
+
+        name = name.lower().split(' ')[0]
+        if name not in macros:
+            await self.not_found_complain(what); return
+
+        if not macros[name].authorised(ctx.message.author):
+            await self.permission_complain(); return
+
+        sig = MacroSig(signame, sigdefault, sigdesc)
+        macros[name].signature[signame] = sig
+        macros.write()
+        await self.say('Added argument ({}) to {} {}'.format(sig, what, name))
+
+    @commands.command(pass_context=True, aliases=['delete_sig', 'del_sig', 'del_arg'])
+    async def delete_arg(self, ctx, what, name, signame):
+        '''Describe an existing macro.'''
+        what = what.lower()
+        try: macros, _ = typedict[what]
+        except: await self.what_complain(); return
+
+        name = name.lower().split(' ')[0]
+        if name not in macros:
+            await self.not_found_complain(what); return
+
+        if not macros[name].authorised(ctx.message.author):
+            await self.permission_complain(); return
+
+        del macros[name].signature[signame]
+        macros.write()
+        await self.say('Removed signature "{}" from {} {}'.format(signame, what, name))
 
 
     async def _macros(self, ctx, what, name):

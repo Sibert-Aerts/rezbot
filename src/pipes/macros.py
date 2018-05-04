@@ -60,6 +60,7 @@ class Macro:
     arg_finder = re.compile(r'\b(\w+)=("[^"]*"|\'[^\']*\'|\S+)\s*')
 
     def apply_args(self, argstr):
+        # TODO: required args?
         # Load the defaults
         args = {s: self.signature[s].default for s in self.signature}
 
