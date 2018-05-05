@@ -64,10 +64,11 @@ class Macro:
         # Load the defaults
         args = {s: self.signature[s].default for s in self.signature}
 
-        # Interpret the argstring:
-        for name, value in re.findall(Macro.arg_finder, argstr):
-            if value[0] == value[-1] and value[0] in ['"', "'"]: value = value[1:-1]
-            args[name] = value
+        if argstr is not None:
+            # Interpret the argstring:
+            for name, value in re.findall(Macro.arg_finder, argstr):
+                if value[0] == value[-1] and value[0] in ['"', "'"]: value = value[1:-1]
+                args[name] = value
 
         code = self.code
         for arg in args:
