@@ -57,14 +57,18 @@ def parse_args(signature, text, greedy=True):
     the_one = None
     required = False
 
-    reqs = [s for s in signature if signature[s].required]
-    if len(reqs) == 1:
-        the_one = reqs[0]
-        required = True
-    elif len(signature) == 1:
+    # Two scenarios where we implicitly assume an argument (without arg=val syntax!):
+    # If there is only one argument
+    if len(signature) == 1:
         the_one = next(iter(signature))
+    # Or if there is only one REQUIRED argument
+    else:
+        reqs = [s for s in signature if signature[s].required]
+        if len(reqs) == 1:
+            the_one = reqs[0]
+            required = True
 
-    if the_one:
+    if the_one is not None and text is not None:
         s = the_one
         sig = signature[s]
 
