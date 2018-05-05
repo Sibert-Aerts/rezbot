@@ -123,7 +123,7 @@ class MacroCommands(MyCommands):
 
     @commands.command(pass_context=True, aliases=['set_sig', 'add_sig', 'add_arg'])
     async def set_arg(self, ctx, what, name, signame, sigdefault, sigdesc=None):
-        '''Describe an existing macro.'''
+        '''Add or change an argument to a macro.'''
         what = what.lower()
         try: macros, _ = typedict[what]
         except: await self.what_complain(); return
@@ -142,7 +142,7 @@ class MacroCommands(MyCommands):
 
     @commands.command(pass_context=True, aliases=['delete_sig', 'del_sig', 'del_arg'])
     async def delete_arg(self, ctx, what, name, signame):
-        '''Describe an existing macro.'''
+        '''Remove an argument from a macro.'''
         what = what.lower()
         try: macros, _ = typedict[what]
         except: await self.what_complain(); return

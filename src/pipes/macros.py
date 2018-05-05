@@ -67,7 +67,6 @@ class Macro:
         # Interpret the argstring:
         for name, value in re.findall(Macro.arg_finder, argstr):
             if value[0] == value[-1] and value[0] in ['"', "'"]: value = value[1:-1]
-            print(name, value)
             args[name] = value
 
         code = self.code
