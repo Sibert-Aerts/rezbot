@@ -18,7 +18,7 @@ info_string = '''
 Commands for using the youtube captions feature:
 • **youtube_videos**: List all videos with saved captions
 • **youtube random**: Random caption from a random video
-• **youtube [video title, ID, alias or tag]**: Random caption from matching video(s)
+• **youtube [video title, ID or tag]**: Random caption from matching video(s)
 • **youtube [other query]**: Random caption that matches the query (from any video)
 
 Commands for moderating captions:
@@ -50,7 +50,7 @@ class YoutubeCommands(MyCommands):
             except IndexError:
                 await self.say('no results found for search "{}".'.format(query))
 
-    @commands.command(pass_context=True, hidden=True)
+    @commands.command(pass_context=True, aliases=['yt_random'], hidden=True)
     async def youtube_random(self, ctx):
         '''Get a random caption from a youtube video from a list of saved youtube videos'''
         cap, url = youtubeCaps.get_random()
@@ -58,7 +58,7 @@ class YoutubeCommands(MyCommands):
         await self.say(cap)
 
 
-    @commands.command(pass_context=True)
+    @commands.command(pass_context=True, aliases=['yt_add'])
     async def youtube_add(self, ctx, url, alias=None, *tags):
         '''Add a video to the list of tracked videos'''
         try:
@@ -74,7 +74,7 @@ class YoutubeCommands(MyCommands):
             await self.say('something went wrong. make sure the url is correct.')
 
 
-    @commands.command(aliases=['youtube_remove'])
+    @commands.command(aliases=['youtube_remove', 'yt_delete', 'yt_remove', 'yt_del'])
     @permissions.check(permissions.owner)
     async def youtube_delete(self, identifier):
         '''Delete a video from the list of tracked videos'''
@@ -85,7 +85,7 @@ class YoutubeCommands(MyCommands):
             await self.say(e)
 
 
-    @commands.command()
+    @commands.command(aliases=['yt_alias'])
     async def youtube_alias(self, ident, alias):
         '''Change a video's alias'''
         video = youtubeCaps.identify(ident)
@@ -101,7 +101,7 @@ class YoutubeCommands(MyCommands):
             await self.say('successfully changed the alias for video "{}" from "{}" to "{}".'.format(video.title, oldAlias, alias))
 
 
-    @commands.command(aliases=['youtube_tag', 'youtube_add_tag'])
+    @commands.command(aliases=['youtube_tag', 'youtube_add_tag', 'yt_tag'])
     async def youtube_add_tags(self, ident, *tags):
         '''Give a video new tags'''
         video = youtubeCaps.identify(ident)
@@ -113,7 +113,7 @@ class YoutubeCommands(MyCommands):
         await self.say('tags successfully added, tags for "{}" are now: {}.'.format(video.title, ', '.join(video.tags)))
 
 
-    @commands.command(aliases=['youtube_remove_tag', 'youtube_delete_tags', 'youtube_delete_tag'])
+    @commands.command(aliases=['youtube_remove_tag', 'youtube_delete_tags', 'youtube_delete_tag', 'yt_del_tag', 'yt_del_tags'])
     async def youtube_remove_tags(self, ident, *tags):
         '''Remove tags from a video.'''
         video = youtubeCaps.identify(ident)
@@ -125,7 +125,7 @@ class YoutubeCommands(MyCommands):
         await self.say('tags successfully removed, tags for "{}" are now: {}.'.format(video.title, ', '.join(video.tags)))
 
 
-    @commands.command(aliases=['youtube_info'])
+    @commands.command(aliases=['youtube_info', 'youtube_list', 'youtube_all', 'yt_videos', 'yt_info', 'yt_list', 'yt_all'])
     async def youtube_videos(self, ident=''):
         '''List all known youtube videos.'''
         if ident == '':
