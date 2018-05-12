@@ -5,6 +5,8 @@ import random
 import textwrap
 import re
 from functools import wraps
+from datamuse import datamuse
+datamuse_api = datamuse.Datamuse()
 
 from .signature import Sig
 from .pipe import Pipe, Pipes
@@ -229,28 +231,6 @@ def convert_pipe(text, to):
     return converters[to](text)
 
 
-# @make_pipe({})
-# @as_map
-# def katakana_pipe(text):
-#     '''
-#     DEFUNCT! The kind people on the website have made it clear they don't like people using it in this way.
-#     (Convert English to Japanese phonetic characters using http://www.sljfaq.org/cgi/e2k.cgi.)
-#     '''
-#     return text
-#     return katakana(text)
-
-
-# @make_pipe({})
-# @as_map
-# def romaji_pipe(text):
-#     '''
-#     DEFUNCT! The kind people on the website have made it clear they don't like people using it in this way.
-#     (Convert Japanese kana to English phonetics using http://www.sljfaq.org/cgi/kana-romaji.cgi.)
-#     '''
-#     return text
-#     return romaji(text)
-
-
 @make_pipe({
     'min': Sig(int, 0, 'Upper limit on minimum distance (e.g. 1 to never get the same word).')
 }, command=True)
@@ -258,6 +238,42 @@ def convert_pipe(text, to):
 def min_dist_pipe(text, min):
     '''Replaces words with their nearest dictionary words.'''
     return ' '.join(min_dist(w, min) for w in text.split(' '))
+
+
+
+@make_pipe({}, command=True)
+@as_map
+def rhyme_pipe(text):
+    '''
+    Replaces words with random (nearly) rhyming words.
+    Credit to datamuse.com
+    '''
+    words = []
+    for w in text.split(' '):
+        res = datamuse_api.words(rel_rhy=w, max=5)
+        if not res:
+            res = datamuse_api.words(rel_nry=w, max=5)
+        if res:
+            words.append(random.choice(res)['word'])
+        else:
+            words.append(w)
+    return ' '.join(words)
+
+@make_pipe({}, command=True)
+@as_map
+def homophone_pipe(text):
+    '''
+    Replaces words with random homophones.
+    Credit to datamuse.com
+    '''
+    words = []
+    for w in text.split(' '):
+        res = datamuse_api.words(rel_hom=w, max=5)
+        if res:
+            words.append(random.choice(res)['word'])
+        else:
+            words.append(w)
+    return ' '.join(words)
 
 
 @make_pipe({}, command=True)
