@@ -30,6 +30,20 @@ def as_map(func):
         return [func(i, *args, **kwargs) for i in input]
     return _as_map
 
+_word_splitter = re.compile(r'([\w\'-]+)') # groups together words made out of letters or ' or -
+
+def word_map(func):
+    '''
+    Decorator allowing a pipe to treat input on a word-by-word basis, with symbols etc. removed.
+    '''
+    @wraps(func)
+    def _word_map(line, *args, **kwargs):
+        split = re.split(_word_splitter, line)
+        for i in range(1, len(split), 2):
+            split[i] = func(split[i], *args, **kwargs)
+        return ''.join(split)
+    return as_map(_word_map)
+
 pipes = Pipes()
 pipes.command_pipes = []
 
@@ -240,40 +254,88 @@ def min_dist_pipe(text, min):
     return ' '.join(min_dist(w, min) for w in text.split(' '))
 
 
-
 @make_pipe({}, command=True)
-@as_map
-def rhyme_pipe(text):
+@word_map
+def rhyme_pipe(word):
     '''
     Replaces words with random (nearly) rhyming words.
-    Credit to datamuse.com
+    Thanks to datamuse.com
     '''
-    words = []
-    for w in text.split(' '):
-        res = datamuse_api.words(rel_rhy=w, max=5)
-        if not res:
-            res = datamuse_api.words(rel_nry=w, max=5)
-        if res:
-            words.append(random.choice(res)['word'])
-        else:
-            words.append(w)
-    return ' '.join(words)
+    res = datamuse_api.words(rel_rhy=word, max=10) or datamuse_api.words(rel_nry=word, max=10)
+    if res:
+        return random.choice(res)['word']
+    else:
+        return word
+
 
 @make_pipe({}, command=True)
-@as_map
-def homophone_pipe(text):
+@word_map
+def homophone_pipe(word):
     '''
     Replaces words with random homophones.
-    Credit to datamuse.com
+    Thanks to datamuse.com
     '''
-    words = []
-    for w in text.split(' '):
-        res = datamuse_api.words(rel_hom=w, max=5)
-        if res:
-            words.append(random.choice(res)['word'])
-        else:
-            words.append(w)
-    return ' '.join(words)
+    res = datamuse_api.words(rel_hom=word, max=5)
+    if res:
+        return random.choice(res)['word']
+    else:
+        return word
+
+
+@make_pipe({}, command=True)
+@word_map
+def synonym_pipe(word):
+    '''
+    Replaces words with random antonyms.
+    Thanks to datamuse.com
+    '''
+    res = datamuse_api.words(rel_syn=word, max=5)
+    if res:
+        return random.choice(res)['word']
+    else:
+        return word
+
+
+@make_pipe({}, command=True)
+@word_map
+def antonym_pipe(word):
+    '''
+    Replaces words with random antonyms.
+    Thanks to datamuse.com
+    '''
+    res = datamuse_api.words(rel_ant=word, max=5)
+    if res:
+        return random.choice(res)['word']
+    else:
+        return word
+
+
+@make_pipe({}, command=True)
+@word_map
+def part_pipe(word):
+    '''
+    Replaces words with something it is considered "a part of", inverse of comprises pipe.
+    Thanks to datamuse.com
+    '''
+    res = datamuse_api.words(rel_par=word, max=5)
+    if res:
+        return random.choice(res)['word']
+    else:
+        return word
+
+
+@make_pipe({}, command=True)
+@word_map
+def comprises_pipe(word):
+    '''
+    Replaces words with things considered "its parts", inverse of "part" pipe.
+    Thanks to datamuse.com
+    '''
+    res = datamuse_api.words(rel_com=word, max=10)
+    if res:
+        return random.choice(res)['word']
+    else:
+        return word
 
 
 @make_pipe({}, command=True)

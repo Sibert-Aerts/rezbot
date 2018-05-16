@@ -24,9 +24,10 @@ class Pipe:
         return self.function([text], **args)
 
     def command_doc(self):
-        out = self.doc
-        out += '\nArguments:\n'
-        out += '\n'.join(['• ' + s + ': ' + str(self.signature[s]) for s in self.signature])
+        out = self.doc if self.doc else ''
+        if self.signature:
+            out += '\nArguments:\n'
+            out += '\n'.join(['• ' + s + ': ' + str(self.signature[s]) for s in self.signature])
         return out
 
     def embed(self):
