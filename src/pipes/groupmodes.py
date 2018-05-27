@@ -65,7 +65,7 @@ import math
 # *Each* group of input is fed into *each* of the simultaneous pipes (pipe1, pipe2, etc)
 # Resulting in (number of groups) x (number of simultaneous pipes) pipe applications total, which is usually a lot.
 
-## Group grouping:
+## Default grouping:
 #   >>> {source} > [pipe1|pipe2|...|pipex]
 # Feeds all input to pipe1 as a single group, ignoring pipe2 through pipex.
 # Identical to divide grouping with $n as 1.
