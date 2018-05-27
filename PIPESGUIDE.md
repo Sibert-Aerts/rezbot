@@ -10,6 +10,19 @@ and by chaining together multiple pipes in sequence you create a **pipeline**.
 You can use this to set up a bizarre game of telephone by chaining translation pipes, create bizarre word-art or unicode monstrosities,
 automatically produce memes, generate randomized lyrics, ...
 
+## Contents
+1. [Introduction](#introduction)
+2. [Basic Features](#basic-features)
+    * [Sources](#sources) 
+    * [Pipes](#pipes) 
+    * [Arguments](#arguments)
+    * [Print](#print) 
+3. [Advanced Features](#advanced-features)
+    * [Multiple lines](#multiple-lines) 
+    * [Multi-line start](#multi-line-start) 
+    * [Group modes](#group-modes) 
+    * [Parallel pipes](#parallel-pipes)
+
 ## Basic features
 
 The basic structure of a pipeline is as follows:
