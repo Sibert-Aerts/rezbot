@@ -12,38 +12,6 @@ from mycommands import MyCommands
 import utils.texttools as texttools
 import utils.util as util
 
-infoText = '''
-**Pipes** are a text manipulation toy that I slowly developed over time.
-The concept is that you start with some piece(s) of text as a **source** (e.g. chat messages, tweets, random dictionary words...)
-and you modify them using **pipes** that perform some simple task (e.g. turn everything uppercase, swap random letters, translate...)
-and by chaining together multiple **pipes** in sequence you create a **pipeline**.
-
-You can execute a pipeline by typing something of the form:
-    `>>> [source] > [pipe] > [pipe] > ...`
-
-**[source]** can just be text, e.g. `Quentin Tarantino`.
-It can also contain special sources that find/produce text, written as `{sourceName [args]}`.
-    e.g. `{random}`, `Here's a simpsons quote: {simpsons}`, `dril once said "{dril q="my ass"}"`.
-
-The list of possible sources can be seen by typing **>sources**
-
-Each **[pipe]** is an item of the form `pipeName [args]`.
-    e.g. `print`, `repeat n=3`, `translate from=en to=fr`
-
-The list of possible pipes can be seen by typing **>pipes**
-
-For both pipes and sources, **[args]** is a list of arguments: `[arg] [arg] [arg] ...`
-Each **[arg]** can be of the form `argName=valueNoSpaces` or `argName="value with spaces"`.
-To see information on a source/pipe's arguments, use **>source sourceName** or **>pipe pipeName**
-
-Several example pipelines that you can try out:
-    `>>> Quentin Tarantino > repeat n=4 -> letterize p=0.5 -> min_dist`
-    `>>> {prev} > case A > convert fullwidth`
-    `>>> {that} > case Aa`
-
-PS: `->` is short for `> print >`
-'''
-
 ###############################################################
 #            A module providing commands for pipes            #
 ###############################################################
@@ -52,10 +20,10 @@ class PipeCommands(MyCommands):
     def __init__(self, bot):
         super().__init__(bot)
 
-    @commands.command(aliases=['pipe_help', 'pipes_info', 'pipe_info'])
+    @commands.command(aliases=['pipe_help', 'pipes_info', 'pipe_info', 'pipes_guide', 'pipe_guide'])
     async def pipes_help(self):
-        '''Print general info on how to use my wacky system of pipes.'''
-        await self.say(infoText)
+        '''Links the guide to using pipes.'''
+        await self.say('https://github.com/Sibert-Aerts/rezbot/blob/master/PIPESGUIDE.md')
 
     @commands.command(aliases=['pipe'])
     async def pipes(self, name=''):
