@@ -5,73 +5,20 @@ A python-based discord bot using `discord.py`.
 * Clone the github repository
 * Fill out `src/config.example.ini` and rename it to `src/config.ini`
 * Put your own discord user ID (not your name) as an owner in `src/permissions.py`
-* Install python packages: `python.py`, `editdistance`, `parsetools`, ... (list incomplete)
+* Install python packages: `discord.py`, `editdistance`, `parsetools`, ... (list incomplete)
 * Go to `src/` and run `python3 ./bot.py`
 
 ## Features
 * A couple of silly commands, nothing special (`src/botcommands.py`)
 * Subsystem that tests messages for regex patterns and acts on them (`src/patterns.py`)
 * Pipes (`src/pipes/`)
+* Youtube caption saving and searching (`src/resource/youtubecaps`)
 
 ## Pipes
-The killer feature.
-
-The concept of pipes is that you provide some input text followed by a sequence of so-called "pipes", and the text is processed one pipe at a time to produce an output.  
-You tell the bot to execute a pipe by starting your message with `>>>`.
-
-**e.g.**  
-`>>> John Madden` produces the output `John Madden` without applying any pipes.
-
-`>>> John Madden > case A` produces the output `JOHN MADDEN`, using the `case` pipe with the argument `A` (all caps).
-
-`>>> John Madden > convert flip` produces `uǝppɐW uɥoſ`, using the `convert` pipe with the argument `flip`.
-
-`>>> John Madden > case A > convert flip` produces `NƎpp∀W NHOſ`, using both pipes in sequence.
-
-
-Pipes may take arguments, and the names of the arguments must be specified if it takes more than 1 argument. Consult the command `>pipes [pipename]` to see the description of arguments for a specific pipe.
-
-`>>> Hello > translate fro=en to=fr` should produce `Bonjour`.
-
-
-There is a special `print` pipe (or `->` shorthand) that adds the input it receives to the final output:  
-
-`>>> Hideo Kojima > print > case A`  
-or the equivalent statement  
-`>>> Hideo Kojima -> case A`  
-both produce  
-`Hideo Kojima → HIDEO KOJIMA`  
-
-
-Pipes can process multiple inputs in parallel, which is interesting with pipes that have random effects.
-
-`>>> Quentin Tarantino > repeat 3 -> letterize`  
-may produce
-```
-Quentin Tarantino → Quebtid Tarantino
-Quentin Tarantino → Quenton Tarengino
-Quentin Tarantino → Qeentin Tarantino
-```
-
-Other than the `repeat` pipe, you can also split pipe inputs by using a special syntax:
-
-`>>> [ten|twenty|thirty] -> convert smallcaps`  
-produces
-```
-ten    → ᴛᴇɴ
-twenty → ᴛᴡᴇɴᴛʏ
-thirty → ᴛʜɪʀᴛʏ
-```
-and
-`>>> Thank you -> translate to=[fr|es|de]`  
-produces
-```
-Thank you → Je vous remercie
-          → Gracias
-          → Vielen Dank
-```
+The killer feature. For more info read PIPESGUIDE.md
 
 ### I want to add pipes
+(this section may be outdated)
 Excellent, jump into `src/pipes/pipes.py`, here you can see the various pipes defined as decorated functions.  
 For example, the code for the `sub` pipe looks like this:
 
