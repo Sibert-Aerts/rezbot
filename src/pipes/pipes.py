@@ -130,6 +130,12 @@ def shuffle_pipe(input):
     return input
 
 
+@make_pipe({})
+def reverse_pipe(input):
+    '''Reverses the order of grouped input values.'''
+    return input[::-1]
+
+
 @make_pipe({
     'on' : Sig(str, r'\s*\n+\s*', 'Pattern to split on (regex)'),
     'lim': Sig(int, 0, 'Maximum number of splits. (0 for no limit)'),
