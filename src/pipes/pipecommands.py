@@ -29,6 +29,7 @@ class PipeCommands(MyCommands):
     async def pipes(self, name=''):
         '''Print a list of all pipes and their descriptions, or details on a specific pipe.'''
         name = name.lower()
+        uname = name.upper()
 
         # Info on a specific pipe
         if name != '' and name in pipes:
@@ -41,18 +42,43 @@ class PipeCommands(MyCommands):
         elif name != '' and name in pipe_macros:
             await self.bot.say(embed=pipe_macros[name].embed())
 
-        # Info on all pipes
-        else:
+        # Pipes in a specific category
+        elif uname != '' and uname in pipes.categories:
             infos = []
-            infos.append('Here\'s a list of pipes, use >pipes [pipe name] to see more info on a specific one.\nUse >pipe_macros for a list of user-defined pipes.\n')
+            infos.append('Pipes in category {}:\n'.format(uname))
+            
             colW = len(max(pipes, key=len)) + 2
-            for name in pipes:
-                pipe = pipes[name]
-                info = name + ' ' * (colW-len(name))
+            for pipe in pipes.categories[uname]:
+                info = pipe.name.ljust(colW)
                 if pipe.doc: info += pipe.small_doc
                 infos.append(info)
-            text = texttools.block_format('\n'.join(infos))
-            await self.say(text)
+
+            infos.append('')
+            infos.append('Use >pipes [pipe name] to see more info on a specific pipe.')
+            infos.append('Use >pipe_macros for a list of user-defined pipes.\n')
+            await self.say(texttools.block_format('\n'.join(infos)))
+
+        # List of categories
+        else:
+            infos = []
+            infos.append('Categories:\n')
+            
+            colW = len(max(pipes.categories, key=len)) + 2
+            for category in pipes.categories:
+                info = category.ljust(colW)
+                cat = pipes.categories[category]
+                MAX_PRINT = 8
+                if len(cat) > MAX_PRINT:
+                    info += ', '.join(p.name for p in cat[:MAX_PRINT - 1]) + '... (%d more)' % (len(cat) - MAX_PRINT + 1)
+                else:
+                    info += ', '.join(p.name for p in cat)
+                infos.append(info)
+                
+            infos.append('')
+            infos.append('Use >pipes [category name] for the list of pipes in a specific category.')
+            infos.append('Use >pipes [pipe name] to see more info on a specific pipe.')
+            infos.append('Use >pipe_macros for a list of user-defined pipes.\n')
+            await self.say(texttools.block_format('\n'.join(infos)))
 
     @commands.command(aliases=['source'])
     async def sources(self, name=''):

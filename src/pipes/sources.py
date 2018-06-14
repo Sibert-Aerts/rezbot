@@ -35,13 +35,14 @@ def multi_source(func):
 
 sources = Pipes()
 sources.command_sources = []
+_CATEGORY = 'NONE'
 
 def make_source(signature, pass_message=False, command=False):
     '''Makes a source out of a function'''
     def _make_source(func):
-        source = Source(signature, func, pass_message)
-        global sources
-        sources[source.name] = source
+        global sources, _CATEGORY
+        source = Source(signature, func, _CATEGORY, pass_message)
+        sources.add(source)
         if command:
             sources.command_sources.append(source)
         return func

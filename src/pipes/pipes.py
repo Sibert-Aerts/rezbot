@@ -46,13 +46,14 @@ def word_map(func):
 
 pipes = Pipes()
 pipes.command_pipes = []
+_CATEGORY = 'NONE'
 
 def make_pipe(signature, command=False):
     '''Makes a Pipe out of a function.'''
     def _make_pipe(func):
-        pipe = Pipe(signature, func)
-        global pipes
-        pipes[pipe.name] = pipe
+        global pipes, _CATEGORY
+        pipe = Pipe(signature, func, _CATEGORY)
+        pipes.add(pipe)
         if command:
             pipes.command_pipes.append(pipe)
         return func
@@ -61,6 +62,11 @@ def make_pipe(signature, command=False):
 #####################################################
 #                       Pipes                       #
 #####################################################
+
+#####################################################
+#                   Pipes : FLOW                    #
+#####################################################
+_CATEGORY = 'FLOW'
 
 @make_pipe( {
     'n'  : Sig(int, 2, 'Number of times repeated', lambda x: (x <= 100)),
@@ -85,21 +91,6 @@ def delete_pipe(input, what):
         return [x for x in input if x.trim() != '']
     if what == 'e': # empty
         return [x for x in input if x != '']
-
-
-@make_pipe({'name' : Sig(str, None, 'The variable name')})
-def set_pipe(input, name):
-    '''Temporarily stores the input as a variable with the given name.'''
-    SourceResources.var_dict[name] = input
-    return input
-
-
-@make_pipe({})
-def print_pipe(input):
-    '''Appends the input to the output message, without affecting it.'''
-    # This function is never actually called since 'print' is a special case
-    # It's in here to add print to the >pipes command info list
-    return input
 
 
 @make_pipe({
@@ -135,6 +126,31 @@ def reverse_pipe(input):
     '''Reverses the order of grouped input values.'''
     return input[::-1]
 
+
+#####################################################
+#                  Pipes : OUTPUT                   #
+#####################################################
+_CATEGORY = 'OUTPUT'
+
+@make_pipe({'name' : Sig(str, None, 'The variable name')})
+def set_pipe(input, name):
+    '''Temporarily stores the input as a variable with the given name.'''
+    SourceResources.var_dict[name] = input
+    return input
+
+
+@make_pipe({})
+def print_pipe(input):
+    '''Appends the input to the output message, without affecting it.'''
+    # This function is never actually called since 'print' is a special case
+    # It's in here to add print to the >pipes command info list
+    return input
+
+
+#####################################################
+#                  Pipes : STRING                   #
+#####################################################
+_CATEGORY = 'STRING'
 
 @make_pipe({
     'on' : Sig(str, r'\s*\n+\s*', 'Pattern to split on (regex)'),
@@ -201,6 +217,27 @@ def case_pipe(text, p):
 
 
 @make_pipe({
+    'f' : Sig(str, None, 'The format string, for syntax info: https://pyformat.info/')
+})
+def format_pipe(input, f):
+    '''Format one or more rows into a single row according to a format string.'''
+    return [f.format(*input)]
+
+
+@make_pipe({
+    's' : Sig(str, '', 'The separator inserted between two items.')
+})
+def join_pipe(input, s):
+    '''Joins rows into a single row, separated by the given separator.'''
+    return [s.join(input)]
+
+
+#####################################################
+#                  Pipes : LETTER                   #
+#####################################################
+_CATEGORY = 'LETTER'
+
+@make_pipe({
     'p' : Sig(float, 0.4, 'Character swap probability'),
 }, command=True)
 @as_map
@@ -251,6 +288,11 @@ def convert_pipe(text, to):
     return converters[to](text)
 
 
+#####################################################
+#                   Pipes : SMART                   #
+#####################################################
+_CATEGORY = 'SMART'
+
 @make_pipe({
     'min': Sig(int, 0, 'Upper limit on minimum distance (e.g. 1 to never get the same word).')
 }, command=True)
@@ -268,6 +310,8 @@ def rhyme_pipe(word):
     Thanks to datamuse.com
     '''
     res = datamuse_api.words(rel_rhy=word, max=10) or datamuse_api.words(rel_nry=word, max=10)
+    if not res:
+        res = datamuse_api.words(arhy=1, max=5, sl=word)
     if res:
         return random.choice(res)['word']
     else:
@@ -344,36 +388,6 @@ def comprises_pipe(word):
         return word
 
 
-@make_pipe({}, command=True)
-@as_map
-def demoji_pipe(text):
-    '''Replaces emojis with their official description.'''
-    return ' '.join([unicodedata2.name(c) if c in emoji.UNICODE_EMOJI else c for c in text])
-
-
-@make_pipe({}, command=True)
-@as_map
-def unicode_pipe(text):
-    '''Replaces unicode characters with their official description.'''
-    return ', '.join([unicodedata2.name(c) for c in text])
-
-
-@make_pipe({
-    'f' : Sig(str, None, 'The format string, for syntax info: https://pyformat.info/')
-})
-def format_pipe(input, f):
-    '''Format one or more rows into a single row according to a format string.'''
-    return [f.format(*input)]
-
-
-@make_pipe({
-    's' : Sig(str, '', 'The separator inserted between two items.')
-})
-def join_pipe(input, s):
-    '''Joins rows into a single row, separated by the given separator.'''
-    return [s.join(input)]
-
-
 randomLanguage = ['rand', 'random', '?']
 @make_pipe({
     'from': Sig(str, 'auto', None, lambda x: x in translateLanguages + ['auto']),
@@ -391,3 +405,22 @@ def translate_pipe(text, to, **argc):
         return translate(text, argc['from'], choose(translateLanguages))
     if text.strip() == '': return text
     return translate(text, argc['from'], to)
+
+
+#####################################################
+#                  Pipes : ENCODING                 #
+#####################################################
+_CATEGORY = 'ENCODING'
+
+@make_pipe({}, command=True)
+@as_map
+def demoji_pipe(text):
+    '''Replaces emojis with their official description.'''
+    return ' '.join([unicodedata2.name(c) if c in emoji.UNICODE_EMOJI else c for c in text])
+
+
+@make_pipe({}, command=True)
+@as_map
+def unicode_pipe(text):
+    '''Replaces unicode characters with their official description.'''
+    return ', '.join([unicodedata2.name(c) for c in text])

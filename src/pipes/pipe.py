@@ -4,9 +4,10 @@ from .signature import parse_args
 
 
 class Pipe:
-    def __init__(self, signature, function):
+    def __init__(self, signature, function, category):
         self.signature = signature
         self.function = function
+        self.category = category
         # remove _pipe or _source from the name
         self.name = function.__name__.rsplit('_', 1)[0].lower()
         self.doc = function.__doc__
@@ -39,9 +40,9 @@ class Pipe:
 
 
 class Source(Pipe):
-    def __init__(self, signature, function, pass_message=False):
+    def __init__(self, signature, function, category, pass_message=False):
         self.pass_message = pass_message
-        super().__init__(signature, function)
+        super().__init__(signature, function, category)
 
     def __call__(self, message, argstr, n=None):
         _, args = parse_args(self.signature, argstr)
@@ -58,12 +59,16 @@ class Pipes:
     '''A class for storing multiple Pipe instances.'''
     def __init__(self):
         self.pipes = {}
+        self.categories = {}
 
     def __getitem__(self, name):
         return self.pipes[name]
 
-    def __setitem__(self, name, pipe):
-        self.pipes[name] = pipe
+    def add(self, pipe):
+        self.pipes[pipe.name] = pipe
+        if pipe.category not in self.categories:
+            self.categories[pipe.category] = []
+        self.categories[pipe.category].append(pipe)
 
     def __contains__(self, name):
         return (name in self.pipes)
