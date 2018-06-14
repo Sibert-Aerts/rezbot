@@ -310,8 +310,8 @@ def rhyme_pipe(word):
     Thanks to datamuse.com
     '''
     res = datamuse_api.words(rel_rhy=word, max=10) or datamuse_api.words(rel_nry=word, max=10)
-    if not res:
-        res = datamuse_api.words(arhy=1, max=5, sl=word)
+    # if not res:
+    #     res = datamuse_api.words(arhy=1, max=5, sl=word)
     if res:
         return random.choice(res)['word']
     else:
