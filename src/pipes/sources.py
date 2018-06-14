@@ -61,7 +61,7 @@ class SourceResources:
 
 
 @make_source({})
-def prev_source():
+def output_source():
     '''The previous pipe outputs.'''
     return SourceResources.previous_pipeline_output
 
