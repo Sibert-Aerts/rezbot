@@ -20,7 +20,6 @@ class UploadCommands(MyCommands):
         a = ctx.message.attachments[0]
         r = await aiohttp.get(a['url'])
         text = await r.text()
-        print(text)
         file = uploads.add_file(a['filename'], text)
         await self.say('File received! Saved %d lines as `%s.txt`' % (len(file.lines), file.name))
 

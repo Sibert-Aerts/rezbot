@@ -61,5 +61,5 @@ src/komidanot.py
 src/pipes/macros/source_macros.p
 src/pipes/macros/pipe_macros.p
 *.v1_backup
-src/pipes/macros/source_macros.p.v2_backup
-src/pipes/macros/pipe_macros.p.v2_backup
+*.v2_backup
+src/resource/upload/txt
