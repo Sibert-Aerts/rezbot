@@ -415,12 +415,25 @@ _CATEGORY = 'ENCODING'
 @make_pipe({}, command=True)
 @as_map
 def demoji_pipe(text):
-    '''Replaces emojis with their official description.'''
-    return ' '.join([unicodedata2.name(c) if c in emoji.UNICODE_EMOJI else c for c in text])
+    '''Replaces emoji in text with their official names.'''
+    out = ''
+    for c in text:
+        if c in emoji.UNICODE_EMOJI:
+            try:
+                out += unicodedata2.name(c) + ' '
+            except:
+                out += 'UNKNOWN '
+        else:
+            out += c
+    return out
 
 
 @make_pipe({}, command=True)
 @as_map
 def unicode_pipe(text):
-    '''Replaces unicode characters with their official description.'''
-    return ', '.join([unicodedata2.name(c) for c in text])
+    '''Replaces unicode characters with their official names.'''
+    out = []
+    for c in text:
+        try: out.append(unicodedata2.name(c))
+        except: out.append('UNKNOWN CHARACTER (%s)' % c)
+    return ', '.join(out)
