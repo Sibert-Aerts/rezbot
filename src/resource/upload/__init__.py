@@ -36,7 +36,8 @@ class Files:
         name = filename[:-4]
         with open(TXTDIR(filename), 'w+', encoding='utf-8') as file:
             file.write(content)
-        file = self.files[name] = File(name, content)
+        file = self.files[name] = File(name)
+        file.load_lines(content)
         return file
 
     def __clean_name(name):
