@@ -91,12 +91,15 @@ def parse_args(signature, text, greedy=True):
                 try:
                     args[s] = sig.type(val)
                     if sig.check is None or sig.check(args[s]):
-                        return (text, args)
+                        if len(signature) == 1: return (text, args)
                 except:
                     # We know that there's no "arg=val" present in the string, the arg is required and we can't find it blindly:
                     if required: raise ArgumentError('Missing or invalid argument "{}".'.format(s))
 
     for s in signature:
+        # If we already determined the argument value in the previous block, skip it
+        if s in args: continue 
+
         sig = signature[s]
         # If at any point here any exception occurs, it'll try to use the default value instead.
         try:

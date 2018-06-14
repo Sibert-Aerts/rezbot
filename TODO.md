@@ -10,12 +10,11 @@
     * Logging? lotta work but idk the data would be fun...
     * rewrite `help` to spam less
     * post git commits to channel
-    * clean out words.txt
     * different txt's for other languages
 
 * **Pipes:**
     * Youtube source
-    * Genericize pipe inputs:
+    * Extensions:
         * {prev *n*} for the nth previous output
         * {that *n*} for the nth previous message in the channel
         * {next *n*} for the nth next message in the channel (for the next message by a certain user in the channel?)
@@ -25,12 +24,9 @@
     * in pipe/source arguments, replace `\n` to newlines
 
     * option to turn pipe/source macros into commands!!!!!!
-    * Variables in macros: `>define_pipe myPipe translate to=$var$` is then used like `>>> hello > myPipe var=fr`
-
-    * Argument parsing: `format Hello, {}!` should work the same as `format f="Hello, {}!"`
 
     * **BUGS:**
-    * Sources can't contain >'s or ('s (without putting it in quotes which is dumb)
+    * make all sources addressable as both singular and plural in ALL CONTEXTS
 
     * **SPECULATIVE:**
     * Option to hide warnings log

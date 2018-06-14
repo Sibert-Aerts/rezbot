@@ -188,6 +188,8 @@ class Pipeline:
 
     def evaluate_source(self):
         values = []
+        if self.source[0] == self.source[-1] == '"' and len(self.source) > 1:
+            self.source = self.source[1:-1]
         for source in ChoiceTree(self.source, parse_flags=True, add_brackets=True).all():
             if self.is_pure_source(source):
                 values.extend(self.evaluate_pure_source(source))
