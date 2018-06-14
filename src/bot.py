@@ -81,4 +81,5 @@ if __name__ == '__main__':
     bot.load_extension('pipes.pipecommands')
     bot.load_extension('pipes.macrocommands')
     bot.load_extension('resource.youtubecaps.commands')
+    bot.load_extension('resource.upload.commands')
     bot.run(token)

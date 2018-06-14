@@ -14,6 +14,7 @@ from utils.frinkiac import simpsons, futurama
 import resource.tweets as tweets
 from resource.jerkcity import JERKCITY
 import utils.util as util
+from resource.upload import uploads
 
 
 #######################################################
@@ -76,6 +77,15 @@ def that_source(message):
 def get_source(name):
     '''Loads input stored using the "set" pipe'''
     return SourceResources.var_dict[name]
+
+
+@make_source({
+    'file' : Sig(str, None, 'The file name'),
+    'n' : Sig(int, 1, 'The amount of lines')
+})
+def txt_source(file, n):
+    '''Lines from an uploaded text file, use >uploads for more info.'''
+    return uploads[file].get(n)
 
 
 @make_source({
