@@ -265,13 +265,12 @@ def letterize_pipe(text, p):
 
 
 @make_pipe({
-    'p1' : Sig(float, 0.4, 'Smart character swap probability'),
-    'p2' : Sig(float, 0.0, 'Dumb character swap probability'),
+    'p' : Sig(float, 0.4, 'Character swap probability'),
 }, command=True)
 @as_map
-def letterize2_pipe(text, p1, p2):
+def letterize2_pipe(text, p):
     '''Letterize, but smarter™.'''
-    return letterize2(text, p1, p2)
+    return letterize2(text, p)
 
 
 @make_pipe({

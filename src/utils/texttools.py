@@ -88,24 +88,19 @@ letterize2Dict = {
     'z': 'ssssssx',
 }
 
-def letterize2(s, p1, p2=0):
+def letterize2(s, p):
     out = ''
-    pv1 = p1 * 2/3
-    pv2 = p2 * 2/3
+    pv = p * 2/3
     for c in s:
         cl = c.lower()
         if cl in vowels:
-            if chance(pv1):
+            if chance(pv):
                 out += matchCase(random.choice(letterize2Dict[cl]), c)
-            elif chance(pv2/(1-pv1)): # Truly random replacement?
-                out += matchCase(random.choice(vowels), c)
             else:
                 out += c
         elif cl in consonants:
-            if chance(p1):
+            if chance(p):
                 out += matchCase(random.choice(letterize2Dict[cl]), c)
-            elif chance(p2/(1-p1)): # Truly random replacement?
-                out += matchCase(random.choice(consonants), c)
             else:
                 out += c
         else:
