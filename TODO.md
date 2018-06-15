@@ -14,10 +14,13 @@
 
 * **Pipes:**
     * Youtube source
-    * Extensions:
+    * Pipes:
         * {prev *n*} for the nth previous output
         * {that *n*} for the nth previous message in the channel
         * {next *n*} for the nth next message in the channel (for the next message by a certain user in the channel?)
+
+    * TXT uploads:
+        * META DATA (file.txt + file.p containing metadata)
 
     * cowsay complains about shit & shouldn't
 

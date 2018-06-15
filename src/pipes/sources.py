@@ -78,14 +78,21 @@ def get_source(name):
     '''Loads input stored using the "set" pipe'''
     return SourceResources.var_dict[name]
 
-
+txt_modes = ['s', 'r']
 @make_source({
     'file' : Sig(str, None, 'The file name'),
-    'n' : Sig(int, 1, 'The amount of lines')
+    'n'    : Sig(int, 1, 'The amount of lines'),
+    'mode' : Sig(str, 'R', 'If the lines should be (S)equential or (R)andom.', lambda x: x[0].lower() in txt_modes),
+    'q'    : Sig(str, '', 'Optional search query'),
 })
-def txt_source(file, n):
+def txt_source(file, n, mode, q):
     '''Lines from an uploaded text file, use >uploads for more info.'''
-    return uploads[file].get(n)
+    mode = mode[0].lower()
+
+    if mode == 's':
+        return uploads[file].get_sequential(n, q)
+    elif mode == 'r':
+        return uploads[file].get_random(n, q)
 
 
 @make_source({
