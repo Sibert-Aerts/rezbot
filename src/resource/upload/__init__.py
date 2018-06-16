@@ -83,7 +83,7 @@ class Files:
         return name if name[-4:] != '.txt' else name
 
     def __contains__(self, name):
-        return (Files.__clean_name(name) in self.pipes)
+        return (Files.__clean_name(name) in self.files)
 
     def __iter__(self):
         return (n for n in self.files)
