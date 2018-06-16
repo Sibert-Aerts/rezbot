@@ -89,6 +89,7 @@ def txt_source(file, n, mode, q):
     '''Lines from an uploaded text file, use >uploads for more info.'''
     mode = mode[0].lower()
     if file not in uploads:
+        raise KeyError('No file "%s" loaded! Check >files for a list of files.' % file)
     if mode == 's':
         return uploads[file].get_sequential(n, q)
     elif mode == 'r':
