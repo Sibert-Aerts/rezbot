@@ -23,12 +23,14 @@ class FileInfo:
         self.sentences = sentences
         self.splitter = splitter
 
+        # Making some assumptions here that these are available filenames
+        self.pickle_file = name + '.p'
         self.raw_file = name + '.txt'
         self.sentences_file = None
         self.markov_file = None
 
     def write(self):
-        pickle.dump(self, open(DIR(self.name + '.p'), 'wb+'))
+        pickle.dump(self, open(DIR(self.pickle_file), 'wb+'))
 
     def __repr__(self):
         return '\n'.join(str(x) for x in [self.name, self.author_name, self.author_id, self.raw_file, self.sentences_file])
@@ -162,7 +164,6 @@ class Files:
 
     def add_file(self, filename, content, author_name, author_id):
         name = Files._clean_name(filename)
-        print(filename + ' → ' + name)
         file = self.files[name] = File.new(name, author_name, author_id, content)
         return file
 
@@ -174,6 +175,12 @@ class Files:
 
     def __getitem__(self, name):
         return self.files[Files._clean_name(name)]
+
+    def __setitem__(self, name, value):
+        self.files[Files._clean_name(name)] = value
+
+    def __delitem__(self, name):
+        del self.files[Files._clean_name(name)]
 
 
 uploads = Files()
