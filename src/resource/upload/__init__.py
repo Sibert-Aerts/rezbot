@@ -184,3 +184,18 @@ class Files:
 
 
 uploads = Files()
+
+# back-port from when it was just txt's in a folder called txt/
+# Delete this code after running once
+TXTDIR = lambda x='' : os.path.join(os.path.dirname(__file__), 'txt', x)
+try:
+for filename in os.listdir(TXTDIR()):
+    name = filename[:-4]
+    count = 0
+    if name not in uploads:
+        with open(TXTDIR(filename), 'r', encoding='utf8') as file:
+            uploads.add_file(filename, file.read(), 'Rezuaq', '154597714619793408')
+        count += 1
+    print('Converted %d old txt files!' % count)
+except:
+    pass
