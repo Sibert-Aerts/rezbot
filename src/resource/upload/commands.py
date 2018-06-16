@@ -20,18 +20,24 @@ class UploadCommands(MyCommands):
         a = ctx.message.attachments[0]
         r = await aiohttp.get(a['url'])
         text = await r.text()
-        file = uploads.add_file(a['filename'], text)
-        await self.say('File received! Saved %d lines as `%s.txt`' % (len(file.lines), file.name))
+        author = ctx.message.author
+        file = uploads.add_file(a['filename'], text, author.id, author.name)
+        await self.say('File received! Saved %d lines as `%s`' % (len(file.lines), file.info.name))
 
-    @commands.command(aliases=['txt', 'files'])
+    @commands.command(aliases=['txt', 'files', 'file'])
     async def uploads(self, file=''):
         '''List all uploaded txt files, or show the contents of a specific file.'''
         if file == '':
             await self.say('Files: ' + ', '.join(f for f in uploads))
         else:
-            f = uploads[file]
-            text = 'Contents of **%s**:' % file + '\n'
-            lines = f._get_lines()
+            file = uploads[file]
+            info = file.info
+            lines = file.get()
+
+            text = '**File:** %s' % info.name + '\n'
+            text += '**Order:** ' + ('Sequential' if info.sequential else 'Random')
+            text += ', **Split on:** ' + (('`' + repr(info.splitter)[1:-1] + '`') if not info.sentences else 'Sentences') + '\n'
+
             MAXLINES = 8
             if len(lines) > MAXLINES:
                 text += texttools.block_format('\n'.join(lines[:MAXLINES-1]) + '\n...%d more lines omitted' % (len(lines) - MAXLINES + 1))

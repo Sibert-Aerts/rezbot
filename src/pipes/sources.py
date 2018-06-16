@@ -78,22 +78,31 @@ def get_source(name):
     '''Loads input stored using the "set" pipe'''
     return SourceResources.var_dict[name]
 
+def bool_or_none(val):
+    if val is None or val == 'None': return None
+    return(util.parse_bool(val))
+
 txt_modes = ['s', 'r']
 @make_source({
     'file' : Sig(str, None, 'The file name'),
     'n'    : Sig(int, 1, 'The amount of lines'),
-    'mode' : Sig(str, 'R', 'If the lines should be (S)equential or (R)andom.', lambda x: x[0].lower() in txt_modes),
-    'q'    : Sig(str, '', 'Optional search query'),
+    'sequential': Sig(bool_or_none, None, 'If the multiple lines should be sequential as opposed to random, "None" for file-dependent.', required=False),
+    'sentences' : Sig(bool_or_none, None, 'If the file should be split on sentences as opposed to on dividing characters, "None" for file-dependent.', required=False),
+    'query'     : Sig(str, '', 'Optional search query'),
 })
-def txt_source(file, n, mode, q):
+def txt_source(file, n, sequential, sentences, query):
     '''Lines from an uploaded text file, use >uploads for more info.'''
-    mode = mode[0].lower()
     if file not in uploads:
         raise KeyError('No file "%s" loaded! Check >files for a list of files.' % file)
-    if mode == 's':
-        return uploads[file].get_sequential(n, q)
-    elif mode == 'r':
-        return uploads[file].get_random(n, q)
+
+    file = uploads[file]
+    if sequential is None: sequential = file.info.sequential
+    if sentences is None: sentences = file.info.sentences
+
+    if sequential:
+        return file.get_sequential(n, query, sentences)
+    else:
+        return file.get_random(n, query, sentences)
 
 
 @make_source({

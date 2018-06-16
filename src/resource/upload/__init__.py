@@ -1,39 +1,122 @@
 import os
 import re
+import pickle
 import random
+import nltk
 
-def TXTDIR(filename=''):
-    return os.path.join(os.path.dirname(__file__), 'txt', filename)
+def DIR(filename=''):
+    return os.path.join(os.path.dirname(__file__), 'files', filename)
 
 searchify_regex = re.compile(r'[^a-z0-9\s]')
 def searchify(text):
     return searchify_regex.sub('', text.lower()).strip()
 
-class File:
-    def __init__(self, name):
+class FileInfo:
+    '''Metadata class for a File, doesn't store any actual data.'''
+    def __init__(self, name, author_name, author_id, sequential=False, sentences=False, splitter='\n+'):
+        self.version = 1
         self.name = name
+        self.author_name = author_name
+        self.author_id = author_id
+
+        self.sequential = sequential
+        self.sentences = sentences
+        self.splitter = splitter
+
+        self.raw_file = name + '.txt'
+        self.sentences_file = None
+        self.markov_file = None
+
+    def write(self):
+        pickle.dump(self, open(DIR(self.name + '.p'), 'wb+'))
+
+    def __repr__(self):
+        return '\n'.join(str(x) for x in [self.name, self.author_name, self.author_id, self.raw_file, self.sentences_file])
+
+class File:
+    def __init__(self, info):
+        '''Constructor used when a file is loaded at startup.'''
+        self.info = info
         self.lines = None
         self.search_lines = None
+        self.sentences = None
+        self.search_sentences = None
 
-    def load_lines(self, text):
-        self.lines = list(filter(lambda x: x != '', (x.strip() for x in text.split('\n'))))
+    def new(name, author_name, author_id, raw):
+        '''Constructor used when a file is uploaded.'''
+        info = FileInfo(name, author_name, author_id)
+        info.write()
+        file = File(info)
+        file.process_raw(raw)
+        file.write_raw(raw)
+        return file
+
+    def write_raw(self, raw):
+        '''Only called once the very first time the file is uploaded.'''
+        with open(DIR(self.info.raw_file), 'w+', encoding='utf-8') as file:
+            file.write(raw)
+
+    def read_raw(self):
+        '''Called the first time the file is actually accessed since the bot booted.'''
+        with open(DIR(self.info.raw_file), 'r', encoding='utf-8') as file:
+            return file.read()
+
+    def process_raw(self, raw):
+        '''Called either when the file is read from disk, or when the file is first uploaded.'''
+        lines = [x.strip() for x in re.split(self.info.splitter, raw)]
+        lines = list(filter(lambda x: x != '', lines))
+        self.lines = lines
+
+    def get_lines(self):
+        if self.lines is None:
+            self.process_raw(self.read_raw())
+        return self.lines
 
     def _get_search_lines(self):
         # search_lines is a list of (index, searchified_line) tuples
         if self.search_lines is None:
-            self.search_lines = [(i, searchify(self.lines[i])) for i in range(len(self.lines))]
+            lines = self.get_lines()
+            self.search_lines = [(i, searchify(lines[i])) for i in range(len(lines))]
         return self.search_lines
 
-    def _get_lines(self):
-        if self.lines == None:
-            with open(TXTDIR(self.name + '.txt'), 'r', encoding='utf-8') as file:
-                self.load_lines(file.read())
-        return self.lines
+    def get_sentences(self):
+        if self.sentences is not None:
+            return self.sentences
+        elif self.info.sentences_file is not None:
+            # We've already split the file into sentences once, just read it
+            with open(DIR(self.info.sentences_file), 'r', encoding='utf-8') as file:
+                self.sentences = file.read().split('\n')
+            return self.sentences
+        else:
+            # We've never sentence split this file before
+            # Get the raw file and split it
+            raw = self.read_raw()
+            sentences = nltk.sent_tokenize(raw)
+            # Sentences can still have line breaks in them, get rid of em first
+            sentences = [re.sub('\n+', ' ', s) for s in sentences]
+            self.sentences = sentences
+            # Write them to a file
+            filename = self.info.name + '__sentences.txt'
+            with open(DIR(filename), 'w+', encoding='utf-8') as file:
+                file.write('\n'.join(sentences))
+            self.info.sentences_file = filename
+            self.info.write()
+            return self.sentences
 
-    def _search(self, query):
-        '''Returns an iterable (with len!) of INDICES that match the query (all indices if query is empty)'''
-        lines = self._get_lines()
+    def _get_search_sentences(self):
+        # search_sentences is a list of (index, searchified_line) tuples
+        if self.search_sentences is None:
+            sentences = self.get_sentences()
+            self.search_sentences = [(i, searchify(sentences[i])) for i in range(len(sentences))]
+        return self.search_sentences
 
+    def get(self, sentences=None):
+        if sentences is None: sentences = self.info.sentences
+        return self.get_lines() if not sentences else self.get_sentences()
+
+    def _search(self, query, sentences):
+        '''Returns an iterable (with known length!) of INDICES that match the query (all indices if query is empty)'''
+        lines = self.get(sentences)
         if query == '': return range(len(lines))
 
         # Extract absolute matches "of this form" from the query as "exact matches"
@@ -42,21 +125,21 @@ class File:
         others = re.split('\s+', ''.join([a[i] for i in range(0, len(a), 2)]).strip())
         queries = exact + others
 
-        search_lines = self._get_search_lines()
+        search_lines = self._get_search_lines() if not sentences else self._get_search_sentences()
         results = list(filter(lambda l: all([q in l[1] for q in queries]), search_lines))
         return [r[0] for r in results]
 
-    def get_random(self, count, query):
-        indices = self._search(query)
+    def get_random(self, count, query, sentences):
+        indices = self._search(query, sentences)
         count = min(count, len(indices))
         indices = random.sample(indices, count)
-        lines = self._get_lines()
+        lines = self.get(sentences)
         return [lines[i] for i in indices]
 
-    def get_sequential(self, count, query):
-        indices = self._search(query)
+    def get_sequential(self, count, query, sentences):
+        indices = self._search(query, sentences)
         index = random.choice(indices)
-        lines = self._get_lines()
+        lines = self.get(sentences)
         # min ( random starting index containing index , biggest index that doesnt go out of bounds)
         index = max(0, min( index-random.randint(0, count-1) , len(lines)-count))
         return lines[index: index + count]
@@ -65,31 +148,32 @@ class File:
 class Files:
     def __init__(self):
         self.files = {}
-        for file in os.listdir(TXTDIR()):
-            name = file[:-4]
-            self.files[name] = File(name)
+
+        for filename in os.listdir(DIR()):
+            if filename[-2:] != '.p':
+                continue
+            file_info = pickle.load(open(DIR(filename), 'rb'))
+            self.files[file_info.name] = File(file_info)
+
         print('%d uploaded files found!' % len(self.files))
 
-    def add_file(self, filename, content):
-        if filename[-4:] != '.txt': filename += '.txt'
-        name = filename[:-4]
-        with open(TXTDIR(filename), 'w+', encoding='utf-8') as file:
-            file.write(content)
-        file = self.files[name] = File(name)
-        file.load_lines(content)
+    def _clean_name(name):
+        return name[:-4] if name[-4:]=='.txt' else name
+
+    def add_file(self, filename, content, author_name, author_id):
+        name = Files._clean_name(filename)
+        print(filename + ' → ' + name)
+        file = self.files[name] = File.new(name, author_name, author_id, content)
         return file
 
-    def __clean_name(name):
-        return name if name[-4:] != '.txt' else name
-
     def __contains__(self, name):
-        return (Files.__clean_name(name) in self.files)
+        return (Files._clean_name(name) in self.files)
 
     def __iter__(self):
         return (n for n in self.files)
 
     def __getitem__(self, name):
-        return self.files[Files.__clean_name(name)]
+        return self.files[Files._clean_name(name)]
 
 
 uploads = Files()

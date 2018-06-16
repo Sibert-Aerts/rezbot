@@ -1,0 +1,6 @@
+This is a test file.
+To test a new feature...
+It has 2 sentences on one line here!
+How exciting!
+I love it!
+!
