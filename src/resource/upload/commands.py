@@ -31,10 +31,10 @@ class UploadCommands(MyCommands):
         else:
             f = uploads[file]
             text = 'Contents of **%s**:' % file + '\n'
-            lines = f._get()
+            lines = f._get_lines()
             MAXLINES = 8
             if len(lines) > MAXLINES:
-                text += texttools.block_format('\n'.join(lines[:9]) + '\n...%d more lines omitted' % (len(lines) - MAXLINES + 1))
+                text += texttools.block_format('\n'.join(lines[:MAXLINES-1]) + '\n...%d more lines omitted' % (len(lines) - MAXLINES + 1))
             else:
                 text += texttools.block_format('\n'.join(lines))
             await self.say(text)
