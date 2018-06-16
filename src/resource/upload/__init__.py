@@ -15,7 +15,7 @@ class File:
         self.lines = None
         self.search_lines = None
 
-    def _load_lines(self, text):
+    def load_lines(self, text):
         self.lines = list(filter(lambda x: x != '', (x.strip() for x in text.split('\n'))))
 
     def _get_search_lines(self):
@@ -27,7 +27,7 @@ class File:
     def _get_lines(self):
         if self.lines == None:
             with open(TXTDIR(self.name + '.txt'), 'r', encoding='utf-8') as file:
-                self._load_lines(file.read())
+                self.load_lines(file.read())
         return self.lines
 
     def _search(self, query):
