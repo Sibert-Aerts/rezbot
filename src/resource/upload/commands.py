@@ -106,10 +106,9 @@ class UploadCommands(MyCommands):
         if attribute == 'splitter':
             # Special case, if the splitter changed we have to reload the split lines
             file.lines = None
-            file.get_lines()
 
         file.info.write()
-        await self.say('Changed {} from "{}" to "{}"!'.format(attribute, str(oldVal), str(value)))
+        await self.say('Changed {} from `{}` to `{}`!'.format(attribute, str(oldVal), str(value)))
 
 
 

@@ -20,7 +20,7 @@
         * {next *n*} for the nth next message in the channel (for the next message by a certain user in the channel?)
 
     * TXT uploads:
-        * META DATA (file.txt + file.p containing metadata)
+        * FIle preview not suck (limit # of lines AND # of characters!!!)
 
     * cowsay complains about shit & shouldn't
 
@@ -38,3 +38,6 @@
     * ChoiceTree flags:
         * [-] to produce a minimal number of lines that reach each choice leaf at least once (is this hard???)
             [-] [alpha|beta] [gamma|delta] → alpha gamma, beta delta
+
+    * **HUGE OVERHAUL:**
+    * Pipeline parsing sucks incredibly bad with regards to (inline pipelines) and [multi-pipes], figure something out
