@@ -4,7 +4,7 @@ import utils.util as util
 import random
 import textwrap
 import re
-from functools import wraps
+from functools import wraps, lru_cache
 
 from datamuse import datamuse
 datamuse_api = datamuse.Datamuse()
@@ -290,9 +290,12 @@ def convert_pipe(text, to):
 
 
 #####################################################
-#                   Pipes : SMART                   #
+#                  Pipes : LANGUAGE                 #
 #####################################################
-_CATEGORY = 'SMART'
+_CATEGORY = 'LANGUAGE'
+
+# Wrap the API in a LRU cache
+_datamuse = lru_cache()(datamuse_api.words)
 
 @make_pipe({
     'min': Sig(int, 0, 'Upper limit on minimum distance (e.g. 1 to never get the same word).')
@@ -310,9 +313,9 @@ def rhyme_pipe(word):
     Replaces words with random (nearly) rhyming words.
     Thanks to datamuse.com
     '''
-    res = datamuse_api.words(rel_rhy=word, max=10) or datamuse_api.words(rel_nry=word, max=10)
+    res = _datamuse(rel_rhy=word, max=10) or _datamuse(rel_nry=word, max=10)
     # if not res:
-    #     res = datamuse_api.words(arhy=1, max=5, sl=word)
+    #     res = _datamuse(arhy=1, max=5, sl=word)
     if res:
         return random.choice(res)['word']
     else:
@@ -326,7 +329,7 @@ def homophone_pipe(word):
     Replaces words with random homophones.
     Thanks to datamuse.com
     '''
-    res = datamuse_api.words(rel_hom=word, max=5)
+    res = _datamuse(rel_hom=word, max=5)
     if res:
         return random.choice(res)['word']
     else:
@@ -340,7 +343,7 @@ def synonym_pipe(word):
     Replaces words with random antonyms.
     Thanks to datamuse.com
     '''
-    res = datamuse_api.words(rel_syn=word, max=5)
+    res = _datamuse(rel_syn=word, max=5)
     if res:
         return random.choice(res)['word']
     else:
@@ -354,7 +357,7 @@ def antonym_pipe(word):
     Replaces words with random antonyms.
     Thanks to datamuse.com
     '''
-    res = datamuse_api.words(rel_ant=word, max=5)
+    res = _datamuse(rel_ant=word, max=5)
     if res:
         return random.choice(res)['word']
     else:
@@ -368,7 +371,7 @@ def part_pipe(word):
     Replaces words with something it is considered "a part of", inverse of comprises pipe.
     Thanks to datamuse.com
     '''
-    res = datamuse_api.words(rel_par=word, max=5)
+    res = _datamuse(rel_par=word, max=5)
     if res:
         return random.choice(res)['word']
     else:
@@ -382,7 +385,7 @@ def comprises_pipe(word):
     Replaces words with things considered "its parts", inverse of "part" pipe.
     Thanks to datamuse.com
     '''
-    res = datamuse_api.words(rel_com=word, max=10)
+    res = _datamuse(rel_com=word, max=10)
     if res:
         return random.choice(res)['word']
     else:
@@ -391,15 +394,18 @@ def comprises_pipe(word):
 
 try:
     translate_client = translate.Client()
+    # Wrap the API call in a LRU cache!
+    _translate = lru_cache()(translate_client.translate)
 except Exception as e:
     print(e)
     print('Failed to load google cloud translate services, translate will be unavailable!')
-    translate_client = None
+    _translate = None
 
 translate_languages = '''af ar az be bg bn ca cs cy da de el en eo es et eu fa fi fr ga gl
 gu hi hr ht hu id is it iw ja ka kn ko la lt lv mk ms mt nl no pl pt ro ru sk sl sq sr sv
 sw ta te th tl tr uk ur vi yi zh-CN zh-TW'''.split()
 random_language = ['rand', 'random', '?']
+
 
 @make_pipe({
     'from': Sig(str, 'auto', None, lambda x: x in translate_languages + ['auto']),
@@ -413,12 +419,12 @@ def translate_pipe(text, to, **argc):
     
     Options: {langs}
     '''
-    if translate_client is None: return text
+    if _translate is None: return text
     fro = argc['from']
     if fro == 'auto': fro = ''
     if to in random_language: to = choose(translate_languages)
     if text.strip() == '': return text
-    result = translate_client.translate(text, source_language=fro, target_language=to)
+    result = _translate(text, source_language=fro, target_language=to)
     return result['translatedText']
 
 
