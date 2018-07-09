@@ -5,7 +5,8 @@ A python-based discord bot using `discord.py`.
 * Clone the github repository
 * Fill out `src/config.example.ini` and rename it to `src/config.ini`
 * Put your own discord user ID (not your name) as an owner in `src/permissions.py`
-* Install python packages: `discord.py`, `editdistance`, `parsetools`, ... (list incomplete)
+* Install python packages: `discord.py`, `editdistance`, `parsetools`, `google-cloud-translate` ... (list incomplete)
+* (Optional) Get a Google Cloud Translation API key [here](https://cloud.google.com/translate/docs/quickstart) and set it as an environment variable as described.
 * Go to `src/` and run `python3 ./bot.py`
 
 ## Features

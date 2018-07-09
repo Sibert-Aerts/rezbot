@@ -21,10 +21,7 @@
 
     * TXT uploads:
         * FIle preview not suck (limit # of lines AND # of characters!!!)
-
-    * cowsay complains about shit & shouldn't
-
-    * in pipe/source arguments, replace `\n` to newlines
+        * markov chain mode
 
     * option to turn pipe/source macros into commands!!!!!!
 
@@ -38,6 +35,7 @@
     * ChoiceTree flags:
         * [-] to produce a minimal number of lines that reach each choice leaf at least once (is this hard???)
             [-] [alpha|beta] [gamma|delta] → alpha gamma, beta delta
+    * in pipe/source arguments, replace `\n` to newlines
 
     * **HUGE OVERHAUL:**
     * Pipeline parsing sucks incredibly bad with regards to (inline pipelines) and [multi-pipes], figure something out

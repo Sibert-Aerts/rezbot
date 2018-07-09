@@ -5,8 +5,10 @@ import random
 import textwrap
 import re
 from functools import wraps
+
 from datamuse import datamuse
 datamuse_api = datamuse.Datamuse()
+from google.cloud import translate
 
 from .signature import Sig
 from .pipe import Pipe, Pipes
@@ -387,23 +389,37 @@ def comprises_pipe(word):
         return word
 
 
-randomLanguage = ['rand', 'random', '?']
+try:
+    translate_client = translate.Client()
+except Exception as e:
+    print(e)
+    print('Failed to load google cloud translate services, translate will be unavailable!')
+    translate_client = None
+
+translate_languages = '''af ar az be bg bn ca cs cy da de el en eo es et eu fa fi fr ga gl
+gu hi hr ht hu id is it iw ja ka kn ko la lt lv mk ms mt nl no pl pt ro ru sk sl sq sr sv
+sw ta te th tl tr uk ur vi yi zh-CN zh-TW'''.split()
+random_language = ['rand', 'random', '?']
+
 @make_pipe({
-    'from': Sig(str, 'auto', None, lambda x: x in translateLanguages + ['auto']),
-    'to' : Sig(str, 'random', None, lambda x: x in translateLanguages + randomLanguage),
+    'from': Sig(str, 'auto', None, lambda x: x in translate_languages + ['auto']),
+    'to' : Sig(str, 'random', None, lambda x: x in translate_languages + random_language),
 }, command=True)
 @as_map
-@util.format_doc(langs=' '.join([c for c in translateLanguages]))
+@util.format_doc(langs=' '.join([c for c in translate_languages]))
 def translate_pipe(text, to, **argc):
     '''
     Translates the input using the internet.
     
     Options: {langs}
     '''
-    if to in randomLanguage:
-        return translate(text, argc['from'], choose(translateLanguages))
+    if translate_client is None: return text
+    fro = argc['from']
+    if fro == 'auto': fro = ''
+    if to in random_language: to = choose(translate_languages)
     if text.strip() == '': return text
-    return translate(text, argc['from'], to)
+    result = translate_client.translate(text, source_language=fro, target_language=to)
+    return result['translatedText']
 
 
 #####################################################

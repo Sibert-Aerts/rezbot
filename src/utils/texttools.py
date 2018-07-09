@@ -169,31 +169,3 @@ def dist_gradient(w1, w2, num=1):
         fromWord = w
         words.append(w)
     return words
-
-
-translateLanguages = '''af ar az be bg bn ca cs cy da de el
-en eo es et eu fa fi fr ga gl gu hi hr ht hu id is it iw ja
-ka kn ko la lt lv mk ms mt nl no pl pt ro ru sk sl sq sr sv
-sw ta te th tl tr uk ur vi yi zh-CN zh-TW'''.split()
-
-def translate(text, source, target):
-    r = requests.get('http://www.tastemylife.com/gtr.php',
-        params={'p': '2', 'sl': source, 'tl': target, 'q': text})
-    text = r.json()['result']
-    text = re.sub('\\\\"', '"', text) # translate somehow messes up quotes with backslashes
-    return text
-
-def katakana(text):
-    r = requests.get('http://www.sljfaq.org/cgi/e2k.cgi',
-        params={'o': 'json', 'word': text})
-    return '・'.join(map(lambda w: w['j_pron_spell'], r.json()['words']))
-
-def romaji(text, style='common', vowel_style='none'):
-    r = requests.get('http://www.sljfaq.org/cgi/kana-romaji.cgi',
-        params={'text': text, 'style': style, 'vowel_style': vowel_style})
-    soup = BeautifulSoup(r.text, 'lxml')
-    # Find the output inside the html document we got as a reply
-    text = soup.find('div', {'id':'converter'}).form.table.findAll('tr')[4].findAll('td')[1].text
-    # Slice off newlines inserted at the start and end
-    text = text[1:-1]
-    return text
