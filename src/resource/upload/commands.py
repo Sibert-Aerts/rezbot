@@ -53,10 +53,24 @@ class UploadCommands(MyCommands):
         text += ', **Split on:** ' + (('`' + repr(info.splitter)[1:-1] + '`') if not info.sentences else 'Sentences') + '\n'
 
         MAXLINES = 8
-        if len(lines) > MAXLINES:
-            text += texttools.block_format('\n'.join(lines[:MAXLINES-1]) + '\n...%d more lines omitted' % (len(lines) - MAXLINES + 1))
-        else:
-            text += texttools.block_format('\n'.join(lines))
+        MAXCHARS = 600
+        print_lines = []
+        chars = 0
+        for line in lines:
+            if len(line) + chars > MAXCHARS:
+                if not print_lines:
+                    print_lines.append(line[:MAXCHARS - 40] + '(...)')
+                if len(lines) > len(print_lines):
+                    print_lines.append('...%d more lines omitted' % (len(lines) - len(print_lines)))
+                break
+            print_lines.append(line)
+            chars += len(line)
+            if len(print_lines) > MAXLINES:
+                print_lines[MAXLINES:] = []
+                print_lines.append('...%d more lines omitted' % (len(lines) - len(print_lines)))
+                break
+        
+        text += texttools.block_format('\n'.join(print_lines))
         await self.say(text)
 
     # List of attributes modifiable by the below command
