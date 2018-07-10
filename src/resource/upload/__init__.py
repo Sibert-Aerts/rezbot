@@ -3,6 +3,7 @@ import re
 import pickle
 import random
 import nltk
+import markovify
 
 def DIR(filename=''):
     return os.path.join(os.path.dirname(__file__), 'files', filename)
@@ -10,6 +11,7 @@ def DIR(filename=''):
 searchify_regex = re.compile(r'[^a-z0-9\s]')
 def searchify(text):
     return searchify_regex.sub('', text.lower()).strip()
+
 
 class FileInfo:
     '''Metadata class for a File, doesn't store any actual data.'''
@@ -33,7 +35,8 @@ class FileInfo:
         pickle.dump(self, open(DIR(self.pickle_file), 'wb+'))
 
     def __repr__(self):
-        return '\n'.join(str(x) for x in [self.name, self.author_name, self.author_id, self.raw_file, self.sentences_file])
+        return '\n'.join(str(x) for x in [self.name, self.author_name, self.author_id, self.raw_file, self.sentences_file, self.markov_file])
+
 
 class File:
     def __init__(self, info):
@@ -43,6 +46,7 @@ class File:
         self.search_lines = None
         self.sentences = None
         self.search_sentences = None
+        self.markov_model = None
 
     def new(name, author_name, author_id, raw):
         '''Constructor used when a file is uploaded.'''
@@ -145,6 +149,34 @@ class File:
         # min ( random starting index containing index , biggest index that doesnt go out of bounds)
         index = max(0, min( index-random.randint(0, count-1) , len(lines)-count))
         return lines[index: index + count]
+
+    def get_markov_model(self):
+        if self.markov_model is not None:
+            return self.markov_model
+        elif self.info.markov_file is not None:
+            with open(DIR(self.info.markov_file), encoding='utf-8') as file:
+                self.markov_model = markovify.NewlineText.from_json(file.read())
+            return self.markov_model
+        else:
+            # We've never made a markov model for this file before
+            # Make a markov model from whatever the default line split mode is!
+            sentences = '\n'.join(self.get())
+            self.markov_model = markovify.NewlineText(sentences)
+            filename = self.info.name + '__markov.json'
+            with open(DIR(filename), 'w+', encoding='utf-8') as file:
+                file.write(self.markov_model.to_json())
+
+            self.info.markov_file = filename
+            self.info.write()
+            return self.markov_model
+
+    def get_markov_lines(self, count=1, length=0):
+        model = self.get_markov_model()
+        if length == 0:
+            return [model.make_sentence(tries=20) or '' for _ in range(count)]
+        else:
+            return [model.make_short_sentence(length, tries=20) or '' for _ in range(count)]
+
 
 
 class Files:

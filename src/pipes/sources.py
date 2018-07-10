@@ -91,7 +91,7 @@ txt_modes = ['s', 'r']
     'query'     : Sig(str, '', 'Optional search query'),
 })
 def txt_source(file, n, sequential, sentences, query):
-    '''Lines from an uploaded text file, use >uploads for more info.'''
+    '''Lines from an uploaded text file. Check >files for a list of files.'''
     if file not in uploads:
         raise KeyError('No file "%s" loaded! Check >files for a list of files.' % file)
 
@@ -103,6 +103,19 @@ def txt_source(file, n, sequential, sentences, query):
         return file.get_sequential(n, query, sentences)
     else:
         return file.get_random(n, query, sentences)
+
+
+@make_source({
+    'file'  : Sig(str, None, 'The file name'),
+    'n'     : Sig(int, 1, 'The amount of lines'),
+    'length': Sig(int, 0, 'The maximum length of the generated sentence. (0 for unlimited)'),
+}, command=True)
+def markov_source(file, n, length):
+    '''Randomly generated markov chains based on an uploaded file. Check >files for a list of files.'''
+    if file not in uploads:
+        raise KeyError('No file "%s" loaded! Check >files for a list of files.' % file)
+    file = uploads[file]
+    return file.get_markov_lines(n, length)
 
 
 @make_source({
