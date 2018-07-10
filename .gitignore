@@ -62,4 +62,4 @@ src/pipes/macros/source_macros.p
 src/pipes/macros/pipe_macros.p
 *.v1_backup
 *.v2_backup
-src/resource/upload/txt
+src/resource/upload/files
