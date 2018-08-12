@@ -20,8 +20,7 @@
         * {next *n*} for the nth next message in the channel (for the next message by a certain user in the channel?)
 
     * TXT uploads:
-        * FIle preview not suck (limit # of lines AND # of characters!!!)
-        * markov chain mode
+        * figure out more things to do with them
 
     * option to turn pipe/source macros into commands!!!!!!
 

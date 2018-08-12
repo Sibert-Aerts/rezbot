@@ -84,7 +84,7 @@ def bool_or_none(val):
 
 txt_modes = ['s', 'r']
 @make_source({
-    'file' : Sig(str, None, 'The file name'),
+    'file' : Sig(str, None, 'The file name, "random" for a random file'),
     'n'    : Sig(int, 1, 'The amount of lines'),
     'sequential': Sig(bool_or_none, None, 'If the multiple lines should be sequential as opposed to random, "None" for file-dependent.', required=False),
     'sentences' : Sig(bool_or_none, None, 'If the file should be split on sentences as opposed to on dividing characters, "None" for file-dependent.', required=False),
@@ -92,6 +92,9 @@ txt_modes = ['s', 'r']
 })
 def txt_source(file, n, sequential, sentences, query):
     '''Lines from an uploaded text file. Check >files for a list of files.'''
+    if file == 'random':
+        file = random.choice(list(uploads.files.keys()))
+
     if file not in uploads:
         raise KeyError('No file "%s" loaded! Check >files for a list of files.' % file)
 
