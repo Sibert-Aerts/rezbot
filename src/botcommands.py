@@ -258,17 +258,26 @@ class BotCommands(MyCommands):
         await self.say(ISSUE.URL())
 
 
+    def trump_embed(text):
+        embed = discord.Embed(description=text, color=0x4f545c)
+        embed.set_author(name='Donald J. Trump (@realDonaldTrump)', url='https://twitter.com/realDonaldTrump', icon_url='https://pbs.twimg.com/profile_images/874276197357596672/kUuht00m_bigger.jpg')
+        embed.set_footer(text='Twitter', icon_url='https://abs.twimg.com/icons/apple-touch-icon-192x192.png')
+        embed.add_field(name='Retweets', value=random.randint(5000, 50000))
+        embed.add_field(name='Likes', value=random.randint(25000, 150000))
+        return embed
+
     @commands.command(pass_context=True, hidden=True)
     async def drump(self, ctx):
         query = util.strip_command(ctx)
         if query == '': tweet = tweets.dril.random()
         else: tweet = choose(tweets.dril.search(query, 8))
+        embed = BotCommands.trump_embed(tweet['text'])
+        await self.bot.say(embed=embed)
 
-        embed = discord.Embed(description=tweet['text'], color=0x4f545c)
-        embed.set_author(name='Donald J. Trump (@realDonaldTrump)', url='https://twitter.com/realDonaldTrump', icon_url='https://pbs.twimg.com/profile_images/874276197357596672/kUuht00m_bigger.jpg')
-        embed.set_footer(text='Twitter', icon_url='https://abs.twimg.com/icons/apple-touch-icon-192x192.png')
-        embed.add_field(name='Retweets', value=random.randint(5000, 50000))
-        embed.add_field(name='Likes', value=random.randint(25000, 150000))
+    @commands.command(pass_context=True, hidden=True)
+    async def fauxnald(self, ctx):
+        text = util.strip_command(ctx)
+        embed = BotCommands.trump_embed(text)
         await self.bot.say(embed=embed)
 
     @commands.command()
