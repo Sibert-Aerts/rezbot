@@ -334,9 +334,10 @@ class PipelineProcessor:
                     await self.bot.send_message(dest, output[0][0])
                 else:
                     await self.bot.send_message(dest, '`empty string`')
+                return
             elif len(output[0]) == 0:
-                await self.bot.send_message(dest, '`no output`')
-            return
+                await self.bot.send_message(dest, '`no output`')                
+                return
 
         rowCount = len(max(output, key=len))
         rows = [''] * rowCount
