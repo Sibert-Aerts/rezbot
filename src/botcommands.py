@@ -274,11 +274,6 @@ class BotCommands(MyCommands):
         embed = BotCommands.trump_embed(tweet['text'])
         await self.bot.say(embed=embed)
 
-    @commands.command(pass_context=True, hidden=True)
-    async def fauxnald(self, ctx):
-        text = util.strip_command(ctx)
-        embed = BotCommands.trump_embed(text)
-        await self.bot.say(embed=embed)
 
     @commands.command()
     async def lunch(self, kind='regular'):

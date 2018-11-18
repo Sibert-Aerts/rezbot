@@ -397,7 +397,6 @@ class PipelineProcessor:
                 printValues.append(values)
                 await self.print(message.channel, printValues)
             else:
-                print('DOIN IT WOW')
                 async def send_message(*args, **kwargs):
                     await self.bot.send_message(message.channel, *args, **kwargs)
                 callback, args = pipeline.SPOUT_CALLBACK
