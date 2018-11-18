@@ -6,6 +6,7 @@ from discord.ext import commands
 
 from .pipes import pipes
 from .sources import sources
+from .spouts import spouts
 from .macros import pipe_macros, source_macros
 from .processor import Pipeline
 from mycommands import MyCommands
@@ -108,6 +109,31 @@ class PipeCommands(MyCommands):
                 infos.append(info)
             text = texttools.block_format('\n'.join(infos))
             await self.say(text)
+            
+    @commands.command(aliases=['spout'])
+    async def spouts(self, name=''):
+        '''Print a list of all spouts and their descriptions, or details on a specific source.'''
+        name = name.lower()
+
+        # Info on a specific spout
+        if name != '' and name in spouts:
+            embed = spouts[name].embed()
+            # bot takes credit for native spouts
+            embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
+            await self.bot.say(embed=embed)
+
+        # Info on all spouts
+        else:
+            infos = []
+            infos.append('Here\'s a list of spouts, use >spouts [spout name] to see more info on a specific one.\nUse >spout_macros for a list of user-defined spouts.\n')
+            colW = len(max(spouts, key=len)) + 2
+            for name in spouts:
+                spout = spouts[name]
+                info = name + ' ' * (colW-len(name))
+                if spout.doc: info += spout.small_doc
+                infos.append(info)
+            text = texttools.block_format('\n'.join(infos))
+            await self.say(text)
 
 ###############################################################
 #                  Turn pipes into commands!                  #
@@ -152,6 +178,29 @@ for source in sources.command_sources:
     # manually call the function decorator to make func into a command
     command = commands.command(pass_context=True)(func)
     setattr(PipeCommands, source.name, command)
+
+###############################################################
+#                  Turn spouts into commands!                 #
+###############################################################
+
+def spout_to_func(spout):
+    async def func(self, ctx):
+        text = util.strip_command(ctx)
+        pl = Pipeline('', ctx.message)
+        text = pl.evaluate_composite_source(text)
+        async def send_message(*args, **kwargs):
+            await self.bot.send_message(ctx.message.channel, *args, **kwargs)
+        await spout.as_command(send_message, text)
+    func.__name__ = spout.name
+    func.__doc__ = spout.command_doc()
+    return func
+
+# Turn those spouts into discord.py bot commands!
+for spout in spouts.command_spouts:
+    func = spout_to_func(spout)
+    # manually call the function decorator to make func into a command
+    command = commands.command(pass_context=True)(func)
+    setattr(PipeCommands, spout.name, command)
 
 
 # Load the bot cog

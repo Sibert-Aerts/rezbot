@@ -12,6 +12,7 @@ from google.cloud import translate
 
 from .signature import Sig
 from .pipe import Pipe, Pipes
+
 from .sources import SourceResources
 from utils.texttools import *
 

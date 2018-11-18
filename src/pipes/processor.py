@@ -5,6 +5,7 @@ import random
 
 from .pipes import pipes
 from .sources import sources, SourceResources
+from .spouts import spouts
 from .macros import pipe_macros, source_macros
 import pipes.groupmodes as groupmodes
 from utils.choicetree import ChoiceTree
@@ -77,6 +78,7 @@ class ParsedPipe:
 class Pipeline:
     def __init__(self, pipeline:str, message):
         self.pipeline_str = pipeline
+        self.SPOUT_CALLBACK = None
         self.message = message
         self.error_log = ErrorLog()
     
@@ -268,6 +270,8 @@ class Pipeline:
                     newValues.extend(values)
                     self.error_log.extend(pipe.error_log, 'braces')
                     pipe.error_log.clear()
+                    #TODO: ?
+                    self.SPOUT_CALLBACK = pipe.SPOUT_CALLBACK
                     continue
 
                 name = pipe.name
@@ -287,6 +291,13 @@ class Pipeline:
                         self.error_log('Failed to process pipe "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
                         newValues.extend(vals)
 
+                elif name in spouts:
+                    newValues.extend(vals)
+                    try:
+                        self.SPOUT_CALLBACK = spouts[name](vals, args)
+                    except Exception as e:
+                        self.error_log('Failed to process spout "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
+
                 elif name in pipe_macros:
                     code = pipe_macros[name].apply_args(args)
                     # Apply the macro inline, as if it were a single operation
@@ -295,7 +306,8 @@ class Pipeline:
                     macroValues = macroPipeline.apply_pipeline(vals)
                     newValues.extend(macroValues)
                     self.error_log.extend(macroPipeline.error_log, name)
-                    # TODO: Do something with macroPipeline.printValues
+                    #TODO: ?
+                    self.SPOUT_CALLBACK = macroPipeline.SPOUT_CALLBACK
 
                 else:
                     self.error_log('Unknown pipe "{}".'.format(name))
@@ -336,7 +348,7 @@ class PipelineProcessor:
                     await self.bot.send_message(dest, '`empty string`')
                 return
             elif len(output[0]) == 0:
-                await self.bot.send_message(dest, '`no output`')                
+                await self.bot.send_message(dest, '`no output`')
                 return
 
         rowCount = len(max(output, key=len))
@@ -379,10 +391,17 @@ class PipelineProcessor:
             SourceResources.previous_pipeline_output = values
 
             ### Print the output!
-            # TODO: something else happens here? maybe?
-            printValues = pipeline.printValues
-            printValues.append(values)
-            await self.print(message.channel, printValues)
+            # TODO: ~~SPOUT CALLBACK HAPPENS HERE~~
+            if pipeline.SPOUT_CALLBACK is None:
+                printValues = pipeline.printValues
+                printValues.append(values)
+                await self.print(message.channel, printValues)
+            else:
+                print('DOIN IT WOW')
+                async def send_message(*args, **kwargs):
+                    await self.bot.send_message(message.channel, *args, **kwargs)
+                callback, args = pipeline.SPOUT_CALLBACK
+                await callback(send_message, values, **args)
 
             ### Print error output!
             # TODO: Option to hide error log by default if not terminal / print it manually later if something didnt work

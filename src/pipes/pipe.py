@@ -55,6 +55,19 @@ class Source(Pipe):
             return self.function(**args)
 
 
+class Spout(Pipe):
+    def __init__(self, signature, function, category):
+        super().__init__(signature, function, category)
+        
+    def __call__(self, values, argstr):
+        _, args = parse_args(self.signature, argstr)
+        return (self.function, args) # defer that shit, got daeymn!!!
+
+    async def as_command(self, send_message, text):
+        text, args = parse_args(self.signature, text, greedy=False)
+        await self.function(send_message, [text], **args)
+
+
 class Pipes:
     '''A class for storing multiple Pipe instances.'''
     def __init__(self):
