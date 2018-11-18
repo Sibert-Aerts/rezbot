@@ -187,6 +187,12 @@ class Divide(GroupMode):
         size = math.floor(num/self.count)
         rest = num % self.count
 
+        # Edge case: We're tasked with splitting an empty list:
+        # Simply split it into the desired number of also empty lists.
+        if num == 0:
+            return [([], pipes[i % len(pipes)]) for i in range(self.count)]
+
+        # BIG QUESTION: empty strings, or empty lists?! WHO KNOWS!!!!!!
         if size == 0 or (self.padding and rest):
             values = values + (self.count - rest) * ['']
             size += 1
@@ -194,7 +200,7 @@ class Divide(GroupMode):
 
         out = []
 
-        for i in range(0, self.count):
+        for i in range(self.count):
             left = i * size + min(rest, i)
             right = (i+1) * size + min(rest, i+1)
             vals = values[left: right]
@@ -275,7 +281,7 @@ class Interval(GroupMode):
 
 pattern = re.compile(r'(\*?)(?:(%|#|/)\s*(-?\d*(?:\.\.+-?\d+)?)|\(\s*(\d+)\s*\)|)\s*')
 
-def parse(bigPipe):
+def parse(bigPipe, error_log):
     m = re.match(pattern, bigPipe)
 
     if m is None:
@@ -315,8 +321,8 @@ def parse(bigPipe):
         return bigPipe, mode
 
     except GroupModeError as e:
-        #TODO: get this warning up to the error log.
         print('groupmode warning: ' + str(e))
+        error_log('"{}": '.format(flag) + str(e))
         bigPipe = bigPipe[len(flag):]
         return bigPipe, Divide(False, 1, False)
 

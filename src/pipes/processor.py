@@ -249,7 +249,7 @@ class Pipeline:
         self.printValues = []
 
         for simulpipe in self.pipeline:
-            simulpipe, groupMode = groupmodes.parse(simulpipe)
+            simulpipe, groupMode = groupmodes.parse(simulpipe, self.error_log)
             parsedPipes = self.parse_simulpipe(simulpipe)
 
             newValues = []
@@ -330,9 +330,13 @@ class PipelineProcessor:
         # Don't apply any formatting if the output is just a single row and column.
         if len(output) == 1:
             if len(output[0]) == 1:
-                await self.bot.send_message(dest, output[0][0]); return
+                if output[0][0].strip() != '':
+                    await self.bot.send_message(dest, output[0][0])
+                else:
+                    await self.bot.send_message(dest, '`empty string`')
             elif len(output[0]) == 0:
-                await self.bot.send_message(dest, '`no output`'); return
+                await self.bot.send_message(dest, '`no output`')
+            return
 
         rowCount = len(max(output, key=len))
         rows = [''] * rowCount
