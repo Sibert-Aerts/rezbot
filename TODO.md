@@ -22,7 +22,15 @@
     * TXT uploads:
         * figure out more things to do with them
 
-    * option to turn pipe/source macros into commands!!!!!!
+    * option to turn macros into commands!!!!!!
+
+    * **SPOUTS:**
+    * output to new txt file
+    * append to existing txt file
+    * (output to image??)
+    * spout callback is a list of every callback encountered?
+    * spout just straight up ends the pipeline then and there??
+    * implement `print` as a spout
 
     * **BUGS:**
     * make all sources addressable as both singular and plural in ALL CONTEXTS
@@ -35,6 +43,7 @@
         * [-] to produce a minimal number of lines that reach each choice leaf at least once (is this hard???)
             [-] [alpha|beta] [gamma|delta] → alpha gamma, beta delta
     * in pipe/source arguments, replace `\n` to newlines
+    * Flow control? conditional `return` pipes so recursive yet halting pipelines are possible?
 
     * **HUGE OVERHAUL:**
     * Pipeline parsing sucks incredibly bad with regards to (inline pipelines) and [multi-pipes], figure something out

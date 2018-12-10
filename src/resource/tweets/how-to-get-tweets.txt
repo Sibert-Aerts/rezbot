@@ -4,8 +4,9 @@ https://cooltweets.herokuapp.com/
 
 Open up a page and run this code:
 
-TWEETS = []
-$('body > ul.tweets').find('.t').each((_,e)=>TWEETS.push({text: (e=$(e)).find('.text').text(), href: e.find('.meta .time a').prop('href')}))
-JSON.stringify(TWEETS)
+TWEETS = [];
+$('body > ul.tweets').find('.t').each((_,e)=>TWEETS.push({text: (e=$(e)).find('.text').html().replace(/<br>/g, '\n'), href: e.find('.meta .time a').prop('href')}));
+var output = JSON.stringify(TWEETS);
+copy(output);
 
 take the output from the last command and put it in a .json file, voilà!

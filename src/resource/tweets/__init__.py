@@ -10,7 +10,12 @@ def _HERE(filename):
 
 class TweetHistory:
     def __init__(self, file):
-        self.data = json.loads(open(file, encoding='utf-8').read())
+        try:
+            self.data = json.loads(open(file, encoding='utf-8').read())
+        except:
+            print('(Did not find tweet store "{}" in resource/tweets/, but no big deal!)'.format(file))
+            # Dummy data not to break stuff
+            self.data = [{'text':'Tweet store not found!', 'href':'https://twitter.com'}]
         for t in self.data:
             t['search'] = t['text'].lower()
 
@@ -33,7 +38,9 @@ class TweetHistory:
         results = list(filter(lambda t: all([q in t['search'] for q in queries]), self.data))
         return random.sample(results, min(len(results), amount))
 
+# TODO: Load these in lazily (first time a tweet is actually queried)
 dril = TweetHistory(_HERE('dril.json'))
+derek = TweetHistory(_HERE('derek.json'))
 
 if os.path.isfile(_HERE('dril-model.json')):
     with open(_HERE('dril-model.json'), encoding='utf-8') as f:

@@ -232,13 +232,25 @@ class BotCommands(MyCommands):
 
     @commands.command(pass_context=True)
     async def dril(self, ctx):
-        '''Search for a dril tweet matching a query (or a random one if no query is given).'''
+        '''Search for a dril (@wint) tweet matching a query (or a random one if no query is given).'''
         query = util.strip_command(ctx)
         if query == '':
             tweet = tweets.dril.random()
         else:
             tweet = choose(tweets.dril.search(query, 8))
         await self.say(tweet['href'])
+
+
+    @commands.command(pass_context=True)
+    async def derek(self, ctx):
+        '''Search for a derek (@eedrk) tweet matching a query (or a random one if no query is given).'''
+        query = util.strip_command(ctx)
+        if query == '':
+            tweet = tweets.derek.random()
+        else:
+            tweet = choose(tweets.derek.search(query, 8))
+        # TODO: output as faux tweet embed, since these are HISTORY
+        await self.say(tweet['text'])
 
 
     @commands.command()
