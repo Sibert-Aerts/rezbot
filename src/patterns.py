@@ -355,7 +355,7 @@ class Patterns:
          'function': attack},
         {'pattern': ('current ?year', re.I),
          'function': current_year},
-        {'pattern': ('\\byou\'?re? a big bot\\b)', re.I),
+        {'pattern': ('\\byou\'?re? a big bot\\b', re.I),
          'function': make_reply('for you.')},
         #{ 'pattern' : (':pe:', re.I),
         #  'function' : make_reply('`{0}.`'.format(happyDayText)) },
