@@ -130,6 +130,12 @@ def reverse_pipe(input):
     return input[::-1]
 
 
+@make_pipe({})
+def count_pipe(input):
+    '''Counts the number of input values it receives.'''
+    return str(len(input))
+
+
 #####################################################
 #                  Pipes : OUTPUT                   #
 #####################################################
