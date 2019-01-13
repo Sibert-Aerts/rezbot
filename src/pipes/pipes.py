@@ -402,7 +402,8 @@ def comprises_pipe(word):
 try:
     translate_client = translate.Client()
     # Wrap the API call in a LRU cache!
-    _translate = lru_cache()(translate_client.translate)
+    _translate = lambda *a, **k : translate_client.translate(*a, **k, format_='text')
+    _translate = lru_cache()(_translate)
 except Exception as e:
     print(e)
     print('Failed to load google cloud translate services, translate will be unavailable!')
