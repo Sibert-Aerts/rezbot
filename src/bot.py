@@ -51,8 +51,9 @@ async def on_message(message):
     if await pipeProcessor.process_pipes(message):
         return
 
-    # Try for custom patterns if it doesn't look like a command
+    # Try for patterns if it doesn't look like a command
     if(message.content[:len(command_prefix)] != command_prefix):
+        await pipeProcessor.on_message(message)
         await patterns.process_patterns(message)
 
     # Try for commands

@@ -8,7 +8,7 @@ from .pipes import pipes
 from .sources import sources
 from .spouts import spouts
 from .macros import pipe_macros, source_macros
-from .processor import Pipeline
+from .processor import Pipeline, PipelineProcessor
 from mycommands import MyCommands
 import utils.texttools as texttools
 import utils.util as util
@@ -134,6 +134,12 @@ class PipeCommands(MyCommands):
                 infos.append(info)
             text = texttools.block_format('\n'.join(infos))
             await self.say(text)
+
+    @commands.command(aliases=['clear'])
+    async def clear_conditions(self):
+        print('There used to be this many conditions: ' + str(len(PipelineProcessor.on_message_conditions)))
+        PipelineProcessor.on_message_conditions.clear()
+
 
 ###############################################################
 #                  Turn pipes into commands!                  #
