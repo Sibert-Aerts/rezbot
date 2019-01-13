@@ -78,7 +78,7 @@ class ParsedPipe:
 class Pipeline:
     def __init__(self, pipeline:str, message):
         self.pipeline_str = pipeline
-        self.SPOUT_CALLBACK = None
+        self.SPOUT_CALLBACKS = []
         self.message = message
         self.error_log = ErrorLog()
     
@@ -271,7 +271,7 @@ class Pipeline:
                     self.error_log.extend(pipe.error_log, 'braces')
                     pipe.error_log.clear()
                     #TODO: ?
-                    self.SPOUT_CALLBACK = pipe.SPOUT_CALLBACK
+                    self.SPOUT_CALLBACKS += pipe.SPOUT_CALLBACKS
                     continue
 
                 name = pipe.name
@@ -294,7 +294,7 @@ class Pipeline:
                 elif name in spouts:
                     newValues.extend(vals)
                     try:
-                        self.SPOUT_CALLBACK = spouts[name](vals, args)
+                        self.SPOUT_CALLBACKS.append(spouts[name](vals, args))
                     except Exception as e:
                         self.error_log('Failed to process spout "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
 
@@ -307,7 +307,7 @@ class Pipeline:
                     newValues.extend(macroValues)
                     self.error_log.extend(macroPipeline.error_log, name)
                     #TODO: ?
-                    self.SPOUT_CALLBACK = macroPipeline.SPOUT_CALLBACK
+                    self.SPOUT_CALLBACKs += macroPipeline.SPOUT_CALLBACKS
 
                 else:
                     self.error_log('Unknown pipe "{}".'.format(name))
@@ -392,15 +392,14 @@ class PipelineProcessor:
 
             ### Print the output!
             # TODO: ~~SPOUT CALLBACK HAPPENS HERE~~
-            if pipeline.SPOUT_CALLBACK is None:
+            if not pipeline.SPOUT_CALLBACKS:
+                # todo: print as a spout?! could it be???????
                 printValues = pipeline.printValues
                 printValues.append(values)
                 await self.print(message.channel, printValues)
             else:
-                async def send_message(*args, **kwargs):
-                    await self.bot.send_message(message.channel, *args, **kwargs)
-                callback, args = pipeline.SPOUT_CALLBACK
-                await callback(send_message, values, **args)
+                for callback, args, values in pipeline.SPOUT_CALLBACKS:
+                    await callback(self.bot, message, values, **args)
 
             ### Print error output!
             # TODO: Option to hide error log by default if not terminal / print it manually later if something didnt work

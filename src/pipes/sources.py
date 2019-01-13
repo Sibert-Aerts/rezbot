@@ -74,6 +74,12 @@ def that_source(message):
     return [msg.content]
 
 
+@make_source({}, pass_message=True)
+def message_source(message):
+    '''The message which the bot is responding to, only useful with reactive scripts!'''
+    return [message.content]
+
+
 @make_source({'name' : Sig(str, None, 'The variable name')})
 def get_source(name):
     '''Loads input stored using the "set" pipe'''

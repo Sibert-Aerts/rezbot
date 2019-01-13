@@ -61,7 +61,7 @@ class Spout(Pipe):
         
     def __call__(self, values, argstr):
         _, args = parse_args(self.signature, argstr)
-        return (self.function, args) # defer that shit, got daeymn!!!
+        return (self.function, args, values) # defer that shit, got daeymn!!!
 
     async def as_command(self, send_message, text):
         text, args = parse_args(self.signature, text, greedy=False)

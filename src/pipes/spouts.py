@@ -32,21 +32,31 @@ def url(s):
     'handle':   Sig(str, 'test_user', 'The account\'s handle, (without the @).'),
     'icon':     Sig(url, 'https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png', 'URL linking to their profile picture.')
 })
-async def tweet_spout(send_message, values, name, handle, icon):
+async def tweet_spout(bot, message, values, name, handle, icon):
     '''Outputs text as an embedded tweet.'''
     e = Embed(description='\n'.join(values), color=0x4f545c)
     e.set_author(name='{} (@{})'.format(name, handle), url='https://twitter.com/'+handle, icon_url=icon)
     e.set_footer(text='Twitter', icon_url='https://abs.twimg.com/icons/apple-touch-icon-192x192.png')
     e.add_field(name='Retweets', value=random.randint(500, 5000))
     e.add_field(name='Likes', value=random.randint(1000, 10000))
-    await send_message(embed=e)
+    await bot.send_message(message.channel, embed=e)
 
 @make_spout({}, command=True)
-async def trump_tweet_spout(send_message, values):
+async def trump_tweet_spout(bot, message, values):
     '''Outputs text as an embedded tweet from the president of the united states.'''
     e = Embed(description='\n'.join(values), color=0x4f545c)
     e.set_author(name='Donald J. Trump (@realDonaldTrump)', url='https://twitter.com/realDonaldTrump', icon_url='https://pbs.twimg.com/profile_images/874276197357596672/kUuht00m_bigger.jpg')
     e.set_footer(text='Twitter', icon_url='https://abs.twimg.com/icons/apple-touch-icon-192x192.png')
     e.add_field(name='Retweets', value=random.randint(5000, 50000))
     e.add_field(name='Likes', value=random.randint(25000, 150000))
-    await send_message(embed=e)
+    await bot.send_message(message.channel, embed=e)
+
+@make_spout({})
+async def delete_this_spout(bot, message, values):
+    '''Deletes the message that triggered the script's execution.'''
+    await bot.delete_message(message)
+
+@make_spout({})
+async def message_spout(bot, message, values):
+    '''Prints the message as a message, PLACEHOLDER until i properly turn print into a spout.....'''
+    await bot.send_message(message.channel, '\n'.join(values))
