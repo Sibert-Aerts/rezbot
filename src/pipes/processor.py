@@ -307,7 +307,7 @@ class Pipeline:
                     newValues.extend(macroValues)
                     self.error_log.extend(macroPipeline.error_log, name)
                     #TODO: ?
-                    self.SPOUT_CALLBACKs += macroPipeline.SPOUT_CALLBACKS
+                    self.SPOUT_CALLBACKS += macroPipeline.SPOUT_CALLBACKS
 
                 else:
                     self.error_log('Unknown pipe "{}".'.format(name))
