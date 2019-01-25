@@ -165,13 +165,13 @@ def words_source(pattern, n):
 def member_source(message, n):
     '''Gets a random member.'''
     members = list(message.server.members)
-    return [m.name for m in random.sample(members, min(n, len(members)))]
+    return [m.display_name for m in random.sample(members, min(n, len(members)))]
 
 
 @make_source({}, pass_message=True)
 def me_source(message):
     '''The name of the user invoking the command.'''
-    return [message.author.name]
+    return [message.author.display_name]
 
 
 @make_source({
