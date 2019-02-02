@@ -85,6 +85,7 @@ def repeat_pipe(input, times, max):
         times = min(times, math.ceil(max/len(input))) # Limit how many unnecessary items the [:max] in the next line shaves off
         return (input*times)[:max]
 
+
 delete_whats = ['a', 'e', 'w']
 @make_pipe({
     'what': Sig(str, 'all', 'What to delete: all/empty/whitespace', lambda x: x[0].lower() in delete_whats)
@@ -123,16 +124,38 @@ def tr_pipe(input, w, h):
 
 @make_pipe({})
 def shuffle_pipe(input):
-    '''Randomly shuffles grouped input values.'''
+    '''Randomly shuffles input values.'''
     # IMPORTANT NOTE: `input` is passed BY REFERENCE, so we are NOT supposed to mess with it!
     out = input[:]
     random.shuffle(out)
     return out
 
 
+@make_pipe({
+    'amount' : Sig(int, 1, 'The amount of values to choose.', lambda x: x>=0)
+})
+def choose_pipe(input, amount):
+    '''Chooses random values with replacement (i.e. may return repeated values).'''
+    return random.choices(input, amount)
+
+
+@make_pipe({
+    'amount' : Sig(int, 1, 'The amount of values to sample.', lambda x: x>=0)
+})
+def sample_pipe(input, amount):
+    '''Chooses random values without replacement. Never produces more values than the number it receives.'''
+    return random.sample(input, min(len(input), amount))
+
+
+@make_pipe({})
+def unique_pipe(input):
+    '''Returns the first unique occurence of each value.'''
+    return [*{*input}]
+
+
 @make_pipe({})
 def reverse_pipe(input):
-    '''Reverses the order of grouped input values.'''
+    '''Reverses the order of the input values.'''
     return input[::-1]
 
 
