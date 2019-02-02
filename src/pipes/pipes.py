@@ -124,8 +124,10 @@ def tr_pipe(input, w, h):
 @make_pipe({})
 def shuffle_pipe(input):
     '''Randomly shuffles grouped input values.'''
-    random.shuffle(input)
-    return input
+    # IMPORTANT NOTE: `input` is passed BY REFERENCE, so we are NOT supposed to mess with it!
+    out = input[:]
+    random.shuffle(out)
+    return out
 
 
 @make_pipe({})
