@@ -2,6 +2,7 @@ import unicodedata2
 import emoji
 import utils.util as util
 import random
+import math
 import textwrap
 import re
 from functools import wraps, lru_cache
@@ -72,14 +73,17 @@ def make_pipe(signature, command=False):
 _CATEGORY = 'FLOW'
 
 @make_pipe( {
-    'n'  : Sig(int, 2, 'Number of times repeated', lambda x: (x <= 100)),
-    'lim': Sig(int, -1, 'Limit to total number of resulting rows, -1 for no limit.')
+    'times': Sig(int, None, 'Number of times repeated'),
+    'max'  : Sig(int, -1, 'Maximum number of outputs produced, -1 for unlimited.')
 })
-def repeat_pipe(input, n, lim):
+def repeat_pipe(input, times, max):
     '''Repeats each row a given number of times.'''
     # Isn't decorated as_map so both input and output are expected to be arrays.
-    if lim == -1: lim = n*len(input)
-    return [i for _ in range(n) for i in input][:lim]
+    if max == -1:
+        return input * times
+    else:
+        times = min(times, math.ceil(max/len(input))) # Limit how many unnecessary items the [:max] in the next line shaves off
+        return (input*times)[:max]
 
 delete_whats = ['a', 'e', 'w']
 @make_pipe({
