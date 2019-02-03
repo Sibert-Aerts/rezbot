@@ -204,44 +204,44 @@ class Pipeline:
     def parse_simulpipe(self, simulpipe):
         '''Turn a single string describing one or more simultaneous pipes into a list of ParsedPipes.'''
 
-        # True and utter hack: Simply swipe triple-quoted strings out of the simulpipe and put them back
-        # later in the expanded pipes, so that triple quotes escape all ChoiceTree expansion.
-        tripleQuoteDict = {}
-        def geti(): return str(random.randint(0, 999999))
+        ### True and utter hack: Steal triple-quoted strings out of the simulpipe and put them back
+        # later after expanding the choices, this way triple quotes prevent their contents from being parsed/expanded.
+        stolen = []
 
-        def steal_triple_quotes(match):
-            i = geti()
-            while i in tripleQuoteDict: i = geti()
-            # Triple quotes are turned into regular quotes here, which may have unexpected consequences(?)
-            tripleQuoteDict[i] = '"' + match.groups()[0] + '"'
-            return '--//!!§§' + i + '§§!!//--'
+        def steal(match):
+            stolen.append('"' + match.groups()[0] + '"') # TODO: turning """ into " causes undersirable consequences!
+            return '§§'
 
-        def return_triple_quotes(pipe):
-            def f(m):
-                i = m.groups()[0]
-                if i in tripleQuoteDict: return tripleQuoteDict[i]
-                else: return '--//!!§§' + i + '§§!!//--'
-            return re.sub(r'--//!!§§(.*?)§§!!//--', f, pipe)
+        def unsteal(pipe):
+            pipe = re.sub('§§', lambda _: stolen.pop(), pipe)
+            return pipe.replace('!§!', '§')
 
-        simulpipe = re.sub(r'(?s)"""(.*?)"""', steal_triple_quotes, simulpipe)
+        simulpipe = simulpipe.replace('§', '!§!')
+        simulpipe = re.sub(r'(?s)"""(.*?)"""', steal, simulpipe) # (?s) is just the flag for "dot matches all"
+        stolen.reverse()
 
+        # ChoiceTree expands the single string into a set of strings.
         simulpipes = ChoiceTree(simulpipe, parse_flags=True, add_brackets=True).all()
 
-        # Parse the simultaneous pipes into a usable form: A list of {name, args}
+        ### Parse the simultaneous pipes into a usable form: A list of Pipeline or ParsedPipe objects
         parsedPipes = []
+
         for pipe in simulpipes:
             # Put triple-quoted strings back in their positions
-            pipe = return_triple_quotes(pipe)
+            pipe = unsteal(pipe)
+
+            # CASE: Inline pipeline: (foo > bar > baz)
             if pipe and pipe[0] == '(':
                 m = re.match(Pipeline.wrapping_brackets_regex, pipe)
                 pipe = m.groups()[1] or m.groups()[2]
-                # print('INLINE PIPELINE: ' + pipe)
                 inline_pipeline = Pipeline(pipe, self.message)
                 parsedPipes.append(inline_pipeline)
+
+            # CASE: Normal pipe: foo [bar=baz]*
             else:
-                split = pipe.strip().split(' ', 1)
-                name = split[0].lower()
-                args = ''.join(split[1:]) # split[1:] may be empty
+                name, *args = pipe.strip().split(' ', 1)
+                name = name.lower()
+                args = args[0] if args else ''
                 parsedPipes.append(ParsedPipe(name, args))
 
         return parsedPipes
