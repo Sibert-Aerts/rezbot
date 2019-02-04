@@ -137,8 +137,8 @@ class PipeCommands(MyCommands):
 
     @commands.command(aliases=['clear'])
     async def clear_conditions(self):
-        print('There used to be this many conditions: ' + str(len(PipelineProcessor.on_message_conditions)))
-        PipelineProcessor.on_message_conditions.clear()
+        print('There used to be this many conditions: ' + str(len(PipelineProcessor.on_message_events)))
+        PipelineProcessor.on_message_events.clear()
 
 
 ###############################################################

@@ -48,7 +48,7 @@ async def on_message(message):
         return
 
     # Try for text pipes, if it's a pipe, don't look for anything else.
-    if await pipeProcessor.process_pipes(message):
+    if await pipeProcessor.process_script(message):
         return
 
     # Try for patterns if it doesn't look like a command

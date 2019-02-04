@@ -7,6 +7,7 @@ from .pipes import pipes
 from .sources import sources, SourceResources
 from .spouts import spouts
 from .macros import pipe_macros, source_macros
+from .events import parse_event
 import pipes.groupmodes as groupmodes
 from utils.choicetree import ChoiceTree
 
@@ -351,32 +352,20 @@ class Pipeline:
         self.check_values(values)
         return self.apply_pipeline(values)
 
-class OnMessage:
-    def __init__(self, pattern, channel, script):
-        self.pattern = pattern
-        self.channel = channel
-        self.script = script
-
-    def test(self, message):
-        return message.channel == self.channel and self.pattern.search(message.content) is not None
-
 class PipelineProcessor:
     def __init__(self, bot, prefix):
         self.bot = bot
         self.prefix = prefix
         SourceResources.bot = bot
-        self.on_message_conditions = PipelineProcessor.on_message_conditions
+        self.on_message_events = PipelineProcessor.on_message_events
 
-    def register_on_message(self, args, script, channel):
-        regex = re.compile(args)
-        tester = OnMessage(regex, channel, script)
-        self.on_message_conditions.append(tester)
+    def register_on_message(self, event):
+        self.on_message_events.append(event)
 
     async def on_message(self, message):
-        for cond in self.on_message_conditions:
-            if cond.test(message):
-                print('A CONDITION MATCHED!')
-                await self.execute_script(cond.script, message)
+        for event in self.on_message_events:
+            if event.test(message):
+                await self.execute_script(event.script, message)
 
     async def print(self, dest, output):
         ''' Nicely print the output in rows and columns and even with little arrows.'''
@@ -447,27 +436,24 @@ class PipelineProcessor:
             pipeline.error_log(e.__class__.__name__ + ': ' + str(e), terminal=True)
             await self.bot.send_message(message.channel, embed=pipeline.error_log.embed())
 
-    async def process_pipes(self, message):
+    async def process_script(self, message):
+        '''This is the starting point for all script execution.'''
         text = message.content
 
-        # Test for the pipeline prefix (pipe_prefix in config.ini, default: '>>>')
-        if not text.startswith(self.prefix): return False
+        # Test for the script prefix (pipe_prefix in config.ini, default: '>>>')
+        if not text.startswith(self.prefix):
+            return False
+
+        # Remove the prefix
         script = text[len(self.prefix):]
 
-        # IMPROVISED SYNTAX:
+        # IMPROVISED EVENT SYNTAX:
         # >>> ON MESSAGE (pattern) :: (pipeline)
         if len(script) >= 2 and script[:2] == 'ON' and '::' in script:
-            ## EVENT STUFF DOWN HERE
-            condition, script = script.split('::', 1)
-            _, name, args = condition.split(' ', 2)
-            args = args.strip()
-            print('ENCOUNTERED A CONDITION: ON "{}" WITH ARGS "{}"'.format(name, args))
-            if name.lower() == 'message':
-                self.register_on_message(args, script, message.channel)
-            # EVENT STUFF ENDS HERE
+            self.on_message_events.append(parse_event(script))
         else:
             # NORMAL, NON-EVENT SCRIPT EXECUTION:
             await self.execute_script(script, message)
         return True
 
-PipelineProcessor.on_message_conditions = []
+PipelineProcessor.on_message_events = []
