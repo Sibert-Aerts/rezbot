@@ -9,7 +9,7 @@ class OnMessage:
     def test(self, message):
         return message.channel == self.channel and self.pattern.search(message.content) is not None
 
-def parse_event(string):
+def parse_event(string, channel):
     condition, script = string.split('::', 1)
     _, name, args = condition.split(' ', 2)
     args = args.strip()

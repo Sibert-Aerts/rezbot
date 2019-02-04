@@ -483,7 +483,7 @@ class PipelineProcessor:
         # IMPROVISED EVENT SYNTAX:
         # >>> ON MESSAGE (pattern) :: (pipeline)
         if len(script) >= 2 and script[:2] == 'ON' and '::' in script:
-            self.on_message_events.append(parse_event(script))
+            self.on_message_events.append(parse_event(script, message.channel))
         else:
             # NORMAL, NON-EVENT SCRIPT EXECUTION:
             await self.execute_script(script, message)
