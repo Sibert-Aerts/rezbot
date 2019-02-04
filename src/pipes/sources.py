@@ -1,6 +1,6 @@
 import emoji
 import random
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from functools import wraps
 
 from .signature import Sig
@@ -141,10 +141,11 @@ def roll_source(min, max):
 
 @make_source({
     'format': Sig(str, '%Y/%m/%d %H:%M:%S', 'The format string, see http://strftime.org/ for syntax.'),
+    'utc'   : Sig(int, 1, 'The UTC offset in hours.')
 })
-def datetime_source(format):
+def datetime_source(format, utc):
     '''The current date and time, with optional custom formatting.'''
-    return [datetime.now().strftime(format)]
+    return [datetime.now(timezone(timedelta(hours=utc))).strftime(format)]
 
 
 @make_source({
