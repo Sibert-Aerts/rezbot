@@ -24,6 +24,7 @@ class PipelineError(ValueError):
 
 
 class ErrorLog:
+    '''Class for logging warnings & error messages from a pipeline's execution.'''
     def __init__(self):
         self.errors = []
         self.terminal = False
@@ -84,15 +85,22 @@ class Pipeline:
     
     def check_values(self, values):
         '''Raises errors if the user is not permitted to process a certain quantity of values.'''
-        MAXVALUES = 100
-        if len(values) > MAXVALUES and not permissions.has(self.message.author.id, permissions.owner):
-            raise PipelineError('Attempted to process {} values at once, try staying under {}.'.format(len(values), MAXVALUES))
+        # TODO: this could stand to be smarter/more oriented to the type of operation you're trying to do, or something, maybe...?
+        # meditate on this...
+        MAXCHARS = 1000
+        chars = sum(len(i) for i in values)
+        if chars > MAXCHARS and not permissions.has(self.message.author.id, permissions.owner):
+            raise PipelineError('Attempted to process a flow of {} total characters at once, try staying under {}.'.format(chars, MAXVALUES))
 
     def split(self):
         '''
         Split the sequence of pipes (one big string) into a list of pipes (list of strings).
         Doesn't split on >'s inside quote blocks or within parentheses, and inserts "print"s on ->'s.
         '''
+        # This is an extremely hand-written extremely low-level parser for the basic structure of a pipeline.
+        # There are NO ESCAPE SEQUENCES. Every quotation mark is taken as one. Every parenthesis outside of quotation marks is 100% real.
+        # This causes parsing inconsistencies. e.g. "foo > bar x=( > baz" only splits on the first ">"
+
         self.pipeline = []
         quotes = False
         parens = 0
@@ -199,6 +207,8 @@ class Pipeline:
                 values.append(self.evaluate_composite_source(source))
         return values
 
+    # Matches the first (, until either the last ) or if there are no ), the end of the string
+    # Use of this regex relies on the knowledge/assumption that the nested parentheses in the string are matched
     wrapping_brackets_regex = re.compile(r'\(((.*)\)|(.*))')
 
     def parse_simulpipe(self, simulpipe):
@@ -227,7 +237,7 @@ class Pipeline:
         parsedPipes = []
 
         for pipe in simulpipes:
-            # Put triple-quoted strings back in their positions
+            # Put the stolen triple-quoted strings back
             pipe = unsteal(pipe)
 
             # CASE: Inline pipeline: (foo > bar > baz)
@@ -247,33 +257,44 @@ class Pipeline:
         return parsedPipes
 
     def apply_pipeline(self, values):
-        '''Apply a list of pipe strings to a list of values'''
+        '''Apply the pipeline to the set of values.'''
         self.printValues = []
 
+        ### This loop iterates over the pipeline's pipes as they are applied in sequence. (first > second > third)
         for simulpipe in self.pipeline:
             simulpipe, groupMode = groupmodes.parse(simulpipe, self.error_log)
+
+            # TODO: REUSE: This bit of parsing happens whenever the pipeline is called; store the output instead of throwing it away.
             parsedPipes = self.parse_simulpipe(simulpipe)
 
             newValues = []
             newPrintValues = []
 
-            # The group mode turns the lists of values and simultaneous pipes into tuples of values & the pipe they need to be applied to
-            # For more information: Check out groupmodes.py for a long, in-depth explanation.
+            # The group mode turns the [values], [pipes] into a list of ([values], pipe) pairs
+            # For more information: Check out groupmodes.py
+            ### This loop essentially iterates over the pipes as they are applied in parallel. ( [first|second|third] )
             for vals, pipe in groupMode.apply(values, parsedPipes):
-                if pipe is None: # None is a way for groupMode to convey a nop on a subset of values
+
+                ## CASE: "None" is the group mode's way of demanding a NOP on these values.
+                if pipe is None:
                     newValues.extend(vals)
                     continue
 
+                ## CASE: The pipe is actually an inline pipeline
                 if type(pipe) is Pipeline:
-                    pipe.split()
-                    values = pipe.apply_pipeline(vals)
+                    pipeline = pipe # Rename for type clarity
+                    # TODO: REUSE: THIS PART HAPPENS MULTIPLE TIMES IF THE INLINE PIPELINE IS CALLED MULTIPLE TIMES...
+                    # THIS DOES NOT SEEM EFFICIENT, AND MAY EVEN HAVE SOME TERRIBLE CONSEQUENCES...????!!!!!
+                    pipeline.split()
+                    values = pipeline.apply_pipeline(vals)
                     newValues.extend(values)
-                    self.error_log.extend(pipe.error_log, 'braces')
-                    pipe.error_log.clear()
-                    #TODO: ?
-                    self.SPOUT_CALLBACKS += pipe.SPOUT_CALLBACKS
+                    self.error_log.extend(pipeline.error_log, 'braces')
+                    pipeline.error_log.clear()
+                    # TODO: the life long quandry of what exactly the fuck to do with the spout/print state of the inline pipeline.
+                    self.SPOUT_CALLBACKS += pipeline.SPOUT_CALLBACKS
                     continue
 
+                ## CASE: The pipe is a regular pipe, given as a name and string of arguments.
                 name = pipe.name
                 args = pipe.argstr
 
@@ -292,15 +313,16 @@ class Pipeline:
                         newValues.extend(vals)
 
                 elif name in spouts:
-                    newValues.extend(vals)
+                    newValues.extend(vals) # spouts are a NOP on the values, and instead provide side-effects.
                     try:
                         self.SPOUT_CALLBACKS.append(spouts[name](vals, args))
                     except Exception as e:
                         self.error_log('Failed to process spout "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
 
                 elif name in pipe_macros:
-                    code = pipe_macros[name].apply_args(args)
                     # Apply the macro inline, as if it were a single operation
+                    # TODO: REUSE: lots of ways to implement reuse here, since MACROS get reused A LOT!!!!!
+                    code = pipe_macros[name].apply_args(args)
                     macroPipeline = Pipeline(code, self.message)
                     macroPipeline.split()
                     macroValues = macroPipeline.apply_pipeline(vals)
@@ -432,17 +454,19 @@ class PipelineProcessor:
         if not text.startswith(self.prefix): return False
         script = text[len(self.prefix):]
 
-        # SYNTAX:
+        # IMPROVISED SYNTAX:
         # >>> ON MESSAGE (pattern) :: (pipeline)
         if len(script) >= 2 and script[:2] == 'ON' and '::' in script:
-            ## CONDITION STUFF DOWN HERE
+            ## EVENT STUFF DOWN HERE
             condition, script = script.split('::', 1)
             _, name, args = condition.split(' ', 2)
             args = args.strip()
             print('ENCOUNTERED A CONDITION: ON "{}" WITH ARGS "{}"'.format(name, args))
             if name.lower() == 'message':
                 self.register_on_message(args, script, message.channel)
+            # EVENT STUFF ENDS HERE
         else:
+            # NORMAL, NON-EVENT SCRIPT EXECUTION:
             await self.execute_script(script, message)
         return True
 
