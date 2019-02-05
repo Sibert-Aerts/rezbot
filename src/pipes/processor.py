@@ -165,15 +165,25 @@ class SourceProcessor:
 
 class Pipeline:
     def __init__(self, string):
-        self.errors = ErrorLog()
+        self.parser_errors = ErrorLog()
+
         ### Split the pipeline into segments (segment > segment > segment)
         segments = self.split(string)
+
         ### For each segment, parse the group mode and expand the parallel pipes.
         self.parsed_segments = []
         for segment in segments:
-            segment, groupMode = groupmodes.parse(segment, self.errors)
+            segment, groupMode = groupmodes.parse(segment, self.parser_errors)
             parallel = self.parse_segment(segment)
             self.parsed_segments.append( (groupMode, parallel) )
+
+        ### That's as far as I'm willing to parse/pre-compile a pipeline before execution right now, but there is absolutely room for improvement.
+
+        # NOTE: The only errors that are logged in this entire function are in groupmodes.parse,
+        # and they are nonterminal, simply warning that the default groupmode was used instead of their invalid one.
+        # The other two methods (split and parse_segment) are VERY naive and VERY lenient:
+        #   They take no effort to check if any of what they're parsing is even remotely well-formed or executable.
+        #   If they do notice that something is wrong (e.g. unclosed quotes or parentheses) they simply ignore it.
 
     def split(self, string):
         '''
@@ -187,55 +197,33 @@ class Pipeline:
         segments = []
         quotes = False
         parens = 0
-        current = ''
-        prev = ''
+        start = 0
 
-        for c in string:
+        for i in range(len(string)):
+            c = string[i]
             if quotes: # Look for an unescaped quotation mark.
                 if c == '"':
                     quotes = False
-                current += c
 
             elif c == '"':
                 quotes = True
-                current += c
-
-            # elif c == '\\' and prev == '\\':
-            #     current += c
-            #     c = '' # Prevent this backslash from escaping the next character
 
             elif c == '(':
                 parens += 1
-                current += c
 
             elif c == ')':
                 if parens > 0: parens -= 1
-                current += c
 
             elif parens == 0 and c == '>':
-                if prev == '-': # The > was actually part of a ->
-                    segments.append(current[:-1].strip())
+                if i > 0 and string[i-1] == '-': # The > is actually the head of a ->
+                    segments.append(string[start:i-1].strip())
                     segments.append('print')
                 else:
-                    segments.append(current.strip())
-                current = ''
+                    segments.append(string[start:i].strip())
+                start = i+1 # Clip off the >, we don't need it anymore
 
-            else:
-                current += c
-
-            prev = c
-
-        segments.append(current.strip())
+        segments.append(string[start:].strip())
         return segments
-
-    def check_values(self, values):
-        '''Raises errors if the user is not permitted to process a certain quantity of values.'''
-        # TODO: this could stand to be smarter/more oriented to the type of operation you're trying to do, or something, maybe...?
-        # meditate on this...
-        MAXCHARS = 1000
-        chars = sum(len(i) for i in values)
-        if chars > MAXCHARS and not permissions.has(self.message.author.id, permissions.owner):
-            raise PipelineError('Attempted to process a flow of {} total characters at once, try staying under {}.'.format(chars, MAXVALUES))
 
     # Matches the first (, until either the last ) or if there are no ), the end of the string
     # Use of this regex relies on the knowledge/assumption that the nested parentheses in the string are matched
@@ -287,10 +275,20 @@ class Pipeline:
 
         return parsedPipes
 
+    def check_values(self, values):
+        '''Raises an error if the user is asking too much of the bot.'''
+        # TODO: this could stand to be smarter/more oriented to the type of operation you're trying to do, or something, maybe...?
+        # meditate on this...
+        MAXCHARS = 1000
+        chars = sum(len(i) for i in values)
+        if chars > MAXCHARS and not permissions.has(self.message.author.id, permissions.owner):
+            raise PipelineError('Attempted to process a flow of {} total characters at once, try staying under {}.'.format(chars, MAXVALUES))
+
     def apply(self, values, message):
         '''Apply the pipeline to the set of values.'''
         printValues = []
         errors = ErrorLog()
+        errors.extend(self.parser_errors) # Include the errors we found during parsing!
         SPOUT_CALLBACKS = []
 
         self.check_values(values)
