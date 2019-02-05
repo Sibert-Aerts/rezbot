@@ -229,38 +229,46 @@ class Pipeline:
     # Use of this regex relies on the knowledge/assumption that the nested parentheses in the string are matched
     wrapping_brackets_regex = re.compile(r'\(((.*)\)|(.*))')
 
-    def parse_segment(self, simulpipe):
-        '''Turn a single string describing one or more parallel pipes into a list of ParsedPipes or Pipelines.'''
 
-        ### True and utter hack: Steal triple-quoted strings out of the simulpipe and put them back
-        # later after expanding the choices, this way triple quotes prevent their contents from being parsed/expanded.
+    def steal_triple_quotes(self, segment):
+        '''Takes all parts of a string wrapped in triple quotes and puts them in a list so we can find them later'''
         stolen = []
 
         def steal(match):
             stolen.append('"' + match.groups()[0] + '"') # TODO: turning """ into " causes undersirable consequences!
-            return '§§'
+            return '§' + str(len(stolen)-1) + '§'
 
-        def unsteal(pipe):
-            pipe = re.sub('§§', lambda _: stolen.pop(), pipe)
-            return pipe.replace('!§!', '§')
+        segment = segment.replace('§', '!§!')
+        segment = re.sub(r'(?s)"""(.*?)"""', steal, segment) # (?s) means "dot matches all"
+        return segment, stolen
 
-        simulpipe = simulpipe.replace('§', '!§!')
-        simulpipe = re.sub(r'(?s)"""(.*?)"""', steal, simulpipe) # (?s) is just the flag for "dot matches all"
-        stolen.reverse()
+    def restore_triple_quotes(self, bereft, stolen):
+        bereft = re.sub('§(\d+)§', lambda m: stolen[int(m.groups()[0])], bereft)
+        return bereft.replace('!§!', '§')
+
+    def parse_segment(self, segment):
+        '''Turn a single string describing one or more parallel pipes into a list of ParsedPipes or Pipelines.'''
+
+        ### True and utter hack: Steal triple-quoted strings out of the segment and put them back later,
+        # after expanding the choices, this way triple quotes prevent their contents from being parsed/expanded.
+        segment, stolen = self.steal_triple_quotes(segment)
+        print(segment)
+        print(stolen)
 
         # ChoiceTree expands the single string into a set of strings.
-        simulpipes = ChoiceTree(simulpipe, parse_flags=True, add_brackets=True).all()
+        parallel_pipes = ChoiceTree(segment, parse_flags=True, add_brackets=True).all()
 
         ### Parse the simultaneous pipes into a usable form: A list of Pipeline or ParsedPipe objects
         parsedPipes = []
 
-        for pipe in simulpipes:
+        for pipe in parallel_pipes:
             # Put the stolen triple-quoted strings back
-            pipe = unsteal(pipe)
+            pipe = self.restore_triple_quotes(pipe, stolen)
 
             # CASE: Inline pipeline: (foo > bar > baz)
             if pipe and pipe[0] == '(':
                 # TODO: this is bullshit, we actually smartly parse braces earlier, don't throw that info out!
+                # NOTE: this regex is dumb as dog tits
                 m = re.match(Pipeline.wrapping_brackets_regex, pipe)
                 pipeline = m.groups()[1] or m.groups()[2]
                 # Instantly parse the inline pipeline
