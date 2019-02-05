@@ -168,7 +168,7 @@ class Pipeline:
         self.parser_errors = ErrorLog()
 
         ### Split the pipeline into segments (segment > segment > segment)
-        segments = self.split(string)
+        segments = self.split_into_segments(string)
 
         ### For each segment, parse the group mode and expand the parallel pipes.
         self.parsed_segments = []
@@ -185,7 +185,7 @@ class Pipeline:
         #   They take no effort to check if any of what they're parsing is even remotely well-formed or executable.
         #   If they do notice that something is wrong (e.g. unclosed quotes or parentheses) they simply ignore it.
 
-    def split(self, string):
+    def split_into_segments(self, string):
         '''
         Split the sequence of pipes (one big string) into a list of pipes (list of strings).
         Doesn't split on >'s inside quote blocks or within parentheses, and inserts "print"s on ->'s.
@@ -201,27 +201,33 @@ class Pipeline:
 
         for i in range(len(string)):
             c = string[i]
-            if quotes: # Look for an unescaped quotation mark.
-                if c == '"':
-                    quotes = False
 
+            ## Close quotes
+            if quotes and c == '"':
+                quotes = False
+
+            ## Open quotes
             elif c == '"':
                 quotes = True
 
+            ## Open parentheses
             elif c == '(':
                 parens += 1
 
+            ## Close parentheses
             elif c == ')':
                 if parens > 0: parens -= 1
 
+            ## New segment
             elif parens == 0 and c == '>':
                 if i > 0 and string[i-1] == '-': # The > is actually the head of a ->
                     segments.append(string[start:i-1].strip())
                     segments.append('print')
                 else:
                     segments.append(string[start:i].strip())
-                start = i+1 # Clip off the >, we don't need it anymore
+                start = i+1 # Clip off the >
 
+        ## Add the final segment, disregarding quotes or parentheses left open
         segments.append(string[start:].strip())
         return segments
 
@@ -229,15 +235,65 @@ class Pipeline:
     # Use of this regex relies on the knowledge/assumption that the nested parentheses in the string are matched
     wrapping_brackets_regex = re.compile(r'\(((.*)\)|(.*))')
 
+    def steal_parentheses(self, segment):
+        '''Steals all (intelligently-parsed) parentheses-wrapped parts from a string and puts them in a list so we can put them back later.'''
+        ## Prepare the segment for Magic
+        # Pretty sure the magic markers don't need to be different from the triple quote ones, but it can't hurt so why not haha
+        segment = segment.replace('µ', '?µ?')
+
+        # Parsing loop similar to the one in split_into_segments.
+        # NOTE: So why not combine the two into one? Well, I tried, but BETWEEN splitting into segments and stealing parentheses
+        # we have to consume the group mode from each segment! Which is hard to squeeze in here! Especially since one group mode also uses parentheses!!!
+        stolen = []
+        bereft = ''
+
+        quotes = False
+        parens = 0
+        start = 0
+
+        for i in range(len(segment)):
+            c = segment[i]
+
+            ## Open quotes
+            if quotes and c == '"': quotes = False
+            ## Close quotes
+            elif c == '"': quotes = True
+
+            ## Open parentheses
+            elif c == '(':
+                parens += 1
+                ## This '(' opens a top level parenthesis: Start stealing it.
+                if parens == 1:
+                    ## Leave behind a Magic Marker in its place, and remember where it started
+                    bereft += segment[start:i] + 'µ' + str(len(stolen)) + 'µ'
+                    start = i
+
+            ## Close parentheses
+            elif c == ')':
+                if parens > 0: parens -= 1
+                ## This ')' closes a top-level parenthesis: Complete stealing it.
+                if parens == 0:
+                    ## Add the portion to our spoils, and continue from there.
+                    stolen.append( segment[start:i+1] )
+                    start = i+1
+
+        ## Parentheses weren't closed before the segment (and thus also the script) ended: Pretend they were closed.
+        if parens > 1: stolen.append(segment[start:])
+        ## Parentheses were closed: Just add the last bit of text and we're done.
+        else: bereft += segment[start:]
+
+        return bereft, stolen
+
+    def restore_parentheses(self, bereft, stolen):
+        bereft = re.sub('µ(\d+)µ', lambda m: stolen[int(m.groups()[0])], bereft)
+        return bereft.replace('?µ?', 'µ')
 
     def steal_triple_quotes(self, segment):
-        '''Takes all parts of a string wrapped in triple quotes and puts them in a list so we can find them later'''
+        '''Steals all triple quoted parts from a string and puts them in a list so we can put them back later.'''
         stolen = []
-
         def steal(match):
             stolen.append('"' + match.groups()[0] + '"') # TODO: turning """ into " causes undersirable consequences!
             return '§' + str(len(stolen)-1) + '§'
-
         segment = segment.replace('§', '!§!')
         segment = re.sub(r'(?s)"""(.*?)"""', steal, segment) # (?s) means "dot matches all"
         return segment, stolen
@@ -248,33 +304,33 @@ class Pipeline:
 
     def parse_segment(self, segment):
         '''Turn a single string describing one or more parallel pipes into a list of ParsedPipes or Pipelines.'''
-
-        ### True and utter hack: Steal triple-quoted strings out of the segment and put them back later,
-        # after expanding the choices, this way triple quotes prevent their contents from being parsed/expanded.
-        segment, stolen = self.steal_triple_quotes(segment)
-        print(segment)
-        print(stolen)
+        #### True and utter hack: Steal triple-quoted strings and parentheses wrapped strings out of the segment string.
+        # This way these types of substrings are not affected by ChoiceTree expansion, because we only put them back afterwards.
+        # For triple quotes: This allows us to pass string arguments containing [|] without having to escape them, which is nice to have.
+        # For parentheses: This allows us to use parallel segments inside of inline pipelines, giving them a lot more power and utility.
+        segment, stolen_parens = self.steal_parentheses(segment)
+        segment, stolen_quotes = self.steal_triple_quotes(segment)
 
         # ChoiceTree expands the single string into a set of strings.
         parallel_pipes = ChoiceTree(segment, parse_flags=True, add_brackets=True).all()
 
-        ### Parse the simultaneous pipes into a usable form: A list of Pipeline or ParsedPipe objects
+        ### Parse the simultaneous pipes into a usable form: A list of (Pipeline or ParsedPipe) objects
         parsedPipes = []
 
         for pipe in parallel_pipes:
-            # Put the stolen triple-quoted strings back
-            pipe = self.restore_triple_quotes(pipe, stolen)
+            ## Put the stolen triple-quoted strings and parentheses back.
+            pipe = self.restore_triple_quotes(pipe, stolen_quotes)
+            pipe = self.restore_parentheses(pipe, stolen_parens)
 
-            # CASE: Inline pipeline: (foo > bar > baz)
+            ## Inline pipeline: (foo > bar > baz)
             if pipe and pipe[0] == '(':
-                # TODO: this is bullshit, we actually smartly parse braces earlier, don't throw that info out!
-                # NOTE: this regex is dumb as dog tits
+                # TODO: This regex is dumb as tits. Somehow use the knowledge from the parentheses parsing earlier instead.
                 m = re.match(Pipeline.wrapping_brackets_regex, pipe)
                 pipeline = m.groups()[1] or m.groups()[2]
-                # Instantly parse the inline pipeline
+                # Immediately parse the inline pipeline
                 parsedPipes.append(Pipeline(pipeline))
 
-            # CASE: Normal pipe: foo [bar=baz]*
+            ## Normal pipe: foo [bar=baz]*
             else:
                 name, *args = pipe.strip().split(' ', 1)
                 name = name.lower()

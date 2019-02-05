@@ -279,7 +279,7 @@ class Interval(GroupMode):
 # or:
 #   ( \d+ )
 
-pattern = re.compile(r'(\*?)(?:(%|#|/)\s*(-?\d*(?:\.\.+-?\d+)?)|\(\s*(\d+)\s*\)|)\s*')
+pattern = re.compile(r'\s*(\*?)(?:(%|#|/)\s*(-?\d*(?:\.\.+-?\d+)?)|\(\s*(\d+)\s*\)|)\s*')
 
 def parse(bigPipe, error_log):
     m = re.match(pattern, bigPipe)
