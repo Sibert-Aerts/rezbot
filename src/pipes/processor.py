@@ -107,12 +107,22 @@ class SourceProcessor:
                 return sources[name](self.message, args, n=n)
             elif name in source_macros:
                 code = source_macros[name].apply_args(args)
-                source_pl = Pipeline(code, self.message)
-                # TODO: REUSE: Ability to reuse the pipeline n amount of times easily.
-                values = source_pl.apply_source_and_pipeline()
-                self.errors.extend(source_pl.error_log, name)
+                # Dressed-down version of PipelineProcessor.execute_script:
+                source, pipeline = PipelineProcessor.split(code)
+                ## STEP 1
+                source_processor = SourceProcessor(self.bot, self.message)
+                values = source_processor.evaluate(source)
+                errors = source_processor.errors
+                ## STEP 2
+                # TODO: REUSE: Pull these bits of parsing up or summat
+                pipeline = Pipeline(pipeline)
+                ## STEP 3
+                values, _, pl_errors, _ = pipeline.apply(values, self.message)
+                errors.extend(pl_errors)
+                # TODO: Ability to reuse a script N amount of times easily?
+                # Right now we just ignore the N argument....
+                self.errors.extend(errors, name)
                 return values
-                # TODO: we throw away source_pl's printValues here, maybe they are still of use!
         return None
 
     def evaluate_pure_source(self, source):
@@ -409,7 +419,7 @@ class PipelineProcessor:
         output = texttools.block_format('\n'.join(rows))
         await self.bot.send_message(dest, output)
 
-    def split(self, script):
+    def split(script):
         '''Splits a script into the source and pipeline.'''
         # So here's the deal:
         #    SOURCE > PIPE > PIPE > PIPE > ETC...
@@ -429,7 +439,7 @@ class PipelineProcessor:
         return script.strip(), ''
 
     async def execute_script(self, script, message):
-        source, pipeline = self.split(script)
+        source, pipeline = PipelineProcessor.split(script)
         errors = ErrorLog()
 
         try:
