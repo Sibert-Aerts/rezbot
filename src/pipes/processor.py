@@ -275,13 +275,13 @@ class Pipeline:
 
         return parsedPipes
 
-    def check_values(self, values):
+    def check_values(self, values, message):
         '''Raises an error if the user is asking too much of the bot.'''
         # TODO: this could stand to be smarter/more oriented to the type of operation you're trying to do, or something, maybe...?
         # meditate on this...
         MAXCHARS = 1000
         chars = sum(len(i) for i in values)
-        if chars > MAXCHARS and not permissions.has(self.message.author.id, permissions.owner):
+        if chars > MAXCHARS and not permissions.has(message.author.id, permissions.owner):
             raise PipelineError('Attempted to process a flow of {} total characters at once, try staying under {}.'.format(chars, MAXVALUES))
 
     def apply(self, values, message):
@@ -291,7 +291,7 @@ class Pipeline:
         errors.extend(self.parser_errors) # Include the errors we found during parsing!
         SPOUT_CALLBACKS = []
 
-        self.check_values(values)
+        self.check_values(values, message)
 
         ### This loop iterates over the pipeline's pipes as they are applied in sequence. (first > second > third)
         for groupMode, parsedPipes in self.parsed_segments:
@@ -362,7 +362,7 @@ class Pipeline:
             if len(newPrintValues):
                 printValues.append(newPrintValues)
 
-            self.check_values(values)
+            self.check_values(values, message)
 
         return values, printValues, errors, SPOUT_CALLBACKS
 
