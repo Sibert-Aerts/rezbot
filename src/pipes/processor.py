@@ -153,7 +153,7 @@ class SourceProcessor:
     def evaluate(self, source):
         '''Takes a raw source string, expands it into multiple strings, applies {sources} in each one and returns the set of values.'''
         values = []
-        if source[0] == source[-1] == '"' and len(source) > 1:
+        if len(source) > 1 and source[0] == source[-1] == '"':
             source = source[1:-1]
         for source in ChoiceTree(source, parse_flags=True, add_brackets=True).all():
             if self.is_pure_source(source):
