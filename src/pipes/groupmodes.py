@@ -134,18 +134,22 @@ class GroupModeError(ValueError):
     pass
 
 class GroupMode:
-    def __init__(self, multiply):
+    def __init__(self, multiply, strict):
         self.multiply = multiply
+        self.strict = strict
 
     def __str__(self):
-        return 'MULTIPLIED' if self.multiply else 'REGULAR'
+        qualifiers = []
+        if self.strict: qualifiers.append('STRICT')
+        if self.multiply: qualifiers.append('MULTIPLIED')
+        return  ' '.join(qualifiers)
 
     def apply(self, values, pipes):
         raise NotImplementedError()
 
 class Group(GroupMode):
-    def __init__(self, multiply, size, padding):
-        super().__init__(multiply)
+    def __init__(self, multiply, strict, size, padding):
+        super().__init__(multiply, strict)
         if size < 1: raise GroupModeError('Group size must be at least 1.')
         self.size = size
         self.padding = padding
@@ -172,8 +176,8 @@ class Group(GroupMode):
         return out
 
 class Divide(GroupMode):
-    def __init__(self, multiply, count, padding):
-        super().__init__(multiply)
+    def __init__(self, multiply, strict, count, padding):
+        super().__init__(multiply, strict)
         if count < 1: raise GroupModeError('Divide count must be at least 1.')
         self.count = count
         self.padding = padding
@@ -213,8 +217,8 @@ class Divide(GroupMode):
         return out
 
 class Modulo(GroupMode):
-    def __init__(self, multiply, modulo, padding):
-        super().__init__(multiply)
+    def __init__(self, multiply, strict, modulo, padding):
+        super().__init__(multiply, strict)
         if modulo < 1: raise GroupModeError('Modulo value must be at least 1.')
         self.modulo = modulo
         self.padding = padding
@@ -239,38 +243,62 @@ class Modulo(GroupMode):
         return out
 
 class Interval(GroupMode):
-    def __init__(self, multiply, lval, rval):
-        super().__init__(multiply)
-        self.lval = lval
-        self.rval = rval
+
+    # Magical objects.
+    END = object()
+
+    def __init__(self, multiply, strict, lval, rval):
+        super().__init__(multiply, strict)
+        ## lval is either an integer or the magical value END
+        if lval == '': raise GroupModeError('Missing index.') 
+        self.lval = int(lval) if lval != '-0' else Interval.END
+        ## rval is either None, an integer, or the magical value END
+        if rval is None:
+            self.rval = None
+        else:
+            self.rval = int(rval) if rval != '-0' else Interval.END
 
     def __str__(self):
         return '{} INTERVAL FROM {} TO {}'.format(super().__str__(), self.lval, self.rval)
 
     def apply(self, values, pipes):
         # TODO: crop rule
-        nop = None
+        NOP = None
         length = len(values)
 
-        if length == 0: return [(values, nop)]
+        if length == 0: return [(values, NOP)]
 
-        lval = int(self.lval) if self.lval != '-0' else length
-        if self.rval is None:
-            if   self.lval == '-1': rval = length # Writing #-1 is equivalent to #-1..-0: The last element
-            elif self.lval == '-0': rval = length # Writing #-0 is equivalent to #-0..-0: The empty tail
+        ## Determine the effective lval
+        lval = self.lval if self.lval != Interval.END else length
+
+        ## Determine the effective rval
+        if self.rval is Interval.END:
+            rval = length
+        elif self.rval is None:
+            if self.lval == -1:             # Writing #-1 is equivalent to #-1..-0: The last element
+                rval = length
+            elif self.lval == Interval.END: # Writing #-0 is equivalent to #-0..-0: The empty tail
+                rval = length
             else: rval = lval + 1
         else:
-            rval = int(self.rval) if self.rval != '-0' else length
+            rval = self.rval
+
+        ## Manually adjust the indices to be non-negative
         while lval < 0: lval += length
         while rval < 0: rval += length
-        if rval < lval: # negative range: nop
-            return [(values, nop)]
-        else:
+        ## Special case: If we're targeting a negative range, simply target the empty range [lval:lval]
+        if rval < lval: rval = lval
+
+        ## Non-strict: Apply NOP to the values outside of the selected range.
+        if not self.strict:
             return [
-                (values[0: lval], nop),
+                (values[0: lval], NOP),
                 (values[lval: rval], pipes[0]),
-                (values[rval: length], nop),
+                (values[rval: length], NOP),
             ]
+        ## Strict: Throw away the values outside of the selected range.
+        else:
+            return [(values[lval: rval], pipes[0])]
 
 # pattern:
 # optionally starting with *
@@ -279,19 +307,21 @@ class Interval(GroupMode):
 # or:
 #   ( \d+ )
 
-pattern = re.compile(r'\s*(\*?)(?:(%|#|/)\s*(-?\d*(?:\.\.+-?\d+)?)|\(\s*(\d+)\s*\)|)\s*')
+pattern = re.compile(r'\s*(\*?)(?:(%|#|/)\s*(-?\d*(?:\.\.+-?\d+)?)|\(\s*(\d+)\s*\)|)(!?)\s*')
+#                          ^↑^     ^^↑^^     ^^^^^^^^^↑^^^^^^^^^^    ^^^^^↑^^^^^^    ↑^
+# Groups:                multiply   mode            value             lparvalue    strict
 
 def parse(bigPipe, error_log):
     m = re.match(pattern, bigPipe)
 
-    if m is None:
-        return bigPipe, Divide(False, 1, False)
+    ## Default behaviour: Divide into one.
+    if m is None or m.group() == '':
+        return bigPipe, Divide(False, False, 1, False)
 
     flag = m.group()
-    # print('FLAG:', flag)
-    # print('GROUPS:', m.groups())
-    multiply, mode, value, lparvalue = m.groups()
+    multiply, mode, value, lparvalue, strict = m.groups()
     multiply = (multiply == '*')
+    strict = (strict == '!')
 
     if lparvalue is not None:
         mode = '('
@@ -299,41 +329,43 @@ def parse(bigPipe, error_log):
 
     try:
         if not mode:
-            mode = Divide(multiply, 1, False)
+            mode = Divide(multiply, False, 1, False)
         elif mode in ['(', '%', '/']:
-            # TODO: extend to 3-value enum: agnostic, pad and crop
+
             padding = (value[0]=='0') if value else False
             value = int(value) if value else 1
+
             if mode == '(':
-                mode = Group(multiply, value, padding)
+                mode = Group(multiply, strict, value, padding)
             elif mode == '%':
-                mode = Modulo(multiply, value, padding)
+                mode = Modulo(multiply, strict, value, padding)
             elif mode == '/':
-                mode = Divide(multiply, value, padding)
+                mode = Divide(multiply, strict, value, padding)
         else:
+            ## Interval mode: '#'
             vals = re.split('\.+', value)
             lval = vals[0]
             rval = vals[1] if len(vals)>1 else None
-            mode = Interval(multiply, lval, rval)
+            mode = Interval(multiply, strict, lval, rval)
 
-        # Cut off the groupmode flag
+        ## Cut off the groupmode flag
         bigPipe = bigPipe[len(flag):]
         return bigPipe, mode
 
     except GroupModeError as e:
         print('groupmode warning: ' + str(e))
-        error_log('"{}": '.format(flag) + str(e))
+        error_log('"{}": '.format(flag.strip()) + str(e))
         bigPipe = bigPipe[len(flag):]
-        return bigPipe, Divide(False, 1, False)
+        return bigPipe, Divide(False, False, 1, False)
 
 
 # Tests!
 if __name__ == '__main__':
-    tests = ['foo', '*  foo', '10', '%4', '(20)', '/10', '#7', '#14..20', '/', '()', '#', '*% 2', '*(07)', '/010', '(8']
+    tests = ['foo', '*  foo', '10', '%4', '(20)', '/10', '#7', '#14..20', '/', '()', '(0)', '#', '*% 2', '*(07)', '/010', '(8', '#0..2!']
     print('TESTS:')
     for test in tests:
         try:
-            out, mode = parse(test)
+            out, mode = parse(test, lambda x:x)
             print(test + ((' → "' + out + '"') if out else '') + ' : ' + str(mode))
         except Exception as e:
             print(test + ' : ' + 'ERROR! ' + str(e))
