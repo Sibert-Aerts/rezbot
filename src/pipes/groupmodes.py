@@ -105,8 +105,8 @@ import math
 #   • If $n doesn't start with '0': Input is split into groups of ceil($m/$n), except the last groups which may contain less items or even be empty.
 #   >>> [alpha|beta|gamma|delta] > /2 convert [fraktur|fullwidth]
 # Output: 𝔞𝔩𝔭𝔥𝔞
-#         𝔤𝔞𝔪𝔪𝔞
-#         ｂｅｔａ
+#         𝔟𝔢𝔱𝔞
+#         ｇａｍｍａ
 #         ｄｅｌｔａ
 
 ## Modulo grouping:
@@ -115,8 +115,8 @@ import math
 # Behaves identical to Divide grouping otherwise, including $n starting with '0' to pad each group out to equal size and strictness.
 #   >>> [alpha|beta|gamma|delta] > %2 convert [fraktur|fullwidth]
 # Output: 𝔞𝔩𝔭𝔥𝔞
-#         𝔟𝔢𝔱𝔞
-#         ｇａｍｍａ
+#         𝔤𝔞𝔪𝔪𝔞
+#         ｂｅｔａ
 #         ｄｅｌｔａ
 
 ## Interval grouping:
