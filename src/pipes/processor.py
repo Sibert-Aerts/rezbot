@@ -80,8 +80,7 @@ class ParsedPipe:
 
 
 class SourceProcessor:
-    def __init__(self, bot, message):
-        self.bot = bot
+    def __init__(self, message):
         self.message = message
         self.errors = ErrorLog()
 
@@ -110,7 +109,7 @@ class SourceProcessor:
                 # Dressed-down version of PipelineProcessor.execute_script:
                 source, pipeline = PipelineProcessor.split(code)
                 ## STEP 1
-                source_processor = SourceProcessor(self.bot, self.message)
+                source_processor = SourceProcessor(self.message)
                 values = source_processor.evaluate(source)
                 errors = source_processor.errors
                 ## STEP 2
@@ -510,7 +509,7 @@ class PipelineProcessor:
 
         try:
             ### STEP 1: GET STARTING VALUES FROM SOURCE
-            source_processor = SourceProcessor(self.bot, message)
+            source_processor = SourceProcessor(message)
             values = source_processor.evaluate(source)
             errors.extend(source_processor.errors)
             

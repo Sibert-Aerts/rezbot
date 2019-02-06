@@ -8,7 +8,7 @@ from .pipes import pipes
 from .sources import sources
 from .spouts import spouts
 from .macros import pipe_macros, source_macros
-from .processor import Pipeline, PipelineProcessor
+from .processor import PipelineProcessor, SourceProcessor
 from mycommands import MyCommands
 import utils.texttools as texttools
 import utils.util as util
@@ -148,8 +148,8 @@ class PipeCommands(MyCommands):
 def pipe_to_func(pipe):
     async def func(self, ctx):
         text = util.strip_command(ctx)
-        pl = Pipeline('', ctx.message)
-        text = pl.evaluate_composite_source(text)
+        proc = SourceProcessor(ctx.message)
+        text = proc.evaluate_composite_source(text)
         text = '\n'.join(pipe.as_command(text))
         await self.say(text)
     func.__name__ = pipe.name
@@ -170,8 +170,8 @@ for pipe in pipes.command_pipes:
 def source_to_func(source):
     async def func(self, ctx):
         text = util.strip_command(ctx)
-        pl = Pipeline('', ctx.message)
-        text = pl.evaluate_composite_source(text)
+        proc = SourceProcessor(ctx.message)
+        text = proc.evaluate_composite_source(text)
         text = '\n'.join(source(ctx.message, text))
         await self.say(text)
     func.__name__ = source.name
@@ -192,11 +192,9 @@ for source in sources.command_sources:
 def spout_to_func(spout):
     async def func(self, ctx):
         text = util.strip_command(ctx)
-        pl = Pipeline('', ctx.message)
-        text = pl.evaluate_composite_source(text)
-        async def send_message(*args, **kwargs):
-            await self.bot.send_message(ctx.message.channel, *args, **kwargs)
-        await spout.as_command(send_message, text)
+        proc = SourceProcessor(ctx.message)
+        text = proc.evaluate_composite_source(text)
+        await spout.as_command(self.bot, ctx.message, text)
     func.__name__ = spout.name
     func.__doc__ = spout.command_doc()
     return func
