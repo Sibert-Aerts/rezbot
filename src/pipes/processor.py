@@ -279,7 +279,7 @@ class Pipeline:
                     start = i+1
 
         ## Parentheses weren't closed before the segment (and thus also the script) ended: Pretend they were closed.
-        if parens > 1: stolen.append(segment[start:])
+        if parens > 0: stolen.append(segment[start:])
         ## Parentheses were closed: Just add the last bit of text and we're done.
         else: bereft += segment[start:]
 
