@@ -202,9 +202,10 @@ class Pipeline:
         for i in range(len(string)):
             c = string[i]
 
-            ## Close quotes
-            if quotes and c == '"':
-                quotes = False
+            ## If quotes are open, only check for closing quotes.
+            if quotes:
+                ## Close quotes
+                if c == '"': quotes = False
 
             ## Open quotes
             elif c == '"':
