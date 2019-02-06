@@ -27,6 +27,20 @@ def url(s):
     if len(s)>2 and s[0]=='<' and s[-1]=='>': return s[1:-1]
     return s
 
+def hex(h):
+    return int(h, base=16)
+
+
+@make_spout({
+    'title':    Sig(str, '', 'The title.'),
+    'color':    Sig(hex, 0, 'The highlight color as a hexadecimal value.'),
+})
+async def embed_spout(bot, message, values, title, color):
+    '''Outputs text as a simple discord embed.'''
+    e = Embed(title=title, description='\n'.join(values), color=color)
+    await bot.send_message(message.channel, embed=e)
+
+
 @make_spout({
     'name':     Sig(str, 'test_user', 'The account\'s display name.'),
     'handle':   Sig(str, 'test_user', 'The account\'s handle, (without the @).'),
@@ -41,6 +55,7 @@ async def tweet_spout(bot, message, values, name, handle, icon):
     e.add_field(name='Likes', value=random.randint(1000, 10000))
     await bot.send_message(message.channel, embed=e)
 
+
 @make_spout({}, command=True)
 async def trump_tweet_spout(bot, message, values):
     '''Outputs text as an embedded tweet from the president of the united states.'''
@@ -51,10 +66,12 @@ async def trump_tweet_spout(bot, message, values):
     e.add_field(name='Likes', value=random.randint(25000, 150000))
     await bot.send_message(message.channel, embed=e)
 
+
 @make_spout({})
 async def delete_this_spout(bot, message, values):
     '''Deletes the message that triggered the script's execution.'''
     await bot.delete_message(message)
+
 
 @make_spout({})
 async def message_spout(bot, message, values):
