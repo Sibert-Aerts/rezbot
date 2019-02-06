@@ -271,12 +271,13 @@ class Pipeline:
 
             ## Close parentheses
             elif c == ')':
-                if parens > 0: parens -= 1
-                ## This ')' closes a top-level parenthesis: Complete stealing it.
-                if parens == 0:
-                    ## Add the portion to our spoils, and continue from there.
-                    stolen.append( segment[start:i+1] )
-                    start = i+1
+                if parens > 0:
+                    parens -= 1
+                    ## This ')' closes a top-level parenthesis: Complete stealing it.
+                    if parens == 0:
+                        ## Add the portion to our spoils, and continue from there.
+                        stolen.append( segment[start:i+1] )
+                        start = i+1
 
         ## Parentheses weren't closed before the segment (and thus also the script) ended: Pretend they were closed.
         if parens > 0: stolen.append(segment[start:])
