@@ -235,6 +235,13 @@ def wrap_pipe(inputs, mode, width):
         return [wrapped for text in inputs for wrapped in textwrap.wrap(text, width)]
 
 
+@make_pipe({})
+@as_map
+def strip_pipe(value):
+    '''Strips whitespace from the starts and ends of each input.'''
+    return value.strip()
+
+
 @make_pipe({
     'from': Sig(str, None, 'Pattern to replace (regex)'),
     'to' : Sig(str, None, 'Replacement string'),
