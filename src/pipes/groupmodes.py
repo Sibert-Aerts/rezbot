@@ -7,7 +7,7 @@ import math
 # What happens here is how a pipe determines how different inputs are grouped when they are processed by pipes.
 # In many pipes "grouping" makes no difference, pipes such as "convert" or "translate" simply act on each individual input regardless of how they are grouped.
 
-# There are, however, pipes where it makes a difference. Take for example the "join" pipe:
+# There are, however, some pipes where it does make a difference. Take for example the "join" pipe:
 
 #   >>> [alpha|beta|gamma|delta] -> join s=", "
 # Output: alpha → alpha, beta, gamma, delta
@@ -22,7 +22,7 @@ import math
 #         delta
 
 # The number of inputs it receives at once determine what its output looks like, and even how many outputs it produces!
-# Furthermore, even "normal" pipes make use of grouping, in the context of simultaneous pipes:
+# The other situation where group modes matter is when applying multiple pipes in parallel, like so:
 
 #   >>> [alpha|beta|gamma|delta] > (1) convert [fraktur|fullwidth]
 # Output: 𝔞𝔩𝔭𝔥𝔞
@@ -30,45 +30,53 @@ import math
 #         𝔤𝔞𝔪𝔪𝔞
 #         ｄｅｌｔａ
 
-# This script divided the inputs into groups of 1, and fed them individually, simultaneously into either "convert fraktur" or "convert fullwidth".
-# These should make the utility and power of grouping clear.
+# The (1) tells the script to split the values into groups of 1 item each. Each of these groups of size 1 are then *alternately*
+# fed into "convert fraktur" and "convert fullwidth", as you can see from the output. This should make the utility of grouping clear.
+# Note: If we don't put the (1) there, it will assume the default group mode /1, which simply puts all values into one group and applies it
+# to the first pipe of the parallel pipes, leaving the other pipe unused (e.g. in the example, all inputs would be converted to fraktur lettering.)
 
 
 ### Some quick syntax examples:
 
-#   >>> foo > bar > tox
-# Means: Take the string "foo", feed it into the pipe named "bar" and feed that output into the pipe named "tox" which produces the final output.
-
-#   >>> foo > *[bar|tox]
-# Means: Take the string "foo", feed it into BOTH the pipes "bar" and "tox", and the final output is the combined of those 2 pipes' outputs.
-#   So, if neither "bar" nor "tox" had any effects on the input string, the output would now be the string "foo", TWICE.
-
 #   >>> {foo} > (2) bar
-# Means: Fetch output produced by the source named "foo", which could be any number of strings, and feed it into the "bar" pipe in groups of 2.
-# e.g. >>> {words n=4} > (2) join sep=" and "
-# Might produce the following 2 rows of output: "trousers and presbyterian", "lettuce's and africanism"
+# Means: Fetch output produced by the source named "foo" (which could be any number of strings) and feed it into the "bar" pipe in groups of 2.
+
+# e.g. >>> {words n=4} > (2) join s=" AND "
+# Might produce the following 2 rows of output: "trousers AND presbyterian", "lettuce's AND africanism"
 
 #   >>> {foo} > (2) [bar|tox]
-# Means: Fetch output from the source "foo", split it into groups of 2, feed the first group into "bar", the second into "tox", third into "bar", and so on,
-#   combining into a single column of output.
+# Means: Fetch output from the source "foo", split it into groups of 2, feed the first group into "bar", the second into "tox", third into "bar", and so on.
+
+# e.g. >>> {words n=4} > (2) [join s=" AND " | join s=" OR "]
+# Might produce the 2 rows of output: "derides AND clambered", "swatting OR quays"
 
 #   >>> {foo} > *(2) [bar|tox]
-# Means: Fetch output from source "foo", split it in groups of 2, feed each group individually into "bar", and then feed each group into "tox",
-#   combining into a single column of output.
+# Means: Fetch output from source "foo", split it in groups of 2, feed each group individually into "bar", and then feed each group into "tox".
+
+# e.g. >>> {words n=4} > *(2) [join s=" AND " | join s=" OR "]
+# Might produce these 4 outputs: "horseflies AND retool", "horseflies OR retool", "possum AND ducts", "possum OR ducts"
 
 
 ### All syntax rules:
 
-## Multiplication mode:
-#   >>> {source} > * %%%% [pipe1|pipe2|...]
-# (With %%%% representing any group mode)
+## Multiply option:
+# Given by adding an asterisk* before the group mode:
+#   >>> {source} > * $$$$ [pipe1|pipe2|...]
+# (With $$$$ representing a group mode)
 # *Each* group of input is fed into *each* of the simultaneous pipes (pipe1, pipe2, etc)
-# Resulting in (number of groups) x (number of simultaneous pipes) pipe applications total, which is usually a lot.
+# Resulting in (number of groups) × (number of simultaneous pipes) pipe applications total, which is usually a lot.
+
+## Strict option:
+# Given by adding an exclamation mark after the group mode!
+#   >>> {source} > $$$$ ! [pipe1|pipe2|...]
+# (With $$$$ representing a group mode)
+# This option tells the group mode to simply throw away input values that don't "fit".
+# What it specifically throws away (if anything) depends on the type of group mode and the values it's grouping.
 
 ## Default grouping:
 #   >>> {source} > [pipe1|pipe2|...|pipex]
 # Feeds all input to pipe1 as a single group, ignoring pipe2 through pipex.
-# Identical to divide grouping with $n as 1.
+# Identical to Divide grouping with $n as 1, i.e. "/1".
 #   >>> [alpha|beta|gamma|delta] > convert [fraktur|fullwidth]
 # Output: 𝔞𝔩𝔭𝔥𝔞
 #         𝔟𝔢𝔱𝔞
@@ -78,8 +86,10 @@ import math
 ## Normal grouping:
 #   >>> {source} > ($n) [pipe1|pipe2|...|pipex]
 # Groups the first $n inputs and feeds them to pipe1, the second $n inputs to pipe2, ..., the x+1th group of $n inputs to pipe1 again, etc.
-# If the number of inputs doesn't divide by $n, the last group will contain less than $n items, 
-# unless $n starts with '0', then it will be padded out with empty strings.
+# If the number of inputs doesn't divide by $n:
+#   • If the strict option is given: It will throw away the remaining less-than-$n items.
+#   • If $n starts with a '0': It will pad out the last group with empty strings to make $n items.
+#   • Otherwise: The last group will simply contain less than $n items.
 #   >>> [alpha|beta|gamma|delta] > (3) convert [fraktur|fullwidth]
 # Output: 𝔞𝔩𝔭𝔥𝔞
 #         𝔟𝔢𝔱𝔞
@@ -90,9 +100,9 @@ import math
 #   >>> {source} > /$n [pipe1|pipe2|...|pipex]
 # Splits the input into $n equally sized* groups of sequential inputs, and feeds the first group into pipe1, second into pipe2, etc.
 # Call $m the number of inputs to be grouped. In case $m is not divisible by $n:
-#   • If $n doesn't start with '0': Input is split into groups of ceil($m/$n), except the last group which may contain less items.
+#   • If the strict option is given: Input is split into groups of floor($m/$n), throwing away extraneous items.
 #   • If $n starts with '0': Input is split into groups of ceil($m/$n), and the last group is padded out with empty strings.
-#   • (Currently no option to group inputs into groups of floor($m/$n), cropping out other inputs.)
+#   • If $n doesn't start with '0': Input is split into groups of ceil($m/$n), except the last groups which may contain less items or even be empty.
 #   >>> [alpha|beta|gamma|delta] > /2 convert [fraktur|fullwidth]
 # Output: 𝔞𝔩𝔭𝔥𝔞
 #         𝔤𝔞𝔪𝔪𝔞
@@ -102,7 +112,7 @@ import math
 ## Modulo grouping:
 #   >>> {source} > %$n [pipe1|pipe2|...|pipex]
 # Splits the input into $n equally sized* groups of inputs that have the same index modulo $n.
-# Behaves identical to Divide grouping otherwise, including $n starting with '0' to pad each group out to equal size.
+# Behaves identical to Divide grouping otherwise, including $n starting with '0' to pad each group out to equal size and strictness.
 #   >>> [alpha|beta|gamma|delta] > %2 convert [fraktur|fullwidth]
 # Output: 𝔞𝔩𝔭𝔥𝔞
 #         𝔟𝔢𝔱𝔞
@@ -111,8 +121,8 @@ import math
 
 ## Interval grouping:
 #   >>> {source} > #$i..$j [pipe1|pipe2|...]
-# Groups inputs from index $i up to (not including) index $j as one group and applies them to pipe1.
-# All other input is kept in place, unaffected, all other pipes are ignored.
+# Groups inputs from index $i up to (not including) index $j as one group and applies them to pipe1, the other pipes are never used.
+# If the strict option is given, the items outside the selected range are thrown away, otherwise they are left in place, unaffected.
 # $i and $j can be negative, and follows python's negative index logic for those. (e.g. a[-1] == a[len(a)-1])
 # $i and $j may also use '-0' to indicate the last position in the string. (i.e. '-0' -> len(inputs))
 #   >>> [alpha|beta|gamma|delta] > #1..3 convert fullwidth
@@ -123,7 +133,7 @@ import math
 
 ## Index grouping:
 #   >>> {source} > #$i [pipe1|pipe2|...]
-# Same as Interval grouping with $j = $i+1. (Except if $j == '-0' then $i == '-0' as well.)
+# Same as Interval grouping with $j := $i+1. (Except if $j == '-0' then $i == '-0' as well.) (This has use cases, I swear)
 #   >>> [alpha|beta|gamma|delta] > #2 convert fullwidth
 # Output: alpha
 #         beta
