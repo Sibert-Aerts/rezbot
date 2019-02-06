@@ -255,8 +255,10 @@ class Pipeline:
         for i in range(len(segment)):
             c = segment[i]
 
-            ## Open quotes
-            if quotes and c == '"': quotes = False
+            ## If we're in quotes: ONLY look for closing quotes.
+            if quotes:
+                ## Open quotes
+                if c == '"': quotes = False
             ## Close quotes
             elif c == '"': quotes = True
 
