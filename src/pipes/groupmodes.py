@@ -142,7 +142,7 @@ class GroupMode:
         qualifiers = []
         if self.strict: qualifiers.append('STRICT')
         if self.multiply: qualifiers.append('MULTIPLIED')
-        return  ' '.join(qualifiers)
+        return ' '.join(qualifiers)
 
     def apply(self, values, pipes):
         raise NotImplementedError()
@@ -155,24 +155,33 @@ class Group(GroupMode):
         self.padding = padding
 
     def __str__(self):
-        return '{} GROUPS SIZE {} WITH{} PADDING'.format(super().__str__(), self.size, 'OUT' if not self.padding else '')
+        return '{} GROUPS SIZE {}{}'.format(super().__str__(), self.size, ' WITH PADDING' if self.padding else '')
 
     def apply(self, values, pipes):
-        # TODO: crop rule
-        if self.padding:
-            values = values + (math.ceil(len(values)/self.size)*self.size - len(values)) * ['']
+        size = self.size
+        if self.strict:
+            ## Cut off the trailing values that aren't enough to make a group of the desired size.
+            values = values[:(len(values)//size)*size]
+        elif self.padding:
+            ## Add just enough empty values at the end so that the last group also has the desired size.
+            values += [''] * (math.ceil(len(values)/size)*size - len(values))
         out = []
 
-        for i in range(0, len(values), self.size):
-            # Slice the inputs according to group size
-            vals = values[i: i+self.size]
+        ## Special case: Values is an empty list.
+        if len(values) == 0:
+            ## Strict: Do nothing. (Dubious?)
+            if self.strict: return []
+            ## Non-strict: Assume the empty list as our only group.
+            if self.multiply: return [([], pipe) for pipe in pipes]
+            else: return [([], pipes[0])]
 
+        ## Slice our input into groups of the desired size, and assign them to successive pipes.
+        for i in range(0, len(values), size):
+            vals = values[i: i+size]
             if self.multiply:
-                for pipe in pipes:
-                    out.append((vals, pipe))
+                for pipe in pipes: out.append((vals, pipe))
             else:
-                # (i/size) is always an int, we just cast it else % gets angry
-                out.append((vals, pipes[int(i/self.size) % len(pipes)]))
+                out.append((vals, pipes[ i//size % len(pipes) ]))
         return out
 
 class Divide(GroupMode):
@@ -183,35 +192,46 @@ class Divide(GroupMode):
         self.padding = padding
 
     def __str__(self):
-        return '{} DIVIDE INTO {} WITH{} PADDING'.format(super().__str__(), self.count, 'OUT' if not self.padding else '')
+        return '{} DIVIDE INTO {}{}'.format(super().__str__(), self.count, ' WITH PADDING' if self.padding else '')
 
     def apply(self, values, pipes):
-        # TODO: crop rule
-        num = len(values)
-        size = math.floor(num/self.count)
-        rest = num % self.count
+        length = len(values)    # The number of items we want to split
+        count = self.count      # The number of groups we want to split it into
+        size = length //count   # The minimal size of each group
+        rest = length % count   # The number of leftover items if we were to split into groups of minimal size
 
-        # Edge case: We're tasked with splitting an empty list:
-        # Simply split it into the desired number of also empty lists.
-        if num == 0:
-            return [([], pipes[i % len(pipes)]) for i in range(self.count)]
+        ## Special case: Empty list of values.
+        if length == 0:
+            ## Strict: Do nothing. (Dubious?)
+            if self.strict: return []
+            ## Empty times applied to each pipe (count) times.
+            if self.multiply: return [([], pipe) for pipe in pipes for _ in range(count)]
+            ## Empty applied to (count) pipes once.
+            return [([], pipes[i % len(pipes)]) for i in range(count)]
 
-        # BIG QUESTION: empty strings, or empty lists?! WHO KNOWS!!!!!!
-        if size == 0 or (self.padding and rest):
-            values = values + (self.count - rest) * ['']
-            size += 1
-            rest = 0
+        ## Deal with the fact that we can't split the values into equal sizes.
+        if rest:
+            ## Throw away the tail end
+            if self.strict:
+                values = values[:size*count]
+                rest = 0
+            ## Pad out our values with empty strings
+            elif self.padding:
+                values += [''] * (count - rest)
+                size += 1
+                rest = 0
 
         out = []
 
+        ## Slice our inputs into groups of the desired size, and assign them to successive pipes.
         for i in range(self.count):
+            # The min(rest, i) and min(rest, i+1) ensure that the first (rest) slices get 1 extra value.
             left = i * size + min(rest, i)
             right = (i+1) * size + min(rest, i+1)
-            vals = values[left: right]
+            vals = values[left:right]
 
             if self.multiply:
-                for pipe in pipes:
-                    out.append((vals, pipe))
+                for pipe in pipes: out.append((vals, pipe))
             else:
                 out.append((vals, pipes[i % len(pipes)]))
         return out
@@ -224,20 +244,39 @@ class Modulo(GroupMode):
         self.padding = padding
 
     def __str__(self):
-        return '{} MODULO {} WITH{} PADDING'.format(super().__str__(), self.modulo, 'OUT' if not self.padding else '')
+        return '{} MODULO {}{}'.format(super().__str__(), self.modulo, ' WITH PADDING' if self.padding else '')
 
     def apply(self, values, pipes):
-        # TODO: crop rule
-        if self.padding:
-            values = values + (math.ceil(len(values)/self.modulo)*self.modulo - len(values)) * ['']
+        # Mostly identical to Divide.apply except for how the values are split, so I removed the comments.
+        length = len(values)
+        count = self.modulo
+        size = length //count
+        rest = length % count
+
+        if rest:
+            if self.strict:
+                values = values[:size*count]
+                rest = 0
+                length = size*count
+            if self.padding:
+                values += [''] * (count - rest)
+                size += 1
+                rest = 0
+                length = size*count
+
+        if length == 0:
+            if self.strict: return []
+            if self.multiply: return [([], pipe) for pipe in pipes for _ in range(count)]
+            return [([], pipes[i % len(pipes)]) for i in range(count)]
 
         out = []
-        for i in range(0, self.modulo):
-            vals = [values[x+i] for x in range(0, len(values), self.modulo) if x+i < len(values)]
+        for i in range(0, count):
+            ## Slice into groups of items whose indices are x+i where x is a multiple of (self.modulo)
+            vals = [values[x+i] for x in range(0, length, count) if x+i < length]
+            print(vals)
 
             if self.multiply:
-                for pipe in pipes:
-                    out.append((vals, pipe))
+                for pipe in pipes: out.append((vals, pipe))
             else:
                 out.append((vals, pipes[i % len(pipes)]))
         return out
@@ -262,7 +301,6 @@ class Interval(GroupMode):
         return '{} INTERVAL FROM {} TO {}'.format(super().__str__(), self.lval, self.rval)
 
     def apply(self, values, pipes):
-        # TODO: crop rule
         NOP = None
         length = len(values)
 
@@ -354,7 +392,7 @@ def parse(bigPipe, error_log):
 
     except GroupModeError as e:
         print('groupmode warning: ' + str(e))
-        error_log('"{}": '.format(flag.strip()) + str(e))
+        error_log('Group mode: "{}": {}'.format(flag.strip(), e))
         bigPipe = bigPipe[len(flag):]
         return bigPipe, Divide(False, False, 1, False)
 
