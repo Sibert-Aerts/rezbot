@@ -73,67 +73,101 @@ import math
 # This option tells the group mode to simply throw away input values that don't "fit".
 # What it specifically throws away (if anything) depends on the type of group mode and the values it's grouping.
 
-## Default grouping:
+## Default grouping (Divide grouping special case):
 #   >>> {source} > [pipe1|pipe2|...|pipex]
 # Feeds all input to pipe1 as a single group, ignoring pipe2 through pipex.
-# Identical to Divide grouping with $n as 1, i.e. "/1".
+# Identical to Divide grouping with N as 1, i.e. "/1".
 #   >>> [alpha|beta|gamma|delta] > convert [fraktur|fullwidth]
 # Output: 𝔞𝔩𝔭𝔥𝔞
 #         𝔟𝔢𝔱𝔞
 #         𝔤𝔞𝔪𝔪𝔞
 #         𝔡𝔢𝔩𝔱𝔞
 
-## Normal grouping:
-#   >>> {source} > ($n) [pipe1|pipe2|...|pipex]
-# Groups the first $n inputs and feeds them to pipe1, the second $n inputs to pipe2, ..., the x+1th group of $n inputs to pipe1 again, etc.
-# If the number of inputs doesn't divide by $n:
-#   • If the strict option is given: It will throw away the remaining less-than-$n items.
-#   • If $n starts with a '0': It will pad out the last group with empty strings to make $n items.
-#   • Otherwise: The last group will simply contain less than $n items.
-#   >>> [alpha|beta|gamma|delta] > (3) convert [fraktur|fullwidth]
+## Row grouping:
+#   >>> {source} > (N) [pipe1|pipe2|...|pipeX]
+# Groups the first N inputs and feeds them to pipe1, the second N inputs to pipe2, ..., the X+1th group of N inputs to pipe1 again, etc.
+# If the number of inputs doesn't divide by N:
+#   • If the strict option is given: It will throw away the remaining less-than-N items.
+#   • If N starts with a '0': It will pad out the last group with empty strings to make N items.
+#   • Otherwise: The last group will simply contain less than N items.
+# If your inputs are a row-first matrix, and given N the size of a row (i.e. number of columns) in the matrix, this groups all the rows.
+#   >>> [alpha|beta|gamma|delta|epsilon|phi] > (3) convert [fraktur|fullwidth]
 # Output: 𝔞𝔩𝔭𝔥𝔞
 #         𝔟𝔢𝔱𝔞
 #         𝔤𝔞𝔪𝔪𝔞
 #         ｄｅｌｔａ
+#         ｅｐｓｉｌｏｎ
+#         ｐｈｉ
 
 ## Divide grouping:
-#   >>> {source} > /$n [pipe1|pipe2|...|pipex]
-# Splits the input into $n equally sized* groups of sequential inputs, and feeds the first group into pipe1, second into pipe2, etc.
-# Call $m the number of inputs to be grouped. In case $m is not divisible by $n:
-#   • If the strict option is given: Input is split into groups of floor($m/$n), throwing away extraneous items.
-#   • If $n starts with '0': Input is split into groups of ceil($m/$n), and the last group is padded out with empty strings.
-#   • If $n doesn't start with '0': Input is split into groups of ceil($m/$n), except the last groups which may contain less items or even be empty.
-#   >>> [alpha|beta|gamma|delta] > /2 convert [fraktur|fullwidth]
+#   >>> {source} > /N [pipe1|pipe2|...|pipex]
+# Splits the input into N equally sized* groups of sequential inputs, and feeds the first group into pipe1, second into pipe2, etc.
+# Call M the number of inputs to be grouped. In case M is not divisible by N:
+#   • If the strict option is given: Input is split into groups of floor(M/N), throwing away extraneous items.
+#   • If N starts with '0': Input is split into groups of ceil(M/N), and the last group is padded out with empty strings.
+#   • If N doesn't start with '0': Input is split into groups of ceil(M/N), except the last groups which may contain less items or even be empty.
+# If your inputs are a row-first matrix, and given N the size of a column (i.e. number of rows) in the matrix, this groups all the rows.
+#   >>> [alpha|beta|gamma|delta|epsilon|phi] > /3 convert [fraktur|fullwidth|smallcaps]
 # Output: 𝔞𝔩𝔭𝔥𝔞
 #         𝔟𝔢𝔱𝔞
 #         ｇａｍｍａ
 #         ｄｅｌｔａ
+#         ᴇᴘsɪʟᴏɴ
+#         ᴘʜɪ
 
 ## Modulo grouping:
-#   >>> {source} > %$n [pipe1|pipe2|...|pipex]
-# Splits the input into $n equally sized* groups of inputs that have the same index modulo $n.
-# Behaves identical to Divide grouping otherwise, including $n starting with '0' to pad each group out to equal size and strictness.
-#   >>> [alpha|beta|gamma|delta] > %2 convert [fraktur|fullwidth]
+#   >>> {source} > %N [pipe1|pipe2|...|pipex]
+# Splits the input into N equally sized* groups of inputs that have the same index modulo N. This changes the order of the values, even if the pipe is a NOP.
+# Behaves identical to Divide grouping otherwise, including N starting with '0' to pad each group out to equal size, and strictness rules.
+# If your inputs are a row-first matrix, and given N the size of a row (i.e. number of columns) in the matrix, this groups all the columns.
+#   >>> [alpha|beta|gamma|delta|epsilon|phi] > %3 convert [fraktur|fullwidth|smallcaps]
+# Output: 𝔞𝔩𝔭𝔥𝔞
+#         𝔡𝔢𝔩𝔱𝔞
+#         ｂｅｔａ
+#         ｅｐｓｉｌｏｎ
+#         ɢᴀᴍᴍᴀ
+#         ᴘʜɪ
+
+## Column grouping:
+#   >>> {source} > §N [pipe1|pipe2|...|pipex]
+# Splits the input into groups of size N* by applying Modulo(M/N) with M the number of items, and (/) rounding up or down depending on padding or strictness.
+# There's no good intuitive explanation here, just the mathematical one:
+# If your inputs are a row-first matrix, and given N the size of a column (i.e. number of rows) in the matrix, this groups all the columns.
+#   >>> [alpha|beta|gamma|delta|epsilon|phi] > §3 convert [fraktur|fullwidth]
 # Output: 𝔞𝔩𝔭𝔥𝔞
 #         𝔤𝔞𝔪𝔪𝔞
+#         𝔢𝔭𝔰𝔦𝔩𝔬𝔫
 #         ｂｅｔａ
 #         ｄｅｌｔａ
+#         ｐｈｉ
+
+## Mathematical note:
+# If your number of inputs is a multiple of N, then (%N NOP) and (§N NOP) act as inverse permutations on your inputs.
+# This means applying a %N after a §N (or a §N after a %N) when you know the number of items is constant will restore the items to their "original order".
+# This is because (%N NOP) is a matrix transpose on a row-first matrix with N columns, and (§N NOP) is a transpose of row-first a matrix with N rows.
+#   >>> [alpha|beta|gamma|delta|epsilon|phi] > §3 convert [fraktur|fullwidth] > %3
+# Output: 𝔞𝔩𝔭𝔥𝔞
+#         ｂｅｔａ
+#         𝔤𝔞𝔪𝔪𝔞
+#         ｄｅｌｔａ
+#         𝔢𝔭𝔰𝔦𝔩𝔬𝔫
+#         ｐｈｉ
 
 ## Interval grouping:
-#   >>> {source} > #$i..$j [pipe1|pipe2|...]
-# Groups inputs from index $i up to (not including) index $j as one group and applies them to pipe1, the other pipes are never used.
+#   >>> {source} > #A..B [pipe1|pipe2|...]
+# Groups inputs from index A up to, but NOT including, index B as one group and applies them to pipe1, the other pipes are never used.
 # If the strict option is given, the items outside the selected range are thrown away, otherwise they are left in place, unaffected.
-# $i and $j can be negative, and follows python's negative index logic for those. (e.g. a[-1] == a[len(a)-1])
-# $i and $j may also use '-0' to indicate the last position in the string. (i.e. '-0' -> len(inputs))
+# A and B can be negative, and follows python's negative index logic for those. (e.g. a[-1] == a[len(a)-1])
+# A and B may also use '-0' to indicate the last position in the string. (i.e. '-0' -> len(inputs))
 #   >>> [alpha|beta|gamma|delta] > #1..3 convert fullwidth
 # Output: alpha
 #         ｂｅｔａ
 #         ｇａｍｍａ
 #         delta
 
-## Index grouping:
-#   >>> {source} > #$i [pipe1|pipe2|...]
-# Same as Interval grouping with $j := $i+1. (Except if $j == '-0' then $i == '-0' as well.) (This has use cases, I swear)
+## Index grouping (Interval special case):
+#   >>> {source} > #A [pipe1|pipe2|...]
+# Same as Interval grouping with B := A+1. (Except if B is -0 then A is -0 as well.) (This has a use case, I swear)
 #   >>> [alpha|beta|gamma|delta] > #2 convert fullwidth
 # Output: alpha
 #         beta
@@ -423,9 +457,11 @@ class Interval(GroupMode):
 # pattern:
 # optionally starting with *
 # then either:
-#   % or # or / followed by -?\d* optionally followed by ..+-?\d+
+#   % or # or / or § followed by -?\d* optionally followed by ..+-?\d+
 # or:
 #   ( \d+ )
+
+# TODO: This doesn't *really* need to be *one* regex, the fact it matches the empty string is a bit stupid too.
 
 pattern = re.compile(r'\s*(\*?)(?:(%|#|/|§)\s*(-?\d*(?:\.\.+-?\d+)?)|\(\s*(\d+)\s*\)|)(!?!?)\s*')
 #                          ^↑^     ^^^↑^^^     ^^^^^^^^^↑^^^^^^^^^^    ^^^^^↑^^^^^^    ^^↑^
