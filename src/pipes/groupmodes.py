@@ -157,10 +157,10 @@ class GroupMode:
     def apply(self, values, pipes):
         raise NotImplementedError()
 
-class Group(GroupMode):
+class Row(GroupMode):
     def __init__(self, multiply, strict, size, padding):
         super().__init__(multiply, strict)
-        if size < 1: raise GroupModeError('Group size must be at least 1.')
+        if size < 1: raise GroupModeError('Row size must be at least 1.')
         self.size = size
         self.padding = padding
 
@@ -168,25 +168,38 @@ class Group(GroupMode):
         return '{} GROUPS SIZE {}{}'.format(super().__str__(), self.size, ' WITH PADDING' if self.padding else '')
 
     def apply(self, values, pipes):
-        size = self.size
-        if self.strict:
-            ## Cut off the trailing values that aren't enough to make a group of the desired size.
-            values = values[:(len(values)//size)*size]
-        elif self.padding:
-            ## Add just enough empty values at the end so that the last group also has the desired size.
-            values += [''] * (math.ceil(len(values)/size)*size - len(values))
-        out = []
+        length = len(values)    # The number of items we want to split
+        size = self.size        # The size of each group (GIVEN)
+        count= length //size    # The minimal number of groups we have to split it into
+        rest = length % size    # The number of leftover items if we were to split into the minimal number of groups
+
+        ## Deal with the fact that our last group does not contain the number of items we wanted:
+        if rest:
+            ## Strict: Throw away the last group
+            if self.strict:
+                length = count*size
+                values = values[:length]
+            ## Padding: The last group is padded out with (size-rest) empty strings.
+            elif self.padding:
+                values += [''] * (size - rest)
+                count += 1
+                length = count*size
+                rest = 0
+            ## Default: The last group only contains (rest) items.
+            # NOTE: Padding fills up the "empty spots" from the Default behaviour.
 
         ## Special case: Values is an empty list.
-        if len(values) == 0:
-            ## Strict: Do nothing. (Dubious?)
+        if length == 0:
+            ## Strict: Do nothing.
             if self.strict: return []
             ## Non-strict: Assume the empty list as our only group.
             if self.multiply: return [([], pipe) for pipe in pipes]
             else: return [([], pipes[0])]
 
+        out = []
+
         ## Slice our input into groups of the desired size, and assign them to successive pipes.
-        for i in range(0, len(values), size):
+        for i in range(0, length, size):
             vals = values[i: i+size]
             if self.multiply:
                 for pipe in pipes: out.append((vals, pipe))
@@ -206,9 +219,27 @@ class Divide(GroupMode):
 
     def apply(self, values, pipes):
         length = len(values)    # The number of items we want to split
-        count = self.count      # The number of groups we want to split it into
+        count = self.count      # The number of groups we want to split it into (GIVEN)
         size = length //count   # The minimal size of each group
         rest = length % count   # The number of leftover items if we were to split into groups of minimal size
+
+        ## Deal with the fact that we can't split the values into equal sizes.
+        if rest:
+            ## Strict: Throw away the tail end to make the length fit
+            if self.strict:
+                length = size*count
+                values = values[:length]
+                rest = 0
+            ## Padding: The last group is padded out.
+            elif self.padding:
+                values += [''] * (count - rest)
+                size += 1
+                length = size*count
+                rest = 0
+            ## Default: The first (rest) groups contain 1 more item than the remaining (count-rest) groups.
+            # NOTE: This means padding does NOT fill in the "empty spots" from the default behaviour!
+            # The significance of this is negligible though since any scenario where rest>0 is probably
+            # a scenario where the specific alignment/grouping of values is meaningless, so we can just do what's easiest for us.
 
         ## Special case: Empty list of values.
         if length == 0:
@@ -219,24 +250,12 @@ class Divide(GroupMode):
             ## Empty applied to (count) pipes once.
             return [([], pipes[i % len(pipes)]) for i in range(count)]
 
-        ## Deal with the fact that we can't split the values into equal sizes.
-        if rest:
-            ## Throw away the tail end
-            if self.strict:
-                values = values[:size*count]
-                rest = 0
-            ## Pad out our values with empty strings
-            elif self.padding:
-                values += [''] * (count - rest)
-                size += 1
-                rest = 0
-
         out = []
 
-        ## Slice our inputs into groups of the desired size, and assign them to successive pipes.
+        ## Slice our inputs into the desired number of groups, and assign them to successive pipes.
         for i in range(self.count):
             # The min(rest, i) and min(rest, i+1) ensure that the first (rest) slices get 1 extra value.
-            left = i * size + min(rest, i)
+            left =    i   * size + min(rest, i)
             right = (i+1) * size + min(rest, i+1)
             vals = values[left:right]
 
@@ -257,23 +276,28 @@ class Modulo(GroupMode):
         return '{} MODULO {}{}'.format(super().__str__(), self.modulo, ' WITH PADDING' if self.padding else '')
 
     def apply(self, values, pipes):
-        # Mostly identical to Divide.apply except for how the values are split, so I removed the comments.
-        length = len(values)
-        count = self.modulo
-        size = length //count
-        rest = length % count
+        length = len(values)    # The number of items we want to split
+        count = self.modulo     # The number of groups we want to split it into (GIVEN)
+        size = length //count   # The minimal size of each group
+        rest = length % count   # The number of leftover items if we were to split into groups of minimal size
 
+        ## Deal with the fact that we can't split the values into equal sizes.
         if rest:
+            ## Strict: Throw away the tail end to make the length fit
             if self.strict:
-                values = values[:size*count]
-                rest = 0
                 length = size*count
+                values = values[:length]
+                rest = 0
+            ## Padding: The last (count-rest) groups are padded out with one empty string.
             if self.padding:
                 values += [''] * (count - rest)
                 size += 1
-                rest = 0
                 length = size*count
+                rest = 0
+            ## Default: The first (rest) groups contain 1 item more than the others.
+            # NOTE: Padding and Default behaviour are "equivalent" here.
 
+        ## Special case: Empty list of values; identical to Divide
         if length == 0:
             if self.strict: return []
             if self.multiply: return [([], pipe) for pipe in pipes for _ in range(count)]
@@ -281,9 +305,57 @@ class Modulo(GroupMode):
 
         out = []
         for i in range(0, count):
-            ## Slice into groups of items whose indices are x+i where x is a multiple of (self.modulo)
+            ## Slice into groups of items whose indices are x+i where x is a multiple of (count)
             vals = [values[x+i] for x in range(0, length, count) if x+i < length]
-            print(vals)
+
+            if self.multiply:
+                for pipe in pipes: out.append((vals, pipe))
+            else:
+                out.append((vals, pipes[i % len(pipes)]))
+        return out
+
+class Column(GroupMode):
+    def __init__(self, multiply, strict, size, padding):
+        super().__init__(multiply, strict)
+        if size < 1: raise GroupModeError('Column size must be at least 1.')
+        self.size = size
+        self.padding = padding
+
+    def __str__(self):
+        return '{} COLUMNS SIZE {}{}'.format(super().__str__(), self.size, ' WITH PADDING' if self.padding else '')
+
+    def apply(self, values, pipes):
+        length = len(values)    # The number of items we want to split
+        size = self.size        # The size of each group (GIVEN)
+        count= length //size    # The minimal number of groups we have to split it into
+        rest = length % size    # The number of leftover items if we were to split into the minimal number of groups
+
+        ## Deal with the fact that we can't split the values into equal sizes.
+        if rest:
+            ## Strict: Throw away the tail end to make the length fit
+            if self.strict:
+                length = size*count
+                values = values[:length]
+                rest = 0
+            ## Padding: Pad out the tail so the last (size-rest) groups contain one empty string.
+            if self.padding:
+                values += [''] * (size - rest)
+                count += 1
+                length = size*count
+                rest = 0
+            ## Default: The last (size-rest) groups contain 1 less item.
+            # NOTE: Padding fills up the "empty spots" from the Default behaviour.
+
+        ## Special case: Empty list of values; identical to Row
+        if length == 0:
+            if self.strict: return []
+            if self.multiply: return [([], pipe) for pipe in pipes]
+            else: return [([], pipes[0])]
+
+        out = []
+        for i in range(0, count):
+            ## Slice into groups of items whose indices are x+i where x is a multiple of (count)
+            vals = [values[x+i] for x in range(0, length, count) if x+i < length]
 
             if self.multiply:
                 for pipe in pipes: out.append((vals, pipe))
@@ -355,9 +427,9 @@ class Interval(GroupMode):
 # or:
 #   ( \d+ )
 
-pattern = re.compile(r'\s*(\*?)(?:(%|#|/)\s*(-?\d*(?:\.\.+-?\d+)?)|\(\s*(\d+)\s*\)|)(!?)\s*')
-#                          ^↑^     ^^↑^^     ^^^^^^^^^↑^^^^^^^^^^    ^^^^^↑^^^^^^    ↑^
-# Groups:                multiply   mode            value             lparvalue    strict
+pattern = re.compile(r'\s*(\*?)(?:(%|#|/|§)\s*(-?\d*(?:\.\.+-?\d+)?)|\(\s*(\d+)\s*\)|)(!?!?)\s*')
+#                          ^↑^     ^^^↑^^^     ^^^^^^^^^↑^^^^^^^^^^    ^^^^^↑^^^^^^    ^^↑^
+# Groups:                multiply   mode              value             lparvalue    strictness
 
 def parse(bigPipe, error_log):
     m = re.match(pattern, bigPipe)
@@ -378,19 +450,23 @@ def parse(bigPipe, error_log):
     try:
         if not mode:
             mode = Divide(multiply, False, 1, False)
-        elif mode in ['(', '%', '/']:
 
+        ## Row, Column, Modulo or Divide mode
+        elif mode in ['(', '%', '/', '§']:
             padding = (value[0]=='0') if value else False
             value = int(value) if value else 1
 
-            if mode == '(':
-                mode = Group(multiply, strict, value, padding)
-            elif mode == '%':
-                mode = Modulo(multiply, strict, value, padding)
+            if   mode == '(':
+                mode = Row   (multiply, strict, value, padding)
             elif mode == '/':
                 mode = Divide(multiply, strict, value, padding)
+            elif mode == '%':
+                mode = Modulo(multiply, strict, value, padding)
+            elif mode == '§':
+                mode = Column(multiply, strict, value, padding)
+
+        ## Interval mode: '#'
         else:
-            ## Interval mode: '#'
             vals = re.split('\.+', value)
             lval = vals[0]
             rval = vals[1] if len(vals)>1 else None
@@ -409,7 +485,7 @@ def parse(bigPipe, error_log):
 
 # Tests!
 if __name__ == '__main__':
-    tests = ['foo', '*  foo', '10', '%4', '(20)', '/10', '#7', '#14..20', '/', '()', '(0)', '#', '*% 2', '*(07)', '/010', '(8', '#0..2!']
+    tests = ['foo', '*  foo', '10', '%4', '(20)', '/10', '#7', '#14..20', '/', '()', '(0)', '#', '*% 2', '*(07)', '/010', '(8', '#0..2!', '§7', '§0', '§1!']
     print('TESTS:')
     for test in tests:
         try:
