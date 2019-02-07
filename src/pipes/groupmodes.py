@@ -66,12 +66,20 @@ import math
 # *Each* group of input is fed into *each* of the simultaneous pipes (pipe1, pipe2, etc)
 # Resulting in (number of groups) × (number of simultaneous pipes) pipe applications total, which is usually a lot.
 
-## Strict option:
+# Strict option:
 # Given by adding an exclamation mark after the group mode!
 #   >>> {source} > $$$$ ! [pipe1|pipe2|...]
 # (With $$$$ representing a group mode)
-# This option tells the group mode to simply throw away input values that don't "fit".
-# What it specifically throws away (if anything) depends on the type of group mode and the values it's grouping.
+# This option tells the group mode to simply throw away input values that don't "fit" according to the group mode.
+# What it specifically throws away (if anything) depends on both the type of group mode, and the number of values it's grouping.
+
+# Very Strict option:
+# Given by adding two exclamation marks after the group mode!!
+#   >>> {source} > $$$$ !! [pipe1|pipe2|...]
+# (With $$$$ representing a group mode)
+# The group mode raises a terminal error if the input values don't "fit" according to the group mode, cutting script execution short completely.
+# This is useful if there is semantic significance to the structure of the values you are grouping on.
+
 
 ## Default grouping (Divide grouping special case):
 #   >>> {source} > [pipe1|pipe2|...|pipex]
@@ -129,11 +137,11 @@ import math
 #         ᴘʜɪ
 
 ## Column grouping:
-#   >>> {source} > §N [pipe1|pipe2|...|pipex]
+#   >>> {source} > \N [pipe1|pipe2|...|pipex]
 # Splits the input into groups of size N* by applying Modulo(M/N) with M the number of items, and (/) rounding up or down depending on padding or strictness.
 # There's no good intuitive explanation here, just the mathematical one:
 # If your inputs are a row-first matrix, and given N the size of a column (i.e. number of rows) in the matrix, this groups all the columns.
-#   >>> [alpha|beta|gamma|delta|epsilon|phi] > §3 convert [fraktur|fullwidth]
+#   >>> [alpha|beta|gamma|delta|epsilon|phi] > \3 convert [fraktur|fullwidth]
 # Output: 𝔞𝔩𝔭𝔥𝔞
 #         𝔤𝔞𝔪𝔪𝔞
 #         𝔢𝔭𝔰𝔦𝔩𝔬𝔫
@@ -141,11 +149,11 @@ import math
 #         ｄｅｌｔａ
 #         ｐｈｉ
 
-## Mathematical note:
-# If your number of inputs is a multiple of N, then (%N NOP) and (§N NOP) act as inverse permutations on your inputs.
-# This means applying a %N after a §N (or a §N after a %N) when you know the number of items is constant will restore the items to their "original order".
-# This is because (%N NOP) is a matrix transpose on a row-first matrix with N columns, and (§N NOP) is a transpose of row-first a matrix with N rows.
-#   >>> [alpha|beta|gamma|delta|epsilon|phi] > §3 convert [fraktur|fullwidth] > %3
+## Intermission: Column and Modulo
+# If your number of inputs is a multiple of N, then (%N NOP) and (\N NOP) act as inverse permutations on your inputs.
+# This means applying a %N after a \N (or a \N after a %N) when you know the number of items is constant will restore the items to their "original order".
+# This is because (%N NOP) is a matrix transpose on a row-first matrix with N columns, and (\N NOP) is a transpose of row-first a matrix with N rows.
+#   >>> [alpha|beta|gamma|delta|epsilon|phi] > \3 convert [fraktur|fullwidth] > %3
 # Output: 𝔞𝔩𝔭𝔥𝔞
 #         ｂｅｔａ
 #         𝔤𝔞𝔪𝔪𝔞
@@ -178,13 +186,14 @@ class GroupModeError(ValueError):
     pass
 
 class GroupMode:
-    def __init__(self, multiply, strict):
+    def __init__(self, multiply, strictness):
         self.multiply = multiply
-        self.strict = strict
+        self.strictness = strictness
 
     def __str__(self):
         qualifiers = []
-        if self.strict: qualifiers.append('STRICT')
+        if self.strictness == 1: qualifiers.append('STRICT')
+        if self.strictness == 2: qualifiers.append('VERY STRICT')
         if self.multiply: qualifiers.append('MULTIPLIED')
         return ' '.join(qualifiers)
 
@@ -192,8 +201,8 @@ class GroupMode:
         raise NotImplementedError()
 
 class Row(GroupMode):
-    def __init__(self, multiply, strict, size, padding):
-        super().__init__(multiply, strict)
+    def __init__(self, multiply, strictness, size, padding):
+        super().__init__(multiply, strictness)
         if size < 1: raise GroupModeError('Row size must be at least 1.')
         self.size = size
         self.padding = padding
@@ -209,8 +218,11 @@ class Row(GroupMode):
 
         ## Deal with the fact that our last group does not contain the number of items we wanted:
         if rest:
+            ## Very strict: Raise an error
+            if self.strictness == 2:
+                raise GroupModeError('Could not strictly group into rows size %d!' % size)
             ## Strict: Throw away the last group
-            if self.strict:
+            elif self.strictness == 1:
                 length = count*size
                 values = values[:length]
             ## Padding: The last group is padded out with (size-rest) empty strings.
@@ -224,8 +236,10 @@ class Row(GroupMode):
 
         ## Special case: Values is an empty list.
         if length == 0:
+            ## Very strict: Get angry
+            if self.strictness == 2: raise GroupModeError('No values to strictly group!')
             ## Strict: Do nothing.
-            if self.strict: return []
+            if self.strictness == 1: return []
             ## Non-strict: Assume the empty list as our only group.
             if self.multiply: return [([], pipe) for pipe in pipes]
             else: return [([], pipes[0])]
@@ -242,8 +256,8 @@ class Row(GroupMode):
         return out
 
 class Divide(GroupMode):
-    def __init__(self, multiply, strict, count, padding):
-        super().__init__(multiply, strict)
+    def __init__(self, multiply, strictness, count, padding):
+        super().__init__(multiply, strictness)
         if count < 1: raise GroupModeError('Divide count must be at least 1.')
         self.count = count
         self.padding = padding
@@ -259,8 +273,11 @@ class Divide(GroupMode):
 
         ## Deal with the fact that we can't split the values into equal sizes.
         if rest:
+            ## Very strict: Raise an error
+            if self.strictness == 2:
+                raise GroupModeError('Could not strictly divide into %d rows!' % count)
             ## Strict: Throw away the tail end to make the length fit
-            if self.strict:
+            elif self.strictness == 1:
                 length = size*count
                 values = values[:length]
                 rest = 0
@@ -277,8 +294,10 @@ class Divide(GroupMode):
 
         ## Special case: Empty list of values.
         if length == 0:
-            ## Strict: Do nothing. (Dubious?)
-            if self.strict: return []
+            ## Very strict: Get angry
+            if self.strictness == 2: raise GroupModeError('No values to strictly group!')
+            ## Strict: Do nothing.
+            if self.strictness == 1: return []
             ## Empty times applied to each pipe (count) times.
             if self.multiply: return [([], pipe) for pipe in pipes for _ in range(count)]
             ## Empty applied to (count) pipes once.
@@ -300,8 +319,8 @@ class Divide(GroupMode):
         return out
 
 class Modulo(GroupMode):
-    def __init__(self, multiply, strict, modulo, padding):
-        super().__init__(multiply, strict)
+    def __init__(self, multiply, strictness, modulo, padding):
+        super().__init__(multiply, strictness)
         if modulo < 1: raise GroupModeError('Modulo value must be at least 1.')
         self.modulo = modulo
         self.padding = padding
@@ -317,8 +336,11 @@ class Modulo(GroupMode):
 
         ## Deal with the fact that we can't split the values into equal sizes.
         if rest:
+            ## Very strict: Raise an error
+            if self.strictness == 2:
+                raise GroupModeError('Could not strictly group into %d columns!' % count)
             ## Strict: Throw away the tail end to make the length fit
-            if self.strict:
+            elif self.strictness == 1:
                 length = size*count
                 values = values[:length]
                 rest = 0
@@ -333,7 +355,8 @@ class Modulo(GroupMode):
 
         ## Special case: Empty list of values; identical to Divide
         if length == 0:
-            if self.strict: return []
+            if self.strictness == 2: raise GroupModeError('No values to strictly group!')
+            if self.strictness == 1: return []
             if self.multiply: return [([], pipe) for pipe in pipes for _ in range(count)]
             return [([], pipes[i % len(pipes)]) for i in range(count)]
 
@@ -349,8 +372,8 @@ class Modulo(GroupMode):
         return out
 
 class Column(GroupMode):
-    def __init__(self, multiply, strict, size, padding):
-        super().__init__(multiply, strict)
+    def __init__(self, multiply, strictness, size, padding):
+        super().__init__(multiply, strictness)
         if size < 1: raise GroupModeError('Column size must be at least 1.')
         self.size = size
         self.padding = padding
@@ -366,8 +389,11 @@ class Column(GroupMode):
 
         ## Deal with the fact that we can't split the values into equal sizes.
         if rest:
+            ## Very strict: Raise an error
+            if self.strictness == 2:
+                raise GroupModeError('Could not strictly group into columns size %d!' % size)
             ## Strict: Throw away the tail end to make the length fit
-            if self.strict:
+            elif self.strictness == 1:
                 length = size*count
                 values = values[:length]
                 rest = 0
@@ -382,7 +408,8 @@ class Column(GroupMode):
 
         ## Special case: Empty list of values; identical to Row
         if length == 0:
-            if self.strict: return []
+            if self.strictness == 2: raise GroupModeError('No values to strictly group!')
+            if self.strictness == 1: return []
             if self.multiply: return [([], pipe) for pipe in pipes]
             else: return [([], pipes[0])]
 
@@ -402,8 +429,8 @@ class Interval(GroupMode):
     # Magical objects.
     END = object()
 
-    def __init__(self, multiply, strict, lval, rval):
-        super().__init__(multiply, strict)
+    def __init__(self, multiply, strictness, lval, rval):
+        super().__init__(multiply, strictness)
         ## lval is either an integer or the magical value END
         if lval == '': raise GroupModeError('Missing index.') 
         self.lval = int(lval) if lval != '-0' else Interval.END
@@ -437,35 +464,38 @@ class Interval(GroupMode):
         else:
             rval = self.rval
 
-        ## Manually adjust the indices to be non-negative
+        ## Manually adjust the indices to be non-negative (may be larger than length)
         while lval < 0: lval += length
         while rval < 0: rval += length
         ## Special case: If we're targeting a negative range, simply target the empty range [lval:lval]
         if rval < lval: rval = lval
 
         ## Non-strict: Apply NOP to the values outside of the selected range.
-        if not self.strict:
+        if not self.strictness:
             return [
                 (values[0: lval], NOP),
                 (values[lval: rval], pipes[0]),
                 (values[rval: length], NOP),
             ]
-        ## Strict: Throw away the values outside of the selected range.
         else:
+            ## Very strict: Get angry when our range does not exactly cover the list of values?
+            if self.strictness == 2 and (lval > 0 or rval != length):
+                raise GroupModeError('The range does not strictly fit the set of values!')
+            ## Strict: Throw away the values outside of the selected range.
             return [(values[lval: rval], pipes[0])]
 
 # pattern:
 # optionally starting with *
 # then either:
-#   % or # or / or § followed by -?\d* optionally followed by ..+-?\d+
+#   % or # or / or \ followed by -?\d* optionally followed by ..+-?\d+
 # or:
 #   ( \d+ )
 
 # TODO: This doesn't *really* need to be *one* regex, the fact it matches the empty string is a bit stupid too.
 
-pattern = re.compile(r'\s*(\*?)(?:(%|#|/|§)\s*(-?\d*(?:\.\.+-?\d+)?)|\(\s*(\d+)\s*\)|)(!?!?)\s*')
-#                          ^↑^     ^^^↑^^^     ^^^^^^^^^↑^^^^^^^^^^    ^^^^^↑^^^^^^    ^^↑^
-# Groups:                multiply   mode              value             lparvalue    strictness
+pattern = re.compile(r'\s*(\*?)(?:(%|#|/|\\)\s*(-?\d*(?:\.\.+-?\d+)?)|\(\s*(\d+)\s*\)|)(!?!?)\s*')
+#                          ^↑^     ^^^↑^^^^     ^^^^^^^^^↑^^^^^^^^^^    ^^^^^↑^^^^^^    ^^↑^
+# Groups:                multiply    mode              value             lparvalue    strictness
 
 def parse(bigPipe, error_log):
     m = re.match(pattern, bigPipe)
@@ -475,9 +505,9 @@ def parse(bigPipe, error_log):
         return bigPipe, Divide(False, False, 1, False)
 
     flag = m.group()
-    multiply, mode, value, lparvalue, strict = m.groups()
+    multiply, mode, value, lparvalue, strictness = m.groups()
     multiply = (multiply == '*')
-    strict = (strict == '!')
+    strictness = len(strictness)
 
     if lparvalue is not None:
         mode = '('
@@ -488,25 +518,25 @@ def parse(bigPipe, error_log):
             mode = Divide(multiply, False, 1, False)
 
         ## Row, Column, Modulo or Divide mode
-        elif mode in ['(', '%', '/', '§']:
+        elif mode in ['(', '%', '/', '\\']:
             padding = (value[0]=='0') if value else False
             value = int(value) if value else 1
 
             if   mode == '(':
-                mode = Row   (multiply, strict, value, padding)
+                mode = Row   (multiply, strictness, value, padding)
             elif mode == '/':
-                mode = Divide(multiply, strict, value, padding)
+                mode = Divide(multiply, strictness, value, padding)
             elif mode == '%':
-                mode = Modulo(multiply, strict, value, padding)
-            elif mode == '§':
-                mode = Column(multiply, strict, value, padding)
+                mode = Modulo(multiply, strictness, value, padding)
+            elif mode == '\\':
+                mode = Column(multiply, strictness, value, padding)
 
         ## Interval mode: '#'
         else:
             vals = re.split('\.+', value)
             lval = vals[0]
             rval = vals[1] if len(vals)>1 else None
-            mode = Interval(multiply, strict, lval, rval)
+            mode = Interval(multiply, strictness, lval, rval)
 
         ## Cut off the groupmode flag
         bigPipe = bigPipe[len(flag):]
@@ -521,7 +551,7 @@ def parse(bigPipe, error_log):
 
 # Tests!
 if __name__ == '__main__':
-    tests = ['foo', '*  foo', '10', '%4', '(20)', '/10', '#7', '#14..20', '/', '()', '(0)', '#', '*% 2', '*(07)', '/010', '(8', '#0..2!', '§7', '§0', '§1!']
+    tests = ['foo', '* foo', '10', '%4', '(20)', '/10', '#7', '#14..20', '/', '()', '(0)', '#', '*% 2', '*(07)', '/010', '(8', '#0..2!', '\\7', '\\0', '\\1!', '\\1!!', '(2)!!']
     print('TESTS:')
     for test in tests:
         try:
