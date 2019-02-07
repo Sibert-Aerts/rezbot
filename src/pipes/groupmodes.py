@@ -493,9 +493,9 @@ class Interval(GroupMode):
 
 # TODO: This doesn't *really* need to be *one* regex, the fact it matches the empty string is a bit stupid too.
 
-pattern = re.compile(r'\s*(\*?)(?:(%|#|/|\\)\s*(-?\d*(?:\.\.+-?\d+)?)|\(\s*(\d+)\s*\)|)(!?!?)\s*')
-#                          ^↑^     ^^^↑^^^^     ^^^^^^^^^↑^^^^^^^^^^    ^^^^^↑^^^^^^    ^^↑^
-# Groups:                multiply    mode              value             lparvalue    strictness
+pattern = re.compile(r'\s*(\*?)(?:(%|#|/|\\)\s*(-?\d*(?:\.\.+-?\d+)?)|\(\s*(\d+)\s*\)|)\s*(!?!?)\s*')
+#                          ^↑^     ^^^↑^^^^     ^^^^^^^^^↑^^^^^^^^^^    ^^^^^↑^^^^^^       ^^↑^
+# Groups:                multiply    mode              value             lparvalue       strictness
 
 def parse(bigPipe, error_log):
     m = re.match(pattern, bigPipe)
