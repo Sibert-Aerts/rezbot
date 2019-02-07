@@ -101,27 +101,6 @@ def delete_pipe(input, what):
         return [x for x in input if x != '']
 
 
-@make_pipe({
-    'w' : Sig(int, -1, 'Width of the matrix.'),
-    'h' : Sig(int, -1, 'Height of the matrix.'),
-})
-def tr_pipe(input, w, h):
-    '''Transpose the input as if it were a matrix'''
-    if w == h == -1:
-        return input
-
-    if w != -1:
-        h = int(len(input) / w)
-    else:
-        w = int(len(input) / h)
-
-    if w == 0 or h == 0:
-        return input
-
-    # I figured this line out by trial-and-error :)
-    return [input[i*w + j] for j in range(w) for i in range(h)]
-
-
 @make_pipe({})
 def shuffle_pipe(input):
     '''Randomly shuffles input values.'''
