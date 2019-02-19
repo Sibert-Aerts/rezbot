@@ -102,6 +102,15 @@ def delete_pipe(input, what):
 
 
 @make_pipe({})
+def sort_pipe(input):
+    '''Sorts the input values lexicographically.'''
+    # IMPORTANT: `input` is passed BY REFERENCE, so we are NOT supposed to mess with it!
+    out = input[:]
+    out.sort()
+    return out
+
+
+@make_pipe({})
 def shuffle_pipe(input):
     '''Randomly shuffles input values.'''
     # IMPORTANT NOTE: `input` is passed BY REFERENCE, so we are NOT supposed to mess with it!
