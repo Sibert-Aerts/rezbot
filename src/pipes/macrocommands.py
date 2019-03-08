@@ -171,7 +171,7 @@ class MacroCommands(MyCommands):
             if name == 'hidden':
                 what2 = 'hidden ' + what
                 filtered_macros = macros.hidden()
-            if name == 'mine' or name == 'my':
+            elif name == 'mine' or name == 'my':
                 what2 = 'your ' + what
                 filtered_macros = [m for m in macros if macros[m].authorId == ctx.message.author.id]
             else:
