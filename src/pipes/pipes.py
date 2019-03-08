@@ -433,23 +433,25 @@ except Exception as e:
     print('Failed to load google cloud translate services, translate will be unavailable!')
     _translate = None
 
-translate_languages = '''af ar az be bg bn ca cs cy da de el en eo es et eu fa fi fr ga gl
-gu hi hr ht hu id is it iw ja ka kn ko la lt lv mk ms mt nl no pl pt ro ru sk sl sq sr sv
-sw ta te th tl tr uk ur vi yi zh-CN zh-TW'''.split()
+# Retreived once using translate_client.get_languages()
+translate_languages = '''af sq am ar hy az eu be bn bs bg ca ceb ny zh zh-TW co
+hr cs da nl en eo et tl fi fr fy gl ka de el gu ht ha haw iw hi hmn hu is ig id
+ga it ja jw kn kk km ko ku ky lo la lv lt lb mk mg ms ml mt mi mr mn my ne no ps
+fa pl pt pa ro ru sm gd sr st sn sd si sk sl so es su sw sv tg ta te th tr uk ur
+uz vi cy xh yi yo zu'''.split()
 random_language = ['rand', 'random', '?']
 
 
 @make_pipe({
-    'from': Sig(str, 'auto', None, lambda x: x in translate_languages + ['auto']),
-    'to' : Sig(str, 'random', None, lambda x: x in translate_languages + random_language),
+    'from': Sig(str, 'auto', 'The language to translate from, "auto" to automatically detect the language.', lambda x: x in translate_languages or x == 'auto'),
+    'to' : Sig(str, 'en', 'The language to translate to, "random" for a random language.', lambda x: x in translate_languages or x in random_language),
 }, command=True)
 @as_map
-@util.format_doc(langs=' '.join([c for c in translate_languages]))
+@util.format_doc(langs=' '.join(c for c in translate_languages))
 def translate_pipe(text, to, **argc):
     '''
-    Translates the input using the internet.
-    
-    Options: {langs}
+    Translates the input using the Google Cloud translate API.
+    The list of languages can be browsed at https://cloud.google.com/translate/docs/languages
     '''
     if _translate is None: return text
     fro = argc['from']

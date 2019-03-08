@@ -46,8 +46,8 @@ class Macro:
         return m
 
     def embed(self):
-        title = self.name
-        desc = (self.desc if self.desc else '') + ('\n`hidden`' if not self.visible else '')
+        title = self.name + (' `hidden`' if not self.visible else '')
+        desc = self.desc if self.desc else ''
         embed = Embed(title=title, description=desc, color=0x06ff83)
         if self.signature:
             argstr = '\n'.join(str(self.signature[s]) for s in self.signature)
@@ -112,17 +112,21 @@ class Macros:
             print(e)
             print('Failed to convert macros from "{}"!'.format(self.filename))
 
-    def __contains__(self, name):
-        return name in self.macros
-
-    def __iter__(self):
-        return (i for i in self.macros)
-
     def visible(self):
         return [i for i in self.macros if self.macros[i].visible]
 
     def hidden(self):
         return [i for i in self.macros if not self.macros[i].visible]
+
+    def write(self):
+        '''Write the list of macros to a pickle file.'''
+        pickle.dump(self.macros, open(self.DIR(self.filename), 'wb+'))
+
+    def __contains__(self, name):
+        return name in self.macros
+
+    def __iter__(self):
+        return (i for i in self.macros)
 
     def __getitem__(self, name):
         return self.macros[name]
@@ -143,10 +147,6 @@ class Macros:
 
     def __len__(self):
         return len(self.macros)
-
-    def write(self):
-        '''Write the list of macros to a pickle file.'''
-        pickle.dump(self.macros, open(self.DIR(self.filename), 'wb+'))
 
 
 pipe_macros = Macros(DIR, 'pipe_macros.p')

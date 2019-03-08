@@ -169,8 +169,11 @@ class MacroCommands(MyCommands):
         # Info on all of them
         else:
             if name == 'hidden':
-                what2 = 'hidden' + what
+                what2 = 'hidden ' + what
                 filtered_macros = macros.hidden()
+            if name == 'mine' or name == 'my':
+                what2 = 'your ' + what
+                filtered_macros = [m for m in macros if macros[m].authorId == ctx.message.author.id]
             else:
                 what2 = what
                 filtered_macros = macros.visible()
@@ -188,7 +191,7 @@ class MacroCommands(MyCommands):
                 macro = macros[name]
                 info = name + ' ' * (colW-len(name))
                 if macro.desc is not None:
-                    info += macro.desc
+                    info += macro.desc.split('\n')[0]
                 infos.append(info)
 
             text = texttools.block_format('\n'.join(infos))
