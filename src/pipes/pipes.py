@@ -492,3 +492,21 @@ def unicode_pipe(text):
         try: out.append(unicodedata2.name(c))
         except: out.append('UNKNOWN CHARACTER (%s)' % c)
     return ', '.join(out)
+
+
+@make_pipe({
+    'by': Sig(int, 13, 'The number of places to rotate the letters by.', lambda x: x in translate_languages or x == 'auto'),
+}, command=True)
+@as_map
+def rot_pipe(text, by):
+    '''Applies a Caeserian cypher.'''
+    if by % 26 == 0: return text
+    out = []
+    for c in text:
+        o = ord(c)
+        if 97 <= o <= 122: # lowercase
+            c = chr( 97 + ( o - 97 + by ) % 26 )
+        elif 65 <= o <= 90: # uppercase
+            c = chr( 65 + ( o - 65 + by ) % 26 )
+        out.append(c)
+    return ''.join(out)
