@@ -450,15 +450,18 @@ random_language = ['rand', 'random', '?']
 @util.format_doc(langs=' '.join(c for c in translate_languages))
 def translate_pipe(text, to, **argc):
     '''
-    Translates the input using the Google Cloud translate API.
+    Translates the input using the Google Cloud Translate API.
     The list of languages can be browsed at https://cloud.google.com/translate/docs/languages
     '''
     if _translate is None: return text
-    fro = argc['from']
+    if text.strip() == '': return text
+
+    fro = argc['from'] # because `from` is a keyword
     if fro == 'auto': fro = ''
     if to in random_language: to = choose(translate_languages)
-    if text.strip() == '': return text
+
     result = _translate(text, source_language=fro, target_language=to)
+
     return result['translatedText']
 
 
