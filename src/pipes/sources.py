@@ -177,7 +177,7 @@ def me_source(message):
 
 @make_source({
     'n'     : Sig(int, 1, 'The number of generated messages.'),
-    'game'  : Sig(str, '?', 'Which Dark Souls game should be used (? for random).', lambda x:x in ['?','1','2','3']),
+    'game'  : Sig(str, '?', 'Which game should be used (1/2/3/B/? for random).', lambda x:x.lower() in ['?','1','2','3','b']),
     'phrase': Sig(str, '%phrase%', 'Overrides game argument. Construct a custom phrase using the following categories:\n{}'.format(', '.join([c for c in soapstone.phraseDict])))
 }, command=True)
 @multi_source
@@ -185,14 +185,17 @@ def soapstone_source(game, phrase):
     '''Random Dark Souls soapstone messages.'''
     if phrase != '%phrase%':
         return soapstone.makePhrase(phrase)
+    game = game.lower()
     if game == '?':
-        game = choose(['1','2','3'])
+        game = choose(['1','2','3','b'])
     if game == '1':
         return soapstone.DarkSouls1.get()
     if game == '2':
         return soapstone.DarkSouls2.get()
     if game == '3':
         return soapstone.DarkSouls3.get()
+    if game == 'b':
+        return soapstone.Bloodborne.get()
 
 
 @make_source({

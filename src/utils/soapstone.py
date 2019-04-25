@@ -56,6 +56,7 @@ class DarkSouls1:
             phrase = phrase.replace('%', choose(choose(DarkSouls1.categories)))
         return phrase
 
+
 class DarkSouls2:
     phrases = ['%', '% and then %', '% but %', '% therefore %', '% in short %', '% or %', '% by the way %', '% , %']
 
@@ -202,6 +203,77 @@ class DarkSouls3:
         phrase = choose(this.phrases).replace('%', choose(choose(this.categories)))
         if chance(0.9):
             phrase += choose(this.conjunctions) + choose(this.phrases).replace('%', choose(choose(this.categories)))
+        return phrase
+
+
+class Bloodborne:
+    phrases = [
+        'fear %', 'remember %', 'time for %', 'it\'s the scourge of %', 'reeks of %', '% is effective', 'beware of %', 'treat % with care',
+        'it is all thanks to %', 'despicable %', 'woeful %', 'wondrous %', 'nothing but % here', '% waits ahead', 'you must accept %',
+        'have mercy, %', 'no mercy for %', 'have audience with %', 'reminiscent of %', 'oh, %!'
+    ]
+
+    stock_phrases = [
+        'you\'ve come to the right place', 'bless us with blood', 'may the good blood guide your way', 'fear your blindness',
+        'the sky and the cosmos are one', 'let us cleanse these foul streets', 'you\'re in the know, right?', 'oh, I can\'t wait... hee hee...',
+        'take a step forward', 'turn back', 'those with faith will be spared', 'don\'t be fooled', 'pitiful, really', 'behind you',
+        'don\'t you dare look at me!', 'sincerest thanks', 'a hunter is never alone', 'please, carry on in my stead', 'run!', 'don\'t give up!,'
+    ]
+
+    conjunctions = [' and ', ' but ', ' or ', ' therefore ', ' eventually ', ', ']
+
+    creatures = [
+        'beast', 'man-beast', 'giant beast', 'abhorrent beast', 'infected one', 'foe', 'strong foe', 'giant foe', 'terrible foe',
+        'hound', 'bird', 'snake', 'animal', 'insect', 'watcher', 'shaman', 'dead', 'foul spirit', 'the lost', 'malformed thing',
+        'monster', 'unknown thing', 'slimy thing', 'blobby thing', 'kin of the cosmos', 'evil eye', 'false god', 'superior being', 'messenger', 'doll',
+    ]
+
+    humans = [
+        'man', 'woman', 'elderly', 'ailing one', 'madman', 'keeper', 'mob', 'wheelchair', 'small gent', 'small lady', 'titan',
+        'amazon', 'fatty', 'dullard', 'liar', 'scoundrel', 'child', 'friend', 'darling', 'master', 'infant', 'queen', 'yourself',
+        'hunter', 'cooperator', 'adversary', 'executioner', 'vileblood', 'hunter of hunters', 'blood-addled hunter'
+    ]
+
+    tactics_a = [
+        'physical attack', 'blunt attack', 'thrust attack', 'blood attack', 'arcane', 'fire', 'bolt', 'quick weapon', 'long weapon',
+        'poison', 'frenzy', 'exploiting species', 'beast transformation', 'firearm', 'blunderbuss', 'torch', 'shield', 'rally',
+        'charge attack', 'visceral attack', 'rolling', 'quickstep', 'blood vial', 'quicksilver bullet', 'medicine', 'special medicine',
+        'projectile', 'oil', 'coarse paper', 'special item'
+    ]
+
+    tactics_b = [
+        'ambush', 'pincer attack', 'sneak attack', 'patrol', 'reinforcements caller', '"focus on attacks"', '"focus on evasion"',
+        '"focus on healing"', '"close-range fight"', '"long-range fight"', '"hit-and-run"', 'sniping', 'counter', '"attack from behind"',
+        '"open when attacking"', '"strike and be struck"', '"kill in order"', '"kill first"', 'charging forth', 'lure', 'stealth', 'ignoring',
+        'retreat', 'use of terrain', 'tight spot', 'high spot', 'fall', 'alertness', 'unbreakable will', 'leaden constitution'
+    ]
+
+    things = [
+        'blood echoes', 'insight', 'bloodstone', 'blood gem', 'rune', 'ritual material', 'key', 'item', 'special item', 'paleblood',
+        'message', 'rating', 'dead body', 'treasure', 'lever', 'statue', 'light', 'bonfire', 'footing', 'trap', 'yharnam', 'clinic',
+        'grand cathedral', 'church', 'safe place', 'old labyrinth', 'workshop', 'healing church', 'hidden path', 'unseen village'
+    ]
+
+    concepts = [
+        'hunting', 'night', 'dawn', 'blood', 'warm blood', 'scourge', 'life', 'nightmare', 'moon', 'cosmos', 'eye', 'oedon',
+        'communion', 'donation', 'ritual', 'contact', 'encounter', 'evolution', 'oath', 'corruption', 'execution', 'cleansing',
+        'prayer', 'curse', 'defilement', 'sinister', 'courage', 'respect', 'inquisitiveness', 'pity', 'grief', 'joy', 'wrath',
+        'sanity', 'madness', 'fervor', 'seduction', 'feasting', 'tastiness', 'tonsil', 'metamorphosis', 'common sense', 'darkness',
+        'secret', 'singing', 'sobbing', 'howling', '"all\'s well"', 'the unseen', 'all'
+    ]
+    
+    categories = [creatures, humans, tactics_a, tactics_b, things, concepts]
+
+    def get_phrase():
+        if chance(0.8):
+            return choose(Bloodborne.phrases).replace('%', choose(choose(Bloodborne.categories)))
+        return choose(Bloodborne.stock_phrases)
+
+    def get():
+        this = Bloodborne
+        phrase = this.get_phrase()
+        if chance(0.8):
+            phrase += choose(this.conjunctions) + this.get_phrase()
         return phrase
 
 # Matches: group1%group2%group3

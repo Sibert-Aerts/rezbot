@@ -12,7 +12,6 @@ import permissions
 import utils.util as util
 import utils.texttools as texttools
 import utils.benedict as benedict
-import utils.soapstone as soapstone
 from utils.frinkiac import simpsons, futurama
 import resource.tweets as tweets
 from resource.youtubecaps import youtubeCaps
