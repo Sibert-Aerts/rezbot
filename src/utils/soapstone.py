@@ -217,7 +217,7 @@ class Bloodborne:
         'you\'ve come to the right place', 'bless us with blood', 'may the good blood guide your way', 'fear your blindness',
         'the sky and the cosmos are one', 'let us cleanse these foul streets', 'you\'re in the know, right?', 'oh, I can\'t wait... hee hee...',
         'take a step forward', 'turn back', 'those with faith will be spared', 'don\'t be fooled', 'pitiful, really', 'behind you',
-        'don\'t you dare look at me!', 'sincerest thanks', 'a hunter is never alone', 'please, carry on in my stead', 'run!', 'don\'t give up!,'
+        'don\'t you dare look at me!', 'sincerest thanks', 'a hunter is never alone', 'please, carry on in my stead', 'run!', 'don\'t give up!'
     ]
 
     conjunctions = [' and ', ' but ', ' or ', ' therefore ', ' eventually ', ', ']
