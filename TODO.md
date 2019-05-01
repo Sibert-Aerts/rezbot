@@ -2,6 +2,8 @@
 
 (In no particular order)
 
+* **CRITICAL:**
+    * pipes/sources as commands doesn't work as of discord.py v1.0!!!!
 
 * **General:**
     * Read permissions from a file
