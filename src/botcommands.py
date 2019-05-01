@@ -288,7 +288,6 @@ class BotCommands(MyCommands):
         await ctx.send(embed=embed)
 
 
-    @commands.command()
 
 
     @commands.command()
