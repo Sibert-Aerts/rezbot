@@ -46,7 +46,7 @@ class Patterns:
         # i.e. if the previous message (before the one we're testing) was posted by the bot
         try:
             i = 0
-            async for log in self.bot.logs_from(message.channel, limit=2):
+            async for log in message.channel.history(limit=2):
                 if i == 1:
                     return log.author.id == self.bot.user.id
                 i += 1
@@ -80,10 +80,10 @@ class Patterns:
                     return
 
     async def reply(self, message, replyText):
-        msg = await self.bot.send_message(message.channel, replyText)
+        msg = await message.channel.send(replyText)
 
     async def react(self, message, emote):
-        await self.bot.add_reaction(message, emote)
+        await message.add_reaction(emote)
 
     async def current_year(self, message):
         await self.reply(message, '`The current year is {0}.`'.format(datetime.datetime.now().year))

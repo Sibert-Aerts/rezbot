@@ -70,7 +70,7 @@ def output_source():
 @make_source({}, pass_message=True)
 def that_source(message):
     '''The previous message in the channel.'''
-    msg = [m for m in SourceResources.bot.messages if m.channel == message.channel][-2]
+    msg = [m for m in SourceResources.bot.cached_messages if m.channel == message.channel][-2]
     return [msg.content]
 
 
@@ -165,7 +165,7 @@ def words_source(pattern, n):
 @make_source({'n' : Sig(int, 1, 'The amount of members.')}, pass_message=True)
 def member_source(message, n):
     '''Gets a random member.'''
-    members = list(message.server.members)
+    members = list(message.guild.members)
     return [m.display_name for m in random.sample(members, min(n, len(members)))]
 
 

@@ -1,24 +1,21 @@
 import sys
 import utils.texttools as texttools
+from discord.ext import commands
 
-class MyCommands:
+class MyCommands(commands.Cog):
     '''Class holding useful methods for bot commands.'''
     def __init__(self, bot):
         self.bot = bot
 
-    async def say_bot(self, str):
-        str = texttools.bot_format(str)
-        await self.say(str)
+    async def say_bot(self, s, **kwargs):
+        s = texttools.bot_format(s)
+        await self.say(s, **kwargs)
 
-    async def say_block(self, str):
-        str = texttools.block_format(str)
-        await self.say(str)
+    async def say_block(self, s, **kwargs):
+        await self.say(texttools.block_format(s), **kwargs)
 
-    async def say(self, str):
-        msg = await self.bot.say(str)
-
-    async def send_message(self, channel, str):
-        msg = await self.bot.send_message(channel, str)
+    async def say(self, *args, **kwargs):
+        await self.bot.say(*args, **kwargs)
 
     async def _die(self):
         '''Kill the bot.'''

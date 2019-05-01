@@ -11,35 +11,39 @@ class UploadCommands(MyCommands):
         super().__init__(bot)
 
 
-    @commands.command(pass_context=True)
+    @commands.command()
     async def upload(self, ctx):
         '''Upload a txt file for the bot to use.'''
         if not ctx.message.attachments:
-            await self.say('Please attach a txt file with your message.'); return
+            await ctx.send('Please attach a txt file with your message.'); return
 
         # Are there ever more than 1 attachments?
         attached = ctx.message.attachments[0]
-        r = await aiohttp.get(attached['url'])
-        text = await r.text()
-        author = ctx.message.author
+        print(attached)
 
-        file = uploads.add_file(attached['filename'], text, author.name, author.id)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(attached.url) as response:
+                text = await response.text()
 
-        await self.say('File received! Saved %d lines as `%s`' % (len(file.lines), file.info.name))
+        author = ctx.author
+
+        file = uploads.add_file(attached.filename, text, author.name, author.id)
+
+        await ctx.send('File received! Saved %d lines as `%s`' % (len(file.lines), file.info.name))
 
 
     @commands.command(aliases=['file', 'uploads'])
-    async def files(self, file=''):
+    async def files(self, ctx, file=''):
         '''List all uploaded txt files, or show the contents of a specific file.'''
         if file == '':
             #### Print a list of all files
             text = 'Files: ' + ', '.join(f for f in uploads) + '\n'
             text += 'For more details on a specific file, use >file [name]'
-            await self.say(text)
+            await ctx.send(text)
             return
 
         if file not in uploads:
-            await self.say('No file by name `%s` found!' % file); return
+            await ctx.send('No file by name `%s` found!' % file); return
 
         #### Print info on the specific file
         file = uploads[file]
@@ -71,16 +75,16 @@ class UploadCommands(MyCommands):
                 break
         
         text += texttools.block_format('\n'.join(print_lines))
-        await self.say(text)
+        await ctx.send(text)
+
 
     # List of attributes modifiable by the below command
     str_attributes = ['name', 'splitter']
     bool_attributes = ['sequential', 'sentences']
     attributes = str_attributes + bool_attributes
 
-
     @commands.command(aliases=['set_file'])
-    async def file_set(self, file, attribute, value):
+    async def file_set(self, ctx, file, attribute, value):
         '''
         Set an attribute of an uploaded file.
         
@@ -89,27 +93,29 @@ class UploadCommands(MyCommands):
         splitter: The regex that determines how the file is split into lines.
         sequential: Boolean determining whether or not the order of the lines in the file matters.
         sentences: Boolean determining whether the file should be split into sentences, rather than split on the regex splitter.
+
+        e.g. >file_set filename name newname
         '''
         if file not in uploads:
-            await self.say('No file by name `%s` found!' % file); return
+            await ctx.send('No file by name `%s` found!' % file); return
         file = uploads[file]
 
         if attribute not in UploadCommands.attributes:
-            await self.say('Second argument must be one of: %s' % ', '.join(UploadCommands.attributes)); return
+            await ctx.send('Second argument must be one of: %s' % ', '.join(UploadCommands.attributes)); return
 
         if attribute in UploadCommands.bool_attributes:
             value = parse_bool(value)
         elif attribute in UploadCommands.str_attributes:
             value = value.strip()
             if value == '':
-                await self.say('Please use a less blank-y value.'); return
+                await ctx.send('Please use a less blank-y value.'); return
 
         oldVal = getattr(file.info, attribute)
         if attribute == 'name':
             # Special case because names of different files aren't allowed to overlap
             if value == oldVal: return
             if value in uploads:
-                await self.say('That name is already in use.'); return
+                await ctx.send('That name is already in use.'); return
             # Everything seems in order to make this change
             del uploads[oldVal]
             uploads[value] = file
@@ -122,7 +128,7 @@ class UploadCommands(MyCommands):
             file.lines = None
 
         file.info.write()
-        await self.say('Changed {} from `{}` to `{}`!'.format(attribute, str(oldVal), str(value)))
+        await ctx.send('Changed {} from `{}` to `{}`!'.format(attribute, str(oldVal), str(value)))
 
 
 

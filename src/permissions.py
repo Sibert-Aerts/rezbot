@@ -17,9 +17,9 @@ hierarchy = [muted, default, owner]
 # and maybe add commands to change them
 # PUT YOUR CUSTOM USER PERMISSIONS HERE:
 userPermissions = {
-    '154597714619793408': owner,   # Rezuaq
-    '147011940558831616': default, # Goat (note: default entries aren't needed)
-    '155029762404777984': muted,   # Ellen
+    154597714619793408: owner,   # Rezuaq
+    147011940558831616: default, # Goat (note: default entries aren't needed)
+    155029762404777984: muted,   # Ellen
 }
 
 # Get the user's permission level, or the default permission level if the user is not found.
@@ -45,10 +45,10 @@ def has_at_most(id, permission):
 def check(permission):
     '''Decorator for bot commands to check if the user has the specified permission.'''
     def _check(ctx):
-        if has(ctx.message.author.id, permission):
+        if has(ctx.author.id, permission):
             return True
         else:
-            print('User {} attempted action that required permission {} but had {}'.format(ctx.message.author.name, permission, get(ctx.message.author.id)))
+            print('User {} attempted action that required permission {} but had {}'.format(ctx.author.name, permission, get(ctx.author.id)))
             return False
     return commands.check(_check)
 

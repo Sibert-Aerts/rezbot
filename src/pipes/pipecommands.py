@@ -22,12 +22,12 @@ class PipeCommands(MyCommands):
         super().__init__(bot)
 
     @commands.command(aliases=['pipe_help', 'pipes_info', 'pipe_info', 'pipes_guide', 'pipe_guide'])
-    async def pipes_help(self):
+    async def pipes_help(self, ctx):
         '''Links the guide to using pipes.'''
-        await self.say('https://github.com/Sibert-Aerts/rezbot/blob/master/PIPESGUIDE.md')
+        await ctx.send('https://github.com/Sibert-Aerts/rezbot/blob/master/PIPESGUIDE.md')
 
     @commands.command(aliases=['pipe'])
-    async def pipes(self, name=''):
+    async def pipes(self, ctx, name=''):
         '''Print a list of all pipes and their descriptions, or details on a specific pipe.'''
         name = name.lower()
         uname = name.upper()
@@ -37,11 +37,11 @@ class PipeCommands(MyCommands):
             embed = pipes[name].embed()
             # bot takes credit for native pipes
             embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
-            await self.bot.say(embed=embed)
+            await ctx.send(embed=embed)
 
         # Info on a macro pipe
         elif name != '' and name in pipe_macros:
-            await self.bot.say(embed=pipe_macros[name].embed())
+            await ctx.send(embed=pipe_macros[name].embed())
 
         # Pipes in a specific category
         elif uname != '' and uname in pipes.categories:
@@ -57,7 +57,7 @@ class PipeCommands(MyCommands):
             infos.append('')
             infos.append('Use >pipes [pipe name] to see more info on a specific pipe.')
             infos.append('Use >pipe_macros for a list of user-defined pipes.\n')
-            await self.say(texttools.block_format('\n'.join(infos)))
+            await ctx.send(texttools.block_format('\n'.join(infos)))
 
         # List of categories
         else:
@@ -79,10 +79,10 @@ class PipeCommands(MyCommands):
             infos.append('Use >pipes [category name] for the list of pipes in a specific category.')
             infos.append('Use >pipes [pipe name] to see more info on a specific pipe.')
             infos.append('Use >pipe_macros for a list of user-defined pipes.\n')
-            await self.say(texttools.block_format('\n'.join(infos)))
+            await ctx.send(texttools.block_format('\n'.join(infos)))
 
     @commands.command(aliases=['source'])
-    async def sources(self, name=''):
+    async def sources(self, ctx, name=''):
         '''Print a list of all sources and their descriptions, or details on a specific source.'''
         name = name.lower()
 
@@ -91,11 +91,11 @@ class PipeCommands(MyCommands):
             embed = sources[name].embed()
             # bot takes credit for native sources
             embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
-            await self.bot.say(embed=embed)
+            await ctx.send(embed=embed)
 
         # Info on a macro source
         elif name != '' and name in source_macros:
-            await self.bot.say(embed=source_macros[name].embed())
+            await ctx.send(embed=source_macros[name].embed())
 
         # Info on all sources
         else:
@@ -108,10 +108,10 @@ class PipeCommands(MyCommands):
                 if source.doc: info += source.small_doc
                 infos.append(info)
             text = texttools.block_format('\n'.join(infos))
-            await self.say(text)
-            
+            await ctx.send(text)
+
     @commands.command(aliases=['spout'])
-    async def spouts(self, name=''):
+    async def spouts(self, ctx, name=''):
         '''Print a list of all spouts and their descriptions, or details on a specific source.'''
         name = name.lower()
 
@@ -120,7 +120,7 @@ class PipeCommands(MyCommands):
             embed = spouts[name].embed()
             # bot takes credit for native spouts
             embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
-            await self.bot.say(embed=embed)
+            await ctx.send(embed=embed)
 
         # Info on all spouts
         else:
@@ -133,11 +133,11 @@ class PipeCommands(MyCommands):
                 if spout.doc: info += spout.small_doc
                 infos.append(info)
             text = texttools.block_format('\n'.join(infos))
-            await self.say(text)
+            await ctx.send(text)
 
     @commands.command(aliases=['clear'])
-    async def clear_events(self):
-        await self.say('Cleared %d events.' % len(PipelineProcessor.on_message_events))
+    async def clear_events(self, ctx):
+        await ctx.send('Cleared %d events.' % len(PipelineProcessor.on_message_events))
         PipelineProcessor.on_message_events.clear()
 
 
@@ -151,7 +151,7 @@ def pipe_to_func(pipe):
         proc = SourceProcessor(ctx.message)
         text = proc.evaluate_composite_source(text)
         text = '\n'.join(pipe.as_command(text))
-        await self.say(text)
+        await ctx.send(text)
     func.__name__ = pipe.name
     func.__doc__ = pipe.command_doc()
     return func
@@ -160,7 +160,7 @@ def pipe_to_func(pipe):
 for pipe in pipes.command_pipes:
     func = pipe_to_func(pipe)
     # manually call the function decorator to make func into a command
-    command = commands.command(pass_context=True)(func)
+    command = commands.command()(func)
     setattr(PipeCommands, pipe.name, command)
 
 ###############################################################
@@ -173,7 +173,7 @@ def source_to_func(source):
         proc = SourceProcessor(ctx.message)
         text = proc.evaluate_composite_source(text)
         text = '\n'.join(source(ctx.message, text))
-        await self.say(text)
+        await ctx.send(text)
     func.__name__ = source.name
     func.__doc__ = source.command_doc()
     return func
@@ -182,7 +182,7 @@ def source_to_func(source):
 for source in sources.command_sources:
     func = source_to_func(source)
     # manually call the function decorator to make func into a command
-    command = commands.command(pass_context=True)(func)
+    command = commands.command()(func)
     setattr(PipeCommands, source.name, command)
 
 ###############################################################
@@ -203,7 +203,7 @@ def spout_to_func(spout):
 for spout in spouts.command_spouts:
     func = spout_to_func(spout)
     # manually call the function decorator to make func into a command
-    command = commands.command(pass_context=True)(func)
+    command = commands.command()(func)
     setattr(PipeCommands, spout.name, command)
 
 

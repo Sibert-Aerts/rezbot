@@ -38,7 +38,7 @@ def hex(h):
 async def embed_spout(bot, message, values, title, color):
     '''Outputs text as a simple discord embed.'''
     e = Embed(title=title, description='\n'.join(values), color=color)
-    await bot.send_message(message.channel, embed=e)
+    await message.channel.send(embed=e)
 
 
 @make_spout({
@@ -53,7 +53,7 @@ async def tweet_spout(bot, message, values, name, handle, icon):
     e.set_footer(text='Twitter', icon_url='https://abs.twimg.com/icons/apple-touch-icon-192x192.png')
     e.add_field(name='Retweets', value=random.randint(500, 5000))
     e.add_field(name='Likes', value=random.randint(1000, 10000))
-    await bot.send_message(message.channel, embed=e)
+    await message.channel.send(embed=e)
 
 
 @make_spout({}, command=True)
@@ -64,16 +64,16 @@ async def trump_tweet_spout(bot, message, values):
     e.set_footer(text='Twitter', icon_url='https://abs.twimg.com/icons/apple-touch-icon-192x192.png')
     e.add_field(name='Retweets', value=random.randint(5000, 50000))
     e.add_field(name='Likes', value=random.randint(25000, 150000))
-    await bot.send_message(message.channel, embed=e)
+    await message.channel.send(embed=e)
 
 
 @make_spout({})
 async def delete_this_spout(bot, message, values):
     '''Deletes the message that triggered the script's execution.'''
-    await bot.delete_message(message)
+    await message.delete()
 
 
 @make_spout({})
 async def message_spout(bot, message, values):
     '''Prints the message as a message, PLACEHOLDER until i properly turn print into a spout.....'''
-    await bot.send_message(message.channel, '\n'.join(values))
+    await message.channel.send('\n'.join(values))

@@ -61,17 +61,16 @@ async def on_message(message):
 
 
 @bot.event
-async def on_command_error(error, ctx):
+async def on_command_error(ctx, error):
     print('')
     if isinstance(error, commands.NoPrivateMessage):
-        await bot.send_message(ctx.message.author, 'This command cannot be used in private messages.')
+        await ctx.author.send('This command cannot be used in private messages.')
     elif isinstance(error, commands.DisabledCommand):
-        await bot.send_message(ctx.message.author, 'Sorry. This command is disabled and cannot be used.')
+        await ctx.author.send('Sorry. This command is disabled and cannot be used.')
     elif isinstance(error, commands.CommandInvokeError):
         print('In {0.command.qualified_name}:'.format(ctx), file=sys.stderr)
         # traceback.print_tb(error.original.__traceback__)
-        print('{0.__class__.__name__}: {0}'.format(
-            error.original), file=sys.stderr)
+        print('{0.__class__.__name__}: {0}'.format(error.original), file=sys.stderr)
     else:
         print('Command Error:', error)
 

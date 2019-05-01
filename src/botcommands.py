@@ -1,4 +1,5 @@
 import asyncio
+import io
 import re
 import random
 import time
@@ -43,77 +44,78 @@ class BotCommands(MyCommands):
 
     @commands.command(hidden=True)
     @permissions.check(permissions.owner)
-    async def die(self):
+    async def die(self, ctx):
         '''Kill the bot.'''
-        await self.say('dead.')
+        await ctx.send('dead.')
         await self._die()
 
 
     @commands.command(hidden=True)
-    async def hide_self(self):
+    async def hide_self(self, ctx):
         '''Go invisible.'''
         await self.bot.change_presence(status=discord.Status.invisible)
 
 
     @commands.command(hidden=True)
-    async def unhide_self(self):
+    async def unhide_self(self, ctx):
         '''Go visible.'''
         await self.bot.change_presence(status=discord.Status.online)
 
 
-    @commands.command(pass_context=True, hidden=True)
+    @commands.command(hidden=True)
     async def play(self, ctx):
         '''Set the currently played game.'''
         game = util.strip_command(ctx)
         if game == '':
-            await self.bot.change_presence(game=None)
+            await self.bot.change_presence(activity=None)
         else:
-            await self.bot.change_presence(game=discord.Game(name=game))
+            await self.bot.change_presence(activity=discord.Game(name=game))
 
 
-    @commands.command(pass_context=True, hidden=True)
+    @commands.command(hidden=True)
     async def echo(self, ctx):
         '''Repeat your message in a code block (for emoji related purposes).'''
-        await self.say('`{}`'.format(util.strip_command(ctx)))
+        await ctx.send('`{}`'.format(util.strip_command(ctx)))
 
 
     # TODO: extend this so the bot remembers which of its messages where caused by whom
     # so that you're allowed to >delet the bot's message if you were the one that 'caused' it
     # to self-moderate bot spam, or to fix your own slip-ups
-    @commands.command(pass_context=True, hidden=True)
+    @commands.command(hidden=True)
     @permissions.check(permissions.owner)
     async def delet(self, ctx, upperBound = 1, lowerBound = 0):
         '''delet (owner only)'''
-        print('Deleting messages in #{0} between {1} and {2}'.format(ctx.message.channel.name, lowerBound, upperBound))
+        name = 'this DM' if isinstance(ctx.channel, discord.abc.PrivateChannel) else ctx.author.name
+        print('Deleting messages in #{0} between {1} and {2}'.format(name, lowerBound, upperBound))
         i = 0
-        async for log in self.bot.logs_from(ctx.message.channel, limit = 100):
+        async for log in ctx.channel.history(limit = 100):
             if log.author == self.bot.user:
                 if i == upperBound:
                     return
                 elif i >= lowerBound:
-                    await self.bot.delete_message(log)
+                    await log.delete()
                 i += 1
 
     ###################################
     ##          TOY COMMANDS         ##
     ###################################
 
-    @commands.command(pass_context=True)
+    @commands.command()
     async def kill(self, ctx):
         '''Kill someone'''
-        subject = ctx.message.content[6:]
+        subject = util.strip_command(ctx)
         if subject.lower() in ["yourself", "self", "myself", "rezbot"]:
-            if permissions.has(ctx.message.author.id, permissions.owner):
-                await self.say('killing self.')
+            if permissions.has(ctx.author.id, permissions.owner):
+                await ctx.send('killing self.')
                 await self._die()
             else:
-                await self.say('no')
+                await ctx.send('no')
         else:
-            await self.say('killed {0}'.format( ctx.message.author.name if (subject == "me") else subject))
+            await ctx.send('killed {0}'.format( ctx.author.name if (subject == "me") else subject))
 
 
     @commands.command()
-    async def cat(self, category:str=None):
+    async def cat(self, ctx, category:str=None):
         '''
         Posts a random cat picture, courtesy of http://thecatapi.com/
         
@@ -123,12 +125,12 @@ class BotCommands(MyCommands):
         if category is not None:
             params['category'] = category
         r = requests.get('http://thecatapi.com/api/images/get', params=params, allow_redirects=False)
-        await self.say(r.headers['Location'])
+        await ctx.send(r.headers['Location'])
 
 
     @commands.command()
     @util.format_doc(categories=', '.join([c for c in triviaCategories]))
-    async def trivia(self, category:str=None):
+    async def trivia(self, ctx, category:str=None):
         '''
         Posts an absolutely legitimate trivia question.
 
@@ -167,45 +169,45 @@ class BotCommands(MyCommands):
         text = question + '\n'
         for answ in chosenAnswers:
             text += '\n 🔘 ' + answ
-        await self.say(text)
+        await ctx.send(text)
 
 
     @commands.command()
-    async def bio(self, count:int=1):
+    async def bio(self, ctx, count:int=1):
         '''Post a random twitter bio, credit to Jon Hendren (@fart)'''
         messages = []
         for _ in range(min(count, 10)):
             messages.append(utils.biogenerator.get())
-        await self.say('\n'.join(messages))
+        await ctx.send('\n'.join(messages))
 
 
     @commands.command()
-    async def word_gradient(self, w1:str, w2:str, n:int=5):
+    async def word_gradient(self, ctx, w1:str, w2:str, n:int=5):
         '''gradient between two words'''
         if n > 9: return
         text = '\n'.join(util.remove_duplicates([w1] + texttools.dist_gradient(w1, w2, n) + [w2]))
-        await self.say(texttools.block_format(text))
+        await ctx.send(texttools.block_format(text))
 
 
     @commands.command()
-    async def weapons(self):
+    async def weapons(self, ctx):
         '''Show all weapons the bot recognises to start emoji fights.'''
         text = "`left-facing weapons:` " + " ".join(Attack.leftWeapons)
         text += "\n`right-facing weapons:` " + " ".join(Attack.rightWeapons)
-        await self.say(text)
+        await ctx.send(text)
 
 
     @commands.command()
-    async def sheriff(self, *bodyParts):
+    async def sheriff(self, ctx, *bodyParts):
         '''Makes a sheriff using the given emoji.'''
         mySheriff = '⠀' + util.theSheriff
         if len(bodyParts):
             for i in range(12):
                 mySheriff = mySheriff.replace(':100:', bodyParts[i % len(bodyParts)], 1)
-        await self.bot.say(mySheriff)
+        await ctx.send(mySheriff)
 
 
-    @commands.command(pass_context=True)
+    @commands.command()
     async def simpsons(self, ctx):
         '''Search for a Simpsons screencap and caption matching a query (or a random one if no query is given).'''
         query = util.strip_command(ctx)
@@ -213,11 +215,11 @@ class BotCommands(MyCommands):
             im, cap = simpsons.random()
         else:
             im, cap = simpsons.search(query)
-        await self.say(im)
-        await self.say(cap)
+        await ctx.send(im)
+        await ctx.send(cap)
 
 
-    @commands.command(pass_context=True)
+    @commands.command()
     async def futurama(self, ctx):
         '''Search for a Futurama screencap and caption matching a query (or a random one if no query is given).'''
         query = util.strip_command(ctx)
@@ -225,11 +227,11 @@ class BotCommands(MyCommands):
             im, cap = futurama.random()
         else:
             im, cap = futurama.search(query)
-        await self.say(im)
-        await self.say(cap)
+        await ctx.send(im)
+        await ctx.send(cap)
 
 
-    @commands.command(pass_context=True)
+    @commands.command()
     async def dril(self, ctx):
         '''Search for a dril (@wint) tweet matching a query (or a random one if no query is given).'''
         query = util.strip_command(ctx)
@@ -237,10 +239,10 @@ class BotCommands(MyCommands):
             tweet = tweets.dril.random()
         else:
             tweet = choose(tweets.dril.search(query, 8))
-        await self.say(tweet['href'])
+        await ctx.send(tweet['href'])
 
 
-    @commands.command(pass_context=True)
+    @commands.command()
     async def derek(self, ctx):
         '''Search for a derek (@eedrk) tweet matching a query (or a random one if no query is given).'''
         query = util.strip_command(ctx)
@@ -249,16 +251,16 @@ class BotCommands(MyCommands):
         else:
             tweet = choose(tweets.derek.search(query, 8))
         # TODO: output as faux tweet embed, since these are HISTORY
-        await self.say(tweet['text'])
+        await ctx.send(tweet['text'])
 
 
     @commands.command()
-    async def dril_ebook(self, max_length=140):
+    async def dril_ebook(self, ctx, max_length=140):
         '''Generate a random dril tweet'''
-        await self.say(tweets.dril_model.make_short_sentence(max_length))
+        await ctx.send(tweets.dril_model.make_short_sentence(max_length))
 
 
-    @commands.command(pass_context=True)
+    @commands.command()
     async def JERKCITY(self, CTX):
         '''SEARCH FOR A JERKCITY COMIC BASED ON TITLE OR DIALOGUE (OR NO QUERY FOR A RANDOM ONE)'''
         QUERY = util.strip_command(CTX)
@@ -266,7 +268,7 @@ class BotCommands(MyCommands):
             ISSUE = JERKCITY.GET_RANDOM()
         else:
             ISSUE = JERKCITY.SEARCH(QUERY)
-        await self.say(ISSUE.URL())
+        await CTX.send(ISSUE.URL())
 
 
     def trump_embed(text):
@@ -277,27 +279,22 @@ class BotCommands(MyCommands):
         embed.add_field(name='Likes', value=random.randint(25000, 150000))
         return embed
 
-    @commands.command(pass_context=True, hidden=True)
+    @commands.command(hidden=True)
     async def drump(self, ctx):
         query = util.strip_command(ctx)
         if query == '': tweet = tweets.dril.random()
         else: tweet = choose(tweets.dril.search(query, 8))
         embed = BotCommands.trump_embed(tweet['text'])
-        await self.bot.say(embed=embed)
+        await ctx.send(embed=embed)
 
 
     @commands.command()
-    async def lunch(self, kind='regular'):
+
+
+    @commands.command()
+    async def lunch(self, ctx, kind='regular'):
         '''Generate a fake lunch menu in Dutch. If the first argument is "weird" it will produce a weirder menu.'''
-        await self.bot.say(Meal.generateMenu(kind))
-
-
-    @commands.command(pass_context=True)
-    async def image_split(self, ctx):
-        '''Splits a series of image urls into groups of 5 and posts them.'''
-        urls = list(filter(lambda t: re.match('https?://', t) is not None, util.strip_command(ctx).split()))[5:]
-        for i in range(0, len(urls), 5):
-            await self.say(' '.join(urls[i:i+5]))
+        await ctx.send(Meal.generateMenu(kind))
 
 
 def setup(bot):

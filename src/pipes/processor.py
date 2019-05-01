@@ -453,12 +453,12 @@ class PipelineProcessor:
         if len(output) == 1:
             if len(output[0]) == 1:
                 if output[0][0].strip() != '':
-                    await self.bot.send_message(dest, output[0][0])
+                    await dest.send(output[0][0])
                 else:
-                    await self.bot.send_message(dest, '`empty string`')
+                    await dest.send('`empty string`')
                 return
             elif len(output[0]) == 0:
-                await self.bot.send_message(dest, '`no output`')
+                await dest.send('`no output`')
                 return
 
         rowCount = len(max(output, key=len))
@@ -482,7 +482,7 @@ class PipelineProcessor:
         # Remove unnecessary padding
         rows = [row.rstrip() for row in rows]
         output = texttools.block_format('\n'.join(rows))
-        await self.bot.send_message(dest, output)
+        dest.send(output)
 
     def split(script):
         '''Splits a script into the source and pipeline.'''
@@ -537,12 +537,12 @@ class PipelineProcessor:
 
             ## Print error output!
             if errors:
-                await self.bot.send_message(message.channel, embed=errors.embed())
+                await message.channel.send(embed=errors.embed())
 
         except Exception as e:
             print('Error applying pipeline!')
             errors('**Terminal pipeline error:**\n' + e.__class__.__name__ + ': ' + str(e), terminal=True)
-            await self.bot.send_message(message.channel, embed=errors.embed())
+            await message.channel.send(embed=errors.embed())
 
     async def process_script(self, message):
         '''This is the starting point for all script execution.'''
