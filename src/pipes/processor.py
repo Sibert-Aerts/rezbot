@@ -482,7 +482,7 @@ class PipelineProcessor:
         # Remove unnecessary padding
         rows = [row.rstrip() for row in rows]
         output = texttools.block_format('\n'.join(rows))
-        dest.send(output)
+        await dest.send(output)
 
     def split(script):
         '''Splits a script into the source and pipeline.'''
