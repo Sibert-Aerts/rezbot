@@ -124,7 +124,7 @@ def shuffle_pipe(input):
 })
 def choose_pipe(input, amount):
     '''Chooses random values with replacement (i.e. may return repeated values).'''
-    return random.choices(input, amount)
+    return random.choices(input, k=amount)
 
 
 @make_pipe({
