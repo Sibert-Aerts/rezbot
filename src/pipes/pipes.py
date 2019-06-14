@@ -16,6 +16,7 @@ from .pipe import Pipe, Pipes
 
 from .sources import SourceResources
 from utils.texttools import *
+from resource.upload import uploads
 
 #######################################################
 #                     Decorations                     #
@@ -329,12 +330,17 @@ _CATEGORY = 'LANGUAGE'
 _datamuse = lru_cache()(datamuse_api.words)
 
 @make_pipe({
-    'min': Sig(int, 0, 'Upper limit on minimum distance (e.g. 1 to never get the same word).')
+    'min': Sig(int, 0, 'Upper limit on minimum distance (e.g. 1 to never get the same word).'),
+    'file': Sig(str, 'words.txt', 'The uploaded file to be matched from.')
 }, command=True)
 @as_map
-def min_dist_pipe(text, min):
-    '''Replaces words with their nearest dictionary words.'''
-    return ' '.join(min_dist(w, min) for w in text.split(' '))
+def nearest_pipe(text, min, file):
+    '''Replaces text with the nearest item (by edit distance) in a given file.'''
+    # TODO? MORE FILE LOGIC EQUIVALENT TO {TXT} SOURCE
+    if file not in uploads:
+        raise KeyError('No file "%s" loaded! Check >files for a list of files.' % file)
+    file = uploads[file]
+    return min_dist(text, min, file.get())
 
 
 @make_pipe({}, command=True)

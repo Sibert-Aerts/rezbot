@@ -151,8 +151,9 @@ converters = {
 def ed(x, y):
     return editdistance.eval(x.lower(), y.lower())
 
-def min_dist(w, maxMin=0):
-    return choose(util.mins(allWords, key=lambda x:ed(x, w), maxMin=maxMin))
+def min_dist(w, maxMin=0, corpus=None):
+    if corpus is None: corpus = allWords
+    return choose(util.mins(corpus, key=lambda x:ed(x, w), maxMin=maxMin))
 
 def avg_dist(w1, w2, p=0.5):
     q = 1-p
