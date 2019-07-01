@@ -364,10 +364,10 @@ class Pipeline:
         '''Raises an error if the user is asking too much of the bot.'''
         # TODO: this could stand to be smarter/more oriented to the type of operation you're trying to do, or something, maybe...?
         # meditate on this...
-        MAXCHARS = 1000
+        MAXCHARS = 10000
         chars = sum(len(i) for i in values)
         if chars > MAXCHARS and not permissions.has(message.author.id, permissions.owner):
-            raise PipelineError('Attempted to process a flow of {} total characters at once, try staying under {}.'.format(chars, MAXVALUES))
+            raise PipelineError('Attempted to process a flow of {} total characters at once, try staying under {}.'.format(chars, MAXCHARS))
 
     def apply(self, values, message):
         '''Apply the pipeline to the set of values.'''
@@ -430,13 +430,16 @@ class Pipeline:
 
                 elif name in pipe_macros:
                     code = pipe_macros[name].apply_args(args)
-                    # TODO: REUSE: pull this line up or sommat
+                    # TODO: REUSE: pull this line up or sommat?
+                    # problem: reusing the "compiled" pipeline relies on the same args being given
+                    # problem: can't cache it inside the Macro object since those get written to disk
+                    # problem: would require cache invalidation logic for when a macro gets edited
                     macro = Pipeline(code)
 
                     values, macro_printValues, macro_errors, macro_SPOUT_CALLBACKS = macro.apply(vals, message)
                     newValues.extend(values)
                     errors.extend(macro_errors, name)
-                    #TODO: ?
+                    #TODO: what to do here?
                     SPOUT_CALLBACKS += macro_SPOUT_CALLBACKS
 
                 else:
