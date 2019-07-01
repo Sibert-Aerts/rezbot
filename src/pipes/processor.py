@@ -409,7 +409,7 @@ class Pipeline:
                 ## CASE: The pipe is actually an inline pipeline
                 if type(pipe) is Pipeline:
                     pipeline = pipe
-                    values, pl_printValues, pl_errors, pl_SPOUT_CALLBACKS = pipeline.apply(vals, message)
+                    values, pl_printValues, pl_errors, pl_SPOUT_CALLBACKS = await pipeline.apply(vals, message)
                     newValues.extend(values)
                     errors.extend(pl_errors, 'braces')
                     # TODO: consider the life long quandry of what exactly the fuck to do with the spout/print state of the inline pipeline.
@@ -584,6 +584,7 @@ class PipelineProcessor:
             print('Error applying pipeline!')
             errors('**Terminal pipeline error:**\n' + e.__class__.__name__ + ': ' + str(e), terminal=True)
             await message.channel.send(embed=errors.embed())
+            raise e
 
     async def process_script(self, message):
         '''This is the starting point for all script execution.'''
