@@ -1,5 +1,6 @@
 import emoji
 import random
+import asyncio
 from datetime import datetime, timezone, timedelta
 from functools import wraps
 
@@ -62,28 +63,29 @@ class SourceResources:
 
 
 @make_source({})
-def output_source():
+async def output_source():
     '''The previous pipe outputs.'''
     return SourceResources.previous_pipeline_output
 
 
 @make_source({}, pass_message=True)
-def that_source(message):
+async def that_source(message):
     '''The previous message in the channel.'''
-    msg = [m for m in SourceResources.bot.cached_messages if m.channel == message.channel][-2]
+    msg = ( await message.channel.history(limit=2).flatten() )[1]
     return [msg.content]
 
 
 @make_source({}, pass_message=True)
-def message_source(message):
+async def message_source(message):
     '''The message which the bot is responding to, only useful with reactive scripts!'''
     return [message.content]
 
 
 @make_source({'name' : Sig(str, None, 'The variable name')})
-def get_source(name):
+async def get_source(name):
     '''Loads input stored using the "set" pipe'''
     return SourceResources.var_dict[name]
+
 
 def bool_or_none(val):
     if val is None or val == 'None': return None
@@ -97,7 +99,7 @@ txt_modes = ['s', 'r']
     'sentences' : Sig(bool_or_none, None, 'If the file should be split on sentences as opposed to on dividing characters, "None" for file-dependent.', required=False),
     'query'     : Sig(str, '', 'Optional search query'),
 })
-def txt_source(file, n, sequential, sentences, query):
+async def txt_source(file, n, sequential, sentences, query):
     '''Lines from an uploaded text file. Check >files for a list of files.'''
     if file == 'random':
         file = random.choice(list(uploads.files.keys()))
@@ -120,7 +122,7 @@ def txt_source(file, n, sequential, sentences, query):
     'n'     : Sig(int, 1, 'The amount of lines'),
     'length': Sig(int, 0, 'The maximum length of the generated sentence. (0 for unlimited)'),
 }, command=True)
-def markov_source(file, n, length):
+async def markov_source(file, n, length):
     '''Randomly generated markov chains based on an uploaded file. Check >files for a list of files.'''
     if file not in uploads:
         raise KeyError('No file "%s" loaded! Check >files for a list of files.' % file)
@@ -134,7 +136,7 @@ def markov_source(file, n, length):
     'n'  : Sig(int, 1, 'The amount of rolls')
 }, command=True)
 @multi_source
-def roll_source(min, max):
+async def roll_source(min, max):
     '''A dice roll between min and max.'''
     return str(random.randint(min, max))
 
@@ -143,7 +145,7 @@ def roll_source(min, max):
     'format': Sig(str, '%Y/%m/%d %H:%M:%S', 'The format string, see http://strftime.org/ for syntax.'),
     'utc'   : Sig(int, 1, 'The UTC offset in hours.')
 })
-def datetime_source(format, utc):
+async def datetime_source(format, utc):
     '''The current date and time, with optional custom formatting.'''
     return [datetime.now(timezone(timedelta(hours=utc))).strftime(format)]
 
@@ -152,7 +154,7 @@ def datetime_source(format, utc):
     'pattern': Sig(str, '', 'The pattern to look for (regex)'),
     'n'      : Sig(int, 1,  'The number of sampled words.')
 })
-def words_source(pattern, n):
+async def words_source(pattern, n):
     '''Random dictionary words, optionally matching a pattern.'''
     if pattern != '':
         pattern = re.compile(pattern)
@@ -163,14 +165,14 @@ def words_source(pattern, n):
 
 
 @make_source({'n' : Sig(int, 1, 'The amount of members.')}, pass_message=True)
-def member_source(message, n):
+async def member_source(message, n):
     '''Gets a random member.'''
     members = list(message.guild.members)
     return [m.display_name for m in random.sample(members, min(n, len(members)))]
 
 
 @make_source({}, pass_message=True)
-def me_source(message):
+async def me_source(message):
     '''The name of the user invoking the command.'''
     return [message.author.display_name]
 
@@ -181,7 +183,7 @@ def me_source(message):
     'phrase': Sig(str, '%phrase%', 'Overrides game argument. Construct a custom phrase using the following categories:\n{}'.format(', '.join([c for c in soapstone.phraseDict])))
 }, command=True)
 @multi_source
-def soapstone_source(game, phrase):
+async def soapstone_source(game, phrase):
     '''Random Dark Souls soapstone messages.'''
     if phrase != '%phrase%':
         return soapstone.makePhrase(phrase)
@@ -202,7 +204,7 @@ def soapstone_source(game, phrase):
     'n' : Sig(int, 1, 'The amount of names.')
 }, command=True)
 @multi_source
-def cumberbatch_source():
+async def cumberbatch_source():
     '''Names that resembles that of Benedict Cumberbatch.'''
     return benedict.generate()
 
@@ -211,7 +213,7 @@ def cumberbatch_source():
     'n' : Sig(int, 1, 'The amount of emoji.')
 }, command=True)
 @multi_source
-def emoji_source():
+async def emoji_source():
     '''Random emoji.'''
     return choose(list(emoji.UNICODE_EMOJI.keys())).replace(' ', '')
 
@@ -221,7 +223,7 @@ def emoji_source():
     'q'         : Sig(str, '', 'Search query, empty for a random quote'),
     'multiline' : Sig(util.parse_bool, True, 'Allow captions longer than one line.')
 })
-def simpsons_source(n, q, multiline):
+async def simpsons_source(n, q, multiline):
     '''Random simpsons captions from the Frinkiac.com API.'''
     out = []
     for i in range(n):
@@ -241,7 +243,7 @@ def simpsons_source(n, q, multiline):
     'q'         : Sig(str, '', 'Search query, empty for a random quote'),
     'multiline' : Sig(util.parse_bool, True, 'Allow captions longer than one line.')
 })
-def futurama_source(n, q, multiline):
+async def futurama_source(n, q, multiline):
     '''Random futurama captions from the Morbotron.com API.'''
     out = []
     for i in range(n):
@@ -260,7 +262,7 @@ def futurama_source(n, q, multiline):
     'q' : Sig(str, '', 'Search query, empty for random tweets.'),
     'n' : Sig(int, 1, 'The amount of tweets.')
 })
-def dril_source(q, n):
+async def dril_source(q, n):
     '''Random dril tweets.'''
     out = []
     if q == '':
@@ -274,7 +276,7 @@ def dril_source(q, n):
     # 'TIP' : Sig(int, -1, 'THE SPECIFIC FROG TIP YOU WISH TO SEE.'),
     'N' : Sig(int, 1, 'NUMBER OF FROG TIPS.')
 }, command=True)
-def FROG_source(N):
+async def FROG_source(N):
     '''\
     FROG TIPS FOR HOME CONSUMERS, AS SEEN ON HTTPS://FROG.TIPS.
     
@@ -291,7 +293,7 @@ def FROG_source(N):
     'LINES' : Sig(int, 1, 'NUMBER OF LINES PER COMIC (0 FOR ALL LINES).'),
     'NAMES' : Sig(util.parse_bool, False, 'WHETHER OR NOT DIALOG ATTRIBUTIONS ("spigot: ") ARE KEPT')
 })
-def JERKCITY_source(COMIC, Q, N, LINES, NAMES):
+async def JERKCITY_source(COMIC, Q, N, LINES, NAMES):
     ''' JERKCITY COMIC DIALOG '''
     ISSUES = []
     if COMIC == -1:

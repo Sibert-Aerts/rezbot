@@ -2,6 +2,7 @@ from datetime import datetime
 import discord
 import re
 import random
+import asyncio
 
 from .pipes import pipes
 from .sources import sources, SourceResources
@@ -94,7 +95,7 @@ class SourceProcessor:
         '''Checks whether a string matches the exact format "{[n] source [args]}", AKA "pure".'''
         return re.match(SourceProcessor.source_match_regex, source)
 
-    def evaluate_parsed_source(self, name, args, n):
+    async def evaluate_parsed_source(self, name, args, n):
         '''Given the exact name, arguments and (n) of a source, evaluates it.'''
         # Try with AND without ending 's', hoping one of them is a known name!
         # So whether you write 'word' OR 'words',
@@ -103,14 +104,16 @@ class SourceProcessor:
 
         for name in names:
             if name in sources:
-                return sources[name](self.message, args, n=n)
+                ###### This is the SINGLE spot where a source's function is called during execution of pipelines
+                return await sources[name](self.message, args, n=n)
+
             elif name in source_macros:
                 code = source_macros[name].apply_args(args)
                 # Dressed-down version of PipelineProcessor.execute_script:
                 source, pipeline = PipelineProcessor.split(code)
                 ## STEP 1
                 source_processor = SourceProcessor(self.message)
-                values = source_processor.evaluate(source)
+                values = await source_processor.evaluate(source)
                 errors = source_processor.errors
                 ## STEP 2
                 # TODO: REUSE: Pull these bits of parsing up or summat
@@ -124,41 +127,52 @@ class SourceProcessor:
                 return values
         return None
 
-    def evaluate_pure_source(self, source):
+    async def evaluate_pure_source(self, source):
         '''Takes a string containing exactly one source and nothing more, a special case which allows it to produce multiple values at once.'''
         match = re.match(SourceProcessor.source_regex, source)
         n, name, args, _ = match.groups()
         name = name.lower()
 
-        values = self.evaluate_parsed_source(name, args, n)
+        values = await self.evaluate_parsed_source(name, args, n)
         if values is not None: return values
 
         self.errors('Unknown source "{}".'.format(name))
         return([match.group()])
 
-    def evaluate_composite_source(self, source):
+    async def evaluate_composite_source(self, source):
         '''Applies and replaces all {sources} in a string that mixes sources and normal characters.'''
-        def eval_fun(match):
+
+        # Unwrapped re.sub myself to be able to call async functions for replacements
+        out = []
+        start = 0
+        for match in re.finditer(SourceProcessor.source_regex, source):
             _, name, args, _ = match.groups()
             name = name.lower()
-            values = self.evaluate_parsed_source(name, args, 1)
+
+            values = await self.evaluate_parsed_source(name, args, 1) # n=1 because we only want 1 item anyway...
+
             if values is not None:
-                return values[0] # Only use the first output value. Is there anything else I can do here?
-            self.errors('Unknown source "{}".'.format(name))
-            return(match.group())
+                value = values[0] # Only use the first output value. Is there anything else I can do here?
+            else:
+                self.errors('Unknown source "{}".'.format(name))
 
-        return re.sub(SourceProcessor.source_regex, eval_fun, source)
+            out.append( source[start: match.start()] )
+            out.append( value )
+            start = match.end()
+        out.append( source[start: ])
+        return ''.join(out)
 
-    def evaluate(self, source):
+
+    async def evaluate(self, source):
         '''Takes a raw source string, expands it into multiple strings, applies {sources} in each one and returns the set of values.'''
         values = []
         if len(source) > 1 and source[0] == source[-1] == '"':
             source = source[1:-1]
         for source in ChoiceTree(source, parse_flags=True, add_brackets=True).all():
             if self.is_pure_source(source):
-                values.extend(self.evaluate_pure_source(source))
+                values.extend(await self.evaluate_pure_source(source))
             else:
-                values.append(self.evaluate_composite_source(source))
+                values.append(await self.evaluate_composite_source(source))
         return values
 
 
@@ -510,7 +524,7 @@ class PipelineProcessor:
         try:
             ### STEP 1: GET STARTING VALUES FROM SOURCE
             source_processor = SourceProcessor(message)
-            values = source_processor.evaluate(source)
+            values = await source_processor.evaluate(source)
             errors.extend(source_processor.errors)
             
             ### STEP 2: PARSE THE PIPELINE
