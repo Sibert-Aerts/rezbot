@@ -57,6 +57,10 @@ class ErrorLog:
             else:
                 self.errors.append(e)
 
+    def steal(self, other, **kwargs):
+        self.extend(other, **kwargs)
+        other.clear()
+
     def clear(self):
         self.errors = []
         self.terminal = False
@@ -82,12 +86,14 @@ class ParsedPipe:
 
 class SourceProcessor:
     def __init__(self, message):
+        # This is a class so I don't have to juggle the message (context) and error log around
         self.message = message
         self.errors = ErrorLog()
 
     # this looks like a big disgusting hamburger because it is
     # matches: {source}, {source and some args}, {source args="{something}"}, {10 source}, etc.
-    _source_regex = r'{\s*(\d*)\s*([^\s}]+)\s*([^}\s](\"[^\"]*\"|[^}])*)?}'
+    # doesn't match: {}, {0}, {1}, {2} etc.
+    _source_regex = r'{\s*(\d*)\s*([^\s}\d][^\s}]*)\s*([^}\s](\"[^\"]*\"|[^}])*)?}'
     source_regex = re.compile(_source_regex)
     source_match_regex = re.compile(_source_regex + '$')
 
@@ -104,8 +110,12 @@ class SourceProcessor:
 
         for name in names:
             if name in sources:
-                ###### This is the SINGLE spot where a source's function is called during execution of pipelines
-                return await sources[name](self.message, args, n=n)
+                ###### This is the SINGLE spot where a source is called during execution of pipelines
+                try:
+                    return await sources[name](self.message, args, n=n)
+                except Exception as e:
+                    self.errors('Failed to evaluate source "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
+                    return None
 
             elif name in source_macros:
                 code = source_macros[name].apply_args(args)
@@ -119,12 +129,13 @@ class SourceProcessor:
                 # TODO: REUSE: Pull these bits of parsing up or summat
                 pipeline = Pipeline(pipeline)
                 ## STEP 3
-                values, _, pl_errors, _ = pipeline.apply(values, self.message)
+                values, _, pl_errors, _ = await pipeline.apply(values, self.message)
                 errors.extend(pl_errors)
                 # TODO: Ability to reuse a script N amount of times easily?
                 # Right now we just ignore the N argument....
                 self.errors.extend(errors, name)
                 return values
+
         self.errors('Unknown source "{}".'.format(name))
         return None
 
@@ -369,12 +380,14 @@ class Pipeline:
         if chars > MAXCHARS and not permissions.has(message.author.id, permissions.owner):
             raise PipelineError('Attempted to process a flow of {} total characters at once, try staying under {}.'.format(chars, MAXCHARS))
 
-    def apply(self, values, message):
+    async def apply(self, values, message):
         '''Apply the pipeline to the set of values.'''
-        printValues = []
         errors = ErrorLog()
         errors.extend(self.parser_errors) # Include the errors we found during parsing!
+
+        printValues = []
         SPOUT_CALLBACKS = []
+        source_processor = SourceProcessor(message)
 
         self.check_values(values, message)
 
@@ -405,7 +418,9 @@ class Pipeline:
 
                 ## CASE: The pipe is a regular pipe, given as a name and string of arguments.
                 name = pipe.name
-                args = pipe.argstr
+                argstr = pipe.argstr
+                args = await source_processor.evaluate_composite_source(argstr)
+                errors.steal(source_processor.errors, context='args for "{}"'.format(name))
 
                 if name == 'print':
                     newPrintValues.extend(vals)
@@ -436,7 +451,7 @@ class Pipeline:
                     # problem: would require cache invalidation logic for when a macro gets edited
                     macro = Pipeline(code)
 
-                    values, macro_printValues, macro_errors, macro_SPOUT_CALLBACKS = macro.apply(vals, message)
+                    values, macro_printValues, macro_errors, macro_SPOUT_CALLBACKS = await macro.apply(vals, message)
                     newValues.extend(values)
                     errors.extend(macro_errors, name)
                     #TODO: what to do here?
@@ -543,7 +558,7 @@ class PipelineProcessor:
             pipeline = Pipeline(pipeline)
 
             ### STEP 3: APPLY THE PIPELINE TO THE STARTING VALUES
-            values, printValues, pl_errors, SPOUT_CALLBACKS = pipeline.apply(values, message)
+            values, printValues, pl_errors, SPOUT_CALLBACKS = await pipeline.apply(values, message)
             errors.extend(pl_errors)
 
             ### STEP 4: (MUMBLING INCOHERENTLY)
