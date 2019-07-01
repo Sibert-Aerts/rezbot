@@ -392,7 +392,7 @@ class Pipeline:
                 ## CASE: The pipe is actually an inline pipeline
                 if type(pipe) is Pipeline:
                     pipeline = pipe
-                    values, printValues, pl_errors, pl_SPOUT_CALLBACKS = pipeline.apply(vals, message)
+                    values, pl_printValues, pl_errors, pl_SPOUT_CALLBACKS = pipeline.apply(vals, message)
                     newValues.extend(values)
                     errors.extend(pl_errors, 'braces')
                     # TODO: consider the life long quandry of what exactly the fuck to do with the spout/print state of the inline pipeline.
@@ -429,7 +429,7 @@ class Pipeline:
                     # TODO: REUSE: pull this line up or sommat
                     macro = Pipeline(code)
 
-                    values, printValues, macro_errors, macro_SPOUT_CALLBACKS = macro.apply(vals, message)
+                    values, macro_printValues, macro_errors, macro_SPOUT_CALLBACKS = macro.apply(vals, message)
                     newValues.extend(values)
                     errors.extend(macro_errors, name)
                     #TODO: ?
