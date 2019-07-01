@@ -247,7 +247,7 @@ class Pipeline:
 
     # Matches the first (, until either the last ) or if there are no ), the end of the string
     # Use of this regex relies on the knowledge/assumption that the nested parentheses in the string are matched
-    wrapping_brackets_regex = re.compile(r'\(((.*)\)|(.*))')
+    wrapping_brackets_regex = re.compile(r'\(((.*)\)|(.*))', re.S)
 
     def steal_parentheses(self, segment):
         '''Steals all (intelligently-parsed) parentheses-wrapped parts from a string and puts them in a list so we can put them back later.'''
