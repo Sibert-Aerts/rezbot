@@ -125,6 +125,7 @@ class SourceProcessor:
                 # Right now we just ignore the N argument....
                 self.errors.extend(errors, name)
                 return values
+        self.errors('Unknown source "{}".'.format(name))
         return None
 
     async def evaluate_pure_source(self, source):
@@ -136,32 +137,35 @@ class SourceProcessor:
         values = await self.evaluate_parsed_source(name, args, n)
         if values is not None: return values
 
-        self.errors('Unknown source "{}".'.format(name))
         return([match.group()])
 
     async def evaluate_composite_source(self, source):
         '''Applies and replaces all {sources} in a string that mixes sources and normal characters.'''
 
         # Unwrapped re.sub myself to be able to call async functions for replacements
-        out = []
+        slices = []
         start = 0
+        futures = []
+        matches = []
         for match in re.finditer(SourceProcessor.source_regex, source):
             _, name, args, _ = match.groups()
+            matches.append(match.group())
             name = name.lower()
-
-            values = await self.evaluate_parsed_source(name, args, 1) # n=1 because we only want 1 item anyway...
-
-            if values is not None:
-                value = values[0] # Only use the first output value. Is there anything else I can do here?
-            else:
-                self.errors('Unknown source "{}".'.format(name))
-
-            out.append( source[start: match.start()] )
-            out.append( value )
+            coro = self.evaluate_parsed_source(name, args, 1) # n=1 because we only want 1 item anyway...
+            # turn it into future; immediately try making the call but continue here as soon as it awaits something
+            futures.append( asyncio.ensure_future(coro) )
+            slices.append( source[start: match.start()] )
             start = match.end()
-        out.append( source[start: ])
-        return ''.join(out)
 
+        values = []
+        # Await all the futures at once and splice them into the string
+        for match, results in zip(matches, await asyncio.gather(*futures)):
+            if results is not None:
+                values.append(results[0]) # Only use the first output value. Is there anything else I can do here?
+            else:
+                values.append(match)
+
+        return ''.join(val for pair in zip(slices, values) for val in pair) + source[start:]
 
     async def evaluate(self, source):
         '''Takes a raw source string, expands it into multiple strings, applies {sources} in each one and returns the set of values.'''
