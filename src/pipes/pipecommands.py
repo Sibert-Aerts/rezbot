@@ -141,72 +141,84 @@ class PipeCommands(MyCommands):
         PipelineProcessor.on_message_events.clear()
 
 
-###############################################################
-#                  Turn pipes into commands!                  #
-###############################################################
-
-def pipe_to_func(pipe):
-    async def func(self, ctx):
-        text = util.strip_command(ctx)
-        proc = SourceProcessor(ctx.message)
-        text = proc.evaluate_composite_source(text)
-        text = '\n'.join(pipe.as_command(text))
-        await ctx.send(text)
-    func.__name__ = pipe.name
-    func.__doc__ = pipe.command_doc()
-    return func
-
-# Turn those pipes into discord.py bot commands!
-for pipe in pipes.command_pipes:
-    func = pipe_to_func(pipe)
-    # manually call the function decorator to make func into a command
-    command = commands.command()(func)
-    setattr(PipeCommands, pipe.name, command)
-
-###############################################################
-#                 Turn sources into commands!                 #
-###############################################################
-
-def source_to_func(source):
-    async def func(self, ctx):
-        text = util.strip_command(ctx)
-        proc = SourceProcessor(ctx.message)
-        text = proc.evaluate_composite_source(text)
-        text = '\n'.join(source(ctx.message, text))
-        await ctx.send(text)
-    func.__name__ = source.name
-    func.__doc__ = source.command_doc()
-    return func
-
-# Turn those sources into discord.py bot commands!
-for source in sources.command_sources:
-    func = source_to_func(source)
-    # manually call the function decorator to make func into a command
-    command = commands.command()(func)
-    setattr(PipeCommands, source.name, command)
-
-###############################################################
-#                  Turn spouts into commands!                 #
-###############################################################
-
-def spout_to_func(spout):
-    async def func(self, ctx):
-        text = util.strip_command(ctx)
-        proc = SourceProcessor(ctx.message)
-        text = proc.evaluate_composite_source(text)
-        await spout.as_command(self.bot, ctx.message, text)
-    func.__name__ = spout.name
-    func.__doc__ = spout.command_doc()
-    return func
-
-# Turn those spouts into discord.py bot commands!
-for spout in spouts.command_spouts:
-    func = spout_to_func(spout)
-    # manually call the function decorator to make func into a command
-    command = commands.command()(func)
-    setattr(PipeCommands, spout.name, command)
-
 
 # Load the bot cog
 def setup(bot):
-    bot.add_cog(PipeCommands(bot))
+    # This part is icky but basically, take the pipes/sources/spouts from this library and
+    # shoe-horn them into Discord.py's command module thingamajig
+    # This may break some kind of weird use case for command modules but I don't care...
+    #
+    # But by doing this we get that discord.py does the command parsing for us,
+    # and the commands show up in the "help" menu automatically, and behave nicely like
+    # regular discord commands. Cool!
+
+    ###############################################################
+    #                  Turn pipes into commands!                  #
+    ###############################################################
+
+    newCommands = []
+
+    def pipe_to_func(pipe):
+        async def func(self, ctx):
+            text = util.strip_command(ctx)
+            proc = SourceProcessor(ctx.message)
+            text = await proc.evaluate_composite_source(text)
+            text = '\n'.join(pipe.as_command(text))
+            await ctx.send(text)
+        func.__name__ = pipe.name
+        func.__doc__ = pipe.command_doc()
+        return func
+
+    # Turn those pipes into discord.py bot commands!
+    for pipe in pipes.command_pipes:
+        func = pipe_to_func(pipe)
+        # manually call the function decorator to make func into a command
+        command = commands.command()(func)
+        newCommands.append(command)
+
+    ###############################################################
+    #                 Turn sources into commands!                 #
+    ###############################################################
+
+    def source_to_func(source):
+        async def func(self, ctx):
+            text = util.strip_command(ctx)
+            proc = SourceProcessor(ctx.message)
+            text = await proc.evaluate_composite_source(text)
+            text = '\n'.join(await source(ctx.message, text))
+            await ctx.send(text)
+        func.__name__ = source.name
+        func.__doc__ = source.command_doc()
+        return func
+
+    # Turn those sources into discord.py bot commands!
+    for source in sources.command_sources:
+        func = source_to_func(source)
+        # manually call the function decorator to make func into a command
+        command = commands.command()(func)
+        newCommands.append(command)
+
+    ###############################################################
+    #                  Turn spouts into commands!                 #
+    ###############################################################
+
+    def spout_to_func(spout):
+        async def func(self, ctx):
+            text = util.strip_command(ctx)
+            proc = SourceProcessor(ctx.message)
+            text = await proc.evaluate_composite_source(text)
+            await spout.as_command(self.bot, ctx.message, text)
+        func.__name__ = spout.name
+        func.__doc__ = spout.command_doc()
+        return func
+
+    # Turn those spouts into discord.py bot commands!
+    for spout in spouts.command_spouts:
+        func = spout_to_func(spout)
+        # manually call the function decorator to make func into a command
+        command = commands.command()(func)
+        newCommands.append(command)
+
+    cog = PipeCommands(bot)
+    cog.__cog_commands__ = (*newCommands, *cog.__cog_commands__)
+    bot.add_cog(cog)

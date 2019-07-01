@@ -32,8 +32,8 @@ def multi_source(func):
     rand()   -> 0.1      becomes     rand'(n=3) -> [0.5, 0.2, 0.3]
     '''
     @wraps(func)
-    def _multi_source(*args, n, **kwargs):
-        return [func(*args, **kwargs) for i in range(n)]
+    async def _multi_source(*args, n, **kwargs):
+        return await asyncio.gather(*[func(*args, **kwargs) for i in range(n)])
     return _multi_source
 
 sources = Pipes()
@@ -57,10 +57,10 @@ class SourceResources:
     var_dict = {'TEST': ['testing', '1', '2', 'three!']}
     bot = None
 
+
 #####################################################
 #                      Sources                      #
 #####################################################
-
 
 @make_source({})
 async def output_source():
