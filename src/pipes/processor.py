@@ -506,15 +506,20 @@ class PipelineProcessor:
         #    "SOU > RCE" > PIPE
         # We want to split on the LAST pipe there... The issue is parsing this is kinda hard maybe, because of weird cases:
         #    SOU ">" RCE    or    "SOU">"RCE" ???
+        # AND also: SOURCE -> PIPE should parse as SOURCE > print > PIPE
         # So I would simply like to assume people don't put enough quotes AND >'s in their texts for this to be a problem....
         # ...because what we've been doing so far is: look at quotes as non-nesting and just split on the first non-wrapped >
         # Anyway here is a neutered version of the script used to parse Pipelines.
         quoted = False
+        p = None
         for i in range(len(script)):
             c = script[i]
             if c == '"': quoted ^= True; continue
             if not quoted and c =='>':
+                if p == '-':
+                    return script[:i-1].strip(), 'print>'+script[i+1:]
                 return script[:i].strip(), script[i+1:]
+            p = c
         return script.strip(), ''
 
     async def execute_script(self, script, message):
@@ -570,7 +575,7 @@ class PipelineProcessor:
         script = text[len(self.prefix):]
 
         # IMPROVISED EVENT SYNTAX:
-        # >>> ON MESSAGE (pattern) :: (pipeline)
+        # >>>ON MESSAGE (pattern) :: (pipeline)
         if len(script) >= 2 and script[:2] == 'ON' and '::' in script:
             self.on_message_events.append(parse_event(script, message.channel))
         else:
