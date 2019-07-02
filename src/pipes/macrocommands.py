@@ -221,8 +221,8 @@ async def parse_macro_command(command, message):
     
     m = re.match(command_regex, command)
     if m is None:
-        print('FAILED TO PARSE COMMAND: {}'.format(command))
-        await message.channel.send('Poorly formed command.')
+        print('Error: failed to parse command: {}'.format(command))
+        await message.channel.send('Error: Poorly formed command.')
 
     COM, what, name, value = m.groups()
     if COM == 'NEW':
