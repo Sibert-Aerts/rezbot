@@ -112,11 +112,11 @@ class ChoiceTree:
     div = Literal('|').suppress()
     esc = Literal('\\').suppress().setParseAction(lambda x: '\\')
     _text = Regex('[^\\[\\|\\]\\\\]+') # any sequence of characters not containing '[', ']', '|' or '\'
-    text = pGroup(OneOrMore(escapedLbr|escapedRbr|escapedDiv|escapedEsc|esc|_text)).setParseAction(lambda t: ChoiceTree.Text(t[0]))
+    text = pGroup( OneOrMore( escapedLbr|escapedRbr|escapedDiv|escapedEsc|esc|_text ) ).setParseAction(lambda t: ChoiceTree.Text(t[0]))
     eStr = Empty().setParseAction(lambda t: ChoiceTree.Text(''))
     group = Forward()
-    choice = pGroup(lbr + group + ZeroOrMore(div + group) + rbr).setParseAction(lambda t: ChoiceTree.Choice(t[0]))
-    group << pGroup(OneOrMore(text|choice) | eStr).setParseAction(lambda t: ChoiceTree.Group(t[0])).leaveWhitespace()
+    choice = pGroup( lbr + group + ZeroOrMore( div + group ) + rbr ).setParseAction(lambda t: ChoiceTree.Choice(t[0]))
+    group << pGroup( OneOrMore( text|choice ) | eStr ).setParseAction(lambda t: ChoiceTree.Group(t[0])).leaveWhitespace()
 
     def __init__(self, text, parse_flags=False, add_brackets=False):
         self.flag_random = False
