@@ -1,19 +1,18 @@
-from functools import wraps
-import pickle
-
 import discord
+import re
 from discord.ext import commands
 
-from .pipes import *
+from .pipes import pipes
+from .sources import sources
 from .macros import Macro, MacroSig, pipe_macros, source_macros
 from mycommands import MyCommands
 import utils.texttools as texttools
 
 typedict = {
-    'pipe': (pipe_macros, True),
-    'hiddenpipe': (pipe_macros, False),
-    'source': (source_macros, True),
-    'hiddensource': (source_macros, False),
+    'pipe': (pipe_macros, True, pipes),
+    'hiddenpipe': (pipe_macros, False, pipes),
+    'source': (source_macros, True, sources),
+    'hiddensource': (source_macros, False, sources),
 }
 typedict_options = ', '.join('"' + t + '"' for t in typedict)
 
@@ -34,12 +33,12 @@ class MacroCommands(MyCommands):
     async def define(self, ctx, what, name):
         '''Define a macro.'''
         what = what.lower()
-        try: macros, visible = typedict[what]
-        except: await self.what_complain(ctx); return
+        try: macros, visible, native = typedict[what]
+        except: await self.what_complain(channel); return
 
         name = name.lower().split(' ')[0]
-        if name in pipes or name in macros:
             await ctx.send('A {0} called "{1}" already exists, try `>redefine {0}` instead.'.format(what, name))
+        if name in native or name in macros:
             return
 
         code = re.split('\s+', ctx.message.content, 3)[3]
@@ -51,7 +50,7 @@ class MacroCommands(MyCommands):
     async def redefine(self, ctx, what, name):
         '''Redefine an existing macro.'''
         what = what.lower()
-        try: macros, _ = typedict[what]
+        try: macros, *_ = typedict[what]
         except: await self.what_complain(ctx); return
 
         name = name.lower().split(' ')[0]
@@ -70,7 +69,7 @@ class MacroCommands(MyCommands):
     async def describe(self, ctx, what, name):
         '''Describe an existing macro.'''
         what = what.lower()
-        try: macros, _ = typedict[what]
+        try: macros, *_ = typedict[what]
         except: await self.what_complain(ctx); return
 
         name = name.lower().split(' ')[0]
@@ -89,7 +88,7 @@ class MacroCommands(MyCommands):
     async def hide(self, ctx, what, name):
         '''Toggle whether the given macro is hidden.'''
         what = what.lower()
-        try: macros, _ = typedict[what]
+        try: macros, *_ = typedict[what]
         except: await self.what_complain(ctx); return
 
         name = name.lower().split(' ')[0]
@@ -107,7 +106,7 @@ class MacroCommands(MyCommands):
     async def delete(self, ctx, what, name):
         '''Delete a macro by name.'''
         what = what.lower()
-        try: macros, _ = typedict[what]
+        try: macros, *_ = typedict[what]
         except: await self.what_complain(ctx); return
 
         name = name.lower().split(' ')[0]
@@ -125,7 +124,7 @@ class MacroCommands(MyCommands):
     async def set_arg(self, ctx, what, name, signame, sigdefault, sigdesc=None):
         '''Add or change an argument to a macro.'''
         what = what.lower()
-        try: macros, _ = typedict[what]
+        try: macros, *_ = typedict[what]
         except: await self.what_complain(ctx); return
 
         name = name.lower().split(' ')[0]
@@ -144,7 +143,7 @@ class MacroCommands(MyCommands):
     async def delete_arg(self, ctx, what, name, signame):
         '''Remove an argument from a macro.'''
         what = what.lower()
-        try: macros, _ = typedict[what]
+        try: macros, *_ = typedict[what]
         except: await self.what_complain(ctx); return
 
         name = name.lower().split(' ')[0]
@@ -160,7 +159,7 @@ class MacroCommands(MyCommands):
 
 
     async def _macros(self, ctx, what, name):
-        macros, _ = typedict[what]
+        macros, *_ = typedict[what]
 
         # Info on a specific macro
         if name != '' and name in macros:
