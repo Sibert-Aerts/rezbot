@@ -9,10 +9,20 @@ class OnMessage:
     def test(self, message):
         return message.channel == self.channel and self.pattern.search(message.content) is not None
 
-def parse_event(string, channel):
-    condition, script = string.split('::', 1)
-    _, name, args = condition.split(' ', 2)
-    args = args.strip()
-    print('ENCOUNTERED A CONDITION: ON "{}" WITH ARGS "{}"'.format(name, args))
-    if name.lower() == 'message':
-        return OnMessage(args, channel, script)
+async def parse_event(string, channel):
+    try:
+        # TODO: regex this lol
+        condition, script = string.split('::', 1)
+        _, name, args = condition.strip().split(' ', 2)
+        args = args.strip()
+
+        if name.upper() == 'MESSAGE':
+            return OnMessage(args, channel, script)
+        else:
+            pass
+
+        await channel.send('New event registered.')
+
+    except Exception as e:
+        await channel.send('Failed to register event:\n\t{}: {}'.format(e.__class__.__name__, e))
+        raise e

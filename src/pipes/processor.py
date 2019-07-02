@@ -9,6 +9,7 @@ from .sources import sources, SourceResources
 from .spouts import spouts
 from .macros import pipe_macros, source_macros
 from .events import parse_event
+from .macrocommands import parse_macro_command
 import pipes.groupmodes as groupmodes
 from utils.choicetree import ChoiceTree
 
@@ -590,20 +591,27 @@ class PipelineProcessor:
         '''This is the starting point for all script execution.'''
         text = message.content
 
-        # Test for the script prefix (pipe_prefix in config.ini, default: '>>>')
+        # Test for the script prefix (pipe_prefix in config.ini, default: '>>>') and remove it
         if not text.startswith(self.prefix):
             return False
-
-        # Remove the prefix
         script = text[len(self.prefix):]
 
-        # IMPROVISED EVENT SYNTAX:
-        # >>>ON MESSAGE (pattern) :: (pipeline)
-        if len(script) >= 2 and script[:2] == 'ON' and '::' in script:
-            self.on_message_events.append(parse_event(script, message.channel))
+        ## Check if it's a script or some kind of script-like command, such as a macro or event definition
+
+        ##### NEW MACRO SYNTAX:
+        # >>> (NEW|EDIT|DESC) <type> <name> :: <code>
+        if re.match(r'\s*(NEW|EDIT|DESC)\s+.*::', script):
+            await parse_macro_command(script, message)
+
+        ##### IMPROVISED EVENT SYNTAX:
+        # >>> ON MESSAGE (pattern) :: (pipeline)
+        elif re.match(r'\s*(ON)\s+.*::', script):
+            self.on_message_events.append(await parse_event(script, message.channel))
+
+        ##### NORMAL SCRIPT EXECUTION:
         else:
-            # NORMAL, NON-EVENT SCRIPT EXECUTION:
             await self.execute_script(script, message)
+
         return True
 
 PipelineProcessor.on_message_events = []

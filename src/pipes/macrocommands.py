@@ -5,7 +5,6 @@ from discord.ext import commands
 from .pipes import pipes
 from .sources import sources
 from .macros import Macro, MacroSig, pipe_macros, source_macros
-from mycommands import MyCommands
 import utils.texttools as texttools
 
 typedict = {
@@ -16,73 +15,80 @@ typedict = {
 }
 typedict_options = ', '.join('"' + t + '"' for t in typedict)
 
-class MacroCommands(MyCommands):
-    def __init__(self, bot):
-        super().__init__(bot)
 
-    async def what_complain(self, ctx):
-        await ctx.send('First argument must be one of: {}.'.format(typedict_options))
+class MacroCommands(commands.Cog):
+    async def what_complain(self, channel):
+        await channel.send('First argument must be one of: {}.'.format(typedict_options))
 
-    async def not_found_complain(self, ctx, what):
-        await ctx.send('A {} macro by that name was not found.'.format(what))
+    async def not_found_complain(self, channel, what):
+        await channel.send('A {} macro by that name was not found.'.format(what))
 
-    async def permission_complain(self, ctx):
-        await ctx.send('You are not authorised to modify that macro. Try defining a new one instead.')
+    async def permission_complain(self, channel):
+        await channel.send('You are not authorised to modify that macro. Try defining a new one instead.')
 
     @commands.command(aliases=['def'])
     async def define(self, ctx, what, name):
+        await self._define(ctx.message, what, name, re.split('\s+', message.content, 3)[3])
+
+    async def _define(self, message, what, name, code):
         '''Define a macro.'''
+        channel = message.channel
         what = what.lower()
         try: macros, visible, native = typedict[what]
         except: await self.what_complain(channel); return
 
         name = name.lower().split(' ')[0]
-            await ctx.send('A {0} called "{1}" already exists, try `>redefine {0}` instead.'.format(what, name))
         if name in native or name in macros:
+            await channel.send('A {0} called "{1}" already exists, try `>redefine {0}` instead.'.format(what, name))
             return
 
-        code = re.split('\s+', ctx.message.content, 3)[3]
-        author = ctx.author
+        author = message.author
         macros[name] = Macro(name, code, author.name, author.id, str(author.avatar_url), visible=visible)
-        await ctx.send('Defined a new {} called `{}` as {}'.format(what, name, texttools.block_format(code)))
+        await channel.send('Defined a new {} macro called `{}` as {}'.format(what, name, texttools.block_format(code)))
 
     @commands.command(aliases=['redef'])
     async def redefine(self, ctx, what, name):
+        await self._redefine(ctx.message, what, name, re.split('\s+', message.content, 3)[3])
+
+    async def _redefine(self, message, what, name, code):
         '''Redefine an existing macro.'''
+        channel = message.channel
         what = what.lower()
         try: macros, *_ = typedict[what]
-        except: await self.what_complain(ctx); return
+        except: await self.what_complain(channel); return
 
         name = name.lower().split(' ')[0]
         if name not in macros:
-            await self.not_found_complain(ctx, what); return
+            await self.not_found_complain(channel, what); return
 
-        if not macros[name].authorised(ctx.author):
-            await self.permission_complain(ctx); return
+        if not macros[name].authorised(message.author):
+            await self.permission_complain(channel); return
 
-        code = re.split('\s+', ctx.message.content, 3)[3]
         macros[name].code = code
         macros.write()
-        await ctx.send('Redefined {} `{}` as {}'.format(what, name, texttools.block_format(code)))
+        await channel.send('Redefined {} `{}` as {}'.format(what, name, texttools.block_format(code)))
 
     @commands.command(aliases=['desc'])
     async def describe(self, ctx, what, name):
+        await self._describe(ctx.message, what, name, re.split('\s+', message.content, 3)[3])
+
+    async def _describe(self, message, what, name, desc):
         '''Describe an existing macro.'''
+        channel = message.channel
         what = what.lower()
         try: macros, *_ = typedict[what]
-        except: await self.what_complain(ctx); return
+        except: await self.what_complain(channel); return
 
         name = name.lower().split(' ')[0]
         if name not in macros:
-            await self.not_found_complain(ctx, what); return
+            await self.not_found_complain(channel, what); return
 
-        if macros[name].desc and not macros[name].authorised(ctx.author):
-            await self.permission_complain(ctx); return
+        if macros[name].desc and not macros[name].authorised(message.author):
+            await self.permission_complain(channel); return
 
-        desc = re.split('\s+', ctx.message.content, 3)[3]
         macros[name].desc = desc
         macros.write()
-        await ctx.send('Described {} `{}` as `{}`'.format(what, name, desc))
+        await channel.send('Described {} `{}` as `{}`'.format(what, name, desc))
 
     @commands.command(aliases=['unhide'])
     async def hide(self, ctx, what, name):
@@ -206,7 +212,28 @@ class MacroCommands(MyCommands):
         '''A list of all source macros, or details on a specific source macro.'''
         await self._macros(ctx, 'source', name)
 
+#                                   command       what    name     value
+command_regex = re.compile(r'\s*(NEW|EDIT|DESC)\s+(\w+)\s+(\S+)\s*::(.*)', re.S)
+
+async def parse_macro_command(command, message):
+    mc = MacroCommands()
+    print(command)
+    
+    m = re.match(command_regex, command)
+    if m is None:
+        print('FAILED TO PARSE COMMAND: {}'.format(command))
+        await message.channel.send('Poorly formed command.')
+
+    COM, what, name, value = m.groups()
+    if COM == 'NEW':
+        await mc._define(message, what, name, value)
+    elif COM == 'EDIT':
+        await mc._redefine(message, what, name, value)
+    elif COM == 'DESC':
+        await mc._describe(message, what, name, value)
+
+
 
 # Load the bot cog
 def setup(bot):
-    bot.add_cog(MacroCommands(bot))
+    bot.add_cog(MacroCommands())

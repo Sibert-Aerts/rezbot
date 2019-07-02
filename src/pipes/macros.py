@@ -75,7 +75,6 @@ class Macro:
             code = code.replace('$' + arg + '$', args[arg])
         return code
 
-
     def authorised(self, user):
         '''Test whether or not the given user is authorised to modify this macro.'''
         return permissions.has(user.id, permissions.owner) or user.id == self.authorId
