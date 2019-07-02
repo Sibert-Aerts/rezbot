@@ -93,8 +93,8 @@ class SourceProcessor:
 
     # this looks like a big disgusting hamburger because it is
     # matches: {source}, {source and some args}, {source args="{something}"}, {10 source}, etc.
-    # doesn't match: {}, {0}, {1}, {2} etc.
-    _source_regex = r'{\s*(\d*)\s*([^\s}\d][^\s}]*)\s*([^}\s](\"[^\"]*\"|[^}])*)?}'
+    # doesn't match: {}, {0}, {1}, {2}, {2!} etc. in order not to clash with item-to-arg syntax
+    _source_regex = r'{\s*(\d*)\s*([_a-zA-Z][^\s}]*)\s*([^}\s](\"[^\"]*\"|[^}])*)?}'
     source_regex = re.compile(_source_regex)
     source_match_regex = re.compile(_source_regex + '$')
 
@@ -381,8 +381,51 @@ class Pipeline:
         if chars > MAXCHARS and not permissions.has(message.author.id, permissions.owner):
             raise PipelineError('Attempted to process a flow of {} total characters at once, try staying under {}.'.format(chars, MAXCHARS))
 
+    arg_item_regex = re.compile(r'{(-?\d+)(!?)}')
+
+    def items_into_args(self, args, items):
+        ''' Pastes selected items into a string (presumed to be the arg string for a pipe) '''
+        ### LOGIC:
+        # {0} in the arg string pastes the 1st item into the arg string at that position
+        #   this REMOVES the 1st item from the flow COMPLETELY
+        # {0!} functions the same, except that it does not REMOVE the item, instead it
+        #   merely IGNORES the item, putting it before the pipe's output, unchanged
+        # e.g. >>>fraktur|hello > convert to={0}     gives   𝔥𝔢𝔩𝔩𝔬            as the ONLY output
+        # e.g. >>>fraktur|hello > convert to={0!}    gives   fraktur|𝔥𝔢𝔩𝔩𝔬    as the TWO lines of output
+
+        # keep track of which items to ignore and which to remove after performing the replacement
+        to_be_ignored = set()
+        to_be_removed = set()
+        def replacer(m):
+            i = int(m.group(1)) % len(items)
+            rem = (m.group(2)!='!')
+            if rem:
+                to_be_removed.add(i)
+            else:
+                to_be_ignored.add(i)
+            return items[i]
+        # the replacement
+        args = re.sub(self.arg_item_regex, replacer, args)
+
+        # if "conflicting" instances occur (i.e. {0} and {0!}) give presedence to the {0!}, e.g. don't remove
+        to_be = [ (i, True) for i in to_be_removed.difference(to_be_ignored) ] + [ (i, False) for i in to_be_ignored ]
+        # finnicky list logic for ignoring/removing the appropriate indices
+        to_be.sort(key=lambda x: x[0])
+        to_be.reverse()
+        ignored = []
+        filtered = items[:]
+        for i, rem in to_be:
+            if not rem:
+                ignored.append(items[i])
+            del filtered[i]
+        ignored.reverse()
+
+        return args, ignored, filtered
+
     async def apply(self, values, message):
         '''Apply the pipeline to the set of values.'''
+        ## This is the big method where everything happens.
+
         errors = ErrorLog()
         errors.extend(self.parser_errors) # Include the errors we found during parsing!
 
@@ -419,9 +462,13 @@ class Pipeline:
 
                 ## CASE: The pipe is a regular pipe, given as a name and string of arguments.
                 name = pipe.name
-                argstr = pipe.argstr
-                args = await source_processor.evaluate_composite_source(argstr)
+                args = await source_processor.evaluate_composite_source(pipe.argstr)
                 errors.steal(source_processor.errors, context='args for "{}"'.format(name))
+
+                # Put items in the arg string if necessary
+                if name != 'format':
+                    args, ignored_vals, vals = self.items_into_args(args, vals)
+                    newValues.extend(ignored_vals)
 
                 if name == 'print':
                     newPrintValues.extend(vals)
@@ -452,8 +499,8 @@ class Pipeline:
                     # problem: would require cache invalidation logic for when a macro gets edited
                     macro = Pipeline(code)
 
-                    values, macro_printValues, macro_errors, macro_SPOUT_CALLBACKS = await macro.apply(vals, message)
-                    newValues.extend(values)
+                    newvals, macro_printValues, macro_errors, macro_SPOUT_CALLBACKS = await macro.apply(vals, message)
+                    newValues.extend(newvals)
                     errors.extend(macro_errors, name)
                     #TODO: what to do here?
                     SPOUT_CALLBACKS += macro_SPOUT_CALLBACKS
