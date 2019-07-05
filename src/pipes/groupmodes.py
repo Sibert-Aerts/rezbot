@@ -485,10 +485,81 @@ class Interval(GroupMode):
             ## Strict: Throw away the values outside of the selected range.
             return [(values[lval: rval], pipes[0])]
 
+class Conditional(GroupMode):
+
+    class Condition():
+        type1 = re.compile(r'(-?\d+)\s*=\s*(-?\d+)')    # item = item
+        type2 = re.compile(r'(-?\d+)\s*=\s*"([^"]*)"')  # item = literal
+        def __init__(self, cond):
+            m = re.match(self.type1, cond)
+            if m is not None:
+                self.type = 1
+                l, r = m.groups()
+                self.left = int(l)
+                self.right = int(r)
+                return
+            m = re.match(self.type2, cond)
+            if m is not None:
+                self.type = 2
+                l, r = m.groups()
+                self.left = int(l)
+                self.right = r
+                return
+            raise GroupModeError('Invalid condition format ({})'.format(cond))
+
+        def __str__(self):
+            if self.type == 1: return '{} = {}'.format(self.left, self.right)
+            if self.type == 2: return '{} = "{}"'.format(self.left, self.right)
+
+        def check(self, values):
+            try:
+                if self.type == 1:
+                    return (values[self.left] == values[self.right])
+                if self.type == 2:
+                    return (values[self.left] == self.right)
+            except IndexError:
+                raise GroupModeError('Index out of range in condition ({})'.format(self))
+
+
+    def __init__(self, multiply, strictness, conditions):
+        super().__init__(multiply, strictness)
+        # TODO: Parse these more smartly ahead of time
+        self.conditions = [self.Condition(c.strip()) for c in conditions.split('|')]
+
+    def __str__(self):
+        return '{} CONDITIONAL {{ {} }}'.format(super().__str__(), ' | '.join(str(c) for c in self.conditions))
+
+    def apply(self, values, pipes):
+        #### Sends ALL VALUES as a single group to the first pipe whose corresponding condition succeeds
+        ## Multiply:    Send all values to EACH pipe whose condition succeeds
+        ## Non-strict:  If all conditions fail, either pass to the (n+1)th pipe or leave values unaffected if it is not present
+        ## Strict:      If all conditions fail, destroy the values. Raise an error if an (n+1)th pipe was given.
+        ## Very strict: If all conditions fail, raise an error. No (n+1)th pipe allowed either.
+
+        # TODO: Implement the above alternate behaviours
+
+        n = len(self.conditions)
+        N = len(pipes)
+        if N != n and N != n+1:
+            raise GroupModeError('Unmatched number of conditions and parallel pipes; number of pipes should be equal or one more.')
+        overflow = (N == n+1)
+        # n is the number of conditions, N is the number of pipes to sort it in (either n or n+1)
+
+        for condition, pipe in zip(self.conditions, pipes):
+            if condition.check(values): return [(values, pipe)]
+
+        if overflow:
+            return [(values, pipes[-1])]
+        else:
+            return [(values, None)]
+
+
+
 # pattern:
 # optionally starting with a *
 # then either:
 #   (N) or %N or \N or /N or #N or #N..M
+#   or { COND1 | COND2 | COND3 | ... }
 # followed by 0 to 2 !'s
 
 mul_pattern = re.compile(r'\s*(\*?)\s*')
@@ -499,13 +570,14 @@ op_pattern = re.compile(r'(/|%|\\)\s*(\d+)?')
 #                          ^^^^^^     ^^^
 int_pattern = re.compile(r'#(-?\d*)(?:\.\.+(-?\d+))?')
 #                            ^^^^^          ^^^^^
+cond_pattern = re.compile(r'{([^{]*)}')
+#                            ^^^^^^
 strict_pattern = re.compile(r'\s*(!?!?)\s*')
 #                                 ^^^^
 
 op_dict = {'/': Divide, '\\': Column, '%': Modulo}
 
 def parse(bigPipe, error_log):
-
     ### MULTIPLY (always matches)
     m = re.match(mul_pattern, bigPipe)
     multiply = (m.group(1) == '*')
@@ -528,7 +600,12 @@ def parse(bigPipe, error_log):
                 mode = Interval
                 lval, rval = m.groups()
             else:
-                success = False
+                m = re.match(cond_pattern, cropped)
+                if m is not None:
+                    mode = Conditional
+                    conditions = m.group(1)
+                else:
+                    success = False
 
     if success:
         ## One of the three regexes matched
@@ -552,9 +629,11 @@ def parse(bigPipe, error_log):
             value = int(value)
             mode = mode(multiply, strictness, value, padding)
 
-        else:
-            ## Interval mode
-            mode = mode(multiply, strictness, lval, rval)
+        elif mode is Interval:
+            mode = Interval(multiply, strictness, lval, rval)
+
+        elif mode is Conditional:
+            mode = Conditional(multiply, strictness, conditions)
 
         return cropped, mode
 
@@ -568,11 +647,28 @@ if __name__ == '__main__':
     tests = ['foo', '* foo', '10', '%4', '(20)', '/10', '#7', '#14..20', '/',
         '()', '(0)', '#', '*% 2', '*(07)', '/010', '(', '(8', '#0..2!', '\\7', '\\0',
         '\\1!', '\\1!!', '(2)!!', '*!', '!!']
+    tests2 = ['{0=1}', '{0="foo"}!', '{0="yes"|0="no"}']
     print('TESTS:')
-    for test in tests:
+    for test in tests2:
         try:
             out, mode = parse(test, lambda x:x)
             print(test + ((' → "' + out + '"') if out else '') + ' : ' + str(mode))
         except Exception as e:
             print(test + ' : ' + 'ERROR! ' + str(e))
         print()
+
+    print()
+    _, mode = parse('{ 0 = "bar" | 0 = "foo" }', lambda x:x)
+    print( mode )
+    print( mode.apply( ['bar'] , ['one', 'two', 'three'] ) )
+    print( mode.apply( ['bar'] , ['one', 'two'] ) )
+    print( mode.apply( ['foo'] , ['one', 'two', 'three'] ) )
+    print( mode.apply( ['xyz'] , ['one', 'two', 'three'] ) )
+    print( mode.apply( ['xyz'] , ['one', 'two'] ) )
+
+    print()
+    _, mode = parse('{ 0 = 1 }', lambda x:x)
+    print( mode )
+    print( mode.apply( ['bar', 'xyz'] , ['one', 'two'] ) )
+    print( mode.apply( ['bar', 'bar'] , ['one', 'two'] ) )
+    print( mode.apply( ['bar', 'xyz'] , ['one'] ) )
