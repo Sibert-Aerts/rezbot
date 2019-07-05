@@ -208,7 +208,7 @@ class Row(GroupMode):
         self.padding = padding
 
     def __str__(self):
-        return '{} GROUPS SIZE {}{}'.format(super().__str__(), self.size, ' WITH PADDING' if self.padding else '')
+        return '{} ROWS SIZE {}{}'.format(super().__str__(), self.size, ' WITH PADDING' if self.padding else '')
 
     def apply(self, values, pipes):
         length = len(values)    # The number of items we want to split
@@ -441,6 +441,7 @@ class Interval(GroupMode):
             self.rval = int(rval) if rval != '-0' else Interval.END
 
     def __str__(self):
+        if self.rval is None: return '{} INDEX AT {}'.format(super().__str__(), self.lval)
         return '{} INTERVAL FROM {} TO {}'.format(super().__str__(), self.lval, self.rval)
 
     def apply(self, values, pipes):
@@ -485,73 +486,88 @@ class Interval(GroupMode):
             return [(values[lval: rval], pipes[0])]
 
 # pattern:
-# optionally starting with *
+# optionally starting with a *
 # then either:
-#   % or # or / or \ followed by -?\d* optionally followed by ..+-?\d+
-# or:
-#   ( \d+ )
+#   (N) or %N or \N or /N or #N or #N..M
+# followed by 0 to 2 !'s
 
-# TODO: This doesn't *really* need to be *one* regex, the fact it matches the empty string is a bit stupid too.
+mul_pattern = re.compile(r'\s*(\*?)\s*')
+#                              ^^^
+row_pattern = re.compile(r'\(\s*(\d+)?\s*\)')
+#                                ^^^
+op_pattern = re.compile(r'(/|%|\\)\s*(\d+)?')
+#                          ^^^^^^     ^^^
+int_pattern = re.compile(r'#(-?\d*)(?:\.\.+(-?\d+))?')
+#                            ^^^^^          ^^^^^
+strict_pattern = re.compile(r'\s*(!?!?)\s*')
+#                                 ^^^^
 
-pattern = re.compile(r'\s*(\*?)(?:(%|#|/|\\)\s*(-?\d*(?:\.\.+-?\d+)?)|\(\s*(\d+)\s*\)|)\s*(!?!?)\s*')
-#                          ^↑^     ^^^↑^^^^     ^^^^^^^^^↑^^^^^^^^^^    ^^^^^↑^^^^^^       ^^↑^
-# Groups:                multiply    mode              value             lparvalue       strictness
+op_dict = {'/': Divide, '\\': Column, '%': Modulo}
 
 def parse(bigPipe, error_log):
-    m = re.match(pattern, bigPipe)
 
-    ## Default behaviour: Divide into one.
-    if m is None or m.group() == '':
-        return bigPipe, Divide(False, False, 1, False)
+    ### MULTIPLY (always matches)
+    m = re.match(mul_pattern, bigPipe)
+    multiply = (m.group(1) == '*')
+    cropped = bigPipe[m.end():]
 
-    flag = m.group()
-    multiply, mode, value, lparvalue, strictness = m.groups()
-    multiply = (multiply == '*')
-    strictness = len(strictness)
+    ### MODE (waiting for python 3.8 to collapse this dumb staircase)
+    success = True
+    m = re.match(row_pattern, cropped)
+    if m is not None:
+        mode = Row
+        value = m.group(1)
+    else:
+        m = re.match(op_pattern, cropped)
+        if m is not None:
+            mode = op_dict[m.group(1)]
+            value = m.group(2)
+        else:
+            m = re.match(int_pattern, cropped)
+            if m is not None:
+                mode = Interval
+                lval, rval = m.groups()
+            else:
+                success = False
 
-    if lparvalue is not None:
-        mode = '('
-        value = lparvalue
+    if success:
+        ## One of the three regexes matched
+        flag = m.group()
+        cropped = cropped[m.end():]
+    else:
+        ## No regex matched; No explicit group mode given
+        # DEFAULT BEHAVIOUR: DIVIDE BY 1
+        mode, value = Divide, '1'
+
+    ### STRICTNESS (always matches)
+    m = re.match(strict_pattern, cropped)
+    # Strictness is given by the number of exclamation marks
+    strictness = len(m.group(1))
+    cropped = cropped[m.end():]
 
     try:
-        if not mode:
-            mode = Divide(multiply, False, 1, False)
+        if mode in [Row, Column, Divide, Modulo]:
+            if value is None: raise GroupModeError('Missing number.')
+            padding = (value[0]=='0')
+            value = int(value)
+            mode = mode(multiply, strictness, value, padding)
 
-        ## Row, Column, Modulo or Divide mode
-        elif mode in ['(', '%', '/', '\\']:
-            padding = (value[0]=='0') if value else False
-            value = int(value) if value else 1
-
-            if   mode == '(':
-                mode = Row   (multiply, strictness, value, padding)
-            elif mode == '/':
-                mode = Divide(multiply, strictness, value, padding)
-            elif mode == '%':
-                mode = Modulo(multiply, strictness, value, padding)
-            elif mode == '\\':
-                mode = Column(multiply, strictness, value, padding)
-
-        ## Interval mode: '#'
         else:
-            vals = re.split('\.+', value)
-            lval = vals[0]
-            rval = vals[1] if len(vals)>1 else None
-            mode = Interval(multiply, strictness, lval, rval)
+            ## Interval mode
+            mode = mode(multiply, strictness, lval, rval)
 
-        ## Cut off the groupmode flag
-        bigPipe = bigPipe[len(flag):]
-        return bigPipe, mode
+        return cropped, mode
 
     except GroupModeError as e:
-        print('groupmode warning: ' + str(e))
+        print('Group mode warning: ' + str(e))
         error_log('Group mode: "{}": {}'.format(flag.strip(), e))
-        bigPipe = bigPipe[len(flag):]
-        return bigPipe, Divide(False, False, 1, False)
-
+        return cropped, Divide(False, 0, 1, False)
 
 # Tests!
 if __name__ == '__main__':
-    tests = ['foo', '* foo', '10', '%4', '(20)', '/10', '#7', '#14..20', '/', '()', '(0)', '#', '*% 2', '*(07)', '/010', '(8', '#0..2!', '\\7', '\\0', '\\1!', '\\1!!', '(2)!!']
+    tests = ['foo', '* foo', '10', '%4', '(20)', '/10', '#7', '#14..20', '/',
+        '()', '(0)', '#', '*% 2', '*(07)', '/010', '(', '(8', '#0..2!', '\\7', '\\0',
+        '\\1!', '\\1!!', '(2)!!', '*!', '!!']
     print('TESTS:')
     for test in tests:
         try:
