@@ -17,11 +17,11 @@ async def parse_event(string, channel):
         args = args.strip()
 
         if name.upper() == 'MESSAGE':
+            await channel.send('New event registered.')
             return OnMessage(args, channel, script)
         else:
             pass
 
-        await channel.send('New event registered.')
 
     except Exception as e:
         await channel.send('Failed to register event:\n\t{}: {}'.format(e.__class__.__name__, e))
