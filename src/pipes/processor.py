@@ -173,7 +173,7 @@ class SourceProcessor:
         # Await all the futures at once and splice them into the string
         for match, results in zip(matches, await asyncio.gather(*futures)):
             if results is not None:
-                values.append(results[0]) # Only use the first output value. Is there anything else I can do here?
+                values.extend(results[0:1]) # Only use the first output value. Is there anything else I can do here?
             else:
                 values.append(match)
 
@@ -463,14 +463,17 @@ class Pipeline:
 
                 ## CASE: The pipe is a regular pipe, given as a name and string of arguments.
                 name = pipe.name
-                args = await source_processor.evaluate_composite_source(pipe.argstr)
-                errors.steal(source_processor.errors, context='args for "{}"'.format(name))
+                args = pipe.argstr
 
                 # Put items in the arg string if necessary
-                if name != 'format':
-                    args, ignored_vals, vals = self.items_into_args(args, vals)
-                    newValues.extend(ignored_vals)
+                args, ignored_vals, vals = self.items_into_args(args, vals)
+                newValues.extend(ignored_vals)
 
+                # Evaluate sources in the arg string
+                args = await source_processor.evaluate_composite_source(args)
+                errors.steal(source_processor.errors, context='args for "{}"'.format(name))
+
+                ### Different possible types of pipe:
                 if name == 'print':
                     newPrintValues.extend(vals)
                     newValues.extend(vals)
