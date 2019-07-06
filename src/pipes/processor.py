@@ -354,6 +354,7 @@ class Pipeline:
             ## Put the stolen triple-quoted strings and parentheses back.
             pipe = self.restore_triple_quotes(pipe, stolen_quotes)
             pipe = self.restore_parentheses(pipe, stolen_parens)
+            pipe = pipe.strip()
 
             ## Inline pipeline: (foo > bar > baz)
             if pipe and pipe[0] == '(':
