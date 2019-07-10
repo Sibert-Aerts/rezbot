@@ -87,7 +87,7 @@ async def message_source(message):
 })
 async def get_source(name, default):
     '''Loads input stored using the "set" pipe'''
-    if name in SourceResources._var_dict or default is None:
+    if name in SourceResources.var_dict or default is None:
         return SourceResources.var_dict[name]
     else:
         return [default]
