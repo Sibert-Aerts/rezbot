@@ -82,8 +82,9 @@ async def message_source(message):
 
 
 @make_source({
-    'name' : Sig(str, None, 'The variable name'),
-    'default': Sig(str, None, 'The default value if the variable isn\'t assigned (None for error)' })
+    'name'    : Sig(str, None, 'The variable name'),
+    'default' : Sig(str, None, 'The default value if the variable isn\'t assigned (None for error)')
+})
 async def get_source(name, default):
     '''Loads input stored using the "set" pipe'''
     if name in SourceResources._var_dict or default is None:
