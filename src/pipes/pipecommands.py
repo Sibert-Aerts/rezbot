@@ -135,11 +135,24 @@ class PipeCommands(MyCommands):
             text = texttools.block_format('\n'.join(infos))
             await ctx.send(text)
 
-    @commands.command(aliases=['clear'])
-    async def clear_events(self, ctx):
-        await ctx.send('Cleared %d events.' % len(PipelineProcessor.on_message_events))
-        PipelineProcessor.on_message_events.clear()
 
+
+    @commands.command()
+    async def events(self, ctx):
+        events = PipelineProcessor.on_message_events
+        if events:
+            await ctx.send('\n'.join( '**' + str(i+1) + '.** ' + str(events[i]) for i in range(len(events))))
+        else:
+            await ctx.send('No events registered.')
+
+    @commands.command(aliases=['del_event'])
+    async def delete_event(self, ctx, i:int):
+        i = i-1
+        if i<0 or i>=len(PipelineProcessor.on_message_events):
+            await ctx.send('Invalid index.'); return
+        e = PipelineProcessor.on_message_events[i]
+        del PipelineProcessor.on_message_events[i]
+        await ctx.send('Deleted event {}'.format(e))
 
 
 # Load the bot cog
