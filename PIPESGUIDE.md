@@ -25,6 +25,8 @@ At the same time, the more complex features are intended to invite an almost puz
     * [Multi-line Start](#multi-line-start) 
     * [Group modes](#group-modes) 
     * [Parallel pipes](#parallel-pipes)
+    * [Input as arguments](#input-as-arguments)
+    * [Conditional branching (WIP)](#conditional-branching-wip)
 
 ## Basic features
 
