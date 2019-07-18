@@ -76,18 +76,20 @@ The list of native pipes can be seen using the `>pipes` command.
 Pipes and sources may take arguments (presented as **[args]** in the previous sections) this is a sequence of zero or more assignments of the form:  
 `name=value` or `name="value that allows spaces and 'single quotes' in it"` or `name='value with "double quotes" in it!'`
 If a pipe or source only has a single **required** argument, the `name=` part and quote marks may even be omitted entirely.
+For pipes, arguments are also allowed to contain *sources*. 
 
 <details>
   <summary>Examples</summary>
 
   `>>>{word pattern=ass}` might produce `grasshopper`  
-  `>>>family > format f="The most important thing is {}!"` produces `The most important thing is family!`  
-  `>>>friends > format But {} also matter!` produces `But friends also matter!`  
+  `>>>family > format f="The most important thing is {0}!"` produces `The most important thing is family!`  
+  `>>>friends > format But {0} also matter!` produces `But friends also matter!`  
+  `>>>money > format But {word} matters most of all!` might produce `But intonation matters most of all!`  
   `>>>{simpsons q=superintendent multiline=false} > translate to=fr` might produce `Pense que Skinner, pense.`  
   </details>
 <br>
 
-To see information on a source or pipe's arguments, use `>source sourceName` or `>pipe pipeName`
+To see information on a source or pipe's possible arguments, use `>source sourceName` or `>pipe pipeName`
 
 ### Print
 
@@ -261,3 +263,34 @@ Another desirable feature is to apply a group of inputs to *every* pipe in a seq
 ʜᴇʟʟᴏ
 ```
 The `*` makes it apply each group of input to each of the parallel pipes. Watch out as this can easily produce a large number of output rows. If you want to specify a group mode, write it after the asterisk, like so: `*(1) convert` or `*/2 join`.
+
+
+### Input as arguments
+As previously seen, arguments are usually hard-coded values (ignoring *sources* in the arguments which are re-evaluated each time the pipe is executed). An advanced feature is the ability to take a line of input to a pipe and use it as an *argument* instead of as input.
+
+For example: `>>> Hello|fr > translate to={1}` produces `Bonjour`  
+This is what happens internally when executing that script.
+* The pipe `translate to={1}` receives the input items `Hello` and `fr`
+* When parsing the arguments, it replaces `{1}` with the "1th" input item: `fr`, so the argument string becomes `to=fr`
+* `fr` is **discarded** because it was inserted into the argument string
+* `Hello` is passed as input to `translate` with arguments `to=fr`, producing `Bonjour`
+
+Note the second-to-last bullet: By default, all input items that are inserted into the argument string are discarded, this way the item is *only* used as an argument. If you don't want this behaviour (for example, you want to use it as an argument for multiple pipes in a row), putting an exclamation mark `!` at the end of the index causes a different behaviour:
+
+For example: `>>> Hello|fr > translate to={1!}` produces two line of output: `fr` and `Bonjour`  
+The same set of steps happens here, except the second-to-last bullet is replaced by:
+* `fr` is **ignored** as input to `translate`, and is instead directly **prepended** to the output.
+
+In a general case where multiple items are inserted this way, they are prepended to the output in their original order.
+
+e.g. `>>>Bonjour|es|fr > translate from={2!} to={1!}` produces the output `es`, `fr`, `Buenos dias` in that order.
+
+
+### Conditional branching (WIP)
+A WIP feature that directs input to one of multiple given pipe(line)s based on conditions on the input.
+
+Example: Consider a pipe macro named `example` defined as  
+`{0 = "yes" | 0 = "no" }[ format Heck yeah! | format Oh no! | format Ah jeez! ]`  
+Then: `>>> yes > example` produces `Heck yeah!`  
+`>>> no > example` produces `Oh no!`  
+and any other input just produces `Ah jeez!`
