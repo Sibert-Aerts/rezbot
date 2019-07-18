@@ -1,14 +1,17 @@
-# Guide to using pipes
+# Guide to using pipelines
 
 ## Introduction
 
-Pipes are a text manipulation scripting toy that I slowly developed over time.
-The concept is that you start with some piece(s) of text as a **source** (e.g. chat messages, tweets, random dictionary words...)
-and you modify them using **pipes** that perform some simple task (e.g. turn everything uppercase, swap random letters, translate...)
-and by chaining together multiple pipes in sequence you create a **pipeline**.
+Pipelines are a text-based scripting toy inspired by functional programming and shell scripts, with users able to post scripts directly to a Discord chatroom where the bot runs the scripts and posts the results in the chatroom.  
+This way a group of discord users can easily use and compose unique bot features without needing much scripting experience or access to scripting tools.
 
-You can use this to set up a bizarre game of telephone by chaining translation pipes, create bizarre word-art or unicode monstrosities,
-automatically produce memes, generate randomized lyrics, ...
+The concept is that you start with a text **source** (e.g. chat messages, tweets, random dictionary words...)
+and you modify them using **pipes** that perform some simple task on text (e.g. turning everything uppercase, swapping random letters, translating it...) and you can chain together multiple pipes in a row to create a **pipeline** which combines to perform a more complex task.
+
+You can use this to set up a "game of telephone" by chaining translation pipes, construct ASCII/emoji-art, generate all kinds of random phrases, automatically respond to messages, compose poetry...
+
+Over time, as the number of features grew, the language became more powerful and complex. However, a primary design goal has always been to make the basic scripting features as simple to use as possible, to be accessible to people with little to no scripting experience.  
+At the same time, the more complex features are intended to invite an almost puzzle-solving approach from experienced programmers as they try to figure out the shortest/simplest/most elegant way of implementing an idea.
 
 ## Contents
 1. [Introduction](#introduction)
@@ -19,17 +22,22 @@ automatically produce memes, generate randomized lyrics, ...
     * [Print](#print) 
 3. [Advanced Features](#advanced-features)
     * [Multiple lines](#multiple-lines) 
-    * [Multi-line start](#multi-line-start) 
+    * [Multi-line Start](#multi-line-start) 
     * [Group modes](#group-modes) 
     * [Parallel pipes](#parallel-pipes)
 
 ## Basic features
 
-The basic structure of a pipeline is as follows:
-    `>>>[start] > [pipe] > [pipe] > ...`
+A basic pipeline has the following form:  
+    `>>>[start] > [pipe] > [pipe] > ...`  
+e.g.  
+    `>>> Hello! > translate to=fr > convert to=fullwidth`  
+Is a pipeline which takes "Hello!", translates it to French, and then converts it to fullwidth characters.  
+This gives as output: `ｓａｌｕｔ！`
+   
 
 ### Sources
-**[start]** can just be literal text, e.g. `Hello world!` or `Shited on Ya Doo Doo Ass`.  
+**[start]** can just be literal text, e.g. `Hello world!`.  
 But it can also contain **sources**, special elements that find/produce text, of the form `{name [args]}`  
     e.g. `{word}`, `Here's a simpsons quote: {simpsons}`, `dril once said "{dril q="my ass"}"`.
     
@@ -65,7 +73,7 @@ The list of native pipes can be seen using the `>pipes` command.
 
 ### Arguments
 
-Pipes and sources may take arguments, previously presented as **[args]**, this is a sequence of zero or more assignments of the form:  
+Pipes and sources may take arguments (presented as **[args]** in the previous sections) this is a sequence of zero or more assignments of the form:  
 `name=value` or `name="value that allows spaces and 'single quotes' in it"` or `name='value with "double quotes" in it!'`
 If a pipe or source only has a single **required** argument, the `name=` part and quote marks may even be omitted entirely.
 
@@ -115,7 +123,7 @@ Unlike all previous examples, the bot produces two lines of output instead of on
 captor       → CAPTOR       → ＣＡＰＴＯＲ
 deprogrammed → DEPROGRAMMED → ＤＥＰＲＯＧＲＡＭＭＥＤ
 ```
-We can see the `print` pipe treats multiple inputs by dividing the output into different lines and columns. The `case` and `convert` pipes simply apply to each individual input, one at a time.
+We see that `print` nicely formats the intermediate lines of output as different columns, and that the `case` and `convert` pipes simply apply to each individual input as one would expect.
 
 Not all pipes are this simple, `split` for example, can be used to turn one line of input into multiple lines of output.  
 `>>>Hello, world! > split on=,` produces:
@@ -128,7 +136,7 @@ One line of input "Hello, world!" is turned into two lines of output, "Hello" an
 Conversely, there are also pipes that may expect multiple inputs. The pipe `join` for example takes any number of lines of input, and produces a single line of output:  
 `>>>{3 words} > join s=" and "` might produce `rioters and intercepted and orbit`
 
-### Multi-line start
+### Multi-line Start
 Some sources can produce multiple lines of output, as previously seen by the use of `{2 words}` and similar sources. This behaviour is sadly suppressed in the cases where a source is used inside a literal string, so `>>>I like {2 words}!` is identical to simply `>>>I like {word}!`, and will produce only a single line of output.
 
 A different way of having the *start* produce multiple lines of output is the following notation:  
