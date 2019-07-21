@@ -84,7 +84,7 @@ async def message_source(message):
 @make_source({
     'name'    : Sig(str, None, 'The variable name'),
     'default' : Sig(str, None, 'The default value if the variable isn\'t assigned (None for error)', required=False)
-})
+}, command=True)
 async def get_source(name, default):
     '''Loads input stored using the "set" pipe'''
     if name in SourceResources.var_dict or default is None:
@@ -177,10 +177,20 @@ async def member_source(message, n):
     return [m.display_name for m in random.sample(members, min(n, len(members)))]
 
 
-@make_source({}, pass_message=True)
-async def me_source(message):
-    '''The name of the user invoking the command.'''
-    return [message.author.display_name]
+@make_source({'what' : Sig(str, 'nickname', 'nickname/username/id/avatar')}, pass_message=True)
+async def me_source(message, what):
+    '''The name (or other attribute) of the user invoking the script or event.'''
+    what = what.lower()
+    if what == 'nickname':
+        return [message.author.display_name]
+    elif what == 'username':
+        return [message.author.name]
+    elif what == 'id':
+        return [str(message.author.id)]
+    elif what == 'avatar':
+        return [str(message.author.avatar_url)]
+    else:
+        raise ValueError('"what" should be one of nickname/username/id/avatar')
 
 
 @make_source({

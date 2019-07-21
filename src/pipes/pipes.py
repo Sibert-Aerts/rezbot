@@ -159,7 +159,7 @@ def count_pipe(input):
 #####################################################
 _CATEGORY = 'OUTPUT'
 
-@make_pipe({'name' : Sig(str, None, 'The variable name')})
+@make_pipe({'name' : Sig(str, None, 'The variable name')}, command=True)
 def set_pipe(input, name):
     '''Temporarily stores the input as a variable with the given name.'''
     SourceResources.var_dict[name] = input
