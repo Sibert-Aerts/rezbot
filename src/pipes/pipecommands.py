@@ -9,6 +9,7 @@ from .sources import sources
 from .spouts import spouts
 from .macros import pipe_macros, source_macros
 from .processor import PipelineProcessor, SourceProcessor
+from .events import events
 from mycommands import MyCommands
 import utils.texttools as texttools
 import utils.util as util
@@ -137,22 +138,64 @@ class PipeCommands(MyCommands):
 
 
 
-    @commands.command()
-    async def events(self, ctx):
-        events = PipelineProcessor.on_message_events
-        if events:
-            await ctx.send('\n'.join( '**' + str(i+1) + '.** ' + str(events[i]) for i in range(len(events))))
-        else:
+    @commands.command(aliases=['event'])
+    async def events(self, ctx, name=''):
+        if not events:
             await ctx.send('No events registered.')
+            return
+
+        if not name:
+            ## Print all events
+            active = []; inactive = []
+            for event in events.values():
+                if ctx.channel in event.channels: active.append(event)
+                else: inactive.append(event)
+            infos = []
+            if active:
+                infos += ['**__Active:__**']
+                infos += [ '• ' + str(e) for e in active ]
+            if inactive:
+                infos += ['**__Inactive:__**']
+                infos += [ '• ' + str(e) for e in inactive ]
+            await ctx.send('\n'.join(infos))
+        
+        else:
+            ## Print info on a specific event
+            if name not in events:
+                await ctx.send('Event not found.')
+                return
+            await ctx.send(embed=events[name].embed(ctx))
+
+    @commands.command()
+    @commands.guild_only()
+    async def activate_event(self, ctx, name):
+        if name not in events:
+            await ctx.send('No event "{}" found.'.format(name)); return
+        event = events[name]
+        if ctx.channel in event.channels:
+            await ctx.send('Event is already active in this channel.'); return
+        event.channels.append(ctx.channel)
+        await ctx.send('Activated event "{}" in #{}'.format(event.name, ctx.channel.name))
+
+    @commands.command()
+    @commands.guild_only()
+    async def deactivate_event(self, ctx, name):
+        if name not in events:
+            await ctx.send('No event "{}" found.'.format(name)); return
+        event = events[name]
+        if ctx.channel not in event.channels:
+            await ctx.send('Event is already inactive in this channel.'); return
+        event.channels.remove(ctx.channel)
+        await ctx.send('Deactivated event "{}" in #{}'.format(event.name, ctx.channel.name))
 
     @commands.command(aliases=['del_event'])
-    async def delete_event(self, ctx, i:int):
-        i = i-1
-        if i<0 or i>=len(PipelineProcessor.on_message_events):
-            await ctx.send('Invalid index.'); return
-        e = PipelineProcessor.on_message_events[i]
-        del PipelineProcessor.on_message_events[i]
-        await ctx.send('Deleted event {}'.format(e))
+    @commands.guild_only()
+    async def delete_event(self, ctx, name):
+        if name not in events:
+            await ctx.send('No event "{}" found.'.format(name)); return
+        e = events[name]
+        del events[name]
+        await ctx.send('Deleted event "{}"'.format(e.name))
 
 
 # Load the bot cog

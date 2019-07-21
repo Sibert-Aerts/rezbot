@@ -8,7 +8,7 @@ from .pipes import pipes
 from .sources import sources, SourceResources
 from .spouts import spouts
 from .macros import pipe_macros, source_macros
-from .events import parse_event
+from .events import events, parse_event
 from .macrocommands import parse_macro_command
 import pipes.groupmodes as groupmodes
 from utils.choicetree import ChoiceTree
@@ -527,10 +527,9 @@ class PipelineProcessor:
         self.bot = bot
         self.prefix = prefix
         SourceResources.bot = bot
-        self.on_message_events = PipelineProcessor.on_message_events
 
     async def on_message(self, message):
-        for event in self.on_message_events:
+        for event in events.values():
             if event.test(message):
                 await self.execute_script(event.script, message)
 
@@ -649,20 +648,17 @@ class PipelineProcessor:
 
         ## Check if it's a script or some kind of script-like command, such as a macro or event definition
 
-        ##### NEW MACRO SYNTAX:
+        ##### MACRO DEFINITION: (TODO: push regex into parse_macro_command)
         # >>> (NEW|EDIT|DESC) <type> <name> :: <code>
-        if re.match(r'\s*(NEW|EDIT|DESC)\s+.*::', script):
+        if re.match(r'\s*(NEW|EDIT|DESC)\s+(hidden)?(pipe|source).*::', script):
             await parse_macro_command(script, message)
 
-        ##### IMPROVISED EVENT SYNTAX:
-        # >>> ON MESSAGE (pattern) :: (pipeline)
-        elif re.match(r'\s*(ON)\s+.*::', script):
-            self.on_message_events.append(await parse_event(script, message.channel))
+        ##### EVENT DEFINITION:
+        elif await parse_event(script, message.channel):
+            pass
 
         ##### NORMAL SCRIPT EXECUTION:
         else:
             await self.execute_script(script, message)
 
         return True
-
-PipelineProcessor.on_message_events = []
