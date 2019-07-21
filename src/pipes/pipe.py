@@ -1,5 +1,6 @@
 from textwrap import dedent
 from discord import Embed
+
 from .signature import parse_args
 
 
@@ -32,7 +33,7 @@ class Pipe:
         return out
 
     def embed(self):
-        embed = Embed(title=self.name, description=self.doc, color=0xfdca4b)
+        embed = Embed(title=(self.__class__.__name__ + ': ' + self.name), description=self.doc, color=0xfdca4b)
         if self.signature:
             sig = '\n'.join(['__'+s+':__ ' + str(self.signature[s]) for s in self.signature])
             embed.add_field(name='Arguments', value=sig, inline=False)
@@ -61,7 +62,7 @@ class Spout(Pipe):
         
     def __call__(self, values, argstr):
         _, args = parse_args(self.signature, argstr)
-        return (self.function, args, values) # defer that shit, got daeymn!!!
+        return (self.function, args, values)
 
     async def as_command(self, bot, message, text):
         text, args = parse_args(self.signature, text, greedy=False)

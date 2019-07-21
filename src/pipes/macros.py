@@ -47,12 +47,17 @@ class Macro:
 
     def embed(self):
         title = self.name + (' `hidden`' if not self.visible else '')
-        desc = self.desc if self.desc else ''
-        embed = Embed(title=title, description=desc, color=0x06ff83)
+        embed = Embed(title='Macro: ' + title, description=(self.desc or ''), color=0x06ff83)
+        
+        ### Arguments
         if self.signature:
             argstr = '\n'.join(str(self.signature[s]) for s in self.signature)
             embed.add_field(name='Arguments', value=argstr, inline=False)
-        embed.add_field(name='Code', value=texttools.block_format(self.code), inline=False)
+
+        ### Script
+        embed.add_field(name='Script', value=texttools.block_format(self.code), inline=False)
+
+        ### Footer
         embed.set_footer(text=self.authorName, icon_url=self.authorAvatarURL)
         return embed
 
