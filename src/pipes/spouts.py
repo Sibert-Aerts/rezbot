@@ -44,15 +44,17 @@ async def embed_spout(bot, message, values, title, color):
 @make_spout({
     'name':     Sig(str, 'test_user', 'The account\'s display name.'),
     'handle':   Sig(str, 'test_user', 'The account\'s handle, (without the @).'),
-    'icon':     Sig(url, 'https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png', 'URL linking to their profile picture.')
+    'icon':     Sig(url, 'https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png', 'URL linking to their profile picture.'),
+    'retweets': Sig(str, '', 'The number of retweets, hidden if empty.'),
+    'likes':    Sig(str, '', 'The number of likes, hidden if empty.'),
 })
-async def tweet_spout(bot, message, values, name, handle, icon):
+async def tweet_spout(bot, message, values, name, handle, icon, retweets, likes):
     '''Outputs text as an embedded tweet.'''
     e = Embed(description='\n'.join(values), color=0x4f545c)
     e.set_author(name='{} (@{})'.format(name, handle), url='https://twitter.com/'+handle, icon_url=icon)
     e.set_footer(text='Twitter', icon_url='https://abs.twimg.com/icons/apple-touch-icon-192x192.png')
-    e.add_field(name='Retweets', value=random.randint(500, 5000))
-    e.add_field(name='Likes', value=random.randint(1000, 10000))
+    if retweets: e.add_field(name='Retweets', value=retweets)
+    if likes: e.add_field(name='Likes', value=likes)
     await message.channel.send(embed=e)
 
 
