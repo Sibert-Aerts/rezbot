@@ -1,14 +1,17 @@
-# Guide to using pipes
+# Guide to using pipelines
 
 ## Introduction
 
-Pipes are a text manipulation scripting toy that I slowly developed over time.
-The concept is that you start with some piece(s) of text as a **source** (e.g. chat messages, tweets, random dictionary words...)
-and you modify them using **pipes** that perform some simple task (e.g. turn everything uppercase, swap random letters, translate...)
-and by chaining together multiple pipes in sequence you create a **pipeline**.
+Pipelines are a text-based scripting toy inspired by functional programming and shell scripts, with users able to post scripts directly to a Discord chatroom where the bot runs the scripts and posts the results in the chatroom.  
+This way a group of discord users can easily use and compose unique bot features without needing much scripting experience or access to scripting tools.
 
-You can use this to set up a bizarre game of telephone by chaining translation pipes, create bizarre word-art or unicode monstrosities,
-automatically produce memes, generate randomized lyrics, ...
+The concept is that you start with a text **source** (e.g. chat messages, tweets, random dictionary words...)
+and you modify them using **pipes** that perform some simple task on text (e.g. turning everything uppercase, swapping random letters, translating it...) and you can chain together multiple pipes in a row to create a **pipeline** which combines to perform a more complex task.
+
+You can use this to set up a "game of telephone" by chaining translation pipes, construct ASCII/emoji-art, generate all kinds of random phrases, automatically respond to messages, compose poetry...
+
+Over time, as the number of features grew, the language became more powerful and complex. However, a primary design goal has always been to make the basic scripting features as simple to use as possible, to be accessible to people with little to no scripting experience.  
+At the same time, the more complex features are intended to invite an almost puzzle-solving approach from experienced programmers as they try to figure out the shortest/simplest/most elegant way of implementing an idea.
 
 ## Contents
 1. [Introduction](#introduction)
@@ -19,17 +22,24 @@ automatically produce memes, generate randomized lyrics, ...
     * [Print](#print) 
 3. [Advanced Features](#advanced-features)
     * [Multiple lines](#multiple-lines) 
-    * [Multi-line start](#multi-line-start) 
+    * [Multi-line Start](#multi-line-start) 
     * [Group modes](#group-modes) 
     * [Parallel pipes](#parallel-pipes)
+    * [Input as arguments](#input-as-arguments)
+    * [Conditional branching (WIP)](#conditional-branching-wip)
 
 ## Basic features
 
-The basic structure of a pipeline is as follows:
-    `>>>[start] > [pipe] > [pipe] > ...`
+A basic pipeline has the following form:  
+    `>>>[start] > [pipe] > [pipe] > ...`  
+e.g.  
+    `>>> Hello! > translate to=fr > convert to=fullwidth`  
+Is a pipeline which takes "Hello!", translates it to French, and then converts it to fullwidth characters.  
+This gives as output: `ｓａｌｕｔ！`
+   
 
 ### Sources
-**[start]** can just be literal text, e.g. `Hello world!` or `Shited on Ya Doo Doo Ass`.  
+**[start]** can just be literal text, e.g. `Hello world!`.  
 But it can also contain **sources**, special elements that find/produce text, of the form `{name [args]}`  
     e.g. `{word}`, `Here's a simpsons quote: {simpsons}`, `dril once said "{dril q="my ass"}"`.
     
@@ -65,21 +75,23 @@ The list of native pipes can be seen using the `>pipes` command.
 
 ### Arguments
 
-Pipes and sources may take arguments, previously presented as **[args]**, this is a sequence of zero or more assignments of the form:  
+Pipes and sources may take arguments (presented as **[args]** in the previous sections) this is a sequence of zero or more assignments of the form:  
 `name=value` or `name="value that allows spaces and 'single quotes' in it"` or `name='value with "double quotes" in it!'`
 If a pipe or source only has a single **required** argument, the `name=` part and quote marks may even be omitted entirely.
+For pipes, arguments are also allowed to contain *sources*. 
 
 <details>
   <summary>Examples</summary>
 
   `>>>{word pattern=ass}` might produce `grasshopper`  
-  `>>>family > format f="The most important thing is {}!"` produces `The most important thing is family!`  
-  `>>>friends > format But {} also matter!` produces `But friends also matter!`  
+  `>>>family > format f="The most important thing is {0}!"` produces `The most important thing is family!`  
+  `>>>friends > format But {0} also matter!` produces `But friends also matter!`  
+  `>>>money > format But {word} matters most of all!` might produce `But intonation matters most of all!`  
   `>>>{simpsons q=superintendent multiline=false} > translate to=fr` might produce `Pense que Skinner, pense.`  
   </details>
 <br>
 
-To see information on a source or pipe's arguments, use `>source sourceName` or `>pipe pipeName`
+To see information on a source or pipe's possible arguments, use `>source sourceName` or `>pipe pipeName`
 
 ### Print
 
@@ -115,7 +127,7 @@ Unlike all previous examples, the bot produces two lines of output instead of on
 captor       → CAPTOR       → ＣＡＰＴＯＲ
 deprogrammed → DEPROGRAMMED → ＤＥＰＲＯＧＲＡＭＭＥＤ
 ```
-We can see the `print` pipe treats multiple inputs by dividing the output into different lines and columns. The `case` and `convert` pipes simply apply to each individual input, one at a time.
+We see that `print` nicely formats the intermediate lines of output as different columns, and that the `case` and `convert` pipes simply apply to each individual input as one would expect.
 
 Not all pipes are this simple, `split` for example, can be used to turn one line of input into multiple lines of output.  
 `>>>Hello, world! > split on=,` produces:
@@ -128,7 +140,7 @@ One line of input "Hello, world!" is turned into two lines of output, "Hello" an
 Conversely, there are also pipes that may expect multiple inputs. The pipe `join` for example takes any number of lines of input, and produces a single line of output:  
 `>>>{3 words} > join s=" and "` might produce `rioters and intercepted and orbit`
 
-### Multi-line start
+### Multi-line Start
 Some sources can produce multiple lines of output, as previously seen by the use of `{2 words}` and similar sources. This behaviour is sadly suppressed in the cases where a source is used inside a literal string, so `>>>I like {2 words}!` is identical to simply `>>>I like {word}!`, and will produce only a single line of output.
 
 A different way of having the *start* produce multiple lines of output is the following notation:  
@@ -253,3 +265,34 @@ Another desirable feature is to apply a group of inputs to *every* pipe in a seq
 ʜᴇʟʟᴏ
 ```
 The `*` makes it apply each group of input to each of the parallel pipes. Watch out as this can easily produce a large number of output rows. If you want to specify a group mode, write it after the asterisk, like so: `*(1) convert` or `*/2 join`.
+
+
+### Input as arguments
+As previously seen, arguments are usually hard-coded values (ignoring *sources* in the arguments which are re-evaluated each time the pipe is executed). An advanced feature is the ability to take a line of input to a pipe and use it as an *argument* instead of as input.
+
+For example: `>>> Hello|fr > translate to={1}` produces `Bonjour`  
+This is what happens internally when executing that script.
+* The pipe `translate to={1}` receives the input items `Hello` and `fr`
+* When parsing the arguments, it replaces `{1}` with the "1th" input item: `fr`, so the argument string becomes `to=fr`
+* `fr` is **discarded** because it was inserted into the argument string
+* `Hello` is passed as input to `translate` with arguments `to=fr`, producing `Bonjour`
+
+Note the second-to-last bullet: By default, all input items that are inserted into the argument string are discarded, this way the item is *only* used as an argument. If you don't want this behaviour (for example, you want to use it as an argument for multiple pipes in a row), putting an exclamation mark `!` at the end of the index causes a different behaviour:
+
+For example: `>>> Hello|fr > translate to={1!}` produces two line of output: `fr` and `Bonjour`  
+The same set of steps happens here, except the second-to-last bullet is replaced by:
+* `fr` is **ignored** as input to `translate`, and is instead directly **prepended** to the output.
+
+In a general case where multiple items are inserted this way, they are prepended to the output in their original order.
+
+e.g. `>>>Bonjour|es|fr > translate from={2!} to={1!}` produces the output `es`, `fr`, `Buenos dias` in that order.
+
+
+### Conditional branching (WIP)
+A WIP feature that directs input to one of multiple given pipe(line)s based on conditions on the input.
+
+Example: Consider a pipe macro named `example` defined as  
+`{0 = "yes" | 0 = "no" }[ format Heck yeah! | format Oh no! | format Ah jeez! ]`  
+Then: `>>> yes > example` produces `Heck yeah!`  
+`>>> no > example` produces `Oh no!`  
+and any other input just produces `Ah jeez!`
