@@ -2,9 +2,6 @@
 
 (In no particular order)
 
-* **CRITICAL:**
-    * pipes/sources as commands doesn't work as of discord.py v1.0!!!!
-
 * **General:**
     * Read permissions from a file
     * Permission assignment commands
@@ -12,7 +9,6 @@
     * Logging? lotta work but idk the data would be fun...
     * rewrite `help` to spam less
     * post git commits to channel
-    * different txt's for other languages
     * come up with a name for the scripting language
     * unify/clarify parameter names for different pipes (e.g. q/query or whatever)
 
@@ -24,37 +20,46 @@
 
     * **Sources:**
         * Youtube source
+        * Recursively parse sources!
+            e.g. {source1 arg={source2}} should work always
 
     * **Pipes:**
         * {prev *n*} for the nth previous output
         * {that *n*} for the nth previous message in the channel
         * {next *n*} for the nth next message in the channel (for the next message by a certain user in the channel?)
 
-    * TXT uploads:
-        * figure out more things to do with them
+    * **Uploaded files:**
+        * "Append to file" pipe (+ make new file if file doesn't exist yet)
+        * "replace specified line" pipe
+        * download file command
 
-    * option to turn macros into commands!!!!!!
-    * parse sources inside of ARGS
-    * ways to use FLOW ITEMS as/in ARGS
+    * option to turn macros into commands
     * namespaces/categories for macros, like: funny.item or random.word or whatever....
 
     * **SPOUTS:**
-        * output to new txt file
-        * append to existing txt file
-        * (output to image??)
-        * spout callback is a list of every callback encountered?
-        * spout just straight up ends the pipeline then and there??
+        * look more smarter at the list of "spout callbacks" and what it should actually be doing
         * implement `print` as a spout
+        * option for a pipeline to print nothing to console, e.g. so that events can silently cause side-effects
 
     * **EVENTS:**
-        * ability to define/edit/delete Events by name
-        * ability to enable/disable specific Events in a channel
         * bot saves & loads Events from a file
         * more types of triggers: MESSAGE CONTAINS (regex), USER IS (username/id), TIME IS (?), logical operations?? ????
 
+    * **GROUP MODES:**
+        * #a..b;c..d;e..f [pipe1|pipe2|pipe3]           should work as is obvious
+        * *#a..b [pipe1|pipe2]              should work as          #a..b ( *[pipe1|pipe2] )
+        * (1;2;3) [pipe1|pipe2|pipe3]       should kinda work as    (6) (#0..1;1..3;3..6 [pipe1|pipe2|pipe3])
+        * (same for others???)
+
+    * **CONDITIONS:**
+        * Add logical operations: NOT/AND/OR/XOR
+        * Different base conditions:
+            * x = y         checks the variables (get, set) x and y
+            * count < 10    checks if the number of items is less than 10
+
     * **BUGS:**
         * make all sources addressable as both singular and plural in ALL CONTEXTS
-        * check if all pipes don't accidentally change `input` in place, because it is passed by reference and this breaks the flow
+        * (check if all pipes don't accidentally change `input` in place, because it is passed by reference and this breaks the flow)
     
     * **PARSING BUGS:**
         * `>>> foo > bar x=( > baz` doesn't understand the ( should be a character and not a parenthesis (circumventable by writing `x="("`)
@@ -70,8 +75,8 @@
             * [-] to produce a minimal number of lines that reach each choice leaf at least once (is this hard???)
                 [-] [alpha|beta] [gamma|delta] → alpha gamma, beta delta
         * in pipe/source arguments, replace `\n` to newlines
-        * Flow control? conditional `return` pipes so recursive yet halting pipelines are possible?
+        * Flow control? conditional `return` pipes so loops are easier?
         * pipes have an associated "complexity" cost function based on args/input values that makes sure a user doesn't request absurdly much work...?
 
     * **??????**
-        * Actually execute parallel pipes in parallel using asyncio????
+        * Actually execute parallel pipes "in parallel" using asyncio????

@@ -530,7 +530,7 @@ class Conditional(GroupMode):
         return '{} CONDITIONAL {{ {} }}'.format(super().__str__(), ' | '.join(str(c) for c in self.conditions))
 
     def apply(self, values, pipes):
-        #### Sends ALL VALUES as a single group to the first pipe whose corresponding condition succeeds
+        #### Sends ALL VALUES as a single group to the FIRST pipe whose corresponding condition succeeds
         ## Multiply:    Send all values to EACH pipe whose condition succeeds
         ## Non-strict:  If all conditions fail, either pass to the (n+1)th pipe or leave values unaffected if it is not present
         ## Strict:      If all conditions fail, destroy the values. Raise an error if an (n+1)th pipe was given.
@@ -554,13 +554,12 @@ class Conditional(GroupMode):
             return [(values, None)]
 
 
-
 # pattern:
 # optionally starting with a *
 # then either:
 #   (N) or %N or \N or /N or #N or #N..M
 #   or { COND1 | COND2 | COND3 | ... }
-# followed by 0 to 2 !'s
+# followed by 0 up to 2 !'s
 
 mul_pattern = re.compile(r'\s*(\*?)\s*')
 #                              ^^^
