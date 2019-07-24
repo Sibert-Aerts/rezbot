@@ -15,7 +15,7 @@ from .signature import Sig
 from .pipe import Pipe, Pipes
 
 from .sources import SourceResources
-from utils.texttools import *
+from utils.texttools import vowelize, consonize, letterize, letterize2, converters, min_dist, case_pattern
 from resource.upload import uploads
 
 #######################################################
@@ -88,9 +88,7 @@ def repeat_pipe(input, times, max):
 
 
 delete_whats = ['a', 'e', 'w']
-@make_pipe({
-    'what': Sig(str, 'all', 'What to delete: all/empty/whitespace', lambda x: x[0].lower() in delete_whats)
-})
+@make_pipe({ 'what': Sig(str, 'all', 'What to delete: all/empty/whitespace', lambda x: x[0].lower() in delete_whats) })
 def delete_pipe(input, what):
     '''Deletes all inputs, or specific types of input.'''
     what = what[0].lower()
@@ -120,17 +118,13 @@ def shuffle_pipe(input):
     return out
 
 
-@make_pipe({
-    'amount' : Sig(int, 1, 'The amount of values to choose.', lambda x: x>=0)
-})
+@make_pipe({ 'amount' : Sig(int, 1, 'The amount of values to choose.', lambda x: x>=0) })
 def choose_pipe(input, amount):
     '''Chooses random values with replacement (i.e. may return repeated values).'''
     return random.choices(input, k=amount)
 
 
-@make_pipe({
-    'amount' : Sig(int, 1, 'The amount of values to sample.', lambda x: x>=0)
-})
+@make_pipe({ 'amount' : Sig(int, 1, 'The amount of values to sample.', lambda x: x>=0) })
 def sample_pipe(input, amount):
     '''Chooses random values without replacement. Never produces more values than the number it receives.'''
     return random.sample(input, min(len(input), amount))
@@ -242,12 +236,27 @@ def sub_pipe(text, to, **argc):
 
 
 @make_pipe({
-    'p': Sig(str, None, 'Case pattern to obey'),
+    'pattern': Sig(str, None, 'Case pattern to obey'),
 })
-@as_map
-def case_pipe(text, p):
-    '''Converts the input case to match the given pattern case.'''
-    return ''.join([matchCase(text[i], p[i%len(p)]) for i in range(len(text))])
+def case_pipe(text, pattern):
+    '''
+    Converts the case of each input according to a pattern.
+
+    A pattern is parsed as a sequence 4 types of actions:
+    • Upper/lowercase characters (A/a) enforce upper/lowercase
+    • Neutral characters (?!_-,.etc.) leave case unchanged
+    • Carrot (^) swaps upper to lowercase and the other way around
+
+    Furthermore, parentheseses will repeat that part to stretch the pattern to fit the entire input.
+
+    Examples:
+        A       Just turns the first character uppercase
+        Aa      Turns the first character upper, the second lower
+        A(a)    Turns the first character upper, all others lower
+        A(-)A   Turns the first upper, the last lower
+        ^(Aa)^  Reverses the first and last characters, AnD DoEs tHiS To tHe oNeS BeTwEeN
+    '''
+    return case_pattern(pattern, *text)
 
 
 @make_pipe({

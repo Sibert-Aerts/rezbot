@@ -1,15 +1,14 @@
 import editdistance
 import re
 import requests
-from bs4 import BeautifulSoup
 
 import utils.util as util
 from .rand import *
 
-'''
-Bunch of text utility functions, some more general purpose than others.
-This is where the actual workings of pipes like letterize, convert etc. are implemented, so you can mess with those here.
-'''
+###
+### Smelly old file where I implemented a bunch of text tools and toys...
+### A number of classic Pipes are implemented here
+###
 
 abc = 'abcdefghijklmnopqrstuvwxyz'
 vowels = 'aeiouy'
@@ -170,3 +169,94 @@ def dist_gradient(w1, w2, num=1):
         fromWord = w
         words.append(w)
     return words
+
+
+#####################################################
+#                   case_pattern                    #
+#####################################################
+#      I may have gone too far in a few places
+
+CASE_RE = re.compile(r'^([^()]*)(?:\(([^()]+)\)([^()]*))?$')
+
+CASE_UPP = object()
+CASE_LOW = object()
+CASE_XOR = object()
+CASE_NOP = object()
+
+def case_parse(s):
+    out = []
+    for c in s:
+        if c.isupper(): out.append(CASE_UPP)
+        elif c.islower(): out.append(CASE_LOW)
+        elif c == '^': out.append(CASE_XOR)
+        else: out.append(CASE_NOP)
+    return out
+
+def apply_case(c, i):
+    if c is CASE_UPP: return i.upper()
+    if c is CASE_LOW: return i.lower()
+    if c is CASE_XOR: return i.upper() if i.islower() else i.lower()
+    if c is CASE_NOP: return i
+
+def case_pattern(pattern, *inputs):
+    '''
+    Converts the case of each input string according to a pattern string.
+
+    A pattern is parsed as a sequence 4 types of actions:
+    • Upper/lowercase characters (A/a) enforce upper/lowercase
+    • Neutral characters (?!_-,.etc.) leave case unchanged
+    • Carrot (^) swaps upper to lowercase and the other way around
+
+    Furthermore, parentheseses will repeat that part to stretch the pattern to fit the entire input.
+
+    Examples:
+        A       Just turns the first character uppercase
+        Aa      Turns the first character upper, the second lower
+        A(a)    Turns the first character upper, all others lower
+        A(-)A   Turns the first upper, the last lower
+        ^(Aa)^  Reverses the first and last characters, AnD DoEs tHiS To tHe oNeS BeTwEeN
+    '''
+    m = re.match(CASE_RE, pattern)
+    if m is None:
+        raise ValueError('Invalid case pattern "%s"' % pattern)
+    
+    head, body, tail = m.groups()
+    outputs = []
+    
+    if body is None:
+        ## Simplest case: only a head was given
+        for input in inputs:
+            output = []
+            for i, c in zip(input, case_parse(head)):
+                output.append(apply_case(c, i))
+            output.append(input[len(head):])
+            outputs.append(''.join(output))
+
+    else:
+        lh, lb, lt = len(head), len(body), len(tail)
+        head, body, tail = case_parse(head), case_parse(body), case_parse(tail)
+
+        for input in inputs:
+            output = []
+            li = len(input)
+
+            for i, c in zip(input, head):
+                output.append(apply_case(c, i))
+
+            if li > lh:
+                ## There are characters left after applying the head
+                if li - lh < lt:
+                    ## The Tail is too long to fit in the remaining characters
+                    for i, c in zip(input[lh:], tail[-(li-lh):]):
+                        output.append(apply_case(c, i))
+
+                else:
+                    ## the Tail fits; fill the space between the Head and Tail with the Body looped
+                    for i in range(li - lh - lt): # Repeat the Body as many times as needed (possibly 0)
+                        output.append(apply_case(body[i%lb], input[lh+i]))
+                    if lt:
+                        for i, c in zip(input[-lt:], tail):
+                            output.append(apply_case(c, i))
+            outputs.append(''.join(output))
+
+    return outputs
