@@ -117,33 +117,42 @@ class File:
         return self.search_sentences
 
     def get(self, sentences=None):
+        ''' Gets either Lines or Sentences depending on the given boolean or the default setting. '''
         if sentences is None: sentences = self.info.sentences
         return self.get_lines() if not sentences else self.get_sentences()
 
-    def _search(self, query, sentences):
-        '''Returns an iterable (with known length!) of INDICES that match the query (all indices if query is empty)'''
+    def _search(self, sentences:bool, query=None, regex=None):
+        '''Returns an indexable iterable containing the INDICES which match the search filters'''
         lines = self.get(sentences)
-        if query == '': return range(len(lines))
+        if not query and not regex: return range(len(lines))
 
-        # Extract absolute matches "of this form" from the query as "exact matches"
-        a = searchify(query).split('"')
-        exact = [a[i] for i in range(1, len(a), 2)]
-        others = re.split('\s+', ''.join([a[i] for i in range(0, len(a), 2)]).strip())
-        queries = exact + others
+        search_items = self._get_search_lines() if not sentences else self._get_search_sentences()
+        
+        if query:
+            # Extract absolute matches "of this form" from the query as "exact matches"
+            a = searchify(query).split('"')
+            exact = [a[i] for i in range(1, len(a), 2)]
+            others = re.split('\s+', ''.join([a[i] for i in range(0, len(a), 2)]).strip())
+            queries = exact + others
 
-        search_lines = self._get_search_lines() if not sentences else self._get_search_sentences()
-        results = list(filter(lambda l: all([q in l[1] for q in queries]), search_lines))
-        return [r[0] for r in results]
+            ## Filter the items based on whether every single word is contained in them
+            search_items = filter(lambda item: all( q in item[1] for q in queries ), search_items) 
 
-    def get_random(self, count, query, sentences):
-        indices = self._search(query, sentences)
+        if regex:
+            regex = re.compile(regex)
+            search_items = filter(lambda item: re.search(regex, item[1]) is not None, search_items)
+
+        return [r[0] for r in search_items]
+            
+    def get_random(self, count, sentences:bool, query=None, regex=None):
+        indices = self._search(sentences, query=query, regex=regex)
         count = min(count, len(indices))
         indices = random.sample(indices, count)
         lines = self.get(sentences)
         return [lines[i] for i in indices]
 
-    def get_sequential(self, count, query, sentences):
-        indices = self._search(query, sentences)
+    def get_sequential(self, count, sentences:bool, query=None, regex=None):
+        indices = self._search(sentences, query=query, regex=regex)
         index = random.choice(indices)
         lines = self.get(sentences)
         # min ( random starting index containing index , biggest index that doesnt go out of bounds)

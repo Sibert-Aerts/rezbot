@@ -104,6 +104,7 @@ txt_modes = ['s', 'r']
     'sequential': Sig(bool_or_none, None, 'If the multiple lines should be sequential as opposed to random, "None" for file-dependent.', required=False),
     'sentences' : Sig(bool_or_none, None, 'If the file should be split on sentences as opposed to on dividing characters, "None" for file-dependent.', required=False),
     'query'     : Sig(str, '', 'Optional search query'),
+    'pattern'   : Sig(str, '', 'Optional search regex'),
 })
 async def txt_source(file, n, sequential, sentences, query):
     '''Lines from an uploaded text file. Check >files for a list of files.'''
@@ -118,9 +119,9 @@ async def txt_source(file, n, sequential, sentences, query):
     if sentences is None: sentences = file.info.sentences
 
     if sequential:
-        return file.get_sequential(n, query, sentences)
+        return file.get_sequential(n, sentences, query=query)
     else:
-        return file.get_random(n, query, sentences)
+        return file.get_random(n, sentences, query=query)
 
 
 @make_source({
