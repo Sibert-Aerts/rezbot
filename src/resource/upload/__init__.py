@@ -122,28 +122,31 @@ class File:
         return self.get_lines() if not sentences else self.get_sentences()
 
     def _search(self, sentences:bool, query=None, regex=None):
-        '''Returns an indexable iterable containing the INDICES which match the search filters'''
+        '''Returns an indexable iterable containing the indices which match the search filters'''
         lines = self.get(sentences)
-        if not query and not regex: return range(len(lines))
 
-        search_items = self._get_search_lines() if not sentences else self._get_search_sentences()
-        
         if query:
+            search_items = self._get_search_lines() if not sentences else self._get_search_sentences()
+
             # Extract absolute matches "of this form" from the query as "exact matches"
             a = searchify(query).split('"')
             exact = [a[i] for i in range(1, len(a), 2)]
-            others = re.split('\s+', ''.join([a[i] for i in range(0, len(a), 2)]).strip())
+            others = re.split('\s+', ''.join( a[i] for i in range(0, len(a), 2) ).strip())
             queries = exact + others
 
-            ## Filter the items based on whether every single word is contained in them
-            search_items = filter(lambda item: all( q in item[1] for q in queries ), search_items) 
+            ## Filter the items based on whether they contain every single of the queried terms
+            search_items = filter( lambda item: all( q in item[1] for q in queries ), search_items )
+            indices = [ r[0] for r in search_items ]
+
+        else:
+            indices = range(len(lines))
 
         if regex:
             regex = re.compile(regex)
-            search_items = filter(lambda item: re.search(regex, item[1]) is not None, search_items)
+            indices = list( filter( lambda i: re.search(regex, lines[i]) is not None, indices ) )
 
-        return [r[0] for r in search_items]
-            
+        return indices
+
     def get_random(self, count, sentences:bool, query=None, regex=None):
         indices = self._search(sentences, query=query, regex=regex)
         count = min(count, len(indices))

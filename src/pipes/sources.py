@@ -106,7 +106,7 @@ txt_modes = ['s', 'r']
     'query'     : Sig(str, '', 'Optional search query'),
     'pattern'   : Sig(str, '', 'Optional search regex'),
 })
-async def txt_source(file, n, sequential, sentences, query):
+async def txt_source(file, n, sequential, sentences, query, pattern):
     '''Lines from an uploaded text file. Check >files for a list of files.'''
     if file == 'random':
         file = random.choice(list(uploads.files.keys()))
@@ -119,9 +119,9 @@ async def txt_source(file, n, sequential, sentences, query):
     if sentences is None: sentences = file.info.sentences
 
     if sequential:
-        return file.get_sequential(n, sentences, query=query)
+        return file.get_sequential(n, sentences, query=query, regex=pattern)
     else:
-        return file.get_random(n, sentences, query=query)
+        return file.get_random(n, sentences, query=query, regex=pattern)
 
 
 @make_source({
