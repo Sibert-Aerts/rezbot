@@ -75,10 +75,47 @@ async def that_source(message):
     return [msg.content]
 
 
-@make_source({}, pass_message=True)
-async def message_source(message):
-    '''The message which the bot is responding to, only useful with reactive scripts!'''
-    return [message.content]
+@make_source({
+    'what': Sig(str, 'content', 'Which message attribute, one of: ' + '/'.join(MESSAGE_WHAT_OPTIONS), 
+        lambda w: w.lower() in MESSAGE_WHAT_OPTIONS)
+}, pass_message=True)
+async def message_source(message, what):
+    ''' The message which triggered script execution, used for Event scripts. '''
+    if what == 'content':
+        return [message.content]
+    if what == 'id':
+        return [message.id]
+    if what == 'timestamp':
+        return [message.datetime.timestamp()]
+    if what == 'author_id':
+        return [message.author.id]
+
+
+MESSAGE_WHAT_OPTIONS = ['content', 'id', 'timestamp', 'author_id']
+@make_source({
+    'n': Sig(int, 1, 'The number of messages'),
+    'i': Sig(int, 1, 'From which previous message to start counting. (0 for the message that triggers the script itself)'),
+    'what': Sig(str, 'content', 'Which message attribute you want.', lambda w: w.lower() in MESSAGE_WHAT_OPTIONS)
+}, pass_message=True)
+async def previous_message_source(message, n, i, what):
+    '''
+    A generalization of {this} and {message} that allows more messages, going further back, and specific attributes.
+    
+    The N messages in this channel, counting backwards from the Ith previous message.
+    i.e. N messages, ordered newest to oldest, with the newest being the Ith previous message.
+    '''
+    # Arbitrary limit on how far back you can load messages
+    if i > 100: return ValueError('`I` should be smaller than 100')
+    
+    msgs = ( await message.channel.history(limit=n+i+1).flatten() )[i+1:i+1+n]
+    if what == 'content':
+        return [msg.content for msg in msgs]
+    if what == 'id':
+        return [msg.id for msg in msgs]
+    if what == 'timestamp':
+        return [msg.datetime.timestamp() for msg in msgs]
+    if what == 'author_id':
+        return [msg.author.id for msg in msgs]
 
 
 @make_source({
