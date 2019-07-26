@@ -86,6 +86,7 @@ class PipeCommands(MyCommands):
     async def sources(self, ctx, name=''):
         '''Print a list of all sources and their descriptions, or details on a specific source.'''
         name = name.lower()
+        uname = name.upper()
 
         # Info on a specific source
         if name != '' and name in sources:
@@ -98,18 +99,43 @@ class PipeCommands(MyCommands):
         elif name != '' and name in source_macros:
             await ctx.send(embed=source_macros[name].embed())
 
-        # Info on all sources
-        else:
+        # Sources in a specific category
+        elif uname != '' and uname in sources.categories:
             infos = []
-            infos.append('Here\'s a list of sources, use >sources [source name] to see more info on a specific one.\nUse >source_macros for a list of user-defined sources.\n')
+            infos.append('Sources in category {}:\n'.format(uname))
+            
             colW = len(max(sources, key=len)) + 2
-            for name in sources:
-                source = sources[name]
-                info = name + ' ' * (colW-len(name))
+            for source in sources.categories[uname]:
+                info = source.name.ljust(colW)
                 if source.doc: info += source.small_doc
                 infos.append(info)
-            text = texttools.block_format('\n'.join(infos))
-            await ctx.send(text)
+
+            infos.append('')
+            infos.append('Use >sources [source name] to see more info on a specific source.')
+            infos.append('Use >source_macros for a list of user-defined sources.\n')
+            await ctx.send(texttools.block_format('\n'.join(infos)))
+
+        # List of categories
+        else:
+            infos = []
+            infos.append('Categories:\n')
+            
+            colW = len(max(sources.categories, key=len)) + 2
+            for category in sources.categories:
+                info = category.ljust(colW)
+                cat = sources.categories[category]
+                MAX_PRINT = 8
+                if len(cat) > MAX_PRINT:
+                    info += ', '.join(s.name for s in cat[:MAX_PRINT - 1]) + '... (%d more)' % (len(cat) - MAX_PRINT + 1)
+                else:
+                    info += ', '.join(s.name for s in cat)
+                infos.append(info)
+                
+            infos.append('')
+            infos.append('Use >sources [category name] for the list of sources in a specific category.')
+            infos.append('Use >sources [source name] to see more info on a specific source.')
+            infos.append('Use >source_macros for a list of user-defined sources.\n')
+            await ctx.send(texttools.block_format('\n'.join(infos)))
 
     @commands.command(aliases=['spout'])
     async def spouts(self, ctx, name=''):
@@ -136,7 +162,8 @@ class PipeCommands(MyCommands):
             text = texttools.block_format('\n'.join(infos))
             await ctx.send(text)
 
-
+    ## EVENTS
+    ### PUT IN OWN FILE STUPID
 
     @commands.command(aliases=['event'])
     async def events(self, ctx, name=''):

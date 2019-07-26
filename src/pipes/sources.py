@@ -209,27 +209,33 @@ async def custom_emoji_source(message, n):
     return [ str(emoji) for emoji in emojis ]
 
 #####################################################
-#                  Sources : OTHER                  #
+#                   Sources : BOT                   #
 #####################################################
-_CATEGORY = 'OTHER'
+_CATEGORY = 'BOT'
 
 @make_source({})
 async def output_source():
-    '''The previous pipe outputs.'''
+    '''The entire set of output from the previous script that ran.'''
+    # TODO: make this work PER CHANNEL
     return SourceResources.previous_pipeline_output
 
 
 @make_source({
     'name'    : Sig(str, None, 'The variable name'),
-    'default' : Sig(str, None, 'The default value if the variable isn\'t assigned (None for error)', required=False)
+    'default' : Sig(str, None, 'The default value in case the variable isn\'t assigned (None to throw an error if it isn\'t assigned)', required=False)
 }, command=True)
 async def get_source(name, default):
-    '''Loads input stored using the "set" pipe'''
+    '''Loads variables stored using the "set" pipe'''
     if name in SourceResources.var_dict or default is None:
         return SourceResources.var_dict[name]
     else:
         return [default]
 
+
+#####################################################
+#                  Sources : FILE                   #
+#####################################################
+_CATEGORY = 'FILE'
 
 def bool_or_none(val):
     if val is None or val == 'None': return None
@@ -273,80 +279,10 @@ async def markov_source(file, n, length):
     file = uploads[file]
     return file.get_markov_lines(n, length)
 
-
-@make_source({
-    'min': Sig(int, 1, 'The minimum value'),
-    'max': Sig(int, 20, 'The maximum value'),
-    'n'  : Sig(int, 1, 'The amount of rolls')
-}, command=True)
-@multi_source
-async def roll_source(min, max):
-    '''A dice roll between min and max.'''
-    return str(random.randint(min, max))
-
-
-@make_source({
-    'format': Sig(str, '%Y/%m/%d %H:%M:%S', 'The format string, see http://strftime.org/ for syntax.'),
-    'utc'   : Sig(int, 1, 'The UTC offset in hours.')
-})
-async def datetime_source(format, utc):
-    '''The current date and time, with optional custom formatting.'''
-    return [datetime.now(timezone(timedelta(hours=utc))).strftime(format)]
-
-
-@make_source({
-    'pattern': Sig(str, '', 'The pattern to look for (regex)'),
-    'n'      : Sig(int, 1,  'The number of sampled words.')
-})
-async def words_source(pattern, n):
-    '''Random dictionary words, optionally matching a pattern.'''
-    if pattern != '':
-        pattern = re.compile(pattern)
-        items = [w for w in allWords if pattern.search(w) is not None]
-    else:
-        items = allWords
-    return random.sample(items, min(n, len(items)))
-
-
-@make_source({
-    'n'     : Sig(int, 1, 'The number of generated messages.'),
-    'game'  : Sig(str, '?', 'Which game should be used (1/2/3/B/? for random).', lambda x:x.lower() in ['?','1','2','3','b']),
-    'phrase': Sig(str, '%phrase%', 'Overrides game argument. Construct a custom phrase using the following categories:\n{}'.format(', '.join([c for c in soapstone.phraseDict])))
-}, command=True)
-@multi_source
-async def soapstone_source(game, phrase):
-    '''Random Dark Souls soapstone messages.'''
-    if phrase != '%phrase%':
-        return soapstone.makePhrase(phrase)
-    game = game.lower()
-    if game == '?':
-        game = choose(['1','2','3','b'])
-    if game == '1':
-        return soapstone.DarkSouls1.get()
-    if game == '2':
-        return soapstone.DarkSouls2.get()
-    if game == '3':
-        return soapstone.DarkSouls3.get()
-    if game == 'b':
-        return soapstone.Bloodborne.get()
-
-
-@make_source({
-    'n' : Sig(int, 1, 'The amount of names.')
-}, command=True)
-@multi_source
-async def cumberbatch_source():
-    '''Names that resembles that of Benedict Cumberbatch.'''
-    return benedict.generate()
-
-
-@make_source({
-    'n' : Sig(int, 1, 'The amount of emoji.')
-}, command=True)
-@multi_source
-async def emoji_source():
-    '''Random emoji.'''
-    return choose(list(emoji.UNICODE_EMOJI.keys())).replace(' ', '')
+#####################################################
+#                 Sources : QUOTES                  #
+#####################################################
+_CATEGORY = 'QUOTES'
 
 
 @make_source({
@@ -404,20 +340,6 @@ async def dril_source(q, n):
 
 
 @make_source({
-    # 'TIP' : Sig(int, -1, 'THE SPECIFIC FROG TIP YOU WISH TO SEE.'),
-    'N' : Sig(int, 1, 'NUMBER OF FROG TIPS.')
-}, command=True)
-async def FROG_source(N):
-    '''\
-    FROG TIPS FOR HOME CONSUMERS, AS SEEN ON HTTPS://FROG.TIPS.
-    
-    FOR MORE INFORMATION PLEASE CONSULT HTTPS://FROG.TIPS/API/1/.
-    '''
-    TIPS = [FROG.GET_RANDOM() for _ in range(N)]
-    return [T['tip'] for T in TIPS]
-
-
-@make_source({
     'COMIC' : Sig(int, -1, 'EXACT COMIC NUMBER, -1 FOR QUERY COMIC.'),
     'Q'     : Sig(str, '', 'TITLE OR DIALOG TO LOOK FOR, EMPTY FOR RANDOM COMICS.'),
     'N'     : Sig(int, 1, 'NUMBER OF COMICS TO LOAD LINES FROM.', lambda x: x>0),
@@ -448,3 +370,83 @@ async def JERKCITY_source(COMIC, Q, N, LINES, NAMES):
         _LINES = [re.split(':\s*', LINE, 1)[1] for LINE in _LINES]
 
     return _LINES
+
+
+@make_source({
+    'n'     : Sig(int, 1, 'The number of generated messages.'),
+    'game'  : Sig(str, '?', 'Which game should be used (1/2/3/B/? for random).', lambda x:x.lower() in ['?','1','2','3','b']),
+    'phrase': Sig(str, '%phrase%', 'Overrides game argument. Construct a custom phrase using the following categories:\n{}'.format(', '.join([c for c in soapstone.phraseDict])))
+}, command=True)
+@multi_source
+async def soapstone_source(game, phrase):
+    '''Random Dark Souls soapstone messages.'''
+    if phrase != '%phrase%':
+        return soapstone.makePhrase(phrase)
+    game = game.lower()
+    if game == '?':
+        game = choose(['1','2','3','b'])
+    if game == '1':
+        return soapstone.DarkSouls1.get()
+    if game == '2':
+        return soapstone.DarkSouls2.get()
+    if game == '3':
+        return soapstone.DarkSouls3.get()
+    if game == 'b':
+        return soapstone.Bloodborne.get()
+
+
+
+#####################################################
+#                  Sources : ETC.                   #
+#####################################################
+_CATEGORY = 'ETC'
+
+@make_source({
+    'min': Sig(int, 1, 'The minimum value'),
+    'max': Sig(int, 20, 'The maximum value'),
+    'n'  : Sig(int, 1, 'The amount of rolls')
+}, command=True)
+@multi_source
+async def roll_source(min, max):
+    '''A dice roll between min and max.'''
+    return str(random.randint(min, max))
+
+
+@make_source({
+    'format': Sig(str, '%Y/%m/%d %H:%M:%S', 'The format string, see http://strftime.org/ for syntax.'),
+    'utc'   : Sig(int, 0, 'The UTC offset in hours.')
+})
+async def datetime_source(format, utc):
+    '''The current date and time, with optional custom formatting.'''
+    return [datetime.now(timezone(timedelta(hours=utc))).strftime(format)]
+
+
+@make_source({
+    'utc' : Sig(int, 0, 'The UTC offset in hours.')
+})
+async def timestamp_source(utc):
+    '''The current date and time as a UNIX timestamp representing seconds since 1970.'''
+    return [str(int(datetime.now(timezone(timedelta(hours=utc))).timestamp()))]
+
+
+@make_source({
+    'pattern': Sig(str, '', 'The pattern to look for (regex)'),
+    'n'      : Sig(int, 1,  'The number of sampled words.')
+})
+async def words_source(pattern, n):
+    '''Random dictionary words, optionally matching a pattern.'''
+    if pattern != '':
+        pattern = re.compile(pattern)
+        items = [w for w in allWords if pattern.search(w) is not None]
+    else:
+        items = allWords
+    return random.sample(items, min(n, len(items)))
+
+
+@make_source({
+    'n' : Sig(int, 1, 'The amount of emoji.')
+}, command=True)
+@multi_source
+async def emoji_source():
+    '''Random emoji.'''
+    return choose(list(emoji.UNICODE_EMOJI.keys())).replace(' ', '')
