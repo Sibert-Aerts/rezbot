@@ -113,6 +113,7 @@ async def previous_message_source(message, n, i, what):
 
     return _messages_get_what(messages, what)
 
+
 MEMBER_WHAT_OPTIONS = ['nickname', 'username', 'id', 'avatar']
 def _members_get_what(members, what):
     what = what.lower()
@@ -124,7 +125,6 @@ def _members_get_what(members, what):
         return [str(member.id) for member in members]
     elif what == 'avatar':
         return [str(member.avatar_url) for member in members]
-
 
 @make_source({
     'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), lambda w: w.lower() in MEMBER_WHAT_OPTIONS)
