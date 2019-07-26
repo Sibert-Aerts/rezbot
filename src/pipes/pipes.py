@@ -152,6 +152,7 @@ def count_pipe(input):
 #                  Pipes : OUTPUT                   #
 #####################################################
 _CATEGORY = 'OUTPUT'
+# TODO: MOVE THESE TO SPOUTS.PY
 
 @make_pipe({'name' : Sig(str, None, 'The variable name')}, command=True)
 def set_pipe(input, name):

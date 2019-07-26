@@ -70,7 +70,7 @@ async def trump_tweet_spout(bot, message, values):
 
 
 @make_spout({})
-async def delete_this_spout(bot, message, values):
+async def delete_message_spout(bot, message, values):
     '''Deletes the message that triggered the script's execution.'''
     await message.delete()
 
@@ -79,3 +79,11 @@ async def delete_this_spout(bot, message, values):
 async def message_spout(bot, message, values):
     '''Prints the message as a message, PLACEHOLDER until i properly turn print into a spout.....'''
     await message.channel.send('\n'.join(values))
+
+
+@make_spout({})
+async def suppress_print_spout(bot, message, values):
+    '''(WIP) Prevents the default behaviour of printing output to a Discord message.
+    Useful for Event scripts that silently modify variables, or that don't do anything in certain circumstances.'''
+    # NOP, just having *any* spout is enough to prevent the default "print" behaviour
+    pass
