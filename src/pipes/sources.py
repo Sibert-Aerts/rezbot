@@ -53,7 +53,7 @@ def make_source(signature, pass_message=False, command=False):
 
 # Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.
 class SourceResources:
-    previous_pipeline_output = ['Nothing here']
+    previous_pipeline_output = []
     var_dict = {'TEST': ['testing', '1', '2', 'three!']}
     bot = None
 
@@ -62,11 +62,10 @@ class SourceResources:
 #                      Sources                      #
 #####################################################
 
-@make_source({})
-async def output_source():
-    '''The previous pipe outputs.'''
-    return SourceResources.previous_pipeline_output
-
+#####################################################
+#                 Sources : DISCORD                 #
+#####################################################
+_CATEGORY = 'DISCORD'
 
 @make_source({}, pass_message=True)
 async def that_source(message):
@@ -75,12 +74,12 @@ async def that_source(message):
     return [msg.content]
 
 
+MESSAGE_WHAT_OPTIONS = ['content', 'id', 'timestamp', 'author_id']
 @make_source({
-    'what': Sig(str, 'content', 'Which message attribute, one of: ' + '/'.join(MESSAGE_WHAT_OPTIONS), 
-        lambda w: w.lower() in MESSAGE_WHAT_OPTIONS)
+    'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), lambda w: w.lower() in MESSAGE_WHAT_OPTIONS)
 }, pass_message=True)
 async def message_source(message, what):
-    ''' The message which triggered script execution, used for Event scripts. '''
+    ''' The message which triggered script execution. Useful in Event scripts. '''
     if what == 'content':
         return [message.content]
     if what == 'id':
@@ -91,15 +90,14 @@ async def message_source(message, what):
         return [message.author.id]
 
 
-MESSAGE_WHAT_OPTIONS = ['content', 'id', 'timestamp', 'author_id']
 @make_source({
     'n': Sig(int, 1, 'The number of messages'),
     'i': Sig(int, 1, 'From which previous message to start counting. (0 for the message that triggers the script itself)'),
-    'what': Sig(str, 'content', 'Which message attribute you want.', lambda w: w.lower() in MESSAGE_WHAT_OPTIONS)
+    'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), lambda w: w.lower() in MESSAGE_WHAT_OPTIONS)
 }, pass_message=True)
 async def previous_message_source(message, n, i, what):
     '''
-    A generalization of {this} and {message} that allows more messages, going further back, and specific attributes.
+    A generalization of {this} and {message} that allows more messages and going further back.
     
     The N messages in this channel, counting backwards from the Ith previous message.
     i.e. N messages, ordered newest to oldest, with the newest being the Ith previous message.
@@ -116,6 +114,110 @@ async def previous_message_source(message, n, i, what):
         return [msg.datetime.timestamp() for msg in msgs]
     if what == 'author_id':
         return [msg.author.id for msg in msgs]
+
+MEMBER_WHAT_OPTIONS = ['nickname', 'username', 'id', 'avatar']
+def _members_get_what(members, what):
+    what = what.lower()
+    if what == 'nickname':
+        return [member.display_name for member in members]
+    elif what == 'username':
+        return [member.name for member in members]
+    elif what == 'id':
+        return [str(member.id) for member in members]
+    elif what == 'avatar':
+        return [str(member.avatar_url) for member in members]
+
+
+@make_source({
+    'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), lambda w: w.lower() in MEMBER_WHAT_OPTIONS)
+}, pass_message=True)
+async def me_source(message, what):
+    '''The name (or other attribute) of the user invoking the script or event.'''
+    return _members_get_what([message.author], what)
+
+
+@make_source({
+    'n'   : Sig(int, 1, 'The maximum number of members to return.'),
+    'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), lambda w: w.lower() in MEMBER_WHAT_OPTIONS),
+    'id'  : Sig(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
+    'name': Sig(str, '', 'A string that should be part of their nickname or username.'),
+    # 'rank': ...?
+}, pass_message=True)
+async def member_source(message, n, what, id, name):
+    '''The name (or other attribute) of a random Server member meeting the filters.'''
+    members = message.guild.members
+
+    # Filter if necessary
+    if id:
+        members = filter(lambda m: m.id == id, members)
+    if name:
+        members = filter(lambda m: name in m.display_name or name in m.name, members)
+
+    # Take a random sample
+    members = list(members)
+    if n < len(members):
+        members = random.sample(members, n)
+
+    return _members_get_what(members, what)
+
+
+CHANNEL_WHAT_OPTIONS = ['name', 'topic', 'id', 'category', 'mention']
+
+@make_source({
+    'what': Sig(str, 'name', '/'.join(CHANNEL_WHAT_OPTIONS), lambda w: w.lower() in CHANNEL_WHAT_OPTIONS),
+}, pass_message=True)
+async def channel_source(message, what):
+    '''The name (or other attribute) of the current channel.'''
+    what = what.lower()
+    channel = message.channel
+    if what == 'name':
+        return [channel.name]
+    if what == 'id':
+        return [channel.id]
+    if what == 'topic':
+        return [channel.topic]
+    if what == 'category':
+        return [channel.category.name] if channel.category else []
+    if what == 'mention':
+        return [channel.mention]
+
+
+SERVER_WHAT_OPTIONS = ['name', 'description', 'icon', 'member_count']
+
+@make_source({
+    'what': Sig(str, 'name', '/'.join(SERVER_WHAT_OPTIONS), lambda w: w.lower() in SERVER_WHAT_OPTIONS),
+}, pass_message=True)
+async def server_source(message, what):
+    '''The name (or other attribute) of the current server.'''
+    what = what.lower()
+    server = message.guild
+    if what == 'name':
+        return [server.name]
+    if what == 'description':
+        return [server.description]
+    if what == 'icon':
+        return [str(server.icon_url)]
+    if what == 'member_count':
+        return [server.member_count]
+
+
+@make_source({
+    'n': Sig(int, 1, 'The number of emojis'),
+}, pass_message=True)
+async def custom_emoji_source(message, what):
+    '''The server's custom emojis.'''
+    emojis = message.guild.emojis
+    return random.sample( emojis, min(n, len(emojis)) )
+
+#####################################################
+#                  Sources : OTHER                  #
+#####################################################
+_CATEGORY = 'OTHER'
+
+@make_source({})
+async def output_source():
+    '''The previous pipe outputs.'''
+    return SourceResources.previous_pipeline_output
 
 
 @make_source({
@@ -134,7 +236,6 @@ def bool_or_none(val):
     if val is None or val == 'None': return None
     return(util.parse_bool(val))
 
-txt_modes = ['s', 'r']
 @make_source({
     'file' : Sig(str, None, 'The file name, "random" for a random file'),
     'n'    : Sig(int, 1, 'The amount of lines'),
@@ -206,29 +307,6 @@ async def words_source(pattern, n):
     else:
         items = allWords
     return random.sample(items, min(n, len(items)))
-
-
-@make_source({'n' : Sig(int, 1, 'The amount of members.')}, pass_message=True)
-async def member_source(message, n):
-    '''Gets a random member.'''
-    members = list(message.guild.members)
-    return [m.display_name for m in random.sample(members, min(n, len(members)))]
-
-
-@make_source({'what' : Sig(str, 'nickname', 'nickname/username/id/avatar')}, pass_message=True)
-async def me_source(message, what):
-    '''The name (or other attribute) of the user invoking the script or event.'''
-    what = what.lower()
-    if what == 'nickname':
-        return [message.author.display_name]
-    elif what == 'username':
-        return [message.author.name]
-    elif what == 'id':
-        return [str(message.author.id)]
-    elif what == 'avatar':
-        return [str(message.author.avatar_url)]
-    else:
-        raise ValueError('"what" should be one of nickname/username/id/avatar')
 
 
 @make_source({
