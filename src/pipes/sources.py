@@ -75,19 +75,23 @@ async def that_source(message):
 
 
 MESSAGE_WHAT_OPTIONS = ['content', 'id', 'timestamp', 'author_id']
+def _messages_get_what(messages, what):
+    what = what.lower()
+    if what == 'content':
+        return [msg.content for msg in messages]
+    if what == 'id':
+        return [str(msg.id) for msg in messages]
+    if what == 'timestamp':
+        return [str(int(message.created_at.timestamp())) for msg in messages]
+    if what == 'author_id':
+        return [str(msg.author.id) for msg in messages]
+
 @make_source({
     'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), lambda w: w.lower() in MESSAGE_WHAT_OPTIONS)
 }, pass_message=True)
 async def message_source(message, what):
     ''' The message which triggered script execution. Useful in Event scripts. '''
-    if what == 'content':
-        return [message.content]
-    if what == 'id':
-        return [message.id]
-    if what == 'timestamp':
-        return [message.datetime.timestamp()]
-    if what == 'author_id':
-        return [message.author.id]
+    return _messages_get_what([message], what)
 
 
 @make_source({
@@ -103,17 +107,11 @@ async def previous_message_source(message, n, i, what):
     i.e. N messages, ordered newest to oldest, with the newest being the Ith previous message.
     '''
     # Arbitrary limit on how far back you can load messages
-    if i > 100: return ValueError('`I` should be smaller than 100')
-    
-    msgs = ( await message.channel.history(limit=n+i+1).flatten() )[i+1:i+1+n]
-    if what == 'content':
-        return [msg.content for msg in msgs]
-    if what == 'id':
-        return [msg.id for msg in msgs]
-    if what == 'timestamp':
-        return [msg.datetime.timestamp() for msg in msgs]
-    if what == 'author_id':
-        return [msg.author.id for msg in msgs]
+    if i > 100: return ValueError('`I` should be smaller than 1000')
+
+    messages = ( await message.channel.history(limit=n+i).flatten() )[i:i+n]
+
+    return _messages_get_what(messages, what)
 
 MEMBER_WHAT_OPTIONS = ['nickname', 'username', 'id', 'avatar']
 def _members_get_what(members, what):
@@ -140,7 +138,7 @@ async def me_source(message, what):
     'n'   : Sig(int, 1, 'The maximum number of members to return.'),
     'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), lambda w: w.lower() in MEMBER_WHAT_OPTIONS),
     'id'  : Sig(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
-    'name': Sig(str, '', 'A string that should be part of their nickname or username.'),
+    'name': Sig(str, '', 'A regex that should match their nickname or username.'),
     # 'rank': ...?
 }, pass_message=True)
 async def member_source(message, n, what, id, name):
@@ -151,7 +149,7 @@ async def member_source(message, n, what, id, name):
     if id:
         members = filter(lambda m: m.id == id, members)
     if name:
-        members = filter(lambda m: name in m.display_name or name in m.name, members)
+        members = filter(lambda m: re.search(name, m.display_name) or re.search(name, m.name), members)
 
     # Take a random sample
     members = list(members)
@@ -173,9 +171,9 @@ async def channel_source(message, what):
     if what == 'name':
         return [channel.name]
     if what == 'id':
-        return [channel.id]
+        return [str(channel.id)]
     if what == 'topic':
-        return [channel.topic]
+        return [channel.topic or '']
     if what == 'category':
         return [channel.category.name] if channel.category else []
     if what == 'mention':
@@ -194,20 +192,21 @@ async def server_source(message, what):
     if what == 'name':
         return [server.name]
     if what == 'description':
-        return [server.description]
+        return [server.description or '']
     if what == 'icon':
-        return [str(server.icon_url)]
+        return [str(server.icon_url or '')]
     if what == 'member_count':
-        return [server.member_count]
+        return [str(server.member_count)]
 
 
 @make_source({
     'n': Sig(int, 1, 'The number of emojis'),
 }, pass_message=True)
-async def custom_emoji_source(message, what):
+async def custom_emoji_source(message, n):
     '''The server's custom emojis.'''
     emojis = message.guild.emojis
-    return random.sample( emojis, min(n, len(emojis)) )
+    emojis = random.sample( emojis, min(n, len(emojis)) )
+    return [ str(emoji) for emoji in emojis ]
 
 #####################################################
 #                  Sources : OTHER                  #
