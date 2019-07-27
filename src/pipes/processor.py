@@ -391,8 +391,8 @@ class Pipeline:
         #   this REMOVES the 1st item from the flow COMPLETELY
         # {0!} functions the same, except that it does not REMOVE the item, instead it
         #   merely IGNORES the item, putting it before the pipe's output, unchanged
-        # e.g. >>>fraktur|hello > convert to={0}     gives   𝔥𝔢𝔩𝔩𝔬            as the ONLY output
-        # e.g. >>>fraktur|hello > convert to={0!}    gives   fraktur|𝔥𝔢𝔩𝔩𝔬    as the TWO lines of output
+        # e.g. $$ fraktur|hello > convert to={0}     gives   𝔥𝔢𝔩𝔩𝔬            as the ONLY output
+        # e.g. $$ fraktur|hello > convert to={0!}    gives   fraktur|𝔥𝔢𝔩𝔩𝔬    as the TWO lines of output
 
         # keep track of which items to ignore and which to remove after performing the replacement
         to_be_ignored = set()
@@ -643,7 +643,7 @@ class PipelineProcessor:
         '''This is the starting point for all script execution.'''
         text = message.content
 
-        # Test for the script prefix (pipe_prefix in config.ini, default: '>>>') and remove it
+        # Test for the script prefix (pipe_prefix in config.ini, default: '$$') and remove it
         if not text.startswith(self.prefix):
             return False
         script = text[len(self.prefix):]
@@ -651,7 +651,7 @@ class PipelineProcessor:
         ## Check if it's a script or some kind of script-like command, such as a macro or event definition
 
         ##### MACRO DEFINITION: (TODO: push regex down into parse_macro_command)
-        # >>> (NEW|EDIT|DESC) <type> <name> :: <code>
+        # $$ (NEW|EDIT|DESC) <type> <name> :: <code>
         if re.match(r'\s*(NEW|EDIT|DESC)\s+(hidden)?(pipe|source).*::', script, re.I):
             await parse_macro_command(script, message)
 
