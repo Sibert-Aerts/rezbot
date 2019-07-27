@@ -4,6 +4,7 @@ from discord import Embed
 
 from .signature import Sig
 from .pipe import Spout, Pipes
+from .sources import SourceResources
 
 
 spouts = Pipes()
@@ -86,4 +87,18 @@ async def suppress_print_spout(bot, message, values):
     '''(WIP) Prevents the default behaviour of printing output to a Discord message.
     Useful for Event scripts that silently modify variables, or that don't do anything in certain circumstances.'''
     # NOP, just having *any* spout is enough to prevent the default "print" behaviour
+    pass
+
+
+@make_spout({'name' : Sig(str, None, 'The variable name')}, command=True)
+async def set_spout(bot, message, values, name):
+    '''Stores the input as a variable with the given name, which can be retreived with {get (name)}.'''
+    SourceResources.var_dict[name] = values
+
+
+@make_spout({})
+async def print_spout(bot, message, values):
+    '''Appends the values to the output message. (WIP: /any/ other spout suppresses print output right now!)'''
+    # The actual implementation of "print" is hardcoded into the pipeline processor code
+    # This definition is just here
     pass

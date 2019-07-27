@@ -149,27 +149,6 @@ def count_pipe(input):
 
 
 #####################################################
-#                  Pipes : OUTPUT                   #
-#####################################################
-_CATEGORY = 'OUTPUT'
-# TODO: MOVE THESE TO SPOUTS.PY
-
-@make_pipe({'name' : Sig(str, None, 'The variable name')}, command=True)
-def set_pipe(input, name):
-    '''Temporarily stores the input as a variable with the given name.'''
-    SourceResources.var_dict[name] = input
-    return input
-
-
-@make_pipe({})
-def print_pipe(input):
-    '''Appends the input to the output message, without affecting it.'''
-    # This function is never actually called since 'print' is a special case
-    # It's in here to add print to the >pipes command info list
-    return input
-
-
-#####################################################
 #                  Pipes : STRING                   #
 #####################################################
 _CATEGORY = 'STRING'

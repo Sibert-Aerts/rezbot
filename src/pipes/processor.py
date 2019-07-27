@@ -477,6 +477,8 @@ class Pipeline:
                 if name == 'print':
                     newPrintValues.extend(vals)
                     newValues.extend(vals)
+                    ## buhhhhhh
+                    SPOUT_CALLBACKS.append(spouts['print'](vals, args))
 
                 elif name in ['', 'nop']:
                     newValues.extend(vals)
@@ -558,7 +560,7 @@ class PipelineProcessor:
                 if r < len(col):
                     rows[r] += col[r] + ' ' * (colWidth - len(col[r]))
                 else:
-                    rows[r] += ' ' * colWidth 
+                    rows[r] += ' ' * colWidth
                 try:
                     output[c+1][r]
                     rows[r] += ' → '
@@ -619,13 +621,13 @@ class PipelineProcessor:
 
             ## Print the output!
             # TODO: ~~SPOUT CALLBACK HAPPENS HERE~~
-            if not SPOUT_CALLBACKS:
+            if not SPOUT_CALLBACKS or any( callback is spouts['print'].function for (callback, _, _) in SPOUT_CALLBACKS ):
                 # TODO: `print` as a spout?! could it be???????
                 printValues.append(values)
                 await self.print(message.channel, printValues)
-            else:
-                for callback, args, values in SPOUT_CALLBACKS:
-                    await callback(self.bot, message, values, **args)
+
+            for callback, args, values in SPOUT_CALLBACKS:
+                await callback(self.bot, message, values, **args)
 
             ## Print error output!
             if errors:
@@ -648,9 +650,9 @@ class PipelineProcessor:
 
         ## Check if it's a script or some kind of script-like command, such as a macro or event definition
 
-        ##### MACRO DEFINITION: (TODO: push regex into parse_macro_command)
+        ##### MACRO DEFINITION: (TODO: push regex down into parse_macro_command)
         # >>> (NEW|EDIT|DESC) <type> <name> :: <code>
-        if re.match(r'\s*(NEW|EDIT|DESC)\s+(hidden)?(pipe|source).*::', script):
+        if re.match(r'\s*(NEW|EDIT|DESC)\s+(hidden)?(pipe|source).*::', script, re.I):
             await parse_macro_command(script, message)
 
         ##### EVENT DEFINITION:

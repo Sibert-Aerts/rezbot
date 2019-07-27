@@ -61,6 +61,8 @@ class Spout(Pipe):
         super().__init__(signature, function, category)
         
     def __call__(self, values, argstr):
+        # DOES NOT actually call the underlying function, instead parses the arguments
+        # and returns a tuple of items that allows the underlying function to be called at a later time
         _, args = parse_args(self.signature, argstr)
         return (self.function, args, values)
 
