@@ -68,7 +68,7 @@ class SourceResources:
 _CATEGORY = 'DISCORD'
 
 @make_source({}, pass_message=True)
-async def that_source(message):
+async def that(message):
     '''The previous message in the channel.'''
     msg = ( await message.channel.history(limit=2).flatten() )[1]
     return [msg.content]
@@ -89,7 +89,7 @@ def _messages_get_what(messages, what):
 @make_source({
     'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), lambda w: w.lower() in MESSAGE_WHAT_OPTIONS)
 }, pass_message=True)
-async def message_source(message, what):
+async def message(message, what):
     ''' The message which triggered script execution. Useful in Event scripts. '''
     return _messages_get_what([message], what)
 
@@ -99,7 +99,7 @@ async def message_source(message, what):
     'i': Sig(int, 1, 'From which previous message to start counting. (0 for the message that triggers the script itself)'),
     'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), lambda w: w.lower() in MESSAGE_WHAT_OPTIONS)
 }, pass_message=True)
-async def previous_message_source(message, n, i, what):
+async def previous_message(message, n, i, what):
     '''
     A generalization of {this} and {message} that allows more messages and going further back.
     
@@ -129,7 +129,7 @@ def _members_get_what(members, what):
 @make_source({
     'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), lambda w: w.lower() in MEMBER_WHAT_OPTIONS)
 }, pass_message=True)
-async def me_source(message, what):
+async def me(message, what):
     '''The name (or other attribute) of the user invoking the script or event.'''
     return _members_get_what([message.author], what)
 
@@ -141,7 +141,7 @@ async def me_source(message, what):
     'name': Sig(str, '', 'A regex that should match their nickname or username.'),
     # 'rank': ...?
 }, pass_message=True)
-async def member_source(message, n, what, id, name):
+async def member(message, n, what, id, name):
     '''The name (or other attribute) of a random Server member meeting the filters.'''
     members = message.guild.members
 
@@ -164,7 +164,7 @@ CHANNEL_WHAT_OPTIONS = ['name', 'topic', 'id', 'category', 'mention']
 @make_source({
     'what': Sig(str, 'name', '/'.join(CHANNEL_WHAT_OPTIONS), lambda w: w.lower() in CHANNEL_WHAT_OPTIONS),
 }, pass_message=True)
-async def channel_source(message, what):
+async def channel(message, what):
     '''The name (or other attribute) of the current channel.'''
     what = what.lower()
     channel = message.channel
@@ -185,7 +185,7 @@ SERVER_WHAT_OPTIONS = ['name', 'description', 'icon', 'member_count']
 @make_source({
     'what': Sig(str, 'name', '/'.join(SERVER_WHAT_OPTIONS), lambda w: w.lower() in SERVER_WHAT_OPTIONS),
 }, pass_message=True)
-async def server_source(message, what):
+async def server(message, what):
     '''The name (or other attribute) of the current server.'''
     what = what.lower()
     server = message.guild
@@ -202,7 +202,7 @@ async def server_source(message, what):
 @make_source({
     'n': Sig(int, 1, 'The number of emojis'),
 }, pass_message=True)
-async def custom_emoji_source(message, n):
+async def custom_emoji(message, n):
     '''The server's custom emojis.'''
     emojis = message.guild.emojis
     emojis = random.sample( emojis, min(n, len(emojis)) )
@@ -214,7 +214,7 @@ async def custom_emoji_source(message, n):
 _CATEGORY = 'BOT'
 
 @make_source({})
-async def output_source():
+async def output():
     '''The entire set of output from the previous script that ran.'''
     # TODO: make this work PER CHANNEL
     return SourceResources.previous_pipeline_output
@@ -224,7 +224,7 @@ async def output_source():
     'name'    : Sig(str, None, 'The variable name'),
     'default' : Sig(str, None, 'The default value in case the variable isn\'t assigned (None to throw an error if it isn\'t assigned)', required=False)
 }, command=True)
-async def get_source(name, default):
+async def get(name, default):
     '''Loads variables stored using the "set" pipe'''
     if name in SourceResources.var_dict or default is None:
         return SourceResources.var_dict[name]
@@ -249,7 +249,7 @@ def bool_or_none(val):
     'query'     : Sig(str, '', 'Optional search query'),
     'pattern'   : Sig(str, '', 'Optional search regex'),
 })
-async def txt_source(file, n, sequential, sentences, query, pattern):
+async def txt(file, n, sequential, sentences, query, pattern):
     '''Lines from an uploaded text file. Check >files for a list of files.'''
     if file == 'random':
         file = random.choice(list(uploads.files.keys()))
@@ -272,7 +272,7 @@ async def txt_source(file, n, sequential, sentences, query, pattern):
     'n'     : Sig(int, 1, 'The amount of lines'),
     'length': Sig(int, 0, 'The maximum length of the generated sentence. (0 for unlimited)'),
 }, command=True)
-async def markov_source(file, n, length):
+async def markov(file, n, length):
     '''Randomly generated markov chains based on an uploaded file. Check >files for a list of files.'''
     if file not in uploads:
         raise KeyError('No file "%s" loaded! Check >files for a list of files.' % file)
@@ -290,7 +290,7 @@ _CATEGORY = 'QUOTES'
     'q'         : Sig(str, '', 'Search query, empty for a random quote'),
     'multiline' : Sig(util.parse_bool, True, 'Allow captions longer than one line.')
 })
-async def simpsons_source(n, q, multiline):
+async def simpsons(n, q, multiline):
     '''Random simpsons captions from the Frinkiac.com API.'''
     out = []
     for i in range(n):
@@ -310,7 +310,7 @@ async def simpsons_source(n, q, multiline):
     'q'         : Sig(str, '', 'Search query, empty for a random quote'),
     'multiline' : Sig(util.parse_bool, True, 'Allow captions longer than one line.')
 })
-async def futurama_source(n, q, multiline):
+async def futurama(n, q, multiline):
     '''Random futurama captions from the Morbotron.com API.'''
     out = []
     for i in range(n):
@@ -329,7 +329,7 @@ async def futurama_source(n, q, multiline):
     'q' : Sig(str, '', 'Search query, empty for random tweets.'),
     'n' : Sig(int, 1, 'The amount of tweets.')
 })
-async def dril_source(q, n):
+async def dril(q, n):
     '''Random dril tweets.'''
     out = []
     if q == '':
@@ -346,7 +346,7 @@ async def dril_source(q, n):
     'LINES' : Sig(int, 1, 'NUMBER OF LINES PER COMIC (0 FOR ALL LINES).'),
     'NAMES' : Sig(util.parse_bool, False, 'WHETHER OR NOT DIALOG ATTRIBUTIONS ("spigot: ") ARE KEPT')
 })
-async def JERKCITY_source(COMIC, Q, N, LINES, NAMES):
+async def JERKCITY(COMIC, Q, N, LINES, NAMES):
     ''' JERKCITY COMIC DIALOG '''
     ISSUES = []
     if COMIC == -1:
@@ -378,7 +378,7 @@ async def JERKCITY_source(COMIC, Q, N, LINES, NAMES):
     'phrase': Sig(str, '%phrase%', 'Overrides game argument. Construct a custom phrase using the following categories:\n{}'.format(', '.join([c for c in soapstone.phraseDict])))
 }, command=True)
 @multi_source
-async def soapstone_source(game, phrase):
+async def soapstone(game, phrase):
     '''Random Dark Souls soapstone messages.'''
     if phrase != '%phrase%':
         return soapstone.makePhrase(phrase)
@@ -407,7 +407,7 @@ _CATEGORY = 'ETC'
     'n'  : Sig(int, 1, 'The amount of rolls')
 }, command=True)
 @multi_source
-async def roll_source(min, max):
+async def roll(min, max):
     '''A dice roll between min and max.'''
     return str(random.randint(min, max))
 
@@ -416,7 +416,7 @@ async def roll_source(min, max):
     'format': Sig(str, '%Y/%m/%d %H:%M:%S', 'The format string, see http://strftime.org/ for syntax.'),
     'utc'   : Sig(int, 0, 'The UTC offset in hours.')
 })
-async def datetime_source(format, utc):
+async def datetime(format, utc):
     '''The current date and time, with optional custom formatting.'''
     return [datetime.now(timezone(timedelta(hours=utc))).strftime(format)]
 
@@ -424,7 +424,7 @@ async def datetime_source(format, utc):
 @make_source({
     'utc' : Sig(int, 0, 'The UTC offset in hours.')
 })
-async def timestamp_source(utc):
+async def timestamp(utc):
     '''The current date and time as a UNIX timestamp representing seconds since 1970.'''
     return [str(int(datetime.now(timezone(timedelta(hours=utc))).timestamp()))]
 
@@ -433,7 +433,7 @@ async def timestamp_source(utc):
     'pattern': Sig(str, '', 'The pattern to look for (regex)'),
     'n'      : Sig(int, 1,  'The number of sampled words.')
 })
-async def words_source(pattern, n):
+async def words(pattern, n):
     '''Random dictionary words, optionally matching a pattern.'''
     if pattern != '':
         pattern = re.compile(pattern)
@@ -447,6 +447,6 @@ async def words_source(pattern, n):
     'n' : Sig(int, 1, 'The amount of emoji.')
 }, command=True)
 @multi_source
-async def emoji_source():
+async def emoji():
     '''Random emoji.'''
     return choose(list(emoji.UNICODE_EMOJI.keys())).replace(' ', '')

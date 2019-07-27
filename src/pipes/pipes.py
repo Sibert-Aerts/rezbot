@@ -77,7 +77,7 @@ _CATEGORY = 'FLOW'
     'times': Sig(int, None, 'Number of times repeated'),
     'max'  : Sig(int, -1, 'Maximum number of outputs produced, -1 for unlimited.')
 })
-def repeat_pipe(input, times, max):
+def repeat(input, times, max):
     '''Repeats each row a given number of times.'''
     # Isn't decorated as_map so both input and output are expected to be arrays.
     if max == -1:
@@ -89,7 +89,7 @@ def repeat_pipe(input, times, max):
 
 delete_whats = ['a', 'e', 'w']
 @make_pipe({ 'what': Sig(str, 'all', 'What to delete: all/empty/whitespace', lambda x: x[0].lower() in delete_whats) })
-def delete_pipe(input, what):
+def delete(input, what):
     '''Deletes all inputs, or specific types of input.'''
     what = what[0].lower()
     if what == 'a': # all
@@ -101,7 +101,7 @@ def delete_pipe(input, what):
 
 
 @make_pipe({})
-def sort_pipe(input):
+def sort(input):
     '''Sorts the input values lexicographically.'''
     # IMPORTANT: `input` is passed BY REFERENCE, so we are NOT supposed to mess with it!
     out = input[:]
@@ -110,7 +110,7 @@ def sort_pipe(input):
 
 
 @make_pipe({})
-def shuffle_pipe(input):
+def shuffle(input):
     '''Randomly shuffles input values.'''
     # IMPORTANT NOTE: `input` is passed BY REFERENCE, so we are NOT supposed to mess with it!
     out = input[:]
@@ -119,31 +119,31 @@ def shuffle_pipe(input):
 
 
 @make_pipe({ 'amount' : Sig(int, 1, 'The amount of values to choose.', lambda x: x>=0) })
-def choose_pipe(input, amount):
+def choose(input, amount):
     '''Chooses random values with replacement (i.e. may return repeated values).'''
     return random.choices(input, k=amount)
 
 
 @make_pipe({ 'amount' : Sig(int, 1, 'The amount of values to sample.', lambda x: x>=0) })
-def sample_pipe(input, amount):
+def sample(input, amount):
     '''Chooses random values without replacement. Never produces more values than the number it receives.'''
     return random.sample(input, min(len(input), amount))
 
 
 @make_pipe({})
-def unique_pipe(input):
+def unique(input):
     '''Returns the first unique occurence of each value.'''
     return [*{*input}]
 
 
 @make_pipe({})
-def reverse_pipe(input):
+def reverse(input):
     '''Reverses the order of the input values.'''
     return input[::-1]
 
 
 @make_pipe({})
-def count_pipe(input):
+def count(input):
     '''Counts the number of input values it receives.'''
     return [str(len(input))]
 
@@ -159,7 +159,7 @@ _CATEGORY = 'STRING'
     'keep_whitespace': Sig(util.parse_bool, False, 'Whether or not to remove whitespace items'),
     'keep_empty': Sig(util.parse_bool, False, 'Whether or not to remove empty items')
 })
-def split_pipe(inputs, on, lim, keep_whitespace, keep_empty):
+def split(inputs, on, lim, keep_whitespace, keep_empty):
     '''Split the input into multiple outputs.'''
     return [x for y in inputs for x in re.split(on, y, maxsplit=lim) if x.strip() != '' or (keep_whitespace and x != '') or (keep_empty and x == '')]
 
@@ -172,7 +172,7 @@ pad_modes = ['l', 'c', 'r']
     'fill' : Sig(str, ' ', 'The character used to pad out the string.'),
 })
 @as_map
-def pad_pipe(text, where, width, fill):
+def pad(text, where, width, fill):
     '''Pad the input to a certain width.'''
     where = where[0].lower()
     if where == 'l':
@@ -189,7 +189,7 @@ wrap_modes = ['d', 's']
     'mode' : Sig(str, 'smart', 'How to wrap: Dumb (char-by-char) or smart (on spaces).', lambda x: x[0].lower() in wrap_modes),
     'width': Sig(int, 40, 'The minimum width to pad to.')
 })
-def wrap_pipe(inputs, mode, width):
+def wrap(inputs, mode, width):
     '''Wrap the input to a certain width.'''
     mode = mode[0].lower()
     if mode == 'd':
@@ -200,7 +200,7 @@ def wrap_pipe(inputs, mode, width):
 
 @make_pipe({})
 @as_map
-def strip_pipe(value):
+def strip(value):
     '''Strips whitespace from the starts and ends of each input.'''
     return value.strip()
 
@@ -210,7 +210,7 @@ def strip_pipe(value):
     'to' : Sig(str, None, 'Replacement string'),
 })
 @as_map
-def sub_pipe(text, to, **argc):
+def sub(text, to, **argc):
     '''Substitutes patterns in the input.'''
     return re.sub(argc['from'], to, text)
 
@@ -218,7 +218,7 @@ def sub_pipe(text, to, **argc):
 @make_pipe({
     'pattern': Sig(str, None, 'Case pattern to obey'),
 })
-def case_pipe(text, pattern):
+def case(text, pattern):
     '''
     Converts the case of each input according to a pattern.
 
@@ -242,7 +242,7 @@ def case_pipe(text, pattern):
 @make_pipe({
     'f' : Sig(str, None, 'The format string, for syntax info: https://pyformat.info/')
 })
-def format_pipe(input, f):
+def format(input, f):
     '''Format one or more rows into a single row according to a format string.'''
     return [f.format(*input)]
 
@@ -250,7 +250,7 @@ def format_pipe(input, f):
 @make_pipe({
     's' : Sig(str, '', 'The separator inserted between two items.')
 })
-def join_pipe(input, s):
+def join(input, s):
     '''Joins rows into a single row, separated by the given separator.'''
     return [s.join(input)]
 
@@ -264,7 +264,7 @@ _CATEGORY = 'LETTER'
     'p' : Sig(float, 0.4, 'Character swap probability'),
 }, command=True)
 @as_map
-def vowelize_pipe(text, p):
+def vowelize(text, p):
     '''Randomly replaces vowels.'''
     return vowelize(text, p)
 
@@ -273,7 +273,7 @@ def vowelize_pipe(text, p):
     'p' : Sig(float, 0.4, 'Character swap probability'),
 }, command=True)
 @as_map
-def consonize_pipe(text, p):
+def consonize(text, p):
     '''Randomly replaces consonants with funnier ones.'''
     return consonize(text, p)
 
@@ -282,7 +282,7 @@ def consonize_pipe(text, p):
     'p' : Sig(float, 0.2, 'Character swap probability'),
 }, command=True)
 @as_map
-def letterize_pipe(text, p):
+def letterize(text, p):
     '''Both vowelizes and consonizes.'''
     return letterize(text, p)
 
@@ -291,7 +291,7 @@ def letterize_pipe(text, p):
     'p' : Sig(float, 0.4, 'Character swap probability'),
 }, command=True)
 @as_map
-def letterize2_pipe(text, p):
+def letterize2(text, p):
     '''Letterize, but smarter™.'''
     return letterize2(text, p)
 
@@ -301,7 +301,7 @@ def letterize2_pipe(text, p):
 }, command=True)
 @as_map
 @util.format_doc(convs=', '.join([c for c in converters]))
-def convert_pipe(text, to):
+def convert(text, to):
     '''\
     Convert text using a variety of settings.
 
@@ -323,7 +323,7 @@ _datamuse = lru_cache()(datamuse_api.words)
     'file': Sig(str, 'words.txt', 'The uploaded file to be matched from.')
 }, command=True)
 @as_map
-def nearest_pipe(text, min, file):
+def nearest(text, min, file):
     '''Replaces text with the nearest item (by edit distance) in a given file.'''
     # TODO? MORE FILE LOGIC EQUIVALENT TO {TXT} SOURCE
     if file not in uploads:
@@ -334,7 +334,7 @@ def nearest_pipe(text, min, file):
 
 @make_pipe({}, command=True)
 @word_map
-def rhyme_pipe(word):
+def rhyme(word):
     '''
     Replaces words with random (nearly) rhyming words.
     Thanks to datamuse.com
@@ -350,7 +350,7 @@ def rhyme_pipe(word):
 
 @make_pipe({}, command=True)
 @word_map
-def homophone_pipe(word):
+def homophone(word):
     '''
     Replaces words with random homophones.
     Thanks to datamuse.com
@@ -364,7 +364,7 @@ def homophone_pipe(word):
 
 @make_pipe({}, command=True)
 @word_map
-def synonym_pipe(word):
+def synonym(word):
     '''
     Replaces words with random antonyms.
     Thanks to datamuse.com
@@ -378,7 +378,7 @@ def synonym_pipe(word):
 
 @make_pipe({}, command=True)
 @word_map
-def antonym_pipe(word):
+def antonym(word):
     '''
     Replaces words with random antonyms.
     Thanks to datamuse.com
@@ -392,7 +392,7 @@ def antonym_pipe(word):
 
 @make_pipe({}, command=True)
 @word_map
-def part_pipe(word):
+def part(word):
     '''
     Replaces words with something it is considered "a part of", inverse of comprises pipe.
     Thanks to datamuse.com
@@ -406,7 +406,7 @@ def part_pipe(word):
 
 @make_pipe({}, command=True)
 @word_map
-def comprises_pipe(word):
+def comprises(word):
     '''
     Replaces words with things considered "its parts", inverse of "part" pipe.
     Thanks to datamuse.com
@@ -443,7 +443,7 @@ random_language = ['rand', 'random', '?']
 }, command=True)
 @as_map
 @util.format_doc(langs=' '.join(c for c in translate_languages))
-def translate_pipe(text, to, **argc):
+def translate(text, to, **argc):
     '''
     Translates the input using the Google Cloud Translate API.
     The list of languages can be browsed at https://cloud.google.com/translate/docs/languages
@@ -467,7 +467,7 @@ _CATEGORY = 'ENCODING'
 
 @make_pipe({}, command=True)
 @as_map
-def demoji_pipe(text):
+def demoji(text):
     '''Replaces emoji in text with their official names.'''
     out = ''
     for c in text:
@@ -483,7 +483,7 @@ def demoji_pipe(text):
 
 @make_pipe({}, command=True)
 @as_map
-def unicode_pipe(text):
+def unicode(text):
     '''Replaces unicode characters with their official names.'''
     out = []
     for c in text:
@@ -496,7 +496,7 @@ def unicode_pipe(text):
     'by': Sig(int, 13, 'The number of places to rotate the letters by.', lambda x: x in translate_languages or x == 'auto'),
 }, command=True)
 @as_map
-def rot_pipe(text, by):
+def rot(text, by):
     '''Applies a Caeserian cypher.'''
     if by % 26 == 0: return text
     out = []
