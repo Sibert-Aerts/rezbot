@@ -64,6 +64,7 @@ def make_pipe(signature, command=False):
         return func
     return _make_pipe
 
+
 #####################################################
 #                       Pipes                       #
 #####################################################
@@ -87,17 +88,22 @@ def repeat(input, times, max):
         return (input*times)[:max]
 
 
-delete_whats = ['a', 'e', 'w']
-@make_pipe({ 'what': Sig(str, 'all', 'What to delete: all/empty/whitespace', lambda x: x[0].lower() in delete_whats) })
-def delete(input, what):
-    '''Deletes all inputs, or specific types of input.'''
-    what = what[0].lower()
-    if what == 'a': # all
+@make_pipe({ 'what': Sig(str, 'all', 'What to filter: all/empty/whitespace', options=['all', 'empty', 'whitespace']) })
+def remove(input, what):
+    '''
+    Removes all items (or specific types of items) from the flow.
+
+    all: Removes every item
+    empty: Removes items equal to the empty string ("")
+    whitespace: Removes items that only consist of whitespace (includes empty!)
+    '''
+    what = what.lower()
+    if what == 'all':
         return []
-    if what == 'w': # whitespace (and empty too)
-        return [x for x in input if x.trim() != '']
-    if what == 'e': # empty
+    if what == 'empty':
         return [x for x in input if x != '']
+    if what == 'whitespace':
+        return [x for x in input if x.trim() != '']
 
 
 @make_pipe({})
@@ -164,37 +170,33 @@ def split(inputs, on, lim, keep_whitespace, keep_empty):
     return [x for y in inputs for x in re.split(on, y, maxsplit=lim) if x.strip() != '' or (keep_whitespace and x != '') or (keep_empty and x == '')]
 
 
-pad_modes = ['l', 'c', 'r']
-
 @make_pipe({
-    'where': Sig(str, 'right', 'Which side to pad on: left/center/right', lambda x: x[0].lower() in pad_modes),
+    'where': Sig(str, 'right', 'Which side to pad on: left/center/right', options=['left', 'center', 'right']),
     'width': Sig(int, 0, 'The minimum width to pad to.'),
     'fill' : Sig(str, ' ', 'The character used to pad out the string.'),
 })
 @as_map
 def pad(text, where, width, fill):
     '''Pad the input to a certain width.'''
-    where = where[0].lower()
-    if where == 'l':
+    where = where.lower()
+    if where == 'left':
         return text.rjust(width, fill)
-    if where == 'r':
-        return text.ljust(width, fill)
-    if where == 'c':
+    if where == 'center':
         return text.center(width, fill)
+    if where == 'right':
+        return text.ljust(width, fill)
 
-
-wrap_modes = ['d', 's']
 
 @make_pipe({
-    'mode' : Sig(str, 'smart', 'How to wrap: Dumb (char-by-char) or smart (on spaces).', lambda x: x[0].lower() in wrap_modes),
+    'mode' : Sig(str, 'smart', 'How to wrap: dumb (char-by-char) or smart (on spaces).', options=['dumb', 'smart']),
     'width': Sig(int, 40, 'The minimum width to pad to.')
 })
 def wrap(inputs, mode, width):
     '''Wrap the input to a certain width.'''
-    mode = mode[0].lower()
-    if mode == 'd':
+    mode = mode.lower()
+    if mode == 'dumb':
         return [text[i:i+width] for text in inputs for i in range(0, len(text), width)]
-    if mode == 's':
+    if mode == 'smart':
         return [wrapped for text in inputs for wrapped in textwrap.wrap(text, width)]
 
 
@@ -297,7 +299,7 @@ def letterize2(text, p):
 
 
 @make_pipe({
-    'to' : Sig(str, None, 'Which conversion should be used.', lambda x: x in converters),
+    'to' : Sig(str, None, 'Which conversion should be used.', options=converters.keys()),
 }, command=True)
 @as_map
 @util.format_doc(convs=', '.join([c for c in converters]))
@@ -307,7 +309,7 @@ def convert(text, to):
 
     Valid conversions: {convs}
     '''
-    return converters[to](text)
+    return converters[to.lower()](text)
 
 
 #####################################################
@@ -434,12 +436,10 @@ hr cs da nl en eo et tl fi fr fy gl ka de el gu ht ha haw iw hi hmn hu is ig id
 ga it ja jw kn kk km ko ku ky lo la lv lt lb mk mg ms ml mt mi mr mn my ne no ps
 fa pl pt pa ro ru sm gd sr st sn sd si sk sl so es su sw sv tg ta te th tr uk ur
 uz vi cy xh yi yo zu'''.split()
-random_language = ['rand', 'random', '?']
-
 
 @make_pipe({
-    'from': Sig(str, 'auto', 'The language to translate from, "auto" to automatically detect the language.', lambda x: x in translate_languages or x == 'auto'),
-    'to' : Sig(str, 'en', 'The language to translate to, "random" for a random language.', lambda x: x in translate_languages or x in random_language),
+    'from': Sig(str, 'auto', 'The language code to translate from, "auto" to automatically detect the language.', options=translate_languages + ['auto']),
+    'to' : Sig(str, 'en', 'The language code to translate to, "random" for a random language.', options=translate_languages + ['random']),
 }, command=True)
 @as_map
 @util.format_doc(langs=' '.join(c for c in translate_languages))
@@ -451,9 +451,10 @@ def translate(text, to, **argc):
     if _translate is None: return text
     if text.strip() == '': return text
 
-    fro = argc['from'] # because `from` is a keyword
+    fro = argc['from'].lower() # because "from" is a keyword
+    to = to.lower()
     if fro == 'auto': fro = ''
-    if to in random_language: to = choose(translate_languages)
+    if to == 'random': to = choose(translate_languages)
 
     result = _translate(text, source_language=fro, target_language=to)
 
@@ -469,15 +470,15 @@ _CATEGORY = 'ENCODING'
 @as_map
 def demoji(text):
     '''Replaces emoji in text with their official names.'''
-    out = ''
+    out = []
     for c in text:
         if c in emoji.UNICODE_EMOJI:
             try:
-                out += unicodedata2.name(c) + ' '
+                out.append( unicodedata2.name(c) + ' ' )
             except:
-                out += 'UNKNOWN '
+                out.append( '(UNKNOWN)' )
         else:
-            out += c
+            out.append( c )
     return out
 
 

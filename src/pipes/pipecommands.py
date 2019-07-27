@@ -152,13 +152,16 @@ class PipeCommands(MyCommands):
         # Info on all spouts
         else:
             infos = []
-            infos.append('Here\'s a list of spouts, use >spouts [spout name] to see more info on a specific one.\nUse >spout_macros for a list of user-defined spouts.\n')
+            infos.append('Here\'s a list of spouts, use >spouts [spout name] to see more info on a specific one.')
+            infos.append('')
+
             colW = len(max(spouts, key=len)) + 2
             for name in spouts:
                 spout = spouts[name]
                 info = name + ' ' * (colW-len(name))
                 if spout.doc: info += spout.small_doc
                 infos.append(info)
+
             text = texttools.block_format('\n'.join(infos))
             await ctx.send(text)
 

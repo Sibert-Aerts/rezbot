@@ -67,7 +67,8 @@ async def delete_message(bot, message, values):
 
 @make_spout({})
 async def send_message(bot, message, values):
-    '''Sends a discord message containing the input joined by newlines. (WIP placeholder until `print` is fixed!)'''
+    '''Sends input as a discord message. (WIP until `print` is integrated fully)
+    If multiple lines of input are given, they're joined with newlines'''
     await message.channel.send('\n'.join(values))
 
 
@@ -89,5 +90,5 @@ async def set(bot, message, values, name):
 async def print(bot, message, values):
     '''Appends the values to the output message. (WIP: /any/ other spout suppresses print output right now!)'''
     # The actual implementation of "print" is hardcoded into the pipeline processor code
-    # This definition is just here
+    # This definition is just here so it shows up in the list of spouts
     pass

@@ -21,7 +21,7 @@ class OnMessage(Event):
 
     def embed(self, ctx):
         desc = '{} in this channel'.format( 'Active' if ctx.channel in self.channels else 'Not active' )
-        embed = Embed(title='Event: ' + self.name, description=desc, color=0x592bff)
+        embed = Embed(title='Event: ' + self.name, description=desc, color=0x7628cc)
 
         ## On message
         embed.add_field(name='On message', value='`%s`' % self.patternstr, inline=True)

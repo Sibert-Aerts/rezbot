@@ -87,7 +87,7 @@ def _messages_get_what(messages, what):
         return [str(msg.author.id) for msg in messages]
 
 @make_source({
-    'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), lambda w: w.lower() in MESSAGE_WHAT_OPTIONS)
+    'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), options=MESSAGE_WHAT_OPTIONS)
 }, pass_message=True)
 async def message(message, what):
     ''' The message which triggered script execution. Useful in Event scripts. '''
@@ -97,7 +97,7 @@ async def message(message, what):
 @make_source({
     'n': Sig(int, 1, 'The number of messages'),
     'i': Sig(int, 1, 'From which previous message to start counting. (0 for the message that triggers the script itself)'),
-    'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), lambda w: w.lower() in MESSAGE_WHAT_OPTIONS)
+    'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), options=MESSAGE_WHAT_OPTIONS)
 }, pass_message=True)
 async def previous_message(message, n, i, what):
     '''
@@ -127,7 +127,7 @@ def _members_get_what(members, what):
         return [str(member.avatar_url) for member in members]
 
 @make_source({
-    'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), lambda w: w.lower() in MEMBER_WHAT_OPTIONS)
+    'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), options=MEMBER_WHAT_OPTIONS)
 }, pass_message=True)
 async def me(message, what):
     '''The name (or other attribute) of the user invoking the script or event.'''
@@ -136,7 +136,7 @@ async def me(message, what):
 
 @make_source({
     'n'   : Sig(int, 1, 'The maximum number of members to return.'),
-    'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), lambda w: w.lower() in MEMBER_WHAT_OPTIONS),
+    'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), options=MEMBER_WHAT_OPTIONS),
     'id'  : Sig(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
     'name': Sig(str, '', 'A regex that should match their nickname or username.'),
     # 'rank': ...?
@@ -162,7 +162,7 @@ async def member(message, n, what, id, name):
 CHANNEL_WHAT_OPTIONS = ['name', 'topic', 'id', 'category', 'mention']
 
 @make_source({
-    'what': Sig(str, 'name', '/'.join(CHANNEL_WHAT_OPTIONS), lambda w: w.lower() in CHANNEL_WHAT_OPTIONS),
+    'what': Sig(str, 'name', '/'.join(CHANNEL_WHAT_OPTIONS), options=CHANNEL_WHAT_OPTIONS),
 }, pass_message=True)
 async def channel(message, what):
     '''The name (or other attribute) of the current channel.'''
@@ -183,7 +183,7 @@ async def channel(message, what):
 SERVER_WHAT_OPTIONS = ['name', 'description', 'icon', 'member_count']
 
 @make_source({
-    'what': Sig(str, 'name', '/'.join(SERVER_WHAT_OPTIONS), lambda w: w.lower() in SERVER_WHAT_OPTIONS),
+    'what': Sig(str, 'name', '/'.join(SERVER_WHAT_OPTIONS), options=SERVER_WHAT_OPTIONS),
 }, pass_message=True)
 async def server(message, what):
     '''The name (or other attribute) of the current server.'''
@@ -236,6 +236,7 @@ async def get(name, default):
 #                  Sources : FILE                   #
 #####################################################
 _CATEGORY = 'FILE'
+# NOTE: the category can't be called "FILE" if I rename "txt" to "file"
 
 def bool_or_none(val):
     if val is None or val == 'None': return None
@@ -374,7 +375,7 @@ async def JERKCITY(COMIC, Q, N, LINES, NAMES):
 
 @make_source({
     'n'     : Sig(int, 1, 'The number of generated messages.'),
-    'game'  : Sig(str, '?', 'Which game should be used (1/2/3/B/? for random).', lambda x:x.lower() in ['?','1','2','3','b']),
+    'game'  : Sig(str, '?', 'Which game should be used (1/2/3/B/? for random).', options=['?','1','2','3','b']),
     'phrase': Sig(str, '%phrase%', 'Overrides game argument. Construct a custom phrase using the following categories:\n{}'.format(', '.join([c for c in soapstone.phraseDict])))
 }, command=True)
 @multi_source

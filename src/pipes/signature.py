@@ -9,11 +9,12 @@ class ArgumentError(ValueError):
 
 class Sig:
     '''Class representing a single item in a function signature.'''
-    def __init__(self, type, default=None, desc=None, check=None, required=None):
+    def __init__(self, type, default=None, desc=None, check=None, required=None, options=None):
         self.type = type
         self.default = default
         self.desc = desc
         self.check = check
+        self.options = options
         self.required = required if required is not None else (default is None)
         self._re = None
         self.str = None
@@ -41,7 +42,7 @@ class Sig:
         if self.default is not None:
             d = self.default
             if d == '': d ='""'
-            out += 'default: ' + str(d)
+            out += 'default: ' + repr(d)
         else:
             out += 'REQUIRED'
         out += ')'
@@ -89,12 +90,16 @@ def parse_args(signature, text, greedy=True):
             if val.strip() != '':
                 # Try casting what we found and see if it works
                 try:
-                    args[s] = sig.type(val)
-                    if sig.check is None or sig.check(args[s]):
-                        if len(signature) == 1: return (_text, args)
+                    val = sig.type(val)
+                    if sig.check and not sig.check(val):
+                        raise ValueError()
+                    if sig.options and not val.lower() in sig.options:
+                        raise ValueError()
+                    args[s] = val
                 except:
                     # We know that there's no "arg=val" present in the string, the arg is required and we can't find it blindly:
-                    if required: raise ArgumentError('Missing or invalid argument "{}".'.format(s))
+                    if required:
+                        raise ArgumentError('Missing or invalid argument "{}".'.format(s))
 
     for s in signature:
         # If we already determined the argument value in the previous block, skip it
@@ -112,11 +117,20 @@ def parse_args(signature, text, greedy=True):
                 val = val[1:-1]
 
             # Cast to the desired type
-            args[s] = sig.type(val)
+            val = sig.type(val)
 
             # Verify that the value meets the check function (if one exists)
-            if sig.check and not sig.check(args[s]):
-                raise ArgumentError('Invalid value "{}" for argument "{}".'.format(args[s], s))
+            if sig.check and not sig.check(val):
+                raise ArgumentError('Invalid value "{}" for argument "{}".'.format(val, s))
+
+            # If a specific list of options is given, check if the value is one of them
+            if sig.options and not val.lower() in sig.options:
+                if len(sig.options) <= 8:
+                    raise ArgumentError('Invalid value "{}" for argument "{}": Must be one of {}.'.format(val, s, '/'.join(sig.options)))
+                else:
+                    raise ArgumentError('Invalid value "{}" for argument "{}".'.format(val, s))
+
+            args[s] = val
 
             # Remove the argument string from the text
             text = text[:given.start(0)] + text[given.end(0):]
