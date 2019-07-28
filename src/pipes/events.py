@@ -39,7 +39,7 @@ class OnMessage(Event):
         return message.channel in self.channels and self.pattern.search(message.content) is not None
 
 
-event_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w+) ON MESSAGE (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I)
+event_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w+) ON MESSAGE (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I | re.S )
 #                                ^^^^^^^^         ^^^              ^^^          ^^
 
 async def parse_event(string, channel):
