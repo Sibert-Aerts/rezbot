@@ -20,15 +20,15 @@ class OnMessage(Event):
         return '**{}**: ON MESSAGE `{}`'.format(self.name, self.patternstr)
 
     def embed(self, ctx):
-        desc = '{} in this channel'.format( 'Active' if ctx.channel in self.channels else 'Not active' )
+        desc = '{} in this channel'.format( 'Enabled' if ctx.channel in self.channels else 'Disabled' )
         embed = Embed(title='Event: ' + self.name, description=desc, color=0x7628cc)
 
         ## On message
         embed.add_field(name='On message', value='`%s`' % self.patternstr, inline=True)
 
-        ### List of the current server's channels it's active in
+        ### List of the current server's channels it's enabled in
         channels = [ '#'+ch.name for ch in self.channels if ch in ctx.guild.text_channels]
-        embed.add_field(name='Active channels', value=', '.join(channels) or 'None', inline=True)
+        embed.add_field(name='Enabled channels', value=', '.join(channels) or 'None', inline=True)
 
         ## Script
         embed.add_field(name='Script', value=block_format(self.script), inline=False)

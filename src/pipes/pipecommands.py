@@ -176,17 +176,17 @@ class PipeCommands(MyCommands):
 
         if not name:
             ## Print all events
-            active = []; inactive = []
+            enabled = []; disabled = []
             for event in events.values():
-                if ctx.channel in event.channels: active.append(event)
-                else: inactive.append(event)
+                if ctx.channel in event.channels: enabled.append(event)
+                else: disabled.append(event)
             infos = []
-            if active:
-                infos += ['**__Active:__**']
-                infos += [ '• ' + str(e) for e in active ]
-            if inactive:
-                infos += ['**__Inactive:__**']
-                infos += [ '• ' + str(e) for e in inactive ]
+            if enabled:
+                infos += ['**__Enabled:__**']
+                infos += [ '• ' + str(e) for e in enabled ]
+            if disabled:
+                infos += ['**__Disabled:__**']
+                infos += [ '• ' + str(e) for e in disabled ]
             await ctx.send('\n'.join(infos))
         
         else:
@@ -198,25 +198,25 @@ class PipeCommands(MyCommands):
 
     @commands.command()
     @commands.guild_only()
-    async def activate_event(self, ctx, name):
+    async def enable_event(self, ctx, name):
         if name not in events:
             await ctx.send('No event "{}" found.'.format(name)); return
         event = events[name]
         if ctx.channel in event.channels:
-            await ctx.send('Event is already active in this channel.'); return
+            await ctx.send('Event is already enabled in this channel.'); return
         event.channels.append(ctx.channel)
-        await ctx.send('Activated event "{}" in #{}'.format(event.name, ctx.channel.name))
+        await ctx.send('Enabled event "{}" in #{}'.format(event.name, ctx.channel.name))
 
     @commands.command()
     @commands.guild_only()
-    async def deactivate_event(self, ctx, name):
+    async def disable_event(self, ctx, name):
         if name not in events:
             await ctx.send('No event "{}" found.'.format(name)); return
         event = events[name]
         if ctx.channel not in event.channels:
-            await ctx.send('Event is already inactive in this channel.'); return
+            await ctx.send('Event is already disabled in this channel.'); return
         event.channels.remove(ctx.channel)
-        await ctx.send('Deactivated event "{}" in #{}'.format(event.name, ctx.channel.name))
+        await ctx.send('Disabled event "{}" in #{}'.format(event.name, ctx.channel.name))
 
     @commands.command(aliases=['del_event'])
     @commands.guild_only()
