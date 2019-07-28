@@ -9,7 +9,8 @@ class Pipe:
         self.signature = signature
         self.function = function
         self.category = category
-        self.name = function.__name__.lower()
+        # remove _pipe or _source or _spout from the function's name
+        self.name = function.__name__.rsplit('_', 1)[0].lower()
         self.doc = function.__doc__
         self.small_doc = None
         if self.doc is not None:

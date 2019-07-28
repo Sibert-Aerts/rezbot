@@ -36,7 +36,7 @@ def hex(h):
     'title':    Sig(str, '', 'The title.'),
     'color':    Sig(hex, 0, 'The highlight color as a hexadecimal value.'),
 })
-async def embed(bot, message, values, title, color):
+async def embed_spout(bot, message, values, title, color):
     '''Outputs text as a simple discord embed.'''
     e = Embed(title=title, description='\n'.join(values), color=color)
     await message.channel.send(embed=e)
@@ -49,7 +49,7 @@ async def embed(bot, message, values, title, color):
     'retweets': Sig(str, '', 'The number of retweets, hidden if empty.'),
     'likes':    Sig(str, '', 'The number of likes, hidden if empty.'),
 })
-async def tweet(bot, message, values, name, handle, icon, retweets, likes):
+async def tweet_spout(bot, message, values, name, handle, icon, retweets, likes):
     '''Outputs text as a fake embedded tweet.'''
     e = Embed(description='\n'.join(values), color=0x4f545c)
     e.set_author(name='{} (@{})'.format(name, handle), url='https://twitter.com/'+handle, icon_url=icon)
@@ -60,20 +60,20 @@ async def tweet(bot, message, values, name, handle, icon, retweets, likes):
 
 
 @make_spout({})
-async def delete_message(bot, message, values):
+async def delete_message_spout(bot, message, values):
     '''Deletes the message that triggered the script's execution.'''
     await message.delete()
 
 
 @make_spout({})
-async def send_message(bot, message, values):
+async def send_message_spout(bot, message, values):
     '''Sends input as a discord message. (WIP until `print` is integrated fully)
     If multiple lines of input are given, they're joined with newlines'''
     await message.channel.send('\n'.join(values))
 
 
 @make_spout({})
-async def suppress_print(bot, message, values):
+async def suppress_print_spout(bot, message, values):
     '''(WIP) Prevents the default behaviour of printing output to a Discord message.
     Useful for Event scripts that silently modify variables, or that don't do anything in certain circumstances.'''
     # NOP, just having *any* spout is enough to prevent the default "print" behaviour
@@ -81,13 +81,13 @@ async def suppress_print(bot, message, values):
 
 
 @make_spout({'name' : Sig(str, None, 'The variable name')}, command=True)
-async def set(bot, message, values, name):
+async def set_spout(bot, message, values, name):
     '''Stores the input as a variable with the given name, which can be retreived with {get (name)}.'''
     SourceResources.var_dict[name] = values
 
 
 @make_spout({})
-async def print(bot, message, values):
+async def print_spout(bot, message, values):
     '''Appends the values to the output message. (WIP: /any/ other spout suppresses print output right now!)'''
     # The actual implementation of "print" is hardcoded into the pipeline processor code
     # This definition is just here so it shows up in the list of spouts
