@@ -70,15 +70,15 @@
         * (check if all pipes don't accidentally change `input` in place, because it is passed by reference and this breaks the flow)
     
     * **PARSING BUGS:**
-        * `$$ foo > bar x=( > baz` doesn't understand the ( should be a character and not a parenthesis (circumventable by writing `x="("`)
-        * `$$ foo > bar x='"' > baz` similarly, the " is interpreted as opening a string that is never closed, circumvented by adding a closing " afterwards but that's stupid
+        * `>> foo > bar x=( > baz` doesn't understand the ( should be a character and not a parenthesis (circumventable by writing `x="("`)
+        * `>> foo > bar x='"' > baz` similarly, the " is interpreted as opening a string that is never closed, circumvented by adding a closing " afterwards but that's stupid
         * `x="""some"thing"""` turns into `x="some"thing"`, so x only gets "some" as an argument, probably should be much smarter
-        * `$$ """choice-escaped source"""` is not possible right now
+        * `>> """choice-escaped source"""` is not possible right now
 
     * **SPECULATIVE:**
         * Option to hide warnings log
         * Command to show most recent warnings log
-        * $$? to analyse a pipeline (to learn or debug!)
+        * >>? to analyse a pipeline (to learn or debug!)
         * ChoiceTree flags:
             * [-] to produce a minimal number of lines that reach each choice leaf at least once (is this hard???)
                 [-] [alpha|beta] [gamma|delta] → alpha gamma, beta delta
