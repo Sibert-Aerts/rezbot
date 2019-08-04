@@ -242,12 +242,13 @@ def case_pipe(text, pattern):
 
 
 @make_pipe({
-    'f' : Sig(str, None, 'The format string, for syntax info: https://pyformat.info/')
+    'f' : Sig(str, None, 'The format string. Items of the form {0}, {1} etc. are replaced with the respective item at that index.')
 })
 def format_pipe(input, f):
     '''Format one or more rows into a single row according to a format string.'''
-    return [f.format(*input)]
-
+    # return [f.format(*input)]
+    return [f]
+    # The formatting already happens beforehand, but trying to do it again risks messing things up
 
 @make_pipe({
     's' : Sig(str, '', 'The separator inserted between two items.')
