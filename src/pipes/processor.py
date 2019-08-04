@@ -393,32 +393,33 @@ class Pipeline:
         #   merely IGNORES the item, putting it before the pipe's output, unchanged
         # e.g. >> fraktur|hello > convert to={0}     gives   𝔥𝔢𝔩𝔩𝔬            as the ONLY output
         # e.g. >> fraktur|hello > convert to={0!}    gives   fraktur|𝔥𝔢𝔩𝔩𝔬    as the TWO lines of output
+        # But before all that, turn a string like "{} {} {!}" into "{0} {1} {2!}"
 
-        # BUT we should also account for {}'s:
+        # Check if {}'s are used, but make sure no explicitly numbered {}'s are present.
         if re.search(self.empty_arg_item_regex, argstr):
             if re.search(self.arg_item_regex, argstr):
-                # NOTE: This exception breaks script execution completely (I guess it should?)
-                raise Exception('Do not mix empty {}\'s with numbered {}\'s in the arg string.')
-            def f(m): f.i += 1; return '{%d%s}' % (f.i, m.group(1))
+                # NOTE: This exception breaks script execution completely (should it?)
+                raise Exception('Do not mix empty {}\'s with numbered {}\'s in the argument string "%s".' % argstr)
+            # Perform the "{} {} {!}" → "{0} {1} {2!}" substitution
+            def f(m):
+                f.i += 1
+                return '{%d%s}' % (f.i, m.group(1))
             f.i = -1
             argstr = re.sub(self.empty_arg_item_regex, f, argstr)
-            print(argstr)
 
-        # Keep track of which items to ignore and which to remove after performing the replacement
-        to_be_ignored = set()
-        to_be_removed = set()
-        def replacer(m):
+        # Keep track of which items to ignore and which to remove after performing the substitution
+        to_be_ignored = set(); to_be_removed = set()
+        def func(m):
             i = int(m.group(1)) % len(items)
-            rem = (m.group(2)!='!')
-            if rem:
-                to_be_removed.add(i)
-            else:
-                to_be_ignored.add(i)
+            ignore = (m.group(2) == '!')
+            (to_be_ignored if ignore else to_be_removed).add(i)
             return items[i]
-        # The replacement
-        argstr = re.sub(self.arg_item_regex, replacer, argstr)
 
-        # If "conflicting" instances occur (i.e. {0} and {0!}) give presedence to the {0!}, e.g. don't remove
+        # Perform the substitution
+        argstr = re.sub(self.arg_item_regex, func, argstr)
+
+        # If "conflicting" instances occur (i.e. both {0} and {0!}) give precedence to the {0!}
+        # Since the ! is an intentional indicator of what they want to happen; Do not remove the item
         to_be = [ (i, True) for i in to_be_removed.difference(to_be_ignored) ] + [ (i, False) for i in to_be_ignored ]
         # Finnicky list logic for ignoring/removing the appropriate indices
         to_be.sort(key=lambda x: x[0])
@@ -426,8 +427,7 @@ class Pipeline:
         ignored = []
         filtered = items[:]
         for i, rem in to_be:
-            if not rem:
-                ignored.append(items[i])
+            if not rem: ignored.append(items[i])
             del filtered[i]
         ignored.reverse()
 
