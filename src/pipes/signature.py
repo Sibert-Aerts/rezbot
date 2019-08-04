@@ -58,16 +58,16 @@ def parse_args(signature, text, greedy=True):
     the_one = None
     required = False
 
-    # Two scenarios where we implicitly assume an argument (without arg=val syntax!):
-    # If there is only one argument
+    ### Two scenarios where we implicitly assume an argument is assigned (without arg=val syntax!):
     if len(signature) == 1:
+        ## If there is only one argument
         the_one = next(iter(signature))
-    # Or if there is only one REQUIRED argument
     else:
+        ## OR if there is only one REQUIRED argument
         reqs = [s for s in signature if signature[s].required]
         if len(reqs) == 1:
             the_one = reqs[0]
-            required = True
+            require_the_one = True
 
     if the_one is not None and text is not None:
         s = the_one
@@ -82,23 +82,25 @@ def parse_args(signature, text, greedy=True):
                 _text = ''
 
             else: # Not greedy: Only try the first word
-                split = text.split(' ', 1)
+                split = re.split(r'\s+', text, 1)
                 val = split[0]
                 _text = split[1] if len(split) > 1 else ''
 
             # If the "found" argument is the empty string we didnt actually find anything
             if val.strip() != '':
-                # Try casting what we found and see if it works
                 try:
+                    # Try casting what we found and see if it works
                     val = sig.type(val)
                     if sig.check and not sig.check(val):
                         raise ValueError()
                     if sig.options and not val.lower() in sig.options:
                         raise ValueError()
+                    # It successfully converted AND passed the tests: assign it and clip it from the text
                     args[s] = val
+                    text = _text
                 except:
-                    # We know that there's no "arg=val" present in the string, the arg is required and we can't find it blindly:
-                    if required:
+                    # We already know that there's no "arg=val" present in the string, the arg is required and we can't find it blindly:
+                    if require_the_one:
                         raise ArgumentError('Missing or invalid argument "{}".'.format(s))
 
     for s in signature:
