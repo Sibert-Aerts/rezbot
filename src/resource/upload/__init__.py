@@ -57,6 +57,9 @@ class File:
         file.write_raw(raw)
         return file
 
+    def get_raw_path(self):
+        return DIR(self.info.raw_file)
+
     def write_raw(self, raw):
         '''Only called once the very first time the file is uploaded.'''
         with open(DIR(self.info.raw_file), 'w+', encoding='utf-8') as file:
@@ -188,7 +191,6 @@ class File:
             return [model.make_sentence(tries=20) or '' for _ in range(count)]
         else:
             return [model.make_short_sentence(length, tries=20) or '' for _ in range(count)]
-
 
 
 class Files:

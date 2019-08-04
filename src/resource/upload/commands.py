@@ -32,6 +32,16 @@ class UploadCommands(MyCommands):
         await ctx.send('File received! Saved %d lines as `%s`' % (len(file.lines), file.info.name))
 
 
+    @commands.command()
+    async def download(self, ctx, file):
+        '''Download a txt file.'''
+        if file not in uploads:
+            await ctx.send('No file by name `%s` found!' % file); return
+        file = uploads[file]
+        discFile = discord.File(file.get_raw_path())
+        await ctx.send(file=discFile)
+
+
     @commands.command(aliases=['file', 'uploads'])
     async def files(self, ctx, file=''):
         '''List all uploaded txt files, or show the contents of a specific file.'''
