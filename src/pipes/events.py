@@ -48,8 +48,8 @@ class OnMessage(Event):
         return embed
 
 
-event_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w+) ON MESSAGE (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I | re.S )
-#                                ^^^^^^^^         ^^^              ^^^          ^^
+event_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w[\w.]+) ON MESSAGE (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I | re.S )
+#                                ^^^^^^^^         ^^^^^^^^              ^^^          ^^
 
 async def parse_event(string, channel):
     m = re.match(event_pattern, string)
@@ -74,9 +74,9 @@ async def parse_event(string, channel):
             events[name] = OnMessage(name, channel, script, pattern)
 
     except Exception as e:
-        await channel.send('Failed to register event:\n\t{}: {}'.format(e.__class__.__name__, e))
+        await channel.send('Failed to {} event:\n\t{}: {}'.format( 'register' if mode=='NEW' else 'update', e.__class__.__name__, e))
         raise e
 
-    finally:
-        await channel.send('New event registered.' if mode == 'NEW' else 'Event updated.')
+    else:
+        await channel.send( ('New event "%s" registered.' if mode == 'NEW' else 'Event "%s" updated.') % name )
         return True

@@ -217,8 +217,7 @@ command_regex = re.compile(r'\s*(NEW|EDIT|DESC)\s+(\w+)\s+(\S+)\s*::(.*)', re.S)
 
 async def parse_macro_command(command, message):
     mc = MacroCommands()
-    print(command)
-    
+
     m = re.match(command_regex, command)
     if m is None:
         print('Error: failed to parse command: {}'.format(command))
