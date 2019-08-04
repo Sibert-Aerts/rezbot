@@ -10,11 +10,23 @@ class Event:
         self.channels = [channel]
         self.script = script
 
+    def update(self, script):
+        self.script = script
+
 class OnMessage(Event):
     def __init__(self, name, channel, script, pattern):
         super().__init__(name, channel, script)
         self.patternstr = pattern
         self.pattern = re.compile(pattern)
+
+    def update(self, script, pattern):
+        super().update(script)
+        self.patternstr = pattern
+        self.pattern = re.compile(pattern)
+
+    def test(self, message):
+        '''Test whether or not the given message should trigger the Event's execution.'''
+        return message.channel in self.channels and self.pattern.search(message.content) is not None
 
     def __str__(self):
         return '**{}**: ON MESSAGE `{}`'.format(self.name, self.patternstr)
@@ -27,16 +39,13 @@ class OnMessage(Event):
         embed.add_field(name='On message', value='`%s`' % self.patternstr, inline=True)
 
         ### List of the current server's channels it's enabled in
-        channels = [ '#'+ch.name for ch in self.channels if ch in ctx.guild.text_channels]
+        channels = [ ch.mention for ch in self.channels if ch in ctx.guild.text_channels]
         embed.add_field(name='Enabled channels', value=', '.join(channels) or 'None', inline=True)
 
         ## Script
         embed.add_field(name='Script', value=block_format(self.script), inline=False)
 
         return embed
-
-    def test(self, message):
-        return message.channel in self.channels and self.pattern.search(message.content) is not None
 
 
 event_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w+) ON MESSAGE (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I | re.S )
@@ -59,7 +68,10 @@ async def parse_event(string, channel):
         return True
 
     try:
-        events[name] = OnMessage(name, channel, script, pattern)
+        if mode == 'EDIT':
+            events[name].update(script, pattern)
+        else:
+            events[name] = OnMessage(name, channel, script, pattern)
 
     except Exception as e:
         await channel.send('Failed to register event:\n\t{}: {}'.format(e.__class__.__name__, e))

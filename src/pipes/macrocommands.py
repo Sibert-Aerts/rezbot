@@ -225,6 +225,7 @@ async def parse_macro_command(command, message):
         await message.channel.send('Error: Poorly formed command.')
 
     COM, what, name, value = m.groups()
+    what = what.lower()
     if COM == 'NEW':
         await mc._define(message, what, name, value)
     elif COM == 'EDIT':

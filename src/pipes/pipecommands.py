@@ -210,13 +210,20 @@ class PipeCommands(MyCommands):
     @commands.command()
     @commands.guild_only()
     async def disable_event(self, ctx, name):
+        if name == '*':
+            ## Disable ALL events in this channel
+            for event in events.values():
+                if ctx.channel in event.channels:
+                    event.channels.remove(ctx.channel)
+            await ctx.send('Disabled all events for {}'.format(ctx.channel.mention))
+            return
         if name not in events:
             await ctx.send('No event "{}" found.'.format(name)); return
         event = events[name]
         if ctx.channel not in event.channels:
             await ctx.send('Event is already disabled in this channel.'); return
         event.channels.remove(ctx.channel)
-        await ctx.send('Disabled event "{}" in #{}'.format(event.name, ctx.channel.name))
+        await ctx.send('Disabled event "{}" in {}'.format(event.name, ctx.channel.mention))
 
     @commands.command(aliases=['del_event'])
     @commands.guild_only()

@@ -5,6 +5,7 @@ from discord import Embed
 from .signature import Sig
 from .pipe import Spout, Pipes
 from .sources import SourceResources
+from .events import events
 
 
 spouts = Pipes()
@@ -92,3 +93,13 @@ async def print_spout(bot, message, values):
     # The actual implementation of "print" is hardcoded into the pipeline processor code
     # This definition is just here so it shows up in the list of spouts
     pass
+
+
+@make_spout({'name': Sig(str, None, 'The name of the event to be disabled.')})
+async def disable_event_spout(bot, message, values, name):
+    '''Disables the specified event.'''
+    if name not in events:
+        raise ValueError('Event %s does not exist!' % name)
+    event = events[name]
+    if message.channel in event.channels:
+        event.channels.remove(message.channel)
