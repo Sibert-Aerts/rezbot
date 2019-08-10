@@ -82,7 +82,7 @@ def _messages_get_what(messages, what):
     if what == 'id':
         return [str(msg.id) for msg in messages]
     if what == 'timestamp':
-        return [str(int(message.created_at.timestamp())) for msg in messages]
+        return [str(int(msg.created_at.timestamp())) for msg in messages]
     if what == 'author_id':
         return [str(msg.author.id) for msg in messages]
 
@@ -107,7 +107,7 @@ async def previous_message_source(message, n, i, what):
     i.e. N messages, ordered newest to oldest, with the newest being the Ith previous message.
     '''
     # Arbitrary limit on how far back you can load messages
-    if i > 100: return ValueError('`I` should be smaller than 1000')
+    if i > 10000: raise ValueError('`I` should be smaller than 10000')
 
     messages = ( await message.channel.history(limit=n+i).flatten() )[i:i+n]
 
