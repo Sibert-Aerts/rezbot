@@ -103,7 +103,7 @@ def remove_pipe(input, what):
     if what == 'empty':
         return [x for x in input if x != '']
     if what == 'whitespace':
-        return [x for x in input if x.trim() != '']
+        return [x for x in input if x.strip() != '']
 
 
 @make_pipe({})
@@ -136,10 +136,20 @@ def sample_pipe(input, amount):
     return random.sample(input, min(len(input), amount))
 
 
-@make_pipe({})
-def unique_pipe(input):
+@make_pipe({ 'count' : Sig(bool, False, 'Whether each unique item should be followed by a count of how many there were of it.') })
+def unique_pipe(input, count):
     '''Returns the first unique occurence of each value.'''
-    return [*{*input}]
+    if not count: return [*{*input}]
+
+    values = []
+    counts = []
+    for value in input:
+        try:
+            counts[values.index(value)] += 1
+        except:
+            values.append(value)
+            counts.append(1)
+    return [x for tup in zip(values, (str(c) for c in counts)) for x in tup]
 
 
 @make_pipe({})

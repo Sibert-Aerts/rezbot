@@ -558,8 +558,6 @@ class Conditional(GroupMode):
         ## Strict:      If all conditions fail, destroy the values. Raise an error if an (n+1)th pipe was given.
         ## Very strict: If all conditions fail, raise an error. No (n+1)th pipe allowed either.
 
-        # TODO: Implement the above alternate behaviours
-
         c = len(self.conditions)
         p = len(pipes)
         if p != c:
@@ -608,7 +606,7 @@ op_pattern = re.compile(r'(/|%|\\)\s*(\d+)?')
 int_pattern = re.compile(r'#(-?\d*)(?:\.\.+(-?\d+))?')
 #                            ^^^^^          ^^^^^
 cond_pattern = re.compile(r'{([^{]*)}')
-#                            ^^^^^^
+#                             ^^^^^
 
 strict_pattern = re.compile(r'\s*(!?!?)\s*')
 #                                 ^^^^

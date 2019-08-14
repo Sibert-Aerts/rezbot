@@ -56,7 +56,7 @@ def parse_args(signature, text, greedy=True):
     args = {}
 
     the_one = None
-    required = False
+    require_the_one = False
 
     ### Two scenarios where we implicitly assume an argument is assigned (without arg=val syntax!):
     if len(signature) == 1:
