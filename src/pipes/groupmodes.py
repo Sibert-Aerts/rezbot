@@ -471,11 +471,18 @@ class Interval(GroupMode):
         ## Special case: If we're targeting a negative range, simply target the empty range [lval:lval]
         if rval < lval: rval = lval
 
+        if not self.multiply:
+            # TODO: emit a warning about the possible other pipes we're throwing away here
+            pairs = ( (values[lval: rval], pipes[0]), )
+        else:
+            ## Multiply: Apply our chosen interval to each of the given pipes
+            pairs = ( (values[lval: rval], pipe) for pipe in pipes )
+
         ## Non-strict: Apply NOP to the values outside of the selected range.
         if not self.strictness:
             return [
                 (values[0: lval], NOP),
-                (values[lval: rval], pipes[0]),
+                *pairs,
                 (values[rval: length], NOP),
             ]
         else:
@@ -483,7 +490,7 @@ class Interval(GroupMode):
             if self.strictness == 2 and (lval > 0 or rval != length):
                 raise GroupModeError('The range does not strictly fit the set of values!')
             ## Strict: Throw away the values outside of the selected range.
-            return [(values[lval: rval], pipes[0])]
+            return [*pairs]
 
 class Conditional(GroupMode):
 
