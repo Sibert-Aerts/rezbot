@@ -495,35 +495,50 @@ class Interval(GroupMode):
 class Conditional(GroupMode):
 
     class Condition():
-        type1 = re.compile(r'(-?\d+)\s*=\s*(-?\d+)')    # item = item
-        type2 = re.compile(r'(-?\d+)\s*=\s*"([^"]*)"')  # item = literal
+        type1 = re.compile(r'(-?\d+)\s*(!)?=\s*(-?\d+)')              # item = item
+        type2 = re.compile(r'(-?\d+)\s*(!)?=\s*"([^"]*)"')            # item = "literal"
+        type3 = re.compile(r'(-?\d+)\s+(NOT )?LIKE\s+/([^/]*)/', re.I)     # item LIKE /regex/
         def __init__(self, cond):
             m = re.match(self.type1, cond)
             if m is not None:
                 self.type = 1
-                l, r = m.groups()
+                l, i, r = m.groups()
                 self.left = int(l)
+                self.inverse = (i == '!')
                 self.right = int(r)
                 return
             m = re.match(self.type2, cond)
             if m is not None:
                 self.type = 2
-                l, r = m.groups()
+                l, i, r = m.groups()
                 self.left = int(l)
+                self.inverse = (i == '!')
                 self.right = r
+                return
+            m = re.match(self.type3, cond)
+            if m is not None:
+                self.type = 3
+                l, i, r = m.groups()
+                self.left = int(l)
+                self.inverse = (i == 'NOT ')
+                self.re_str = r
+                self.re = re.compile(r)
                 return
             raise GroupModeError('Invalid condition format ({})'.format(cond))
 
         def __str__(self):
-            if self.type == 1: return '{} = {}'.format(self.left, self.right)
-            if self.type == 2: return '{} = "{}"'.format(self.left, self.right)
+            if self.type == 1: return '{} {}= {}'.format(self.left, '!' if self.inverse else '', self.right)
+            if self.type == 2: return '{} {}= "{}"'.format(self.left, '!' if self.inverse else '', self.right)
+            if self.type == 3: return '{} {}LIKE /{}/'.format(self.left, 'NOT ' if self.inverse else '', self.re_str)
 
         def check(self, values):
             try:
                 if self.type == 1:
-                    return (values[self.left] == values[self.right])
+                    return self.inverse ^ (values[self.left] == values[self.right])
                 if self.type == 2:
-                    return (values[self.left] == self.right)
+                    return self.inverse ^ (values[self.left] == self.right)
+                if self.type == 3:
+                    return self.inverse ^ (re.search(self.re, values[self.left]) is not None)
             except IndexError:
                 raise GroupModeError('Index out of range in condition ({})'.format(self))
 
@@ -545,21 +560,36 @@ class Conditional(GroupMode):
 
         # TODO: Implement the above alternate behaviours
 
-        n = len(self.conditions)
-        N = len(pipes)
-        if N != n and N != n+1:
-            raise GroupModeError('Unmatched number of conditions and parallel pipes; number of pipes should be equal or one more.')
-        overflow = (N == n+1)
-        # n is the number of conditions, N is the number of pipes to sort it in (either n or n+1)
+        c = len(self.conditions)
+        p = len(pipes)
+        if p != c:
+            if self.strictness:
+                raise GroupModeError('Strict condition error: Unmatched number of cases and parallel pipes; should be equal.')
+            elif p != c+1:
+                raise GroupModeError('Unmatched number of cases and parallel pipes; number of pipes should be equal or one more.')
 
-        for condition, pipe in zip(self.conditions, pipes):
-            if condition.check(values): return [(values, pipe)]
+        overflow_pipe_given = (p == c+1)
+        # c is the number of conditions, p is the number of pipes to sort it in (either c or c+1)
 
-        if overflow:
-            return [(values, pipes[-1])]
-        else:
-            return [(values, None)]
+        if not self.multiply:
+            for condition, pipe in zip(self.conditions, pipes):
+                if condition.check(values): return [(values, pipe)]
+            if overflow_pipe_given:
+                return [(values, pipes[-1])]
+            elif not self.strictness:
+                return [(values, None)]
+            elif self.strictness == 1:
+                return []
+            elif self.strictness == 2:
+                print('VERY STRICT CONDITION ERROR:')
+                print('VALUES: ', values)
+                print('CONDITIONS: ' + str(self))
+                raise GroupModeError('Very strict condition error: Default case was reached!')
 
+        else: ## Multiply
+            pairs = [ (values, pipe) for (condition, pipe) in zip(self.conditions, pipes) if condition.check(values) ]
+            if overflow_pipe_given: pairs.append( (values, pipes[-1]) )
+            return pairs
 
 # pattern:
 # optionally starting with a *
@@ -570,6 +600,7 @@ class Conditional(GroupMode):
 
 mul_pattern = re.compile(r'\s*(\*?)\s*')
 #                              ^^^
+
 row_pattern = re.compile(r'\(\s*(\d+)?\s*\)')
 #                                ^^^
 op_pattern = re.compile(r'(/|%|\\)\s*(\d+)?')
@@ -578,6 +609,7 @@ int_pattern = re.compile(r'#(-?\d*)(?:\.\.+(-?\d+))?')
 #                            ^^^^^          ^^^^^
 cond_pattern = re.compile(r'{([^{]*)}')
 #                            ^^^^^^
+
 strict_pattern = re.compile(r'\s*(!?!?)\s*')
 #                                 ^^^^
 
@@ -648,12 +680,12 @@ def parse(bigPipe, error_log):
         error_log('Group mode: "{}": {}'.format(flag.strip(), e))
         return cropped, Divide(False, 0, 1, False)
 
-# Tests!
+# Tests! 
 if __name__ == '__main__':
     tests = ['foo', '* foo', '10', '%4', '(20)', '/10', '#7', '#14..20', '/',
         '()', '(0)', '#', '*% 2', '*(07)', '/010', '(', '(8', '#0..2!', '\\7', '\\0',
         '\\1!', '\\1!!', '(2)!!', '*!', '!!']
-    tests2 = ['{0=1}', '{0="foo"}!', '{0="yes"|0="no"}']
+    tests2 = ['{0=1}', '{0="foo"}!', '{0="yes"|0 != "no" | 1 LIKE /foo/ | 2 NOT LIKE /bar/ }']
     print('TESTS:')
     for test in tests2:
         try:
