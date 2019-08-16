@@ -14,7 +14,7 @@ class Sig:
         self.default = default
         self.desc = desc
         self.check = check
-        self.options = options
+        self.options = options and [option.lower() for option in options]
         self.required = required if required is not None else (default is None)
         self._re = None
         self.str = None
