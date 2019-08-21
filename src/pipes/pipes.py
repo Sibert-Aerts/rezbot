@@ -490,7 +490,7 @@ def demoji_pipe(text):
                 out.append( '(UNKNOWN)' )
         else:
             out.append( c )
-    return out
+    return ''.join(out)
 
 
 @make_pipe({}, command=True)
