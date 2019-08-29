@@ -34,8 +34,8 @@ class ErrorLog:
         self.time = datetime.now().strftime('%z %c')
 
     class ErrorMessage:
-        def __init__(self, message):
-            self.count = 1
+        def __init__(self, message, count=1):
+            self.count = count
             self.message = message
         def __str__(self):
             return ('**(%d)** ' % self.count if self.count > 1 else '') + self.message
@@ -52,14 +52,15 @@ class ErrorLog:
         '''extend another error log, prepending the given 'context' for each error.'''
         self.terminal |= other.terminal
         for e in other.errors:
-            if context is not None: e.message = '**in {}:** '.format(context) + e.message
-            if self.errors and self.errors[-1].message == e.message:
+            if context is not None: message = '**in {}:** {}'.format(context, e.message)
+            else: message = e.message
+            if self.errors and self.errors[-1].message == message:
                 self.errors[-1].count += e.count
             else:
-                self.errors.append(e)
+                self.errors.append(ErrorLog.ErrorMessage(message, e.count))
 
-    def steal(self, other, **kwargs):
-        self.extend(other, **kwargs)
+    def steal(self, other, *args, **kwargs):
+        self.extend(other, *args, **kwargs)
         other.clear()
 
     def clear(self):
