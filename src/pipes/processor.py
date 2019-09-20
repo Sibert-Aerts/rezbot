@@ -3,12 +3,15 @@ import discord
 import re
 import random
 import asyncio
+import time
+
+from lru import LRU
 
 from .pipes import pipes
 from .sources import sources, SourceResources
 from .spouts import spouts
 from .macros import pipe_macros, source_macros
-from .events import events, parse_event
+from .events import events
 from .macrocommands import parse_macro_command
 import pipes.groupmodes as groupmodes
 from utils.choicetree import ChoiceTree
@@ -411,7 +414,11 @@ class Pipeline:
         # Keep track of which items to ignore and which to remove after performing the substitution
         to_be_ignored = set(); to_be_removed = set()
         def func(m):
-            i = int(m.group(1)) % len(items)
+            if len(items) == 0: raise ValueError('Invalid argstring: References items but 0 items were given.')
+            i = int(m.group(1))
+            if i > len(items): raise ValueError('Invalid argstring: References item {} but {} items were given.'.format(i, len(items)))
+            if i < 0: i += len(items)
+            if i < 0: raise ValueError('Invalid argstring: Negative index {} for only {} items.'.format(i-len(items), len(items)))
             ignore = (m.group(2) == '!')
             (to_be_ignored if ignore else to_be_removed).add(i)
             return items[i]
@@ -510,11 +517,12 @@ class Pipeline:
 
                 elif name in pipe_macros:
                     code = pipe_macros[name].apply_args(args)
-                    # TODO: REUSE: pull this line up or sommat?
-                    # problem: reusing the "compiled" pipeline relies on the same args being given
-                    # problem: can't cache it inside the Macro object since those get written to disk
-                    # problem: would require cache invalidation logic for when a macro gets edited
-                    macro = Pipeline(code)
+                    ## Load the cached pipeline if we already parsed this code once before
+                    if code in pipe_macros.pipeline_cache:
+                        macro = pipe_macros.pipeline_cache[code]
+                    else:
+                        macro = Pipeline(code)
+                        pipe_macros.pipeline_cache[code] = macro
 
                     newvals, macro_printValues, macro_errors, macro_SPOUT_CALLBACKS = await macro.apply(vals, message)
                     newValues.extend(newvals)
@@ -539,9 +547,12 @@ class PipelineProcessor:
     def __init__(self, bot, prefix):
         self.bot = bot
         self.prefix = prefix
+        # LRU cache holding up to 40 items... probably don't need any more
+        self.script_cache = LRU(40)
         SourceResources.bot = bot
 
     async def on_message(self, message):
+        '''Check if an incoming message triggers any custom Events.'''
         for event in events.values():
             if event.test(message):
                 await self.execute_script(event.script, message)
@@ -609,23 +620,30 @@ class PipelineProcessor:
         return script.strip(), ''
 
     async def execute_script(self, script, message):
-        source, pipeline = PipelineProcessor.split(script)
         errors = ErrorLog()
+
+        ### STEP 0: PRE-PROCESSING
+        ## Check if we have executed this exact script recently
+        if script in self.script_cache:
+            # Fetch the previous pre-processing results from cache
+            source, pipeline = self.script_cache[script]
+        else:
+            # Perform very safe, basic pre-processing (parsing) and cache it
+            source, pipeline = PipelineProcessor.split(script)
+            pipeline = Pipeline(pipeline)
+            self.script_cache[script] = (source, pipeline)
 
         try:
             ### STEP 1: GET STARTING VALUES FROM SOURCE
             source_processor = SourceProcessor(message)
             values = await source_processor.evaluate(source)
             errors.extend(source_processor.errors)
-            
-            ### STEP 2: PARSE THE PIPELINE
-            pipeline = Pipeline(pipeline)
 
-            ### STEP 3: APPLY THE PIPELINE TO THE STARTING VALUES
+            ### STEP 2: APPLY THE PIPELINE TO THE STARTING VALUES
             values, printValues, pl_errors, SPOUT_CALLBACKS = await pipeline.apply(values, message)
             errors.extend(pl_errors)
 
-            ### STEP 4: (MUMBLING INCOHERENTLY)
+            ### STEP 3: (MUMBLING INCOHERENTLY)
 
             ## Put the thing there
             SourceResources.previous_pipeline_output = values
@@ -667,7 +685,7 @@ class PipelineProcessor:
             await parse_macro_command(script, message)
 
         ##### EVENT DEFINITION:
-        elif await parse_event(script, message.channel):
+        elif await events.parse_command(script, message.channel):
             pass
 
         ##### NORMAL SCRIPT EXECUTION:

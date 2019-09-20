@@ -1,6 +1,8 @@
 import os
 import pickle
 import re
+from lru import LRU
+
 from shutil import copyfile
 from discord import Embed
 import utils.texttools as texttools
@@ -90,6 +92,7 @@ class Macros:
         self.macros = {}
         self.DIR = DIR
         self.filename = filename
+        self.pipeline_cache = LRU(20)
         try:
             if not os.path.exists(DIR()): os.mkdir(DIR())
             self.macros = pickle.load(open(DIR(filename), 'rb+'))
