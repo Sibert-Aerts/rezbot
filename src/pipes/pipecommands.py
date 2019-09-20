@@ -178,7 +178,7 @@ class PipeCommands(MyCommands):
             ## Print all events
             enabled = []; disabled = []
             for event in events.values():
-                if ctx.channel in event.channels: enabled.append(event)
+                if ctx.channel.id in event.channels: enabled.append(event)
                 else: disabled.append(event)
             infos = []
             if enabled:
@@ -202,10 +202,10 @@ class PipeCommands(MyCommands):
         if name not in events:
             await ctx.send('No event "{}" found.'.format(name)); return
         event = events[name]
-        if ctx.channel in event.channels:
+        if ctx.channel.id in event.channels:
             await ctx.send('Event is already enabled in this channel.'); return
-        event.channels.append(ctx.channel)
-        await ctx.send('Enabled event "{}" in #{}'.format(event.name, ctx.channel.name))
+        event.channels.append(ctx.channel.id)
+        await ctx.send('Enabled event "{}" in {}'.format(event.name, ctx.channel.mention))
 
     @commands.command()
     @commands.guild_only()
@@ -213,16 +213,17 @@ class PipeCommands(MyCommands):
         if name == '*':
             ## Disable ALL events in this channel
             for event in events.values():
-                if ctx.channel in event.channels:
-                    event.channels.remove(ctx.channel)
+                if ctx.channel.id in event.channels:
+                    event.channels.remove(ctx.channel.id)
             await ctx.send('Disabled all events for {}'.format(ctx.channel.mention))
             return
+
         if name not in events:
             await ctx.send('No event "{}" found.'.format(name)); return
         event = events[name]
-        if ctx.channel not in event.channels:
+        if ctx.channel.id not in event.channels:
             await ctx.send('Event is already disabled in this channel.'); return
-        event.channels.remove(ctx.channel)
+        event.channels.remove(ctx.channel.id)
         await ctx.send('Disabled event "{}" in {}'.format(event.name, ctx.channel.mention))
 
     @commands.command(aliases=['del_event'])
