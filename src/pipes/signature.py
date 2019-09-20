@@ -9,12 +9,13 @@ class ArgumentError(ValueError):
 
 class Sig:
     '''Class representing a single item in a function signature.'''
-    def __init__(self, type, default=None, desc=None, check=None, required=None, options=None):
+    def __init__(self, type, default=None, desc=None, check=None, required=None, options=None, multi_options=False):
         self.type = type
         self.default = default
         self.desc = desc
-        self.check = check
+        self._check = check
         self.options = options and [option.lower() for option in options]
+        self.multi_options = multi_options
         self.required = required if required is not None else (default is None)
         self._re = None
         self.str = None
@@ -32,23 +33,46 @@ class Sig:
             self._re = re.compile('\\b' + name + '=("[^"]*"|\'[^\']*\'|\S+)\\s*')
         return self._re
 
+    def check(self, val):
+        '''Check whether the value meets superficial requirements.'''
+        # If a manual check-function is given, use it
+        if self._check and not self._check(val):
+            raise ArgumentError('Invalid value "{}" for argument "{}".'.format(val, s))
+
+        # If a specific list of options is given, check if the value is one of them
+        if self.options:
+            if self.multi_options:
+                if any( v not in self.options for v in val.lower().split(',') ):
+                    if len(self.options) <= 8:
+                        raise ArgumentError('Invalid value "{}" for argument "{}": Must be a sequence of items from {} separated by commas.'.format(val, s, '/'.join(self.options)))
+                    else:
+                        raise ArgumentError('Invalid value "{}" for argument "{}".'.format(val, s))
+            else:
+                if val.lower() not in self.options:
+                    if len(self.options) <= 8:
+                        raise ArgumentError('Invalid value "{}" for argument "{}": Must one of {}.'.format(val, s, '/'.join(sig.options)))
+                    else:
+                        raise ArgumentError('Invalid value "{}" for argument "{}".'.format(val, s))
+
     def __str__(self):
         if self.str: return self.str
 
-        out = ''
+        out = []
         if self.desc is not None:
-            out += ' ' + self.desc
-        out += ' (' + self.type.__name__ + ', '
+            out.append( ' ' + self.desc )
+
+        typ = self.type.__name__ + (' list' if self.multi_options else '')
+        out.append(' (' + typ + ', ' )
+        
         if self.default is not None:
             d = self.default
-            if d == '': d ='""'
-            out += 'default: ' + repr(d)
+            out.append( 'default: ' + repr(d) )
         else:
-            out += 'REQUIRED'
-        out += ')'
+            out.append( 'REQUIRED' )
+        out.append( ')' )
 
-        self.str = out
-        return out
+        self.str = ''.join(out)
+        return self.str
 
 
 def parse_args(signature, text, greedy=True):
@@ -91,14 +115,12 @@ def parse_args(signature, text, greedy=True):
                 try:
                     # Try casting what we found and see if it works
                     val = sig.type(val)
-                    if sig.check and not sig.check(val):
-                        raise ValueError()
-                    if sig.options and not val.lower() in sig.options:
-                        raise ValueError()
-                    # It successfully converted AND passed the tests: assign it and clip it from the text
+                    # The check raises an exception if it fails
+                    sig.check(val)
+                    # It successfully converted AND passed the check: assign it and cut it from the text
                     args[s] = val
                     text = _text
-                except:
+                except ArgumentError as e:
                     # We already know that there's no "arg=val" present in the string, the arg is required and we can't find it blindly:
                     if require_the_one:
                         raise ArgumentError('Missing or invalid argument "{}".'.format(s))
@@ -121,20 +143,11 @@ def parse_args(signature, text, greedy=True):
             # Cast to the desired type
             val = sig.type(val)
 
-            # Verify that the value meets the check function (if one exists)
-            if sig.check and not sig.check(val):
-                raise ArgumentError('Invalid value "{}" for argument "{}".'.format(val, s))
+            # Check whether the value meets certain requirements, (raises an exception if not!)
+            sig.check(val)
 
-            # If a specific list of options is given, check if the value is one of them
-            if sig.options and not val.lower() in sig.options:
-                if len(sig.options) <= 8:
-                    raise ArgumentError('Invalid value "{}" for argument "{}": Must be one of {}.'.format(val, s, '/'.join(sig.options)))
-                else:
-                    raise ArgumentError('Invalid value "{}" for argument "{}".'.format(val, s))
-
+            # It passed the checks, assign the value and clip it from the text
             args[s] = val
-
-            # Remove the argument string from the text
             text = text[:given.start(0)] + text[given.end(0):]
 
         except ArgumentError as e:

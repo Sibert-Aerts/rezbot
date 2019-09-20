@@ -73,8 +73,18 @@ async def that_source(message):
     msg = ( await message.channel.history(limit=2).flatten() )[1]
     return [msg.content]
 
+#### DECORATOR ######################################
+
+def get_which(get_what):
+    def f(items, which):
+        w = [get_what(items, what) for what in which.split(',')]
+        return [x for y in zip(*w) for x in y]
+    return f
+
+#### MESSAGES #######################################
 
 MESSAGE_WHAT_OPTIONS = ['content', 'id', 'timestamp', 'author_id']
+@get_which
 def _messages_get_what(messages, what):
     what = what.lower()
     if what == 'content':
@@ -87,7 +97,7 @@ def _messages_get_what(messages, what):
         return [str(msg.author.id) for msg in messages]
 
 @make_source({
-    'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), options=MESSAGE_WHAT_OPTIONS)
+    'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), options=MESSAGE_WHAT_OPTIONS, multi_options=True)
 }, pass_message=True)
 async def message_source(message, what):
     ''' The message which triggered script execution. Useful in Event scripts. '''
@@ -97,24 +107,29 @@ async def message_source(message, what):
 @make_source({
     'n': Sig(int, 1, 'The number of messages'),
     'i': Sig(int, 1, 'From which previous message to start counting. (0 for the message that triggers the script itself)'),
-    'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), options=MESSAGE_WHAT_OPTIONS)
+    'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), options=MESSAGE_WHAT_OPTIONS, multi_options=True),
+    'by': Sig(int, 0, 'A user id, if given will filter the results down to only that users\' messages within the range of messages (if any).'),
 }, pass_message=True)
-async def previous_message_source(message, n, i, what):
+async def previous_message_source(message, n, i, what, by):
     '''
     A generalization of {this} and {message} that allows more messages and going further back.
     
     The N messages in this channel, counting backwards from the Ith previous message.
     i.e. N messages, ordered newest to oldest, with the newest being the Ith previous message.
     '''
-    # Arbitrary limit on how far back you can load messages
+    # Arbitrary limit on how far back you can load messages I guess?
     if i > 10000: raise ValueError('`I` should be smaller than 10000')
 
     messages = ( await message.channel.history(limit=n+i).flatten() )[i:i+n]
+    if by:
+        messages = [m for m in messages if m.author.id == by]
 
     return _messages_get_what(messages, what)
 
+#### MEMBERS ########################################
 
 MEMBER_WHAT_OPTIONS = ['nickname', 'username', 'id', 'avatar']
+@get_which
 def _members_get_what(members, what):
     what = what.lower()
     if what == 'nickname':
@@ -127,7 +142,7 @@ def _members_get_what(members, what):
         return [str(member.avatar_url) for member in members]
 
 @make_source({
-    'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), options=MEMBER_WHAT_OPTIONS)
+    'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), options=MEMBER_WHAT_OPTIONS, multi_options=True)
 }, pass_message=True)
 async def me_source(message, what):
     '''The name (or other attribute) of the user invoking the script or event.'''
@@ -136,7 +151,7 @@ async def me_source(message, what):
 
 @make_source({
     'n'   : Sig(int, 1, 'The maximum number of members to return.'),
-    'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), options=MEMBER_WHAT_OPTIONS),
+    'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), options=MEMBER_WHAT_OPTIONS, multi_options=True),
     'id'  : Sig(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
     'name': Sig(str, '', 'A regex that should match their nickname or username.'),
     # 'rank': ...?
@@ -158,6 +173,7 @@ async def member_source(message, n, what, id, name):
 
     return _members_get_what(members, what)
 
+#### CHANNEL ########################################
 
 CHANNEL_WHAT_OPTIONS = ['name', 'topic', 'id', 'category', 'mention']
 
@@ -179,6 +195,7 @@ async def channel_source(message, what):
     if what == 'mention':
         return [channel.mention]
 
+#### SERVER ########################################
 
 SERVER_WHAT_OPTIONS = ['name', 'description', 'icon', 'member_count']
 

@@ -18,6 +18,12 @@
         * Refactor pipelines to optimise applying the same one multiple times,
         right now, each time a macro is used the entire thing is parsed/executed/parsecuted PER use
 
+    * **Signatures:**
+        * options can be smarter (e.g. "nick" works to match "nickname")
+        * multi-options in more places...?
+        * ability to mark a Sig as "The One" even if it has a default value
+        * {me foofaff} gives no warnings even though "foofaff" is completely unnecessary (meditate on this)
+
     * **Sources:**
         * Youtube source
         * Recursively parse sources!
