@@ -650,13 +650,17 @@ class PipelineProcessor:
 
             ## Print the output!
             # TODO: ~~SPOUT CALLBACK HAPPENS HERE~~
+            # TODO: auto-print if the LAST output was not a spout of any kind
             if not SPOUT_CALLBACKS or any( callback is spouts['print'].function for (callback, _, _) in SPOUT_CALLBACKS ):
                 # TODO: `print` as a spout?! could it be???????
                 printValues.append(values)
                 await self.print(message.channel, printValues)
 
             for callback, args, values in SPOUT_CALLBACKS:
-                await callback(self.bot, message, values, **args)
+                try:
+                    await callback(self.bot, message, values, **args)
+                except Exception as e:
+                    errors('Failed to execute spout "{}":\n\t{}'.format(callback.__name__, str(e)))
 
             ## Print error output!
             if errors:

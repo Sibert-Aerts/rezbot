@@ -1,6 +1,7 @@
 import random
 
 from discord import Embed
+from discord.errors import HTTPException
 
 from .signature import Sig
 from .pipe import Spout, Pipes
@@ -36,11 +37,14 @@ def hex(h):
 @make_spout({
     'title':    Sig(str, '', 'The title.'),
     'color':    Sig(hex, 0, 'The highlight color as a hexadecimal value.'),
+    'footer':   Sig(str, '', 'The footer text.')
 })
-async def embed_spout(bot, message, values, title, color):
+async def embed_spout(bot, message, values, title, color, footer):
     '''Outputs text as a simple discord embed.'''
-    e = Embed(title=title, description='\n'.join(values), color=color)
-    await message.channel.send(embed=e)
+    embed = Embed(title=title, description='\n'.join(values), color=color)
+    if footer:
+        embed.set_footer(text=footer)
+    await message.channel.send(embed=embed)
 
 
 @make_spout({
@@ -71,6 +75,18 @@ async def send_message_spout(bot, message, values):
     '''Sends input as a discord message. (WIP until `print` is integrated fully)
     If multiple lines of input are given, they're joined with newlines'''
     await message.channel.send('\n'.join(values))
+
+
+@make_spout({'emote': Sig(str, None, 'The emote that you\'d like to use to react. (Emoji or custom emote)'),})
+async def react_spout(bot, message, values, emote):
+    '''Reacts to the message using the specified emote.'''
+    try:
+        await message.add_reaction(emote)
+    except HTTPException as e:
+        if e.text == 'Unknown Emoji':
+            raise ValueError('Unknown Emote: `{}`'.format(emote))
+        else:
+            raise e
 
 
 @make_spout({})
