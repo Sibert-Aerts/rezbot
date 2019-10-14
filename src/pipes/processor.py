@@ -694,6 +694,7 @@ class PipelineProcessor:
 
         ##### NORMAL SCRIPT EXECUTION:
         else:
-            await self.execute_script(script, message)
+            async with message.channel.typing():
+                await self.execute_script(script, message)
 
         return True
