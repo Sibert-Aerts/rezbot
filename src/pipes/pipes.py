@@ -14,7 +14,6 @@ from google.cloud import translate
 from .signature import Sig
 from .pipe import Pipe, Pipes
 
-from .sources import SourceResources
 from utils.texttools import vowelize, consonize, letterize, letterize2, converters, min_dist, case_pattern
 from resource.upload import uploads
 
@@ -331,11 +330,11 @@ _datamuse = lru_cache()(datamuse_api.words)
 
 @make_pipe({
     'min': Sig(int, 0, 'Upper limit on minimum distance (e.g. 1 to never get the same word).'),
-    'file': Sig(str, 'words.txt', 'The uploaded file to be matched from.')
+    'file': Sig(str, None, 'The name of the file to be matched from. >files for a list of files')
 }, command=True)
 @as_map
 def nearest_pipe(text, min, file):
-    '''Replaces text with the nearest item (by edit distance) in a given file.'''
+    '''Replaces text with the nearest item (by edit distance) from the given file.'''
     # TODO? MORE FILE LOGIC EQUIVALENT TO {TXT} SOURCE
     if file not in uploads:
         raise KeyError('No file "%s" loaded! Check >files for a list of files.' % file)
