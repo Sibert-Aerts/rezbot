@@ -94,16 +94,16 @@ def remove_pipe(input, what):
     Removes all items (or specific types of items) from the flow.
 
     all: Removes every item
-    empty: Removes items equal to the empty string ("")
-    whitespace: Removes items that only consist of whitespace (includes empty!)
+    whitespace: Removes items that only consist of whitespace (including empty ones)
+    empty: Only removes items equal to the empty string ("")
     '''
     what = what.lower()
     if what == 'all':
         return []
-    if what == 'empty':
-        return [x for x in input if x != '']
     if what == 'whitespace':
         return [x for x in input if x.strip() != '']
+    if what == 'empty':
+        return [x for x in input if x != '']
 
 
 @make_pipe({})
@@ -171,13 +171,11 @@ _CATEGORY = 'STRING'
 
 @make_pipe({
     'on' : Sig(str, r'\s*\n+\s*', 'Pattern to split on (regex)'),
-    'lim': Sig(int, 0, 'Maximum number of splits. (0 for no limit)'),
-    'keep_whitespace': Sig(util.parse_bool, False, 'Whether or not to remove whitespace items'),
-    'keep_empty': Sig(util.parse_bool, False, 'Whether or not to remove empty items')
+    'lim': Sig(int, 0, 'Maximum number of splits. (0 for no limit)')
 })
 def split_pipe(inputs, on, lim, keep_whitespace, keep_empty):
     '''Split the input into multiple outputs.'''
-    return [x for y in inputs for x in re.split(on, y, maxsplit=lim) if x.strip() != '' or (keep_whitespace and x != '') or (keep_empty and x == '')]
+    return [x for y in inputs for x in re.split(on, y, maxsplit=lim)]
 
 
 @make_pipe({
