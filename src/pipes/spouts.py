@@ -118,4 +118,4 @@ async def disable_event_spout(bot, message, values, name):
         raise ValueError('Event %s does not exist!' % name)
     event = events[name]
     if message.channel.id in event.channels:
-        event.channels.remove(message.channel)
+        event.channels.remove(message.channel.id)
