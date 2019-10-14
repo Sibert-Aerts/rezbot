@@ -172,7 +172,7 @@ _CATEGORY = 'STRING'
     'on' : Sig(str, r'\s*\n+\s*', 'Pattern to split on (regex)'),
     'lim': Sig(int, 0, 'Maximum number of splits. (0 for no limit)')
 })
-def split_pipe(inputs, on, lim, keep_whitespace, keep_empty):
+def split_pipe(inputs, on, lim):
     '''Split the input into multiple outputs.'''
     return [x for y in inputs for x in re.split(on, y, maxsplit=lim)]
 
