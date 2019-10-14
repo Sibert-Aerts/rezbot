@@ -36,6 +36,22 @@ def multi_source(func):
         return await asyncio.gather(*[func(*args, **kwargs) for i in range(n)])
     return _multi_source
 
+def get_which(get_what):
+    '''
+    Takes a function
+        get_what(item:obj, attribute:str) -> result
+    and extends it to
+        get_which(item:obj, attributes:str) -> [result]
+    where attributes is a string of multiple attribute's joined by ","
+    
+    e.g. if get_what = lambda x,y: x[y]
+        then get_which({'foo': 'bar', 'abc': 'xyz'}, 'foo,abc,foo') returns ['bar', 'xyz', 'bar']
+    '''
+    def f(items, which):
+        w = [get_what(items, what) for what in which.split(',')]
+        return [x for y in zip(*w) for x in y]
+    return f
+
 sources = Pipes()
 sources.command_sources = []
 _CATEGORY = 'NONE'
@@ -67,20 +83,6 @@ class SourceResources:
 #####################################################
 _CATEGORY = 'DISCORD'
 
-@make_source({}, pass_message=True)
-async def that_source(message):
-    '''The previous message in the channel.'''
-    msg = ( await message.channel.history(limit=2).flatten() )[1]
-    return [msg.content]
-
-#### DECORATOR ######################################
-
-def get_which(get_what):
-    def f(items, which):
-        w = [get_what(items, what) for what in which.split(',')]
-        return [x for y in zip(*w) for x in y]
-    return f
-
 #### MESSAGES #######################################
 
 MESSAGE_WHAT_OPTIONS = ['content', 'id', 'timestamp', 'author_id']
@@ -96,11 +98,31 @@ def _messages_get_what(messages, what):
     if what == 'author_id':
         return [str(msg.author.id) for msg in messages]
 
+
+@make_source({}, pass_message=True)
+async def that_source(message):
+    '''The previous message in the channel.'''
+    msg = ( await message.channel.history(limit=2).flatten() )[1]
+    return [msg.content]
+
+
+@make_source({
+    'n': Sig(int, 1, 'The number of next messages to wait for.', lambda n: n < 1000),
+    'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), options=MESSAGE_WHAT_OPTIONS, multi_options=True)
+}, pass_message=True)
+async def next_message_source(message, n, what):
+    '''The next message to be sent in the channel.'''
+    messages = []
+    while len(messages) < n:
+        messages.append( await SourceResources.bot.wait_for('message', check=lambda m: m.channel == message.channel) )
+    return _messages_get_what(messages, what)
+
+
 @make_source({
     'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), options=MESSAGE_WHAT_OPTIONS, multi_options=True)
 }, pass_message=True)
 async def message_source(message, what):
-    ''' The message which triggered script execution. Useful in Event scripts. '''
+    '''The message which triggered script execution. Useful in Event scripts.'''
     return _messages_get_what([message], what)
 
 
