@@ -130,9 +130,9 @@ def parse_args(signature, text, greedy=True):
         if s in args: continue
 
         sig = signature[s]
-        match = sig.re().search(text)
+        match = text and sig.re().search(text)
 
-        if match is None:
+        if not match:
             ## If it is required: Raise an error
             if sig.required:
                 raise ArgumentError('Missing argument: "{}".'.format(s))
