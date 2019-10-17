@@ -100,35 +100,54 @@ def letterize2(s, p):
     return out
 
 
-def alpha_sub(fro, to, text, ignoreCase=False):
-    '''Performs alphabetic substitution, so a character from `fro` is replaced with the equivalent in `to`.'''
-    w = len(to) / len(fro)
-    if w != int(w): print('ERROR: MISMATCHED ALPHABET LENGTHS: ' + to)
-    w = int(w)
-    def _sub(t):
-        i = fro.find(t.lower() if ignoreCase else t)
-        return t if i < 0 else to[i*w:i*w+w]
-    return ''.join([_sub(t) for t in text])
+class AlphaSub:
+    '''Class for making reusable alphabetic substitutions'''
+    def __init__(self, fro, to, ignoreCase=False, reverse=False):
+        self.ignoreCase = ignoreCase
+        self.reverse = reverse
+
+        w = len(to) / len(fro)
+        if w != int(w): raise ValueError('MISMATCHED ALPHABET LENGTHS: ' + to)
+        w = int(w)
+        # Split the "to" string into strings of length w
+        to = [ to[i*w:i*w+w] for i in range(len(fro)) ]
+
+        self.charmap = { c:t for (c,t) in zip(fro, to) }
+
+    def __call__(self, text):
+        '''Performs the alphabetic substitution on the given string'''
+        charmap = self.charmap
+        if not self.ignoreCase:
+            chars = [charmap[t] if t in charmap else t for t in text]
+        else:
+            chars = [charmap[t.lower()] if t.lower() in charmap else t for t in text]
+        return ''.join(chars if not self.reverse else reversed(chars))
+
 
 # A couple of fun alphabetic substitutions
-smallcaps = lambda x : alpha_sub(abc, 'ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢ', x, ignoreCase=True)
-squared   = lambda x : alpha_sub(abc, '🇦­🇧­🇨­🇩­🇪­🇫­🇬­🇭­🇮­🇯­🇰­🇱­🇲­🇳­🇴­🇵­🇶­🇷­🇸­🇹­🇺­🇻­🇼­🇽­🇾­🇿­', alpha_sub(digs, '0⃣1⃣2⃣3⃣4⃣5⃣6⃣7⃣8⃣9⃣', x), ignoreCase=True) # Warning: There's an &shy; between each character!
-circled   = lambda x : alpha_sub(ABCabc + digs, 'ⒶⒷⒸⒹⒺⒻⒼⒽⒾⒿⓀⓁⓂⓃⓄⓅⓆⓇⓈⓉⓊⓋⓌⓍⓎⓏⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ' '0①②③④⑤⑥⑦⑧⑨', x)
-flip      = lambda x : alpha_sub(ABCabc, '∀qƆpƎℲפHIſʞ˥WNOԀQɹS┴∩ΛMX⅄Zɐqɔpǝɟƃɥᴉɾʞlɯuodbɹsʇnʌʍxʎz', x[::-1])
-mirror    = lambda x : alpha_sub(ABCabc, 'AdↃbƎꟻGHIJK⅃MᴎOꟼpᴙꙄTUVWXYZAdↄbɘꟻgHijklmᴎoqpᴙꙅTUvwxYz', x[::-1])
-fullwidth = lambda x : alpha_sub(ABCabc + digs + '!\"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~ ', 'ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ' '０１２３４５６７８９' '！＂＃＄％＆＇（）＊＋，－．／：；＜＝＞？＠［＼］＾＿｀｛｜｝～　', x)
-script    = lambda x : alpha_sub(ABCabc, '𝒜ℬ𝒞𝒟ℰℱ𝒢ℋℐ𝒥𝒦ℒℳ𝒩𝒪𝒫𝒬ℛ𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵𝒶𝒷𝒸𝒹ℯ𝒻ℊ𝒽𝒾𝒿𝓀𝓁𝓂𝓃ℴ𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏', x)
-monospace = lambda x : alpha_sub(ABCabc + digs, '𝙰𝙱𝙲𝙳𝙴𝙵𝙶𝙷𝙸𝙹𝙺𝙻𝙼𝙽𝙾𝙿𝚀𝚁𝚂𝚃𝚄𝚅𝚆𝚇𝚈𝚉𝚊𝚋𝚌𝚍𝚎𝚏𝚐𝚑𝚒𝚓𝚔𝚕𝚖𝚗𝚘𝚙𝚚𝚛𝚜𝚝𝚞𝚟𝚠𝚡𝚢𝚣' '𝟶𝟷𝟸𝟹𝟺𝟻𝟼𝟽𝟾𝟿', x)
-fraktur   = lambda x : alpha_sub(ABCabc, '𝔄𝔅ℭ𝔇𝔈𝔉𝔊ℌℑ𝔍𝔎𝔏𝔐𝔑𝔒𝔓𝔔ℜ𝔖𝔗𝔘𝔙𝔚𝔛𝔜ℨ𝔞𝔟𝔠𝔡𝔢𝔣𝔤𝔥𝔦𝔧𝔨𝔩𝔪𝔫𝔬𝔭𝔮𝔯𝔰𝔱𝔲𝔳𝔴𝔵𝔶𝔷', x)
-struck    = lambda x : alpha_sub(ABCabc + digs, '𝔸𝔹ℂ𝔻𝔼𝔽𝔾ℍ𝕀𝕁𝕂𝕃𝕄ℕ𝕆ℙℚℝ𝕊𝕋𝕌𝕍𝕎𝕏𝕐ℤ𝕒𝕓𝕔𝕕𝕖𝕗𝕘𝕙𝕚𝕛𝕜𝕝𝕞𝕟𝕠𝕡𝕢𝕣𝕤𝕥𝕦𝕧𝕨𝕩𝕪𝕫' '𝟘𝟙𝟚𝟛𝟜𝟝𝟞𝟟𝟠𝟡', x)
-sans      = lambda x : alpha_sub(ABCabc + digs, '𝖠𝖡𝖢𝖣𝖤𝖥𝖦𝖧𝖨𝖩𝖪𝖫𝖬𝖭𝖮𝖯𝖰𝖱𝖲𝖳𝖴𝖵𝖶𝖷𝖸𝖹𝖺𝖻𝖼𝖽𝖾𝖿𝗀𝗁𝗂𝗃𝗄𝗅𝗆𝗇𝗈𝗉𝗊𝗋𝗌𝗍𝗎𝗏𝗐𝗑𝗒𝗓' '𝟢𝟣𝟤𝟥𝟦𝟧𝟨𝟩𝟪𝟫', x) # these look normal but they aren't
-superscript=lambda x : alpha_sub(ABCabc + digs + '()', 'ᴬᴮᶜᴰᴱᶠᴳᴴᴵᴶᴷᴸᴹᴺᴼᴾᑫᴿˢᵀᵁⱽᵂˣʸᶻᵃᵇᶜᵈᵉᶠᵍʰᶦʲᵏᶫᵐᶰᵒᵖᑫʳˢᵗᵘᵛʷˣʸᶻ' '⁰¹²³⁴⁵⁶⁷⁸⁹' '⁽⁾', x)
+smallcaps  = AlphaSub(abc, 'ᴀʙᴄᴅᴇꜰɢʜɪᴊᴋʟᴍɴᴏᴘǫʀsᴛᴜᴠᴡxʏᴢ', ignoreCase=True)
+squared_d  = AlphaSub(digs, '0⃣1⃣2⃣3⃣4⃣5⃣6⃣7⃣8⃣9⃣')
+squared_l  = AlphaSub(abc, '🇦­🇧­🇨­🇩­🇪­🇫­🇬­🇭­🇮­🇯­🇰­🇱­🇲­🇳­🇴­🇵­🇶­🇷­🇸­🇹­🇺­🇻­🇼­🇽­🇾­🇿­', ignoreCase=True) # Warning: There's an &shy; between each of these!
+squared_l2 = AlphaSub(abc, '🇦🇧🇨🇩🇪🇫🇬🇭🇮🇯🇰🇱🇲🇳🇴🇵🇶🇷🇸🇹🇺🇻🇼🇽🇾🇿', ignoreCase=True) # There are no &shy;'s between these ones!
+squared    = lambda x: squared_l(squared_d(x))
+squared2   = lambda x: squared_l2(squared_d(x))
+circled    = AlphaSub(ABCabc + digs, 'ⒶⒷⒸⒹⒺⒻⒼⒽⒾⒿⓀⓁⓂⓃⓄⓅⓆⓇⓈⓉⓊⓋⓌⓍⓎⓏⓐⓑⓒⓓⓔⓕⓖⓗⓘⓙⓚⓛⓜⓝⓞⓟⓠⓡⓢⓣⓤⓥⓦⓧⓨⓩ' '0①②③④⑤⑥⑦⑧⑨')
+flip       = AlphaSub(ABCabc, '∀qƆpƎℲפHIſʞ˥WNOԀQɹS┴∩ΛMX⅄Zɐqɔpǝɟƃɥᴉɾʞlɯuodbɹsʇnʌʍxʎz', reverse=True)
+mirror     = AlphaSub(ABCabc, 'AdↃbƎꟻGHIJK⅃MᴎOꟼpᴙꙄTUVWXYZAdↄbɘꟻgHijklmᴎoqpᴙꙅTUvwxYz', reverse=True)
+fullwidth  = AlphaSub(ABCabc + digs + '!\"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~ ', 'ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ' '０１２３４５６７８９' '！＂＃＄％＆＇（）＊＋，－．／：；＜＝＞？＠［＼］＾＿｀｛｜｝～　')
+script     = AlphaSub(ABCabc, '𝒜ℬ𝒞𝒟ℰℱ𝒢ℋℐ𝒥𝒦ℒℳ𝒩𝒪𝒫𝒬ℛ𝒮𝒯𝒰𝒱𝒲𝒳𝒴𝒵𝒶𝒷𝒸𝒹ℯ𝒻ℊ𝒽𝒾𝒿𝓀𝓁𝓂𝓃ℴ𝓅𝓆𝓇𝓈𝓉𝓊𝓋𝓌𝓍𝓎𝓏')
+monospace  = AlphaSub(ABCabc + digs, '𝙰𝙱𝙲𝙳𝙴𝙵𝙶𝙷𝙸𝙹𝙺𝙻𝙼𝙽𝙾𝙿𝚀𝚁𝚂𝚃𝚄𝚅𝚆𝚇𝚈𝚉𝚊𝚋𝚌𝚍𝚎𝚏𝚐𝚑𝚒𝚓𝚔𝚕𝚖𝚗𝚘𝚙𝚚𝚛𝚜𝚝𝚞𝚟𝚠𝚡𝚢𝚣' '𝟶𝟷𝟸𝟹𝟺𝟻𝟼𝟽𝟾𝟿')
+fraktur    = AlphaSub(ABCabc, '𝔄𝔅ℭ𝔇𝔈𝔉𝔊ℌℑ𝔍𝔎𝔏𝔐𝔑𝔒𝔓𝔔ℜ𝔖𝔗𝔘𝔙𝔚𝔛𝔜ℨ𝔞𝔟𝔠𝔡𝔢𝔣𝔤𝔥𝔦𝔧𝔨𝔩𝔪𝔫𝔬𝔭𝔮𝔯𝔰𝔱𝔲𝔳𝔴𝔵𝔶𝔷')
+struck     = AlphaSub(ABCabc + digs, '𝔸𝔹ℂ𝔻𝔼𝔽𝔾ℍ𝕀𝕁𝕂𝕃𝕄ℕ𝕆ℙℚℝ𝕊𝕋𝕌𝕍𝕎𝕏𝕐ℤ𝕒𝕓𝕔𝕕𝕖𝕗𝕘𝕙𝕚𝕛𝕜𝕝𝕞𝕟𝕠𝕡𝕢𝕣𝕤𝕥𝕦𝕧𝕨𝕩𝕪𝕫' '𝟘𝟙𝟚𝟛𝟜𝟝𝟞𝟟𝟠𝟡')
+sans       = AlphaSub(ABCabc + digs, '𝖠𝖡𝖢𝖣𝖤𝖥𝖦𝖧𝖨𝖩𝖪𝖫𝖬𝖭𝖮𝖯𝖰𝖱𝖲𝖳𝖴𝖵𝖶𝖷𝖸𝖹𝖺𝖻𝖼𝖽𝖾𝖿𝗀𝗁𝗂𝗃𝗄𝗅𝗆𝗇𝗈𝗉𝗊𝗋𝗌𝗍𝗎𝗏𝗐𝗑𝗒𝗓' '𝟢𝟣𝟤𝟥𝟦𝟧𝟨𝟩𝟪𝟫') # these look normal but they aren't
+superscript= AlphaSub(ABCabc + digs + '()', 'ᴬᴮᶜᴰᴱᶠᴳᴴᴵᴶᴷᴸᴹᴺᴼᴾᑫᴿˢᵀᵁⱽᵂˣʸᶻᵃᵇᶜᵈᵉᶠᵍʰᶦʲᵏᶫᵐᶰᵒᵖᑫʳˢᵗᵘᵛʷˣʸᶻ' '⁰¹²³⁴⁵⁶⁷⁸⁹' '⁽⁾')
 
 converters = {
     'smallcaps' : smallcaps,
     'flip' : flip,
     'mirror' : mirror,
     'squared' : squared,
+    'true_squared' : squared2,
     'circled' : circled,
     'fullwidth' : fullwidth,
     'script' : script,
