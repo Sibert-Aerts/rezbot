@@ -22,13 +22,6 @@ allWords = open('resource/words.txt', encoding='utf-8').read().split()
 allWords = [w for w in allWords if not w[:1].isupper() and not w[-2:] == "'s"]
 
 
-def bot_format(str):
-    ''' Format text to look robot-like. '''
-    str = str.lower()
-    if str[-1] not in '!?.,*':
-        str += '.'
-    return '`{0}`'.format(str)
-
 def block_format(s):
     ''' Format text into a code block. '''
     # put a zero-width space in there to prevent it from breaking our block

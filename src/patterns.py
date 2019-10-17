@@ -200,7 +200,7 @@ class Patterns:
 
                     acts = ['unsheathes', 'pulls out', 'reveals', 'whips out']
                     knives = ['katana', 'knife', 'kunai', 'dagger']
-                    await post(texttools.bot_format('*' + choose(acts) + ' ' + choose(knives) + '*'))
+                    await post('`*' + choose(acts) + ' ' + choose(knives) + '*`')
 
                     await post(attack.attacking())
                     

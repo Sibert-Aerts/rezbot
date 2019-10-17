@@ -7,10 +7,6 @@ class MyCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    async def say_bot(self, s, **kwargs):
-        s = texttools.bot_format(s)
-        await self.say(s, **kwargs)
-
     async def say_block(self, s, **kwargs):
         await self.say(texttools.block_format(s), **kwargs)
 
