@@ -20,17 +20,17 @@ class Sig:
         self._re = None
         self.str = None
 
-    def re(self, name):
+    def re(self):
         # This regex matches the following formats:
         #   name=valueWithoutSpaces
-        #   name="value with spaces"     name=""  (for the empty string)
-        #   name='value with spaces'     name=''
+        #   name="value with spaces"  and  name=""  (for the empty string)
+        #   name='value with spaces'  and  name=''
         # Doesn't match:
         #   name=value with spaces
         #   name="value with "quotes""
         #   name= (for the empty string)
         if self._re is None:
-            self._re = re.compile('\\b' + name + '=("[^"]*"|\'[^\']*\'|\S+)\\s*')
+            self._re = re.compile(r'\b' + self.name + r'=("[^"]*"|\'[^\']*\'|\S+)\s*')
         return self._re
 
     def check(self, val):
@@ -44,15 +44,15 @@ class Sig:
             if self.multi_options:
                 if any( v not in self.options for v in val.lower().split(',') ):
                     if len(self.options) <= 8:
-                        raise ArgumentError('Invalid value "{}" for argument "{}": Must be a sequence of items from {} separated by commas.'.format(val, s, '/'.join(self.options)))
+                        raise ArgumentError('Invalid value "{}" for argument "{}": Must be a sequence of items from {} separated by commas.'.format(val, self.name, '/'.join(self.options)))
                     else:
-                        raise ArgumentError('Invalid value "{}" for argument "{}".'.format(val, s))
+                        raise ArgumentError('Invalid value "{}" for argument "{}".'.format(val, self.name))
             else:
                 if val.lower() not in self.options:
                     if len(self.options) <= 8:
-                        raise ArgumentError('Invalid value "{}" for argument "{}": Must one of {}.'.format(val, s, '/'.join(sig.options)))
+                        raise ArgumentError('Invalid value "{}" for argument "{}": Must be one of {}.'.format(val, self.name, '/'.join(self.options)))
                     else:
-                        raise ArgumentError('Invalid value "{}" for argument "{}".'.format(val, s))
+                        raise ArgumentError('Invalid value "{}" for argument "{}".'.format(val, self.name))
 
     def __str__(self):
         if self.str: return self.str
@@ -99,7 +99,7 @@ def parse_args(signature, text, greedy=True):
 
         # Just in case, look if the argument isn't given as "arg=val"
         # If it is: Leave this special case alone and fall back to the block below
-        if re.search(sig.re(s), text) is None:
+        if sig.re().search(text) is None:
 
             if greedy: # Greedy: Assume the entire input string is the argument value.
                 val = text
@@ -120,42 +120,44 @@ def parse_args(signature, text, greedy=True):
                     # It successfully converted AND passed the check: assign it and cut it from the text
                     args[s] = val
                     text = _text
-                except ArgumentError as e:
+                except Exception as e:
                     # We already know that there's no "arg=val" present in the string, the arg is required and we can't find it blindly:
                     if require_the_one:
-                        raise ArgumentError('Missing or invalid argument "{}".'.format(s))
+                        raise e
 
     for s in signature:
         # If we already determined the argument value in the previous block, skip it
         if s in args: continue
 
         sig = signature[s]
-        # If at any point here any exception occurs, it'll try to use the default value instead.
-        try:
-            # Find and parse the argument value, and remove it from the text.
-            given = re.search(sig.re(s), text)
-            val = given.groups()[0].strip()
+        match = sig.re().search(text)
 
-            # Strip quote marks
-            if val[0] == val[-1] and val[0] in ["'", '"']:
-                val = val[1:-1]
-
-            # Cast to the desired type
-            val = sig.type(val)
-
-            # Check whether the value meets certain requirements, (raises an exception if not!)
-            sig.check(val)
-
-            # It passed the checks, assign the value and clip it from the text
-            args[s] = val
-            text = text[:given.start(0)] + text[given.end(0):]
-
-        except ArgumentError as e:
-            raise e
-
-        except:
+        if match is None:
+            ## If it is required: Raise an error
             if sig.required:
-                raise ArgumentError('Missing or invalid argument "{}".'.format(s))
+                raise ArgumentError('Missing argument: "{}".'.format(s))
+            ## Else: Use the default value and move on!
             args[s] = sig.default
+            continue
+
+        ## We found an assignment of some form
+        val = match.group(1)
+
+        # Strip quote marks
+        if val[0] == val[-1] in ["'", '"']: # This works I swear
+            val = val[1:-1]
+
+        try:
+            # Cast to the desired type (raises an exception if the value is bad)
+            val = sig.type(val)
+        except:
+            raise ArgumentError('Invalid value "{}" for argument "{}": Must be of type {}'.format(val, s, sig.type.__name__))
+
+        # Check whether the value meets certain requirements (raises an exception if not)
+        sig.check(val)
+
+        # It passed the checks, assign the value and clip it from the text
+        args[s] = val
+        text = text[:match.start(0)] + text[match.end(0):]
 
     return (text, args)

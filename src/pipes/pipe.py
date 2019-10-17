@@ -7,6 +7,8 @@ from .signature import parse_args
 class Pipe:
     def __init__(self, signature, function, category):
         self.signature = signature
+        # Make sure each Sig knows its own name (this shouldn't happen here but there's no better place)
+        for s in signature: signature[s].name = s
         self.function = function
         self.category = category
         # remove _pipe or _source or _spout from the function's name
@@ -54,6 +56,10 @@ class Source(Pipe):
             return self.function(message, **args)
         else:
             return self.function(**args)
+            
+    def as_command(self):
+        '''This method is not needed and only defined to hide the inherited as_command method to prevent'''
+        raise NotImplementedError()
 
 
 class Spout(Pipe):
