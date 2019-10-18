@@ -6,21 +6,19 @@
     * Read permissions from a file
     * Permission assignment commands
     * Ability to disable specific features (commands, patterns, pipes) in specific channels/servers
-    * Logging? lotta work but idk the data would be fun...
     * rewrite `help` to spam less
-    * post git commits to channel
+    * post git commits to channel?
     * come up with a name for the scripting language
     * unify/clarify parameter names for different pipes (e.g. q/query or whatever)
 
 * **SCRIPTING:**
 
     * **Pipeline-level:**
-        * Refactor pipelines to optimise applying the same one multiple times,
-        right now, each time a macro is used the entire thing is parsed/executed/parsecuted PER use
+        * Refactor pipelines to further optimise applying the same one multiple times
+            * Do this by pulling up more stuff up into the parsing process, which is cached
 
     * **Signatures:**
-        * options can be smarter (e.g. "nick" works to match "nickname")
-        * multi-options in more places...?
+        * options can be smarter (e.g. "nick" works to match "nickname" if it's the only option starting with "nick")
         * ability to mark a Sig as "The One" even if it has a default value
         * {me foofaff} gives no warnings even though "foofaff" is completely unnecessary (meditate on this)
 
@@ -31,16 +29,17 @@
 
     * **Pipes:**
         * {prev *n*} for the nth previous output
-        * {that *n*} for the nth previous message in the channel
-        * {next *n*} for the nth next message in the channel (for the next message by a certain user in the channel?)
 
     * **Uploaded files:**
         * "Append to file" pipe (+ make new file if file doesn't exist yet)
         * "replace specified line" pipe
         * download file command
 
-    * option to turn macros into commands
-    * namespaces/categories for macros, like: funny.item or random.word or whatever....
+    * Option to easily turn macros into commands
+    * Namespaces/Categories for macros/events/etc, e.g: funny.item or random.word or whatever....
+        * Decreases clutter of the global macros/events lists (instead of showing multiple macros it shows 1 namespace)
+        * Can easily see related macros/events in one place
+        * Easily enable/disable all events in a namespace at the same time
 
     * **SPOUTS:**
         * Split Spouts into (at least) 2 functions:
@@ -56,8 +55,7 @@
                 e.g. in the current model they just execute each of their callbacks in spout_state
 
     * **EVENTS:**
-        * bot saves & loads Events from a file
-        * more types of triggers: MESSAGE CONTAINS (regex), USER IS (username/id), TIME IS (?), logical operations?? ????
+        * more types of conditions: MESSAGE CONTAINS (regex), USER IS (username/id), TIME IS (?), logical operations?? ????
 
     * **GROUP MODES:**
         * #a..b;c..d;e..f [pipe1|pipe2|pipe3]           should work as is obvious
@@ -89,7 +87,7 @@
             * [-] to produce a minimal number of lines that reach each choice leaf at least once (is this hard???)
                 [-] [alpha|beta] [gamma|delta] → alpha gamma, beta delta
         * in pipe/source arguments, replace `\n` to newlines
-        * Flow control? conditional `return` pipes so loops are easier?
+        * conditional `return` pipes so loops are easier?
         * pipes have an associated "complexity" cost function based on args/input values that makes sure a user doesn't request absurdly much work...?
 
     * **??????**
