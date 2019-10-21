@@ -15,7 +15,7 @@ def DIR(filename=''):
 class Event:
     def __init__(self, name, channel, script):
         self.name = name
-        self.version = 1
+        self.version = 2
         self.channels = [channel.id]
         self.script = script
 
@@ -35,13 +35,13 @@ class OnMessage(Event):
 
     def test(self, message):
         '''Test whether or not the given message should trigger the Event's execution.'''
-        return message.channel.id in self.channels and self.pattern.search(message.content) is not None
+        return message.channel.id in self.channels and self.pattern.search(message.content)
 
     def __str__(self):
         return '**{}**: ON MESSAGE `{}`'.format(self.name, self.patternstr)
 
     def embed(self, ctx):
-        desc = '{} in this channel'.format( 'Enabled' if ctx.channel in self.channels else 'Disabled' )
+        desc = '{} in this channel'.format( 'Enabled' if ctx.channel.id in self.channels else 'Disabled' )
         embed = Embed(title='Event: ' + self.name, description=desc, color=0x7628cc)
 
         ## On message
