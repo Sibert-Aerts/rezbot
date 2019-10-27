@@ -28,7 +28,7 @@ class MacroCommands(commands.Cog):
 
     @commands.command(aliases=['def'])
     async def define(self, ctx, what, name):
-        await self._define(ctx.message, what, name, re.split('\s+', message.content, 3)[3])
+        await self._define(ctx.message, what, name, re.split('\s+', ctx.message.content, 3)[3])
 
     async def _define(self, message, what, name, code):
         '''Define a macro.'''
@@ -48,7 +48,7 @@ class MacroCommands(commands.Cog):
 
     @commands.command(aliases=['redef'])
     async def redefine(self, ctx, what, name):
-        await self._redefine(ctx.message, what, name, re.split('\s+', message.content, 3)[3])
+        await self._redefine(ctx.message, what, name, re.split('\s+', ctx.message.content, 3)[3])
 
     async def _redefine(self, message, what, name, code):
         '''Redefine an existing macro.'''
@@ -70,7 +70,7 @@ class MacroCommands(commands.Cog):
 
     @commands.command(aliases=['desc'])
     async def describe(self, ctx, what, name):
-        await self._describe(ctx.message, what, name, re.split('\s+', message.content, 3)[3])
+        await self._describe(ctx.message, what, name, re.split('\s+', ctx.message.content, 3)[3])
 
     async def _describe(self, message, what, name, desc):
         '''Describe an existing macro.'''
