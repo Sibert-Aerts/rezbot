@@ -197,6 +197,10 @@ class GroupMode:
         if self.multiply: qualifiers.append('MULTIPLIED')
         return ' '.join(qualifiers)
 
+    def isDefault(self):
+        '''Whether or not this GroupMode is the default groupmode DIVIDE BY 1.'''
+        return False
+
     def apply(self, values, pipes):
         raise NotImplementedError()
 
@@ -317,6 +321,9 @@ class Divide(GroupMode):
             else:
                 out.append((vals, pipes[i % len(pipes)]))
         return out
+
+    def isDefault(self):
+        return self.count == 1
 
 class Modulo(GroupMode):
     def __init__(self, multiply, strictness, modulo, padding):

@@ -28,6 +28,9 @@ class PipelineError(ValueError):
     '''Special error for some invalid element when processing a pipeline.'''
     pass
 
+class ContextError(ValueError):
+    '''Special error used by the Context class when a context string cannot be fulfilled.'''
+    pass
 
 class ErrorLog:
     '''Class for logging warnings & error messages from a pipeline's execution.'''
@@ -89,9 +92,94 @@ class ParsedPipe:
         self.argstr = argstr
 
 
+class Context:
+    def __init__(self, parent=None):
+        self.items = []
+        self.parent = parent
+        self.ignored = None
+        self.filtered = None
+
+    def set(self, items):
+        self.items = items
+
+    item_regex = re.compile(r'{(\^*)(-?\d+)(!?)}')
+    empty_item_regex = re.compile(r'{(\^*)(!?)}')
+
+    def insert_into_string(self, string):
+        ### LOGIC:
+        # {0} in the arg string pastes the 1st item into the arg string at that position
+        #   this REMOVES the 1st item from the flow COMPLETELY
+        # {0!} functions the same, except that it does not REMOVE the item, instead it
+        #   merely IGNORES the item, putting it before the pipe's output, unchanged
+        # e.g. >> fraktur|hello > convert to={0}     gives   𝔥𝔢𝔩𝔩𝔬            as the ONLY output
+        # e.g. >> fraktur|hello > convert to={0!}    gives   fraktur|𝔥𝔢𝔩𝔩𝔬    as the TWO lines of output
+        # But before all that, turn a string like "{} {} {!}" into "{0} {1} {2!}"
+
+        # Check if {}'s are used, and if there are, make sure no explicitly numbered {}'s are present
+        if Context.empty_item_regex.search(string):
+            if Context.item_regex.search(string):
+                # NOTE: This exception breaks script execution completely (should it?)
+                raise ContextError('Do not mix empty {}\'s with numbered {}\'s in the format string "%s".' % string)
+            # Perform the "{} {} {!}" → "{0} {1} {2!}" substitution
+            # More generally: "{^} {} {^!} {^^} {}" → "{^0} {0} {^1!} {^^0} {1}"
+            def f(m):
+                carrots = m.group(1)
+                if carrots not in f.i:
+                    f.i[carrots] = 0
+                else:
+                    f.i[carrots] += 1
+                return '{%s%d%s}' % (carrots, f.i[carrots], m.group(2))
+            f.i = {}
+            string = Context.empty_item_regex.sub(f, string)
+
+        # Keep track of which items to ignore and which to remove
+        to_be_ignored = set()
+        to_be_removed = set()
+
+        def insert(m):
+            ctx = self
+            # For each ^ go up a context
+            for i in range(len(m.group(1))):
+                if ctx.parent is None: raise ContextError('Invalid format: References a parent context beyond scope!')
+                ctx = ctx.parent
+
+            count = len(ctx.items)
+            # Make sure the index fits in the context's range of items
+            if count == 0: raise ContextError('Invalid format: References items but 0 items were given.')
+            i = int(m.group(2))
+            if i >= count: raise ContextError('Invalid format: References item {} but {} items were given.'.format(i, count))
+            if i < 0: i += count
+            if i < 0: raise ContextError('Invalid format: Negative index {} for only {} items.'.format(i-count, count))
+
+            # Only flag items to be ignored if we're in the current context (idk how it would work with higher contexts)
+            if ctx is self:
+                ignore = (m.group(3) == '!')
+                (to_be_ignored if ignore else to_be_removed).add(i)
+            return ctx.items[i]
+
+        ### Perform the substitution
+        result = Context.item_regex.sub(insert, string)
+
+        ### Merge the sets into a clear view:
+        # If "conflicting" instances occur (i.e. both {0} and {0!}) give precedence to the {0!}
+        # Since the ! is an intentional indicator of what they want to happen; Do not remove the item
+        to_be = [ (i, True) for i in to_be_removed.difference(to_be_ignored) ] + [ (i, False) for i in to_be_ignored ]
+        # Finnicky list logic for ignoring/removing the appropriate indices
+        to_be.sort(key=lambda x: x[0])
+        to_be.reverse()
+        self.ignored = []
+        self.filtered = list(self.items)
+        for i, rem in to_be:
+            if not rem: self.ignored.append(self.items[i])
+            del self.filtered[i]
+        self.ignored.reverse()
+
+        return result
+
+
 class SourceProcessor:
     def __init__(self, message):
-        # This is a class so I don't have to juggle the message (context) and error log around
+        # This is a class so I don't have to juggle the message (discord context) and error log around
         self.message = message
         self.errors = ErrorLog()
 
@@ -386,68 +474,14 @@ class Pipeline:
         if chars > MAXCHARS and not permissions.has(message.author.id, permissions.owner):
             raise PipelineError('Attempted to process a flow of {} total characters at once, try staying under {}.'.format(chars, MAXCHARS))
 
-    arg_item_regex = re.compile(r'{(-?\d+)(!?)}')
-    empty_arg_item_regex = re.compile(r'{(!?)}')
-
-    def items_into_args(self, argstr, items):
-        ### LOGIC:
-        # {0} in the arg string pastes the 1st item into the arg string at that position
-        #   this REMOVES the 1st item from the flow COMPLETELY
-        # {0!} functions the same, except that it does not REMOVE the item, instead it
-        #   merely IGNORES the item, putting it before the pipe's output, unchanged
-        # e.g. >> fraktur|hello > convert to={0}     gives   𝔥𝔢𝔩𝔩𝔬            as the ONLY output
-        # e.g. >> fraktur|hello > convert to={0!}    gives   fraktur|𝔥𝔢𝔩𝔩𝔬    as the TWO lines of output
-        # But before all that, turn a string like "{} {} {!}" into "{0} {1} {2!}"
-
-        # Check if {}'s are used, but make sure no explicitly numbered {}'s are present.
-        if re.search(self.empty_arg_item_regex, argstr):
-            if re.search(self.arg_item_regex, argstr):
-                # NOTE: This exception breaks script execution completely (should it?)
-                raise Exception('Do not mix empty {}\'s with numbered {}\'s in the argument string "%s".' % argstr)
-            # Perform the "{} {} {!}" → "{0} {1} {2!}" substitution
-            def f(m):
-                f.i += 1
-                return '{%d%s}' % (f.i, m.group(1))
-            f.i = -1
-            argstr = re.sub(self.empty_arg_item_regex, f, argstr)
-
-        # Keep track of which items to ignore and which to remove after performing the substitution
-        to_be_ignored = set(); to_be_removed = set()
-        def func(m):
-            if len(items) == 0: raise ValueError('Invalid argstring: References items but 0 items were given.')
-            i = int(m.group(1))
-            if i > len(items): raise ValueError('Invalid argstring: References item {} but {} items were given.'.format(i, len(items)))
-            if i < 0: i += len(items)
-            if i < 0: raise ValueError('Invalid argstring: Negative index {} for only {} items.'.format(i-len(items), len(items)))
-            ignore = (m.group(2) == '!')
-            (to_be_ignored if ignore else to_be_removed).add(i)
-            return items[i]
-
-        # Perform the substitution
-        argstr = re.sub(self.arg_item_regex, func, argstr)
-
-        # If "conflicting" instances occur (i.e. both {0} and {0!}) give precedence to the {0!}
-        # Since the ! is an intentional indicator of what they want to happen; Do not remove the item
-        to_be = [ (i, True) for i in to_be_removed.difference(to_be_ignored) ] + [ (i, False) for i in to_be_ignored ]
-        # Finnicky list logic for ignoring/removing the appropriate indices
-        to_be.sort(key=lambda x: x[0])
-        to_be.reverse()
-        ignored = []
-        filtered = items[:]
-        for i, rem in to_be:
-            if not rem: ignored.append(items[i])
-            del filtered[i]
-        ignored.reverse()
-
-        return argstr, ignored, filtered
-
-    async def apply(self, values, message):
+    async def apply(self, values, message, parentContext=None):
         '''Apply the pipeline to the set of values.'''
         ## This is the big method where everything happens.
 
         errors = ErrorLog()
         errors.extend(self.parser_errors) # Include the errors we found during parsing!
 
+        context = Context(parentContext)
         printValues = []
         SPOUT_CALLBACKS = []
         source_processor = SourceProcessor(message)
@@ -459,10 +493,16 @@ class Pipeline:
             newValues = []
             newPrintValues = []
 
+            # GroupModes other than the default one add their own layer of context!
+            if not groupMode.isDefault():
+                context.set(values)
+                context = Context(context)
+
             # The group mode turns the [values], [pipes] into a list of ([values], pipe) pairs
             # For more information: Check out groupmodes.py
             ### This loop essentially iterates over the pipes as they are applied in parallel. ( [first|second|third] )
             for vals, pipe in groupMode.apply(values, parsedPipes):
+                context.set(vals)
 
                 ## CASE: "None" is the group mode's way of demanding a NOP on these values.
                 if pipe is None:
@@ -472,10 +512,10 @@ class Pipeline:
                 ## CASE: The pipe is actually an inline pipeline
                 if type(pipe) is Pipeline:
                     pipeline = pipe
-                    values, pl_printValues, pl_errors, pl_SPOUT_CALLBACKS = await pipeline.apply(vals, message)
-                    newValues.extend(values)
+                    vals, pl_printValues, pl_errors, pl_SPOUT_CALLBACKS = await pipeline.apply(vals, message, context)
+                    newValues.extend(vals)
                     errors.extend(pl_errors, 'braces')
-                    # TODO: consider the life long quandry of what exactly the fuck to do with the spout/print state of the inline pipeline.
+                    # TODO: consider the life long quandry of what exactly the fuck to do with the print values of the inline pipeline.
                     SPOUT_CALLBACKS += pl_SPOUT_CALLBACKS
                     continue
 
@@ -483,9 +523,10 @@ class Pipeline:
                 name = pipe.name
                 args = pipe.argstr
 
-                # Put items in the arg string if necessary
-                args, ignored_vals, vals = self.items_into_args(args, vals)
-                newValues.extend(ignored_vals)
+                # Insert context (i.e. items) into the string
+                args = context.insert_into_string(args)
+                newValues.extend(context.ignored)
+                vals = context.filtered
 
                 # Evaluate sources in the arg string
                 args = await source_processor.evaluate_composite_source(args)
@@ -554,8 +595,14 @@ class PipelineProcessor:
     async def on_message(self, message):
         '''Check if an incoming message triggers any custom Events.'''
         for event in events.values():
-            if event.test(message):
-                await self.execute_script(event.script, message)
+            m = event.test(message)
+            if m:
+                if m is not True:
+                    context = Context()
+                    context.items = list(m.groups())
+                    await self.execute_script(event.script, message, context)
+                else:
+                    await self.execute_script(event.script, message)
 
     async def print(self, dest, output):
         ''' Nicely print the output in rows and columns and even with little arrows.'''
@@ -619,7 +666,7 @@ class PipelineProcessor:
             p = c
         return script.strip(), ''
 
-    async def execute_script(self, script, message):
+    async def execute_script(self, script, message, context=None):
         errors = ErrorLog()
 
         ### STEP 0: PRE-PROCESSING
@@ -637,10 +684,12 @@ class PipelineProcessor:
             ### STEP 1: GET STARTING VALUES FROM SOURCE
             source_processor = SourceProcessor(message)
             values = await source_processor.evaluate(source)
+            if context: # Insert optional context items
+                values = [context.insert_into_string(v) for v in values]
             errors.extend(source_processor.errors)
 
             ### STEP 2: APPLY THE PIPELINE TO THE STARTING VALUES
-            values, printValues, pl_errors, SPOUT_CALLBACKS = await pipeline.apply(values, message)
+            values, printValues, pl_errors, SPOUT_CALLBACKS = await pipeline.apply(values, message, context)
             errors.extend(pl_errors)
 
             ### STEP 3: (MUMBLING INCOHERENTLY)
