@@ -91,6 +91,8 @@ class Context:
     def __init__(self, parent=None):
         self.items = []
         self.parent = parent
+        self.to_be_ignored = set()
+        self.to_be_removed = set()
 
     def set(self, items):
         self.items = items
