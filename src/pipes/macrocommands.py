@@ -196,11 +196,20 @@ class MacroCommands(commands.Cog):
                 macro = macros[name]
                 info = name + ' ' * (colW-len(name))
                 if macro.desc is not None:
-                    info += macro.desc.split('\n')[0]
+                    info += macro.desc.split('\n')[0][:100]
                 infos.append(info)
 
-            text = texttools.block_format('\n'.join(infos))
-            await ctx.send(text)
+            blocks = [[]]
+            l = 0
+            for info in infos:
+                if l + len(info) > 1800:
+                    blocks.append([])
+                    l = 0
+                l += len(info)
+                blocks[-1].append(info)
+            
+            for block in blocks:
+                await ctx.send(texttools.block_format('\n'.join(block)))
 
     @commands.command(aliases=['pipe_macro', 'macro_pipes', 'macro_pipe'])
     async def pipe_macros(self, ctx, name=''):
