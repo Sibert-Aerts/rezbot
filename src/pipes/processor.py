@@ -32,6 +32,7 @@ class ContextError(ValueError):
     '''Special error used by the Context class when a context string cannot be fulfilled.'''
     pass
 
+
 class ErrorLog:
     '''Class for logging warnings & error messages from a pipeline's execution.'''
     def __init__(self):
@@ -86,95 +87,84 @@ class ErrorLog:
         return embed
 
 
-class ParsedPipe:
-    def __init__(self, name, argstr):
-        self.name = name
-        self.argstr = argstr
-
-
 class Context:
     def __init__(self, parent=None):
         self.items = []
         self.parent = parent
-        self.ignored = None
-        self.filtered = None
 
     def set(self, items):
         self.items = items
+        self.to_be_ignored = set()
+        self.to_be_removed = set()
 
-    item_regex = re.compile(r'{(\^*)(-?\d+)(!?)}')
+    _item_regex = r'{(\^*)(-?\d+)(!?)}'
+    #                 ^^^  ^^^^^  ^^
+    #              carrots index exclamation
+    item_regex = re.compile(_item_regex)
     empty_item_regex = re.compile(r'{(\^*)(!?)}')
+    #                                 ^^^  ^^
 
-    def insert_into_string(self, string):
-        ### LOGIC:
-        # {0} in the arg string pastes the 1st item into the arg string at that position
-        #   this REMOVES the 1st item from the flow COMPLETELY
-        # {0!} functions the same, except that it does not REMOVE the item, instead it
-        #   merely IGNORES the item, putting it before the pipe's output, unchanged
-        # e.g. >> fraktur|hello > convert to={0}     gives   𝔥𝔢𝔩𝔩𝔬            as the ONLY output
-        # e.g. >> fraktur|hello > convert to={0!}    gives   fraktur|𝔥𝔢𝔩𝔩𝔬    as the TWO lines of output
-        # But before all that, turn a string like "{} {} {!}" into "{0} {1} {2!}"
+    def preprocess(string):
+        '''
+        Replaces empty {}'s with explicitly numbered {}'s
+        e.g. "{} {} {!}" → "{0} {1} {2!}"
+             "{^} {} {^!} {^^} {}" → "{^0} {0} {^1!} {^^0} {1}"
+        '''
+        if not Context.empty_item_regex.search(string):
+            return string
+        
+        ## Make sure there is no mixed use of numbered and non-numbered items
+        # TODO: Only check this per depth level, so e.g. "{} {^0} {}" is allowed?
+        if Context.item_regex.search(string):
+            raise ContextError('Do not mix empty {}\'s with numbered {}\'s in the format string "%s".' % string)
 
-        # Check if {}'s are used, and if there are, make sure no explicitly numbered {}'s are present
-        if Context.empty_item_regex.search(string):
-            if Context.item_regex.search(string):
-                # NOTE: This exception breaks script execution completely (should it?)
-                raise ContextError('Do not mix empty {}\'s with numbered {}\'s in the format string "%s".' % string)
-            # Perform the "{} {} {!}" → "{0} {1} {2!}" substitution
-            # More generally: "{^} {} {^!} {^^} {}" → "{^0} {0} {^1!} {^^0} {1}"
-            def f(m):
-                carrots = m.group(1)
-                if carrots not in f.i:
-                    f.i[carrots] = 0
-                else:
-                    f.i[carrots] += 1
-                return '{%s%d%s}' % (carrots, f.i[carrots], m.group(2))
-            f.i = {}
-            string = Context.empty_item_regex.sub(f, string)
+        def f(m):
+            carrots = m.group(1)
+            if carrots not in f.i:
+                f.i[carrots] = 0
+            else:
+                f.i[carrots] += 1
+            return '{%s%d%s}' % (carrots, f.i[carrots], m.group(2))
+        f.i = {}
 
-        # Keep track of which items to ignore and which to remove
-        to_be_ignored = set()
-        to_be_removed = set()
+        return Context.empty_item_regex.sub(f, string)
 
-        def insert(m):
-            ctx = self
-            # For each ^ go up a context
-            for i in range(len(m.group(1))):
-                if ctx.parent is None: raise ContextError('Invalid format: References a parent context beyond scope!')
-                ctx = ctx.parent
+    def get_item(self, carrots, index, exclamation):
+        ctx = self
+        # For each ^ go up a context
+        for i in range(len(carrots)):
+            if ctx.parent is None: raise ContextError('Out of scope: References a parent context beyond scope!')
+            ctx = ctx.parent
 
-            count = len(ctx.items)
-            # Make sure the index fits in the context's range of items
-            if count == 0: raise ContextError('Invalid format: References items but 0 items were given.')
-            i = int(m.group(2))
-            if i >= count: raise ContextError('Invalid format: References item {} but {} items were given.'.format(i, count))
-            if i < 0: i += count
-            if i < 0: raise ContextError('Invalid format: Negative index {} for only {} items.'.format(i-count, count))
+        count = len(ctx.items)
+        # Make sure the index fits in the context's range of items
+        i = int(index)
+        if i >= count: raise ContextError('Out of range: References item {} but only {} items were given.'.format(i, count))
+        if i < 0: i += count
+        if i < 0: raise ContextError('Out of range: Negative index {} for only {} items.'.format(i-count, count))
 
-            # Only flag items to be ignored if we're in the current context (idk how it would work with higher contexts)
-            if ctx is self:
-                ignore = (m.group(3) == '!')
-                (to_be_ignored if ignore else to_be_removed).add(i)
-            return ctx.items[i]
+        # Only flag items to be ignored if we're in the current context (idk how it would work with higher contexts)
+        if ctx is self:
+            ignore = (exclamation == '!')
+            (self.to_be_ignored if ignore else self.to_be_removed).add(i)
+        return ctx.items[i]
 
-        ### Perform the substitution
-        result = Context.item_regex.sub(insert, string)
-
+    def get_ignored_filtered(self):
         ### Merge the sets into a clear view:
         # If "conflicting" instances occur (i.e. both {0} and {0!}) give precedence to the {0!}
         # Since the ! is an intentional indicator of what they want to happen; Do not remove the item
-        to_be = [ (i, True) for i in to_be_removed.difference(to_be_ignored) ] + [ (i, False) for i in to_be_ignored ]
+        to_be = [ (i, True) for i in self.to_be_removed.difference(self.to_be_ignored) ] + [ (i, False) for i in self.to_be_ignored ]
+        
         # Finnicky list logic for ignoring/removing the appropriate indices
-        to_be.sort(key=lambda x: x[0])
-        to_be.reverse()
-        self.ignored = []
-        self.filtered = list(self.items)
+        to_be.sort(key=lambda x: x[0], reverse=True)
+        ignored = []
+        filtered = list(self.items)
         for i, rem in to_be:
-            if not rem: self.ignored.append(self.items[i])
-            del self.filtered[i]
-        self.ignored.reverse()
+            if not rem: ignored.append(self.items[i])
+            del filtered[i]
+        ignored.reverse()
 
-        return result
+        return ignored, filtered
 
 
 class SourceProcessor:
@@ -183,12 +173,16 @@ class SourceProcessor:
         self.message = message
         self.errors = ErrorLog()
 
-    # this looks like a big disgusting hamburger because it is
-    # matches: {source}, {source and some args}, {source args="{something}"}, {10 source}, etc.
-    # doesn't match: {}, {0}, {1}, {2}, {2!} etc. in order not to clash with item-to-arg syntax
-    _source_regex = r'{\s*(\d*)\s*([_a-zA-Z][^\s}]*)\s*([^}\s](\"[^\"]*\"|[^}])*)?}'
+    # Matches: {source}, {source and some args}, {source args="{something}"}, {10 source}, etc.
+    # Doesn't match: {}, {0}, {1}, {2}, {2!} etc., those are matched by Context.item_regex
+
+    _source_regex = r'{\s*(\d*)\s*([_a-zA-Z][^\s}]*)\s*([^}\s](?:\"[^\"]*\"|[^}])*)?}'
+    #                      ^^^     ^^^^^^^^^^^^^^^^     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    #                       n            name                      args
     source_regex = re.compile(_source_regex)
     source_match_regex = re.compile(_source_regex + '$')
+    source_or_item_regex = re.compile('(?:' + _source_regex + '|' + Context._item_regex + ')')
+    # This is a regex with 6 capture groups: n, name, args, carrots, index, exclamation
 
     def is_pure_source(self, source):
         '''Checks whether a string matches the exact format "{[n] source [args]}", AKA "pure".'''
@@ -235,43 +229,68 @@ class SourceProcessor:
     async def evaluate_pure_source(self, source):
         '''Takes a string containing exactly one source and nothing more, a special case which allows it to produce multiple values at once.'''
         match = re.match(SourceProcessor.source_regex, source)
-        n, name, args, _ = match.groups()
+        n, name, args = match.groups()
         name = name.lower()
 
         values = await self.evaluate_parsed_source(name, args, n)
         if values is not None: return values
-
         return([match.group()])
 
-    async def evaluate_composite_source(self, source):
+    async def evaluate_composite_source(self, source, context=None):
         '''Applies and replaces all {sources} in a string that mixes sources and normal characters.'''
 
-        # Unwrapped re.sub myself to be able to call async functions for replacements
+        if context: source = Context.preprocess(source)
+
+        #### This method is huge because I essentially unwrapped re.sub to be able to handle coroutines
         slices = []
         start = 0
-        futures = []
-        matches = []
-        for match in re.finditer(SourceProcessor.source_regex, source):
-            _, name, args, _ = match.groups()
-            matches.append(match.group())
-            name = name.lower()
-            coro = self.evaluate_parsed_source(name, args, 1) # n=1 because we only want 1 item anyway...
-            # turn it into future; immediately try making the call but continue here as soon as it awaits something
-            futures.append( asyncio.ensure_future(coro) )
+        # For each match we add one item to all 3 of these lists
+        items, futures, matches = [], [], []
+
+        for match in re.finditer(SourceProcessor.source_or_item_regex, source):
+            # Either the first or last three of these are None, depending on what we matched
+            n, name, args, carrots, index, exclamation = match.groups()
+
+            if name:
+                ## Matched a source
+                name = name.lower()
+                coro = self.evaluate_parsed_source(name, args, 1) # n=1 because we only want 1 item anyway...
+                # Turn it into a Future; it immediately starts the call but we only actually await it outside of this loop
+                futures.append(asyncio.ensure_future(coro))
+                matches.append(match.group())
+                items.append(None)
+
+            elif context:
+                ## Matched an item and we have context to fill it in
+                items.append(context.get_item(carrots, index, exclamation))
+                futures.append(None)
+                matches.append(None)
+
+            else:
+                ## Matched an item but no context: Just ignore this match completely
+                continue
+
             slices.append( source[start: match.start()] )
             start = match.end()
 
         values = []
-        # Await all the futures at once and splice them into the string
-        for match, results in zip(matches, await asyncio.gather(*futures)):
-            if results is not None:
-                values.extend(results[0:1]) # Only use the first output value. Is there anything else I can do here?
+        for future, item, match in zip(futures, items, matches):
+            # By construction: (future is None) XOR (item is None)
+            if item is not None:
+                values.append(item)
             else:
-                values.append(match)
+                # if await future does not deliver, fall back on the match
+                results = await future
+                if results is None: ## Call failed: Fall back on the match string
+                    values.append(match)
+                elif not results: ## Call returned an empty list: Fill in the empty string
+                    values.append('')
+                else: ## Call returned non-empty list: Pick the first value (best we can do?)
+                    values.extend(results[0:1])
 
         return ''.join(val for pair in zip(slices, values) for val in pair) + source[start:]
 
-    async def evaluate(self, source):
+    async def evaluate(self, source, context=None):
         '''Takes a raw source string, expands it into multiple strings, applies {sources} in each one and returns the set of values.'''
         values = []
         if len(source) > 1 and source[0] == source[-1] == '"':
@@ -280,8 +299,14 @@ class SourceProcessor:
             if self.is_pure_source(source):
                 values.extend(await self.evaluate_pure_source(source))
             else:
-                values.append(await self.evaluate_composite_source(source))
+                values.append(await self.evaluate_composite_source(source, context))
         return values
+
+
+class ParsedPipe:
+    def __init__(self, name, argstr):
+        self.name = name
+        self.argstr = argstr
 
 
 class Pipeline:
@@ -523,14 +548,12 @@ class Pipeline:
                 name = pipe.name
                 args = pipe.argstr
 
-                # Insert context (i.e. items) into the string
-                args = context.insert_into_string(args)
-                newValues.extend(context.ignored)
-                vals = context.filtered
-
-                # Evaluate sources in the arg string
-                args = await source_processor.evaluate_composite_source(args)
+                # Evaluate sources and insert context into the arg string
+                args = await source_processor.evaluate_composite_source(args, context)
                 errors.steal(source_processor.errors, context='args for "{}"'.format(name))
+                # Handle the context-insertion's ignoring/filtering of certain values
+                ignored, vals = context.get_ignored_filtered()
+                newValues.extend(ignored)
 
                 ### Different possible types of pipe:
                 if name == 'print':
@@ -683,9 +706,7 @@ class PipelineProcessor:
         try:
             ### STEP 1: GET STARTING VALUES FROM SOURCE
             source_processor = SourceProcessor(message)
-            values = await source_processor.evaluate(source)
-            if context: # Insert optional context items
-                values = [context.insert_into_string(v) for v in values]
+            values = await source_processor.evaluate(source, context)
             errors.extend(source_processor.errors)
 
             ### STEP 2: APPLY THE PIPELINE TO THE STARTING VALUES
