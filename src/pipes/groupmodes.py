@@ -433,19 +433,21 @@ class Column(GroupMode):
 
 class Interval(GroupMode):
 
-    # Magical objects.
+    # Magic object
     END = object()
 
     def __init__(self, multiply, strictness, lval, rval):
         super().__init__(multiply, strictness)
-        ## lval is either an integer or the magical value END
-        if lval == '': raise GroupModeError('Missing index.') 
-        self.lval = int(lval) if lval != '-0' else Interval.END
-        ## rval is either None, an integer, or the magical value END
-        if rval is None:
-            self.rval = None
-        else:
-            self.rval = int(rval) if rval != '-0' else Interval.END
+        # Should this be an error or should it just parse as a trivial group mode?
+        if not lval and not rval: raise GroupModeError('No indices.')
+
+        ## lval is empty: START
+        ## lval is -0:    END
+        self.lval = 0 if lval == '' else Interval.END if lval == '-0' else int(lval)
+
+        ## rval is None: (lval+1) (indicated as keeping it None)
+        ## rval is empty or -0: END
+        self.rval = None if rval is None else Interval.End if rval in ['-0', ''] else int(rval)
 
     def __str__(self):
         if self.rval is None: return '{} INDEX AT {}'.format(super().__str__(), self.lval)
@@ -610,8 +612,8 @@ row_pattern = re.compile(r'\(\s*(\d+)?\s*\)')
 #                                ^^^
 op_pattern = re.compile(r'(/|%|\\)\s*(\d+)?')
 #                          ^^^^^^     ^^^
-int_pattern = re.compile(r'#(-?\d*)(?:\.\.+(-?\d+))?')
-#                            ^^^^^          ^^^^^
+int_pattern = re.compile(r'#(-?\d*)(?:(?::|\.\.+)(-?\d*))?')
+#                            ^^^^^                ^^^^^
 cond_pattern = re.compile(r'{([^{]*)}')
 #                             ^^^^^
 
