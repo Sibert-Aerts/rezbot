@@ -531,42 +531,44 @@ class Pipeline:
             for vals, pipe in groupMode.apply(values, parsedPipes):
                 context.set(vals)
 
-                ## CASE: "None" is the group mode's way of demanding a NOP on these values.
+                ## CASE: `None` is the group mode's way of ignoring these values
                 if pipe is None:
                     newValues.extend(vals)
                     continue
 
-                ## CASE: The pipe is actually an inline pipeline
+                ## CASE: The pipe is an inline pipeline (recursion call)
                 if type(pipe) is Pipeline:
                     pipeline = pipe
                     vals, pl_printValues, pl_errors, pl_SPOUT_CALLBACKS = await pipeline.apply(vals, message, context)
                     newValues.extend(vals)
                     errors.extend(pl_errors, 'braces')
-                    # TODO: consider the life long quandry of what exactly the fuck to do with the print values of the inline pipeline.
                     SPOUT_CALLBACKS += pl_SPOUT_CALLBACKS
                     continue
 
-                ## CASE: The pipe is a regular pipe, given as a name and string of arguments.
+                ## CASE: The pipe is given as a name followed by string of arguments
                 name = pipe.name
                 args = pipe.argstr
 
                 # Evaluate sources and insert context into the arg string
                 args = await source_processor.evaluate_composite_source(args, context)
                 errors.steal(source_processor.errors, context='args for "{}"'.format(name))
-                # Handle the context-insertion's ignoring/filtering of certain values
+                # Handle context's ignoring/filtering of values depending on their use in the argstring
                 ignored, vals = context.get_ignored_filtered()
                 newValues.extend(ignored)
 
-                ### Different possible types of pipe:
+                #### Resolve the pipe's name, in order:
+
+                ## HARDCODED 'PRINT' SPOUT (TODO: GET RID OF THIS!)
                 if name == 'print':
                     newPrintValues.extend(vals)
                     newValues.extend(vals)
-                    ## buhhhhhh
                     SPOUT_CALLBACKS.append(spouts['print'](vals, args))
 
+                ## NO OPERATION
                 elif name in ['', 'nop']:
                     newValues.extend(vals)
 
+                ## A NATIVE PIPE
                 elif name in pipes:
                     try:
                         newValues.extend(pipes[name](vals, args))
@@ -574,13 +576,17 @@ class Pipeline:
                         errors('Failed to process pipe "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
                         newValues.extend(vals)
 
+                ## A SPOUT
                 elif name in spouts:
-                    newValues.extend(vals) # spouts are a NOP on the values, and instead have side-effects.
+                    # As a rule, spouts do not affect the values
+                    newValues.extend(vals)
+                    # Queue up the spout for side-effects
                     try:
                         SPOUT_CALLBACKS.append(spouts[name](vals, args))
                     except Exception as e:
                         errors('Failed to process spout "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
 
+                ## A MACRO PIPE
                 elif name in pipe_macros:
                     code = pipe_macros[name].apply_args(args)
                     ## Load the cached pipeline if we already parsed this code once before
@@ -593,9 +599,10 @@ class Pipeline:
                     newvals, macro_printValues, macro_errors, macro_SPOUT_CALLBACKS = await macro.apply(vals, message)
                     newValues.extend(newvals)
                     errors.extend(macro_errors, name)
-                    #TODO: what to do here?
+                    # TODO: what to do here?
                     SPOUT_CALLBACKS += macro_SPOUT_CALLBACKS
 
+                ## UNKNOWN NAME
                 else:
                     errors('Unknown pipe "{}".'.format(name))
                     newValues.extend(vals)
