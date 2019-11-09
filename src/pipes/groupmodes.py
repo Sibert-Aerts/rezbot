@@ -162,12 +162,16 @@ import math
 #         ｐｈｉ
 
 ## Interval grouping:
-#   >> {source} > #A..B [pipe1|pipe2|...]
-# Groups inputs from index A up to, but NOT including, index B as one group and applies them to pipe1, the other pipes are never used.
+#   >> {source} > #A:B [pipe1|pipe2|...]
+# Groups inputs from index A up to, but NOT including, index B as one group and applies them ONLY to pipe1, unless the multiply option
+# is set, then it'll apply the selected range to all pipes.
 # If the strict option is given, the items outside the selected range are thrown away, otherwise they are left in place, unaffected.
-# A and B can be negative, and follows python's negative index logic for those. (e.g. a[-1] == a[len(a)-1])
-# A and B may also use '-0' to indicate the last position in the string. (i.e. '-0' -> len(inputs))
-#   >> [alpha|beta|gamma|delta] > #1..3 convert fullwidth
+# A and B can be negative, and follows python's negative index logic. (i.e. a[-i] == a[len(a)-i])
+# A and B may also use '-0' to indicate the end of the list of inputs.
+# If A is left empty it is assumed to be 0  (i.e. :B is the same as 0:B)
+# If B is left empty it is assumed to be -0 (i.e. A: is the same as A:-0)
+# If both are left empty it gives a syntax error since it would imply a meaningless grouping.
+#   >> [alpha|beta|gamma|delta] > #1:3 convert fullwidth
 # Output: alpha
 #         ｂｅｔａ
 #         ｇａｍｍａ
@@ -175,7 +179,7 @@ import math
 
 ## Index grouping (Interval special case):
 #   >> {source} > #A [pipe1|pipe2|...]
-# Same as Interval grouping with B := A+1. (Except if B is -0 then A is -0 as well.) (This has a use case, I swear)
+# Same behaviour as Interval grouping with B := A+1. (Except if A is -0 then B also is -0)
 #   >> [alpha|beta|gamma|delta] > #2 convert fullwidth
 # Output: alpha
 #         beta
