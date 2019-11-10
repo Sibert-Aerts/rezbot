@@ -439,22 +439,25 @@ class Pipeline:
 
         return bereft, stolen
 
+    rp_regex = re.compile(r'µ(\d+)µ')
+    rq_regex = re.compile(r'§(\d+)§')
+
     def restore_parentheses(self, bereft, stolen):
-        bereft = re.sub('µ(\d+)µ', lambda m: stolen[int(m.groups()[0])], bereft)
+        bereft = self.rp_regex.sub(lambda m: stolen[int(m.group(1))], bereft)
         return bereft.replace('?µ?', 'µ')
 
     def steal_triple_quotes(self, segment):
         '''Steals all triple quoted parts from a string and puts them in a list so we can put them back later.'''
         stolen = []
         def steal(match):
-            stolen.append('"' + match.groups()[0] + '"') # TODO: turning """ into " causes undersirable consequences!
+            stolen.append('"' + match.group(1) + '"') # TODO: turning """ into " causes undersirable consequences!
             return '§' + str(len(stolen)-1) + '§'
         segment = segment.replace('§', '!§!')
         segment = re.sub(r'(?s)"""(.*?)"""', steal, segment) # (?s) means "dot matches all"
         return segment, stolen
 
     def restore_triple_quotes(self, bereft, stolen):
-        bereft = re.sub('§(\d+)§', lambda m: stolen[int(m.groups()[0])], bereft)
+        bereft = self.rq_regex.sub(lambda m: stolen[int(m.group(1))], bereft)
         return bereft.replace('!§!', '§')
 
     def parse_segment(self, segment):
@@ -482,7 +485,7 @@ class Pipeline:
             if pipe and pipe[0] == '(':
                 # TODO: This regex is dumb as tits. Somehow use the knowledge from the parentheses parsing earlier instead.
                 m = re.match(Pipeline.wrapping_brackets_regex, pipe)
-                pipeline = m.groups()[1] or m.groups()[2]
+                pipeline = m.group(2) or m.group(3)
                 # Immediately parse the inline pipeline
                 parsedPipes.append(Pipeline(pipeline))
 
