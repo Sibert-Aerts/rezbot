@@ -1,5 +1,6 @@
 import re
 import math
+from typing import List, Tuple, Optional, Any, TypeVar
 
 # Pipe grouping syntax!
 
@@ -189,42 +190,43 @@ import math
 class GroupModeError(ValueError):
     pass
 
-class GroupMode:
-    def __init__(self, multiply, strictness):
-        self.multiply = multiply
+T = TypeVar('T')
+P = TypeVar('P')
+
+class SplitMode:
+    '''An object representing a function that turns a list of item into smaller lists.'''
+    def __init__(self, strictness: int):
         self.strictness = strictness
 
     def __str__(self):
-        qualifiers = []
-        if self.strictness == 1: qualifiers.append('STRICT')
-        if self.strictness == 2: qualifiers.append('VERY STRICT')
-        if self.multiply: qualifiers.append('MULTIPLIED')
-        return ' '.join(qualifiers)
+        if self.strictness == 0: return ''
+        if self.strictness == 1: return 'STRICT '
+        if self.strictness == 2: return 'VERY STRICT '
 
     def isDefault(self):
-        '''Whether or not this GroupMode is the default groupmode DIVIDE BY 1.'''
+        '''Whether or not this SplitMode is the default groupmode DIVIDE BY 1.'''
         return False
 
-    def apply(self, values, pipes):
+    def apply(self, items: List[P]) -> List[Tuple[List[P], bool]]:
         raise NotImplementedError()
 
-class Row(GroupMode):
-    def __init__(self, multiply, strictness, size, padding):
-        super().__init__(multiply, strictness)
+class Row(SplitMode):
+    def __init__(self, strictness, size, padding):
+        super().__init__(strictness)
         if size < 1: raise GroupModeError('Row size must be at least 1.')
         self.size = size
         self.padding = padding
 
     def __str__(self):
-        return '{} ROWS SIZE {}{}'.format(super().__str__(), self.size, ' WITH PADDING' if self.padding else '')
+        return '{}ROWS SIZE {}{}'.format(super().__str__(), self.size, ' WITH PADDING' if self.padding else '')
 
-    def apply(self, values, pipes):
-        length = len(values)    # The number of items we want to split
+    def apply(self, items: List[P]) -> List[Tuple[List[P], bool]]:
+        length = len(items)     # The number of items we want to split
         size = self.size        # The size of each group (GIVEN)
         count= length //size    # The minimal number of groups we have to split it into
         rest = length % size    # The number of leftover items if we were to split into the minimal number of groups
 
-        ## Deal with the fact that our last group does not contain the number of items we wanted:
+        ## Handle the fact that our last group does not contain the number of items we wanted:
         if rest:
             ## Very strict: Raise an error
             if self.strictness == 2:
@@ -232,54 +234,45 @@ class Row(GroupMode):
             ## Strict: Throw away the last group
             elif self.strictness == 1:
                 length = count*size
-                values = values[:length]
-            ## Padding: The last group is padded out with (size-rest) empty strings.
+                items = items[:length]
+            ## Padding: The last group is padded out with (size-rest) default P's (i.e. empty strings or lists).
             elif self.padding:
-                values += [''] * (size - rest)
+                items += [ type(items[0])() ] * (size - rest)
                 count += 1
                 length = count*size
                 rest = 0
             ## Default: The last group only contains (rest) items.
             # NOTE: Padding fills up the "empty spots" from the Default behaviour.
 
-        ## Special case: Values is an empty list.
+        ## Special case: Items is an empty list.
         if length == 0:
             ## Very strict: Get angry
-            if self.strictness == 2: raise GroupModeError('No values to strictly group!')
+            if self.strictness == 2: raise GroupModeError('No items to strictly group!')
             ## Strict: Do nothing.
             if self.strictness == 1: return []
             ## Non-strict: Assume the empty list as our only group.
-            if self.multiply: return [([], pipe) for pipe in pipes]
-            else: return [([], pipes[0])]
+            return [([], False)]
 
-        out = []
+        ## Slice our input into groups of the desired size.
+        return [(items[i: i+size], False) for i in range(0, length, size)]
 
-        ## Slice our input into groups of the desired size, and assign them to successive pipes.
-        for i in range(0, length, size):
-            vals = values[i: i+size]
-            if self.multiply:
-                for pipe in pipes: out.append((vals, pipe))
-            else:
-                out.append((vals, pipes[ i//size % len(pipes) ]))
-        return out
-
-class Divide(GroupMode):
-    def __init__(self, multiply, strictness, count, padding):
-        super().__init__(multiply, strictness)
+class Divide(SplitMode):
+    def __init__(self, strictness, count, padding):
+        super().__init__(strictness)
         if count < 1: raise GroupModeError('Divide count must be at least 1.')
         self.count = count
         self.padding = padding
 
     def __str__(self):
-        return '{} DIVIDE INTO {}{}'.format(super().__str__(), self.count, ' WITH PADDING' if self.padding else '')
+        return '{}DIVIDE INTO {}{}'.format(super().__str__(), self.count, ' WITH PADDING' if self.padding else '')
 
-    def apply(self, values, pipes):
-        length = len(values)    # The number of items we want to split
+    def apply(self, items: List[P]) -> List[Tuple[List[P], bool]]:
+        length = len(items)     # The number of items we want to split
         count = self.count      # The number of groups we want to split it into (GIVEN)
         size = length //count   # The minimal size of each group
         rest = length % count   # The number of leftover items if we were to split into groups of minimal size
 
-        ## Deal with the fact that we can't split the values into equal sizes.
+        ## Deal with the fact that we can't split the items into equal sizes.
         if rest:
             ## Very strict: Raise an error
             if self.strictness == 2:
@@ -287,65 +280,57 @@ class Divide(GroupMode):
             ## Strict: Throw away the tail end to make the length fit
             elif self.strictness == 1:
                 length = size*count
-                values = values[:length]
+                items = items[:length]
                 rest = 0
             ## Padding: The last group is padded out.
             elif self.padding:
-                values += [''] * (count - rest)
+                items += [ type(items[0])() ] * (count - rest)
                 size += 1
                 length = size*count
                 rest = 0
             ## Default: The first (rest) groups contain 1 more item than the remaining (count-rest) groups.
             # NOTE: This means padding does NOT fill in the "empty spots" from the default behaviour!
             # The significance of this is negligible though since any scenario where rest>0 is probably
-            # a scenario where the specific alignment/grouping of values is meaningless, so we can just do what's easiest for us.
+            # a scenario where the specific alignment/grouping of items is meaningless, so we can just do what's easiest for us.
 
-        ## Special case: Empty list of values.
+        ## Special case: Empty list of items.
         if length == 0:
             ## Very strict: Get angry
-            if self.strictness == 2: raise GroupModeError('No values to strictly group!')
+            if self.strictness == 2: raise GroupModeError('No items to strictly group!')
             ## Strict: Do nothing.
             if self.strictness == 1: return []
-            ## Empty times applied to each pipe (count) times.
-            if self.multiply: return [([], pipe) for pipe in pipes for _ in range(count)]
-            ## Empty applied to (count) pipes once.
-            return [([], pipes[i % len(pipes)]) for i in range(count)]
+            ## Default: Split the empty list into (count) empty lists
+            return [([], False) for i in range(count)]
 
         out = []
-
-        ## Slice our inputs into the desired number of groups, and assign them to successive pipes.
+        ## Slice our inputs into the desired number of groups
         for i in range(self.count):
             # The min(rest, i) and min(rest, i+1) ensure that the first (rest) slices get 1 extra value.
             left =    i   * size + min(rest, i)
             right = (i+1) * size + min(rest, i+1)
-            vals = values[left:right]
-
-            if self.multiply:
-                for pipe in pipes: out.append((vals, pipe))
-            else:
-                out.append((vals, pipes[i % len(pipes)]))
+            out.append( (items[left:right], False) )
         return out
 
     def isDefault(self):
         return self.count == 1
 
-class Modulo(GroupMode):
-    def __init__(self, multiply, strictness, modulo, padding):
-        super().__init__(multiply, strictness)
+class Modulo(SplitMode):
+    def __init__(self, strictness, modulo, padding):
+        super().__init__(strictness)
         if modulo < 1: raise GroupModeError('Modulo value must be at least 1.')
         self.modulo = modulo
         self.padding = padding
 
     def __str__(self):
-        return '{} MODULO {}{}'.format(super().__str__(), self.modulo, ' WITH PADDING' if self.padding else '')
+        return '{}MODULO {}{}'.format(super().__str__(), self.modulo, ' WITH PADDING' if self.padding else '')
 
-    def apply(self, values, pipes):
-        length = len(values)    # The number of items we want to split
+    def apply(self, items: List[P]) -> List[Tuple[List[P], bool]]:
+        length = len(items)    # The number of items we want to split
         count = self.modulo     # The number of groups we want to split it into (GIVEN)
         size = length //count   # The minimal size of each group
         rest = length % count   # The number of leftover items if we were to split into groups of minimal size
 
-        ## Deal with the fact that we can't split the values into equal sizes.
+        ## Deal with the fact that we can't split the items into equal sizes.
         if rest:
             ## Very strict: Raise an error
             if self.strictness == 2:
@@ -353,52 +338,47 @@ class Modulo(GroupMode):
             ## Strict: Throw away the tail end to make the length fit
             elif self.strictness == 1:
                 length = size*count
-                values = values[:length]
+                items = items[:length]
                 rest = 0
             ## Padding: The last (count-rest) groups are padded out with one empty string.
             if self.padding:
-                values += [''] * (count - rest)
+                items += [ type(items[0])() ] * (count - rest)
                 size += 1
                 length = size*count
                 rest = 0
             ## Default: The first (rest) groups contain 1 item more than the others.
             # NOTE: Padding and Default behaviour are "equivalent" here.
 
-        ## Special case: Empty list of values; identical to Divide
+        ## Special case: Empty list of items; identical to Divide
         if length == 0:
-            if self.strictness == 2: raise GroupModeError('No values to strictly group!')
+            if self.strictness == 2: raise GroupModeError('No items to strictly group!')
             if self.strictness == 1: return []
-            if self.multiply: return [([], pipe) for pipe in pipes for _ in range(count)]
-            return [([], pipes[i % len(pipes)]) for i in range(count)]
+            return [([], False) for i in range(count)]
 
         out = []
+        ## Slice into groups of items whose indices are x+i where x is a multiple of (count)
         for i in range(0, count):
-            ## Slice into groups of items whose indices are x+i where x is a multiple of (count)
-            vals = [values[x+i] for x in range(0, length, count) if x+i < length]
-
-            if self.multiply:
-                for pipe in pipes: out.append((vals, pipe))
-            else:
-                out.append((vals, pipes[i % len(pipes)]))
+            vals = [items[x+i] for x in range(0, length, count) if x+i < length]
+            out.append((vals, False))
         return out
 
-class Column(GroupMode):
-    def __init__(self, multiply, strictness, size, padding):
-        super().__init__(multiply, strictness)
+class Column(SplitMode):
+    def __init__(self, strictness, size, padding):
+        super().__init__(strictness)
         if size < 1: raise GroupModeError('Column size must be at least 1.')
         self.size = size
         self.padding = padding
 
     def __str__(self):
-        return '{} COLUMNS SIZE {}{}'.format(super().__str__(), self.size, ' WITH PADDING' if self.padding else '')
+        return '{}COLUMNS SIZE {}{}'.format(super().__str__(), self.size, ' WITH PADDING' if self.padding else '')
 
-    def apply(self, values, pipes):
-        length = len(values)    # The number of items we want to split
+    def apply(self, items: List[P]) -> List[Tuple[List[P], bool]]:
+        length = len(items)     # The number of items we want to split
         size = self.size        # The size of each group (GIVEN)
         count= length //size    # The minimal number of groups we have to split it into
         rest = length % size    # The number of leftover items if we were to split into the minimal number of groups
 
-        ## Deal with the fact that we can't split the values into equal sizes.
+        ## Deal with the fact that we can't split the items into equal sizes.
         if rest:
             ## Very strict: Raise an error
             if self.strictness == 2:
@@ -406,42 +386,36 @@ class Column(GroupMode):
             ## Strict: Throw away the tail end to make the length fit
             elif self.strictness == 1:
                 length = size*count
-                values = values[:length]
+                items = items[:length]
                 rest = 0
             ## Padding: Pad out the tail so the last (size-rest) groups contain one empty string.
             if self.padding:
-                values += [''] * (size - rest)
+                items += [ type(items[0])() ] * (size - rest)
                 count += 1
                 length = size*count
                 rest = 0
             ## Default: The last (size-rest) groups contain 1 less item.
             # NOTE: Padding fills up the "empty spots" from the Default behaviour.
 
-        ## Special case: Empty list of values; identical to Row
+        ## Special case: Empty list of items; identical to Row
         if length == 0:
-            if self.strictness == 2: raise GroupModeError('No values to strictly group!')
+            if self.strictness == 2: raise GroupModeError('No items to strictly group!')
             if self.strictness == 1: return []
-            if self.multiply: return [([], pipe) for pipe in pipes]
-            else: return [([], pipes[0])]
+            else: return [([], False)]
 
         out = []
+        ## Slice into groups of items whose indices are x+i where x is a multiple of (count)
         for i in range(0, count):
-            ## Slice into groups of items whose indices are x+i where x is a multiple of (count)
-            vals = [values[x+i] for x in range(0, length, count) if x+i < length]
-
-            if self.multiply:
-                for pipe in pipes: out.append((vals, pipe))
-            else:
-                out.append((vals, pipes[i % len(pipes)]))
+            vals = [items[x+i] for x in range(0, length, count) if x+i < length]
+            out.append((vals, False))
         return out
 
-class Interval(GroupMode):
-
+class Interval(SplitMode):
     # Magic object
-    END = object()
+    END = 'END'
 
-    def __init__(self, multiply, strictness, lval, rval):
-        super().__init__(multiply, strictness)
+    def __init__(self, strictness, lval, rval):
+        super().__init__(strictness)
         # Should this be an error or should it just parse as a trivial group mode?
         if not lval and not rval: raise GroupModeError('No indices.')
 
@@ -451,17 +425,16 @@ class Interval(GroupMode):
 
         ## rval is None: (lval+1) (indicated as keeping it None)
         ## rval is empty or -0: END
-        self.rval = None if rval is None else Interval.End if rval in ['-0', ''] else int(rval)
+        self.rval = None if rval is None else Interval.END if rval in ['-0', ''] else int(rval)
 
     def __str__(self):
-        if self.rval is None: return '{} INDEX AT {}'.format(super().__str__(), self.lval)
-        return '{} INTERVAL FROM {} TO {}'.format(super().__str__(), self.lval, self.rval)
+        if self.rval is None: return '{}INDEX AT {}'.format(super().__str__(), self.lval)
+        return '{}INTERVAL FROM {} TO {}'.format(super().__str__(), self.lval, self.rval)
 
-    def apply(self, values, pipes):
-        NOP = None
-        length = len(values)
+    def apply(self, items: List[P]) -> List[Tuple[List[P], bool]]:
+        length = len(items)
 
-        if length == 0: return [(values, NOP)]
+        if length == 0: return [(items, False)]
 
         ## Determine the effective lval
         lval = self.lval if self.lval != Interval.END else length
@@ -470,9 +443,9 @@ class Interval(GroupMode):
         if self.rval is Interval.END:
             rval = length
         elif self.rval is None:
-            if self.lval == -1:             # Writing #-1 is equivalent to #-1..-0: The last element
+            if self.lval == -1:             # Writing #-1 is equivalent to #-1:-0 i.e. The last element
                 rval = length
-            elif self.lval == Interval.END: # Writing #-0 is equivalent to #-0..-0: The empty tail
+            elif self.lval is Interval.END: # Writing #-0 is equivalent to #-0:-0 i.e. The empty tail
                 rval = length
             else: rval = lval + 1
         else:
@@ -484,33 +457,63 @@ class Interval(GroupMode):
         ## Special case: If we're targeting a negative range, simply target the empty range [lval:lval]
         if rval < lval: rval = lval
 
-        if not self.multiply:
-            # TODO: emit a warning about the possible other pipes we're throwing away here
-            pairs = ( (values[lval: rval], pipes[0]), )
-        else:
-            ## Multiply: Apply our chosen interval to each of the given pipes
-            pairs = ( (values[lval: rval], pipe) for pipe in pipes )
-
-        ## Non-strict: Apply NOP to the values outside of the selected range.
+        ## Non-strict: Ignore the items outside of the selected range.
         if not self.strictness:
             return [
-                (values[0: lval], NOP),
-                *pairs,
-                (values[rval: length], NOP),
+                (items[0: lval], True),
+                (items[lval: rval], False),
+                (items[rval: length], True),
             ]
-        else:
-            ## Very strict: Get angry when our range does not exactly cover the list of values?
-            if self.strictness == 2 and (lval > 0 or rval != length):
-                raise GroupModeError('The range does not strictly fit the set of values!')
-            ## Strict: Throw away the values outside of the selected range.
-            return [*pairs]
+        ## Very strict: Get angry when our range does not exactly cover the list of items
+        elif self.strictness == 2 and (lval > 0 or rval != length):
+            raise GroupModeError('The range does not strictly fit the set of items!')
+        ## Strict: Throw away the items outside of the selected range.
+        return [(items[lval: rval], False)]
 
-class Conditional(GroupMode):
+
+class AssignMode:
+    '''An object representing a function that takes lists of items and assigns them to pipes picked from a list.'''
+    def __init__(self, multiply):
+        self.multiply = multiply
+
+    def __str__(self):
+        return 'MULTIPLY ' if self.multiply else ''
+
+    def is_trivial(self):
+        return False
+
+    def apply(self, tuples: List[Tuple[T, bool]], pipes: List[P]) -> List[Tuple[T, P]]:
+        raise NotImplementedError()
+
+class DefaultAssign(AssignMode):
+    def __init__(self, multiply):
+        self.multiply = multiply
+
+    def __str__(self): return super().__str__() + 'DEFAULT'
+
+    def is_trivial(self):
+        return not self.multiply
+
+    def apply(self, tuples: List[Tuple[T, bool]], pipes: List[P]) -> List[Tuple[T, P]]:
+        out = []
+        i = 0
+        l = len(pipes)
+        for items, ignore in tuples:
+            if ignore:
+                out.append((items, None))
+            elif self.multiply:
+                out += [(items, pipe) for pipe in pipes]
+            else:
+                out.append((items, pipes[i%l]))
+                i += 1
+        return out
+
+class Conditional(AssignMode):
 
     class Condition():
         type1 = re.compile(r'(-?\d+)\s*(!)?=\s*(-?\d+)')              # item = item
         type2 = re.compile(r'(-?\d+)\s*(!)?=\s*"([^"]*)"')            # item = "literal"
-        type3 = re.compile(r'(-?\d+)\s+(NOT )?LIKE\s+/([^/]*)/', re.I)     # item LIKE /regex/
+        type3 = re.compile(r'(-?\d+)\s+(NOT )?LIKE\s+/([^/]*)/', re.I)     # item [NOT] LIKE /regex/
         def __init__(self, cond):
             m = re.match(self.type1, cond)
             if m is not None:
@@ -557,14 +560,15 @@ class Conditional(GroupMode):
 
 
     def __init__(self, multiply, strictness, conditions):
-        super().__init__(multiply, strictness)
+        self.multiply = multiply
+        self.strictness = strictness
         # TODO: Parse these more smartly ahead of time
         self.conditions = [self.Condition(c.strip()) for c in conditions.split('|')]
 
     def __str__(self):
-        return '{} CONDITIONAL {{ {} }}'.format(super().__str__(), ' | '.join(str(c) for c in self.conditions))
+        return '{}CONDITIONAL {{ {} }}'.format(super().__str__(), ' | '.join(str(c) for c in self.conditions))
 
-    def apply(self, values, pipes):
+    def apply(self, tuples: List[Tuple[T, bool]], pipes: List[P]) -> List[Tuple[T, P]]:
         #### Sends ALL VALUES as a single group to the FIRST pipe whose corresponding condition succeeds
         ## Multiply:    Send all values to EACH pipe whose condition succeeds
         ## Non-strict:  If all conditions fail, either pass to the (n+1)th pipe or leave values unaffected if it is not present
@@ -582,30 +586,75 @@ class Conditional(GroupMode):
         overflow_pipe_given = (p == c+1)
         # c is the number of conditions, p is the number of pipes to sort it in (either c or c+1)
 
+        conditions_and_pipes = tuple(zip(self.conditions, pipes))
+
         if not self.multiply:
-            for condition, pipe in zip(self.conditions, pipes):
-                if condition.check(values): return [(values, pipe)]
-            if overflow_pipe_given:
-                return [(values, pipes[-1])]
-            elif not self.strictness:
-                return [(values, None)]
-            elif self.strictness == 1:
-                return []
-            elif self.strictness == 2:
-                print('VERY STRICT CONDITION ERROR:')
-                print('VALUES: ', values)
-                print('CONDITIONS: ' + str(self))
-                raise GroupModeError('Very strict condition error: Default case was reached!')
+            out = []
+            for values, ignore in tuples:
+                if ignore:
+                    out.append((values, None)); continue
+
+                ## Run over all the conditions to see which one hits first and go with that pipe
+                for condition, pipe in conditions_and_pipes:
+                    if condition.check(values):
+                        out.append((values, pipe)); break
+                else:
+                ## None of the conditions matched: Pick a "default" case
+                    if overflow_pipe_given:
+                        out.append((values, pipes[-1]))
+                    elif not self.strictness:
+                        out.append((values, None))
+                    elif self.strictness == 1:
+                        pass # Throw this list of values away!
+                    elif self.strictness == 2:
+                        print('VERY STRICT CONDITION ERROR:')
+                        print('VALUES: ', values)
+                        print('CONDITIONS: ' + str(self))
+                        raise GroupModeError('Very strict condition error: Default case was reached!')
+            return out
 
         else: ## Multiply
-            pairs = [ (values, pipe) for (condition, pipe) in zip(self.conditions, pipes) if condition.check(values) ]
-            if overflow_pipe_given: pairs.append( (values, pipes[-1]) )
-            return pairs
+            out = []
+            for values, ignore in tuples:
+                if ignore:
+                    out.append((values, None)); continue
+
+                out += [ (values, pipe) for (condition, pipe) in conditions_and_pipes if condition.check(values) ]
+                if overflow_pipe_given: out.append( (values, pipes[-1]) )
+            return out
+
+
+class GroupMode:
+    '''A class that combines multiple SplitModes and an AssignMode'''
+    def __init__(self, splitModes: List[SplitMode], assignMode: AssignMode):
+        self.splitModes: List[SplitMode] = splitModes
+        self.assignMode: AssignMode = assignMode
+
+    def __str__(self):
+        if self.is_trivial():
+            return 'TRIVIAL'
+        return ' > '.join(str(s) for s in self.splitModes) + ' × ' + str(self.assignMode)
+
+    def is_trivial(self):
+        return ( not self.splitModes and self.assignMode.is_trivial() )
+
+    def apply(self, all_items: List[T], pipes: List[P]) -> List[Tuple[List[T], Optional[P]]]:
+        groups: List[Tuple[List[T], bool]] = [(all_items, False)]
+        ## Apply all the SplitModes
+        for groupmode in self.splitModes:
+            newGroups = []
+            for items, ignore in groups:
+                if ignore: newGroups.append( (items, True) )
+                else: newGroups.extend( groupmode.apply(items) )
+            groups = newGroups
+        ## Apply the AssignMode
+        return self.assignMode.apply( groups, pipes )
+
 
 # pattern:
 # optionally starting with a *
 # then either:
-#   (N) or %N or \N or /N or #N or #N..M
+#   (N) or %N or \N or /N or #N or #N:M
 #   or { COND1 | COND2 | COND3 | ... }
 # followed by 0 up to 2 !'s
 
@@ -618,96 +667,104 @@ op_pattern = re.compile(r'(/|%|\\)\s*(\d+)?')
 #                          ^^^^^^     ^^^
 int_pattern = re.compile(r'#(-?\d*)(?:(?::|\.\.+)(-?\d*))?')
 #                            ^^^^^                ^^^^^
-cond_pattern = re.compile(r'{([^{]*)}')
-#                             ^^^^^
+cond_pattern = re.compile(r'{([^{]*)}\s*(!?!?)\s*')
+#                             ^^^^^      ^^^^
 
 strict_pattern = re.compile(r'\s*(!?!?)\s*')
 #                                 ^^^^
 
 op_dict = {'/': Divide, '\\': Column, '%': Modulo}
 
-def parse(bigPipe, error_log):
-    ### MULTIPLY (always matches)
+def parse(bigPipe):
+    ### HEAD MULTIPLY FLAG (for backwards compatibility)
     m = re.match(mul_pattern, bigPipe)
     multiply = (m.group(1) == '*')
     cropped = bigPipe[m.end():]
 
-    ### MODE (waiting for python 3.8 to collapse this dumb staircase)
-    success = True
-    m = re.match(row_pattern, cropped)
-    if m is not None:
-        mode = Row
-        value = m.group(1)
-    else:
-        m = re.match(op_pattern, cropped)
+    splitModes: List[SplitMode] = []
+    ### SPLITMODES (multiple consecutive ones!)
+    while(True):
+        ### MODE
+        m = re.match(row_pattern, cropped)
         if m is not None:
-            mode = op_dict[m.group(1)]
-            value = m.group(2)
+            splitMode = Row
+            value = m.group(1)
         else:
-            m = re.match(int_pattern, cropped)
+            m = re.match(op_pattern, cropped)
             if m is not None:
-                mode = Interval
-                lval, rval = m.groups()
+                splitMode = op_dict[m.group(1)]
+                value = m.group(2)
             else:
-                m = re.match(cond_pattern, cropped)
+                m = re.match(int_pattern, cropped)
                 if m is not None:
-                    mode = Conditional
-                    conditions = m.group(1)
+                    splitMode = Interval
+                    lval, rval = m.groups()
                 else:
-                    success = False
+                    ## No (more) SplitMode found; Stop the loop!
+                    break
 
-    if success:
         ## One of the three regexes matched
         flag = m.group()
         cropped = cropped[m.end():]
-    else:
-        ## No regex matched; No explicit group mode given
-        # DEFAULT BEHAVIOUR: DIVIDE BY 1
-        mode, value = Divide, '1'
 
-    ### STRICTNESS (always matches)
-    m = re.match(strict_pattern, cropped)
-    # Strictness is given by the number of exclamation marks
-    strictness = len(m.group(1))
+        ### STRICTNESS (always matches)
+        m = re.match(strict_pattern, cropped)
+        # Strictness is given by the number of exclamation marks
+        strictness = len(m.group(1))
+        cropped = cropped[m.end():]
+
+        ## Instantiate our SplitMode (this can raise GroupModeErrors)
+        try:
+            if splitMode in [Row, Column, Divide, Modulo]:
+                if value is None: raise GroupModeError('Missing number.')
+                padding = (value[0]=='0')
+                value = int(value)
+                splitMode = splitMode(strictness, value, padding)
+
+            elif splitMode is Interval:
+                splitMode = Interval(strictness, lval, rval)
+
+        except GroupModeError as e:
+            raise GroupModeError( 'In split mode `%s`: %s' % (flag, e) )
+
+        splitModes.append(splitMode)
+
+    ### ASSIGNMODE MULTIPLY FLAG (preferred syntax)
+    m = re.match(mul_pattern, cropped)
+    multiply |= (m.group(1) == '*')
     cropped = cropped[m.end():]
 
-    try:
-        if mode in [Row, Column, Divide, Modulo]:
-            if value is None: raise GroupModeError('Missing number.')
-            padding = (value[0]=='0')
-            value = int(value)
-            mode = mode(multiply, strictness, value, padding)
+    ### ASSIGNMODE
+    m = re.match(cond_pattern, cropped)
+    if m is not None:
+        assignMode = Conditional(multiply, len(m.group(2)) ,m.group(1))
+        cropped = cropped[m.end():]
+    else:
+        assignMode = DefaultAssign(multiply)
 
-        elif mode is Interval:
-            mode = Interval(multiply, strictness, lval, rval)
+    ### GROUPMODE
+    groupMode = GroupMode(splitModes, assignMode)
+    print(groupMode)
+    return cropped, groupMode
 
-        elif mode is Conditional:
-            mode = Conditional(multiply, strictness, conditions)
 
-        return cropped, mode
-
-    except GroupModeError as e:
-        print('Group mode warning: ' + str(e))
-        error_log('Group mode: "{}": {}'.format(flag.strip(), e))
-        return cropped, Divide(False, 0, 1, False)
-
-# Tests! 
+# Tests!
 if __name__ == '__main__':
     tests = ['foo', '* foo', '10', '%4', '(20)', '/10', '#7', '#14..20', '/',
         '()', '(0)', '#', '*% 2', '*(07)', '/010', '(', '(8', '#0..2!', '\\7', '\\0',
         '\\1!', '\\1!!', '(2)!!', '*!', '!!']
     tests2 = ['{0=1}', '{0="foo"}!', '{0="yes"|0 != "no" | 1 LIKE /foo/ | 2 NOT LIKE /bar/ }']
     print('TESTS:')
-    for test in tests2:
+    for test in tests:
         try:
-            out, mode = parse(test, lambda x:x)
+            out, mode = parse(test)
             print(test + ((' → "' + out + '"') if out else '') + ' : ' + str(mode))
         except Exception as e:
             print(test + ' : ' + 'ERROR! ' + str(e))
         print()
 
     print()
-    _, mode = parse('{ 0 = "bar" | 0 = "foo" }', lambda x:x)
+    _, mode = parse('{ 0 = "bar" | 0 = "foo" }')
     print( mode )
     print( mode.apply( ['bar'] , ['one', 'two', 'three'] ) )
     print( mode.apply( ['bar'] , ['one', 'two'] ) )
@@ -716,7 +773,7 @@ if __name__ == '__main__':
     print( mode.apply( ['xyz'] , ['one', 'two'] ) )
 
     print()
-    _, mode = parse('{ 0 = 1 }', lambda x:x)
+    _, mode = parse('{ 0 = 1 }')
     print( mode )
     print( mode.apply( ['bar', 'xyz'] , ['one', 'two'] ) )
     print( mode.apply( ['bar', 'bar'] , ['one', 'two'] ) )

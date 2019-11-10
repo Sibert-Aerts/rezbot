@@ -106,6 +106,7 @@ class Context:
     empty_item_regex = re.compile(r'{(\^*)(!?)}')
     #                                 ^^^  ^^
 
+    @staticmethod
     def preprocess(string):
         '''
         Replaces empty {}'s with explicitly numbered {}'s
@@ -321,14 +322,16 @@ class Pipeline:
         ### For each segment, parse the group mode and expand the parallel pipes.
         self.parsed_segments = []
         for segment in segments:
-            segment, groupMode = groupmodes.parse(segment, self.parser_errors)
+            # TODO: A GroupModeError here breaks execution,
+            # but we could continue parsing to get ALL possible groupmode errors before breaking execution
+            segment, groupMode = groupmodes.parse(segment)
             parallel = self.parse_segment(segment)
             self.parsed_segments.append( (groupMode, parallel) )
 
         ### That's as far as I'm willing to parse/pre-compile a pipeline before execution right now, but there is absolutely room for improvement.
 
         # NOTE: The only errors that are logged in this entire function are in groupmodes.parse,
-        # and they are nonterminal, simply warning that the default groupmode was used instead of their invalid one.
+        # which raise terminal errors that prevent the script from ever executing.
         # The other two methods (split and parse_segment) are VERY naive and VERY lenient:
         #   They take no effort to check if any of what they're parsing is even remotely well-formed or executable.
         #   If they do notice that something is wrong (e.g. unclosed quotes or parentheses) they simply ignore it.
@@ -521,7 +524,7 @@ class Pipeline:
             newPrintValues = []
 
             # GroupModes other than the default one add their own layer of context!
-            if not groupMode.isDefault():
+            if not groupMode.is_trivial():
                 context.set(values)
                 context = Context(context)
 
@@ -674,6 +677,7 @@ class PipelineProcessor:
         output = texttools.block_format('\n'.join(rows))
         await dest.send(output)
 
+    @staticmethod
     def split(script):
         '''Splits a script into the source and pipeline.'''
         # So here's the deal:
