@@ -1,4 +1,5 @@
 import emoji
+import re
 import random
 import asyncio
 from datetime import datetime, timezone, timedelta
@@ -162,6 +163,8 @@ def _members_get_what(members, what):
         return [str(member.id) for member in members]
     elif what == 'avatar':
         return [str(member.avatar_url) for member in members]
+    # elif what == 'activity':
+    #     return [str(member.activities[0]) if member.activities else '' for member in members]
 
 @make_source({
     'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), options=MEMBER_WHAT_OPTIONS, multi_options=True)
@@ -240,10 +243,13 @@ async def server_source(message, what):
 
 @make_source({
     'n': Sig(int, 1, 'The number of emojis'),
+    'name': Sig(str, None, 'The name of the emoji if you want a specific one.', required=False),
 }, pass_message=True)
-async def custom_emoji_source(message, n):
+async def custom_emoji_source(message, n, name):
     '''The server's custom emojis.'''
     emojis = message.guild.emojis
+    if name:
+        emojis = [e for e in emojis if e.name == name]    
     emojis = random.sample( emojis, min(n, len(emojis)) )
     return [ str(emoji) for emoji in emojis ]
 
