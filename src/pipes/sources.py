@@ -70,7 +70,7 @@ def make_source(signature, pass_message=False, command=False):
 # Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.
 class SourceResources:
     previous_pipeline_output = []
-    var_dict = {'TEST': ['testing', '1', '2', 'three!']}
+    var_dict = {}
     bot = None
 
 
