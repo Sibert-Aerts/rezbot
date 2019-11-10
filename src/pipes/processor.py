@@ -122,12 +122,12 @@ class Context:
             raise ContextError('Do not mix empty {}\'s with numbered {}\'s in the format string "%s".' % string)
 
         def f(m):
-            carrots = m.group(1)
+            carrots = m[1]
             if carrots not in f.i:
                 f.i[carrots] = 0
             else:
                 f.i[carrots] += 1
-            return '{%s%d%s}' % (carrots, f.i[carrots], m.group(2))
+            return '{%s%d%s}' % (carrots, f.i[carrots], m[2])
         f.i = {}
 
         return Context.empty_item_regex.sub(f, string)
@@ -443,21 +443,21 @@ class Pipeline:
     rq_regex = re.compile(r'§(\d+)§')
 
     def restore_parentheses(self, bereft, stolen):
-        bereft = self.rp_regex.sub(lambda m: stolen[int(m.group(1))], bereft)
+        bereft = self.rp_regex.sub(lambda m: stolen[int(m[1])], bereft)
         return bereft.replace('?µ?', 'µ')
 
     def steal_triple_quotes(self, segment):
         '''Steals all triple quoted parts from a string and puts them in a list so we can put them back later.'''
         stolen = []
         def steal(match):
-            stolen.append('"' + match.group(1) + '"') # TODO: turning """ into " causes undersirable consequences!
+            stolen.append('"' + match[1] + '"') # TODO: turning """ into " causes undersirable consequences!
             return '§' + str(len(stolen)-1) + '§'
         segment = segment.replace('§', '!§!')
         segment = re.sub(r'(?s)"""(.*?)"""', steal, segment) # (?s) means "dot matches all"
         return segment, stolen
 
     def restore_triple_quotes(self, bereft, stolen):
-        bereft = self.rq_regex.sub(lambda m: stolen[int(m.group(1))], bereft)
+        bereft = self.rq_regex.sub(lambda m: stolen[int(m[1])], bereft)
         return bereft.replace('!§!', '§')
 
     def parse_segment(self, segment):
@@ -485,7 +485,7 @@ class Pipeline:
             if pipe and pipe[0] == '(':
                 # TODO: This regex is dumb as tits. Somehow use the knowledge from the parentheses parsing earlier instead.
                 m = re.match(Pipeline.wrapping_brackets_regex, pipe)
-                pipeline = m.group(2) or m.group(3)
+                pipeline = m[2] or m[3]
                 # Immediately parse the inline pipeline
                 parsedPipes.append(Pipeline(pipeline))
 

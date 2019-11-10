@@ -677,25 +677,25 @@ op_dict = {'/': Divide, '\\': Column, '%': Modulo}
 
 def parse(bigPipe):
     ### HEAD MULTIPLY FLAG (for backwards compatibility)
-    m = re.match(mul_pattern, bigPipe)
-    multiply = (m.group(1) == '*')
+    m = mul_pattern.match(bigPipe)
+    multiply = (m[1] == '*')
     cropped = bigPipe[m.end():]
 
     splitModes: List[SplitMode] = []
     ### SPLITMODES (multiple consecutive ones!)
     while(True):
         ### MODE
-        m = re.match(row_pattern, cropped)
+        m = row_pattern.match(cropped)
         if m is not None:
             splitMode = Row
-            value = m.group(1)
+            value = m[1]
         else:
-            m = re.match(op_pattern, cropped)
+            m = op_pattern.match(cropped)
             if m is not None:
-                splitMode = op_dict[m.group(1)]
-                value = m.group(2)
+                splitMode = op_dict[m[1]]
+                value = m[2]
             else:
-                m = re.match(int_pattern, cropped)
+                m = int_pattern.match(cropped)
                 if m is not None:
                     splitMode = Interval
                     lval, rval = m.groups()
@@ -708,7 +708,7 @@ def parse(bigPipe):
         cropped = cropped[m.end():]
 
         ### STRICTNESS (always matches)
-        m = re.match(strict_pattern, cropped)
+        m = strict_pattern.match(cropped)
         # Strictness is given by the number of exclamation marks
         strictness = len(m.group(1))
         cropped = cropped[m.end():]
@@ -730,21 +730,20 @@ def parse(bigPipe):
         splitModes.append(splitMode)
 
     ### ASSIGNMODE MULTIPLY FLAG (preferred syntax)
-    m = re.match(mul_pattern, cropped)
-    multiply |= (m.group(1) == '*')
+    m = mul_pattern.match(cropped)
+    multiply |= (m[1] == '*')
     cropped = cropped[m.end():]
 
     ### ASSIGNMODE
-    m = re.match(cond_pattern, cropped)
+    m = cond_pattern.match(cropped)
     if m is not None:
-        assignMode = Conditional(multiply, len(m.group(2)) ,m.group(1))
+        assignMode = Conditional(multiply, len(m[2]) ,m[1])
         cropped = cropped[m.end():]
     else:
         assignMode = DefaultAssign(multiply)
 
     ### GROUPMODE
     groupMode = GroupMode(splitModes, assignMode)
-    print(groupMode)
     return cropped, groupMode
 
 
