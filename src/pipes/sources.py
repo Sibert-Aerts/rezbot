@@ -249,7 +249,7 @@ async def custom_emoji_source(message, n, name):
     '''The server's custom emojis.'''
     emojis = message.guild.emojis
     if name:
-        emojis = [e for e in emojis if e.name == name]    
+        emojis = [e for e in emojis if e.name == name]
     emojis = random.sample( emojis, min(n, len(emojis)) )
     return [ str(emoji) for emoji in emojis ]
 
