@@ -56,7 +56,7 @@ async def embed_spout(bot, message, values, title, color, footer):
 })
 async def tweet_spout(bot, message, values, name, handle, icon, retweets, likes):
     '''Outputs text as a fake embedded tweet.'''
-    e = Embed(description='\n'.join(values), color=0x202225)
+    e = Embed(description='\n'.join(values), color=0x1da1f2)
     e.set_author(name='{} (@{})'.format(name, handle), url='https://twitter.com/'+handle, icon_url=icon)
     e.set_footer(text='Twitter', icon_url='https://abs.twimg.com/icons/apple-touch-icon-192x192.png')
     if retweets: e.add_field(name='Retweets', value=retweets)
