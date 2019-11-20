@@ -7,6 +7,8 @@ from .signature import Sig
 from .pipe import Spout, Pipes
 from .sources import SourceResources
 from .events import events
+from resource.upload import uploads
+from utils.util import parse_bool
 
 
 spouts = Pipes()
@@ -101,6 +103,28 @@ async def suppress_print_spout(bot, message, values):
 async def set_spout(bot, message, values, name):
     '''Stores the input as a variable with the given name, which can be retreived with {get (name)}.'''
     SourceResources.var_dict[name] = values
+
+
+
+@make_spout({
+    'name' : Sig(str, None, 'The new file\'s name'),
+    'sequential': Sig(parse_bool, True, 'Whether the order of entries matters when retrieving them from the file later.'),
+    'sentences': Sig(parse_bool, False, 'Whether the entries should be split based on sentence recognition instead of a splitter regex.')
+}, command=True)
+async def new_file_spout(bot, message, values, name, sequential, sentences):
+    '''Writes the input to a new txt file.'''
+    # Files are stored as raw txt's, but we want to make sure our list of strings remain distinguishable.
+    # So we join the list of strings by a joiner that we determine for sure is NOT a substring of any of the strings,
+    # so that if we split on the joiner later we get the original list of strings.
+    if not sentences:
+        joiner = '\n'
+        while any(joiner in value for value in values):
+            joiner += '&'
+        if len(joiner) > 1: joiner += '\n'
+    else:
+        joiner = '\n'
+
+    uploads.add_file(name, joiner.join(values), message.author.display_name, message.author.id, splitter=joiner, sequential=sequential, sentences=sentences)
 
 
 @make_spout({})

@@ -1,8 +1,10 @@
 import aiohttp
 import discord
 from discord.ext import commands
-from resource.upload import uploads
+
+import permissions
 from mycommands import MyCommands
+from resource.upload import uploads
 import utils.texttools as texttools
 from utils.util import parse_bool
 
@@ -14,23 +16,27 @@ class UploadCommands(MyCommands):
     @commands.command()
     async def upload(self, ctx):
         '''Upload a txt file for the bot to use.'''
-        if not ctx.message.attachments:
-            await ctx.send('Please attach a txt file with your message.'); return
-
         # Are there ever more than 1 attachments?
-        attached = ctx.message.attachments[0]
-        print(attached)
+        attached = ctx.message.attachments
+        if len(attached) != 1:
+            await ctx.send('Please attach exactly one txt file with your message.'); return
 
-        async with aiohttp.ClientSession() as session:
-            async with session.get(attached.url) as response:
-                text = await response.text()
+        attached = attached[0]
+
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(attached.url) as response:
+                    text = await response.text()
+        except:
+            await ctx.send('Failed to parse text contents of file... make sure you upload a txt file.')
 
         author = ctx.author
 
-        file = uploads.add_file(attached.filename, text, author.name, author.id)
-
-        await ctx.send('File received! Saved %d lines as `%s`' % (len(file.lines), file.info.name))
-
+        try:
+            file = uploads.add_file(attached.filename, text, author.name, author.id)
+            await ctx.send('File received! Saved %d lines as `%s`' % (len(file.lines), file.info.name))
+        except Exception as e:
+            await ctx.send('Failed to add file! {}'.format(e))
 
     @commands.command()
     async def download(self, ctx, file):
@@ -45,26 +51,27 @@ class UploadCommands(MyCommands):
     @commands.command(aliases=['file', 'uploads'])
     async def files(self, ctx, file=''):
         '''List all uploaded txt files, or show the contents of a specific file.'''
+
+        #### Print a list of all files
         if file == '':
-            #### Print a list of all files
-            text = 'Files: ' + ', '.join(f for f in uploads) + '\n'
+            text = '**Files:** `' + '`, `'.join(f for f in uploads) + '`\n'
             text += 'For more details on a specific file, use >file [name]'
             await ctx.send(text)
             return
 
+        #### Print info on the specific file
         if file not in uploads:
             await ctx.send('No file by name `%s` found!' % file); return
-
-        #### Print info on the specific file
         file = uploads[file]
         info = file.info
         lines = file.get()
 
         # TODO: make this a little File.embed() ?
-        text = '**File:** ' + info.name + '\n'
-        text += '**Uploader:** ' + info.author_name + '\n'
+        text = '**File:** ' + info.name
+        text += ', **Uploader:** ' + info.author_name + '\n'
         text += '**Order:** ' + ('Sequential' if info.sequential else 'Random')
-        text += ', **Split on:** ' + (('`' + repr(info.splitter)[1:-1] + '`') if not info.sentences else 'Sentences') + '\n'
+        text += ', **Split on:** ' + (('`' + repr(info.splitter)[1:-1] + '`') if not info.sentences else 'Sentences')
+        text += ', **Entries:** ' + str(len(lines)) + '\n'
 
         MAXLINES = 8
         MAXCHARS = 600
@@ -83,7 +90,7 @@ class UploadCommands(MyCommands):
                 print_lines[MAXLINES:] = []
                 print_lines.append('...%d more lines omitted' % (len(lines) - len(print_lines)))
                 break
-        
+
         text += texttools.block_format('\n'.join(print_lines))
         await ctx.send(text)
 
@@ -97,7 +104,7 @@ class UploadCommands(MyCommands):
     async def file_set(self, ctx, file, attribute, value):
         '''
         Set an attribute of an uploaded file.
-        
+
         Available attributes:
         name: How the file is addressed.
         splitter: The regex that determines how the file is split into lines.
@@ -140,6 +147,19 @@ class UploadCommands(MyCommands):
         file.info.write()
         await ctx.send('Changed {} from `{}` to `{}`!'.format(attribute, str(oldVal), str(value)))
 
+    @commands.command(aliases=['file_delete'])
+    async def delete_file(self, ctx, filename):
+        ''' Delete an uploaded file. Can only be done by owners of the bot or the file. '''
+
+        if filename not in uploads:
+            await ctx.send('No file by name `%s` found!' % filename); return
+        file = uploads[filename]
+
+        if permissions.has(ctx.author.id, permissions.owner) or ctx.author.id == file.info.author_id:
+            uploads.delete_file(filename)
+            await ctx.send('File `%s` successfully deleted.' % file.info.name)
+        else:
+            await ctx.send('Files can only be deleted by bot owners or the owner of the file.')
 
 
 # Commands cog

@@ -14,16 +14,18 @@ def searchify(text):
 
 
 class FileInfo:
-    '''Metadata class for a File, doesn't store any actual data.'''
-    def __init__(self, name, author_name, author_id, sequential=False, sentences=False, splitter='\n+'):
+    '''Metadata class for a File, these are pickled, and don't store any actual data.'''
+    def __init__(self, name, author_name, author_id, sequential=True, sentences=False, splitter=None):
+        # File metadata:
         self.version = 1
         self.name = name
         self.author_name = author_name
         self.author_id = author_id
 
+        # Content metadata:
         self.sequential = sequential
         self.sentences = sentences
-        self.splitter = splitter
+        self.splitter = splitter or '\n+'
 
         # Making some assumptions here that these are available filenames
         self.pickle_file = name + '.p'
@@ -32,7 +34,13 @@ class FileInfo:
         self.markov_file = None
 
     def write(self):
+        # Write contents to a pickle file so that we can find all this info again next boot
         pickle.dump(self, open(DIR(self.pickle_file), 'wb+'))
+
+    def delete(self):
+        # Remove the pickle file, the raw file, and all created files
+        for file in [self.pickle_file, self.raw_file, self.sentences_file, self.markov_file]:
+            if file: os.remove(DIR(file))
 
     def __repr__(self):
         return '\n'.join(str(x) for x in [self.name, self.author_name, self.author_id, self.raw_file, self.sentences_file, self.markov_file])
@@ -48,14 +56,18 @@ class File:
         self.search_sentences = None
         self.markov_model = None
 
-    def new(name, author_name, author_id, raw):
+    @staticmethod
+    def new(name, author_name, author_id, raw, **kwargs):
         '''Constructor used when a file is uploaded.'''
-        info = FileInfo(name, author_name, author_id)
+        info = FileInfo(name, author_name, author_id, **kwargs)
         info.write()
         file = File(info)
         file.process_raw(raw)
         file.write_raw(raw)
         return file
+
+    def delete(self):
+        self.info.delete()
 
     def get_raw_path(self):
         return DIR(self.info.raw_file)
@@ -197,6 +209,7 @@ class Files:
     def __init__(self):
         self.files = {}
 
+        ## Load pickled FileInfo files from the /files directory
         for filename in os.listdir(DIR()):
             if filename[-2:] != '.p':
                 continue
@@ -205,28 +218,37 @@ class Files:
 
         print('%d uploaded files found!' % len(self.files))
 
-    def _clean_name(name):
+    @staticmethod
+    def clean_name(name):
         return name[:-4] if name[-4:]=='.txt' else name
 
-    def add_file(self, filename, content, author_name, author_id):
-        name = Files._clean_name(filename)
-        file = self.files[name] = File.new(name, author_name, author_id, content)
+    def add_file(self, filename, content, author_name, author_id, **kwargs):
+        name = Files.clean_name(filename)
+        if name in self.files:
+            raise ValueError('A file called `{}` already exists!'.format(name))
+
+        file = self.files[name] = File.new(name, author_name, author_id, content, **kwargs)
         return file
 
+    def delete_file(self, filename):
+        '''Delete a file from disk.'''
+        self.files[filename].delete()
+        del self.files[filename]
+
     def __contains__(self, name):
-        return (Files._clean_name(name) in self.files)
+        return (Files.clean_name(name) in self.files)
 
     def __iter__(self):
-        return (n for n in self.files)
+        return self.files.__iter__()
 
     def __getitem__(self, name):
-        return self.files[Files._clean_name(name)]
+        return self.files[Files.clean_name(name)]
 
     def __setitem__(self, name, value):
-        self.files[Files._clean_name(name)] = value
+        self.files[Files.clean_name(name)] = value
 
     def __delitem__(self, name):
-        del self.files[Files._clean_name(name)]
+        del self.files[Files.clean_name(name)]
 
 
 uploads = Files()
