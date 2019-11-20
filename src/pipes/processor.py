@@ -191,7 +191,7 @@ class SourceProcessor:
         '''Checks whether a string matches the exact format "{[n] source [args]}", AKA "pure".'''
         return re.match(SourceProcessor.source_match_regex, source)
 
-    async def evaluate_parsed_source(self, name, args, n):
+    async def evaluate_parsed_source(self, name, args, n=None):
         '''Given the exact name, arguments and (n) of a source, evaluates it.'''
         # Try with AND without ending 's', hoping one of them is a known name!
         # So whether you write 'word' OR 'words',
@@ -607,6 +607,16 @@ class Pipeline:
                     errors.extend(macro_errors, name)
                     # TODO: what to do here?
                     SPOUT_CALLBACKS += macro_SPOUT_CALLBACKS
+
+                ## A SOURCE
+                elif name in sources or name in source_macros:
+                    # TODO: Check both singular and plural forms of name!!!!!!!
+                    newVals = await source_processor.evaluate_parsed_source(name, args)
+                    errors.steal(source_processor.errors, context='source-as-pipe')
+                    if newVals is not None:
+                        newValues.extend(newVals)
+                    else:
+                        newValues.extend(vals)
 
                 ## UNKNOWN NAME
                 else:

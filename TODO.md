@@ -23,7 +23,6 @@
         * {me foofaff} gives no warnings even though "foofaff" is completely unnecessary (meditate on this)
 
     * **Sources:**
-        * Youtube source
         * Recursively parse sources!
             e.g. {source1 arg={source2}} should work always
 
@@ -33,7 +32,6 @@
     * **Uploaded files:**
         * "Append to file" pipe (+ make new file if file doesn't exist yet)
         * "replace specified line" pipe
-        * download file command
 
     * Option to easily turn macros into commands
     * Namespaces/Categories for macros/events/etc, e.g: funny.item or random.word or whatever....
@@ -59,7 +57,6 @@
 
     * **GROUP MODES:**
         * #a..b;c..d;e..f [pipe1|pipe2|pipe3]           should work as is obvious
-        * *#a..b [pipe1|pipe2]              should work as          #a..b ( *[pipe1|pipe2] )
         * (1;2;3) [pipe1|pipe2|pipe3]       should kinda work as    (6) (#0..1;1..3;3..6 [pipe1|pipe2|pipe3])
         * (same for others???)
 

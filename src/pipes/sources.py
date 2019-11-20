@@ -479,10 +479,13 @@ async def timestamp_source(utc):
     'pattern': Sig(str, '', 'The pattern to look for (regex)'),
     'n'      : Sig(int, 1,  'The number of sampled words.')
 })
-async def words_source(pattern, n):
+async def word_source(pattern, n):
     '''Random dictionary words, optionally matching a pattern.'''
-    if pattern != '':
-        pattern = re.compile(pattern)
+    if pattern:
+        try:
+            pattern = re.compile(pattern)
+        except:
+            raise ValueError('Invalid regex pattern: `%s`' % pattern)
         items = [w for w in allWords if pattern.search(w) is not None]
     else:
         items = allWords
