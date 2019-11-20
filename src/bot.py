@@ -27,10 +27,14 @@ pipeProcessor = PipelineProcessor(bot, pipe_prefix)
 
 @bot.event
 async def on_ready():
-    print('\n')
-    print('Username:', bot.user.name)
-    print('ID:', bot.user.id)
-    print('\n')
+    print()
+    print('---------------- BOT READY ----------------')
+    print(' Username:', bot.user.name)
+    print(' ID:', bot.user.id)
+    print(' Servers:', ', '.join(g.name for g in bot.guilds) )
+    print(' Running discord.py %s' % discord.__version__)
+    print('-------------------------------------------')
+    print()
 
 
 @bot.event
