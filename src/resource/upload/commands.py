@@ -29,6 +29,7 @@ class UploadCommands(MyCommands):
                     text = await response.text()
         except:
             await ctx.send('Failed to parse text contents of file... make sure you upload a txt file.')
+            return
 
         author = ctx.author
 
