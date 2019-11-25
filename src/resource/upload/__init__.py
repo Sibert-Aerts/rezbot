@@ -200,9 +200,9 @@ class File:
     def get_markov_lines(self, count=1, length=0):
         model = self.get_markov_model()
         if length == 0:
-            return [model.make_sentence(tries=20) or '' for _ in range(count)]
+            return [model.make_sentence(tries=20) or model.make_sentence(test_output=False) for _ in range(count)]
         else:
-            return [model.make_short_sentence(length, tries=20) or '' for _ in range(count)]
+            return [model.make_short_sentence(length, tries=20) or model.make_sentence(length, test_output=False) for _ in range(count)]
 
 
 class Files:
