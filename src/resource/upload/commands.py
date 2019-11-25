@@ -26,9 +26,10 @@ class UploadCommands(MyCommands):
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(attached.url) as response:
-                    text = await response.text()
-        except:
+                    text = await response.text(encoding='utf-8')
+        except Exception as e:
             await ctx.send('Failed to parse text contents of file... make sure you upload a txt file.')
+            print(e)
             return
 
         author = ctx.author
