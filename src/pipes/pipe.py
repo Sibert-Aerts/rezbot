@@ -43,9 +43,10 @@ class Pipe:
 
 
 class Source(Pipe):
-    def __init__(self, signature, function, category, pass_message=False):
+    def __init__(self, signature, function, category, pass_message=False, plural=None):
         self.pass_message = pass_message
         super().__init__(signature, function, category)
+        self.plural = plural.lower() or self.name + 's'
 
     def __call__(self, message, argstr, n=None):
         _, args = parse_args(self.signature, argstr)
@@ -103,3 +104,21 @@ class Pipes:
 
     def __iter__(self):
         return (i for i in self.pipes)
+
+class Sources(Pipes):
+    '''Pipes except sources can be addressed as either singular or plural'''
+    def __init__(self):
+        super().__init__()
+        self.plurals = {}
+
+    def __getitem__(self, name):
+        if name in self.pipes:
+            return self.pipes[name]
+        return self.plurals[name]
+
+    def add(self, source):
+        super().add(source)
+        self.plurals[source.plural] = source
+
+    def __contains__(self, name):
+        return (name in self.pipes) or (name in self.plurals)

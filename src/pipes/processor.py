@@ -193,38 +193,32 @@ class SourceProcessor:
 
     async def evaluate_parsed_source(self, name, args, n=None):
         '''Given the exact name, arguments and (n) of a source, evaluates it.'''
-        # Try with AND without ending 's', hoping one of them is a known name!
-        # So whether you write 'word' OR 'words',
-        # It'll try to looking for sources named 'word' AND 'words'
-        names = [name+'s', name] if name[-1] != 's' else [name[:-1], name]
+        if name in sources:
+            ###### This is the SINGLE spot where a source is called during execution of pipelines
+            try:
+                return await sources[name](self.message, args, n=n)
+            except Exception as e:
+                self.errors('Failed to evaluate source "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
+                return None
 
-        for name in names:
-            if name in sources:
-                ###### This is the SINGLE spot where a source is called during execution of pipelines
-                try:
-                    return await sources[name](self.message, args, n=n)
-                except Exception as e:
-                    self.errors('Failed to evaluate source "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
-                    return None
-
-            elif name in source_macros:
-                code = source_macros[name].apply_args(args)
-                # Dressed-down version of PipelineProcessor.execute_script:
-                source, pipeline = PipelineProcessor.split(code)
-                ## STEP 1
-                source_processor = SourceProcessor(self.message)
-                values = await source_processor.evaluate(source)
-                errors = source_processor.errors
-                ## STEP 2
-                # TODO: REUSE: Pull these bits of parsing up or summat
-                pipeline = Pipeline(pipeline)
-                ## STEP 3
-                values, _, pl_errors, _ = await pipeline.apply(values, self.message)
-                errors.extend(pl_errors)
-                # TODO: Ability to reuse a script N amount of times easily?
-                # Right now we just ignore the N argument....
-                self.errors.extend(errors, name)
-                return values
+        elif name in source_macros:
+            code = source_macros[name].apply_args(args)
+            # Dressed-down version of PipelineProcessor.execute_script:
+            source, pipeline = PipelineProcessor.split(code)
+            ## STEP 1
+            source_processor = SourceProcessor(self.message)
+            values = await source_processor.evaluate(source)
+            errors = source_processor.errors
+            ## STEP 2
+            # TODO: REUSE: Pull these bits of parsing up or summat
+            pipeline = Pipeline(pipeline)
+            ## STEP 3
+            values, _, pl_errors, _ = await pipeline.apply(values, self.message)
+            errors.extend(pl_errors)
+            # TODO: Ability to reuse a script N amount of times easily?
+            # Right now we just ignore the N argument....
+            self.errors.extend(errors, name)
+            return values
 
         self.errors('Unknown source "{}".'.format(name))
         return None

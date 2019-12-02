@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 from functools import wraps
 
 from .signature import Sig
-from .pipe import Source, Pipes
+from .pipe import Source, Sources
 
 from utils.texttools import *
 from utils.rand import *
@@ -53,15 +53,15 @@ def get_which(get_what):
         return [x for y in zip(*w) for x in y]
     return f
 
-sources = Pipes()
+sources = Sources()
 sources.command_sources = []
 _CATEGORY = 'NONE'
 
-def make_source(signature, pass_message=False, command=False):
+def make_source(signature, *, pass_message=False, command=False, plural=None):
     '''Makes a source out of a function'''
     def _make_source(func):
         global sources, _CATEGORY
-        source = Source(signature, func, _CATEGORY, pass_message)
+        source = Source(signature, func, _CATEGORY, pass_message, plural)
         sources.add(source)
         if command:
             sources.command_sources.append(source)
@@ -100,7 +100,7 @@ def _messages_get_what(messages, what):
         return [str(msg.author.id) for msg in messages]
 
 
-@make_source({}, pass_message=True)
+@make_source({}, pass_message=True, plural='those')
 async def that_source(message):
     '''The previous message in the channel.'''
     msg = ( await message.channel.history(limit=2).flatten() )[1]
@@ -391,7 +391,7 @@ async def dril_source(q, n):
     'N'     : Sig(int, 1, 'NUMBER OF COMICS TO LOAD LINES FROM.', lambda x: x>0),
     'LINES' : Sig(int, 1, 'NUMBER OF LINES PER COMIC (0 FOR ALL LINES).'),
     'NAMES' : Sig(util.parse_bool, False, 'WHETHER OR NOT DIALOG ATTRIBUTIONS ("spigot: ") ARE KEPT')
-})
+}, plural='JERKCITIES')
 async def JERKCITY_source(COMIC, Q, N, LINES, NAMES):
     ''' JERKCITY COMIC DIALOG '''
     ISSUES = []
