@@ -46,7 +46,7 @@ class Source(Pipe):
     def __init__(self, signature, function, category, pass_message=False, plural=None):
         self.pass_message = pass_message
         super().__init__(signature, function, category)
-        self.plural = plural.lower() if plural or self.name + 's'
+        self.plural = plural.lower() if plural else self.name + 's'
 
     def __call__(self, message, argstr, n=None):
         _, args = parse_args(self.signature, argstr)
