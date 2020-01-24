@@ -43,14 +43,21 @@ class Pipe:
 
 
 class Source(Pipe):
-    def __init__(self, signature, function, category, pass_message=False, plural=None):
-        self.pass_message = pass_message
+    def __init__(self, signature, function, category, *, pass_message=False, plural=None, depletable=False):
         super().__init__(signature, function, category)
+        self.pass_message = pass_message
+        self.depletable = depletable
         self.plural = plural.lower() if plural else self.name + 's'
 
     def __call__(self, message, argstr, n=None):
         _, args = parse_args(self.signature, argstr)
         if n:
+            if n.lower() == 'all':
+                if self.depletable:
+                    n = -1
+                else:
+                    raise ValueError('Requested `all` items but the source is not depletable.')
+
             if 'n' in args: args['n'] = int(n)
             elif 'N' in args: args['N'] = int(n)
         if self.pass_message:

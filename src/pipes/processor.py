@@ -171,17 +171,18 @@ class Context:
 
 
 class SourceProcessor:
+    # This is a class so I don't have to juggle the message (discord context) and error log around
+
     def __init__(self, message):
-        # This is a class so I don't have to juggle the message (discord context) and error log around
         self.message = message
         self.errors = ErrorLog()
 
     # Matches: {source}, {source and some args}, {source args="{something}"}, {10 source}, etc.
     # Doesn't match: {}, {0}, {1}, {2}, {2!} etc., those are matched by Context.item_regex
 
-    _source_regex = r'{\s*(\d*)\s*([_a-zA-Z][^\s}]*)\s*([^}\s](?:\"[^\"]*\"|[^}])*)?}'
-    #                      ^^^     ^^^^^^^^^^^^^^^^     ^^^^^^^^^^^^^^^^^^^^^^^^^^
-    #                       n            name                      args
+    _source_regex = r'(?i){\s*(ALL|\d*)\s*([_a-z][^\s}]*)\s*([^}\s](?:\"[^\"]*\"|[^}])*)?}'
+    #                          ^^^^^^^     ^^^^^^^^^^^^^     ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    #                             n            name                     args
     source_regex = re.compile(_source_regex)
     source_match_regex = re.compile(_source_regex + '$')
     source_or_item_regex = re.compile('(?:' + _source_regex + '|' + Context._item_regex + ')')
@@ -192,7 +193,7 @@ class SourceProcessor:
         return re.match(SourceProcessor.source_match_regex, source)
 
     async def evaluate_parsed_source(self, name, args, n=None):
-        '''Given the exact name, arguments and (n) of a source, evaluates it.'''
+        '''Given the exact name, arguments and `n` of a source, evaluates it.'''
         if name in sources:
             ###### This is the SINGLE spot where a source is called during execution of pipelines
             try:

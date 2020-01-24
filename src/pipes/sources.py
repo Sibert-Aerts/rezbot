@@ -57,11 +57,24 @@ sources = Sources()
 sources.command_sources = []
 _CATEGORY = 'NONE'
 
-def make_source(signature, *, pass_message=False, command=False, plural=None):
-    '''Makes a source out of a function'''
+def make_source(signature, *, command=False, **kwargs):
+    '''
+    Makes a source out of a function.
+
+    Keyword arguments:
+
+    command: Whether or not the source should be usable as a standalone bot command (default: False)
+
+    pass_message: Whether or not the function should receive the Discord message as its first argument (default: False)
+
+    plural: The source's name pluralised (default: name + 's')
+
+    depletable: Whether the source allows to request "all" elements (e.g. "{all words}" instead of just "{10 words}"),
+    in this case `n` will be passed as -1 (default: False)
+    '''
     def _make_source(func):
         global sources, _CATEGORY
-        source = Source(signature, func, _CATEGORY, pass_message, plural)
+        source = Source(signature, func, _CATEGORY, **kwargs)
         sources.add(source)
         if command:
             sources.command_sources.append(source)
@@ -180,7 +193,7 @@ async def me_source(message, what):
     'id'  : Sig(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
     'name': Sig(str, '', 'A regex that should match their nickname or username.'),
     # 'rank': ...?
-}, pass_message=True)
+}, pass_message=True, depletable=True)
 async def member_source(message, n, what, id, name):
     '''The name (or other attribute) of a random Server member meeting the filters.'''
     members = message.guild.members
@@ -193,8 +206,11 @@ async def member_source(message, n, what, id, name):
 
     # Take a random sample
     members = list(members)
-    if n < len(members):
-        members = random.sample(members, n)
+    if n == -1:
+        n = len(members)
+    else:
+        n = min(n, len(members))
+    members = random.sample(members, n)
 
     return _members_get_what(members, what)
 
@@ -244,14 +260,17 @@ async def server_source(message, what):
 @make_source({
     'n': Sig(int, 1, 'The number of emojis'),
     'name': Sig(str, None, 'The name of the emoji if you want a specific one.', required=False),
-}, pass_message=True)
+}, pass_message=True, depletable=True)
 async def custom_emoji_source(message, n, name):
     '''The server's custom emojis.'''
     emojis = message.guild.emojis
     if name:
         emojis = [e for e in emojis if e.name == name]
-    emojis = random.sample( emojis, min(n, len(emojis)) )
-    return [ str(emoji) for emoji in emojis ]
+    if n == -1:
+        n = len(emojis)
+    else:
+        n = min(n, len(emojis))
+    return [ str(emoji) for emoji in random.sample(emojis, n) ]
 
 #####################################################
 #                   Sources : BOT                   #
@@ -294,7 +313,7 @@ def bool_or_none(val):
     'sentences' : Sig(bool_or_none, None, 'If the file should be split on sentences as opposed to on dividing characters, "None" for file-dependent.', required=False),
     'query'     : Sig(str, '', 'Optional search query'),
     'pattern'   : Sig(str, '', 'Optional search regex'),
-})
+}, depletable=True)
 async def txt_source(file, n, sequential, sentences, query, pattern):
     '''Lines from an uploaded text file. Check >files for a list of files.'''
     if file == 'random':
@@ -477,19 +496,23 @@ async def timestamp_source(utc):
 
 @make_source({
     'pattern': Sig(str, '', 'The pattern to look for (regex)'),
-    'n'      : Sig(int, 1,  'The number of sampled words.')
-})
+    'n'      : Sig(int, 1, 'The number of sampled words.')
+}, depletable=True)
 async def word_source(pattern, n):
     '''Random dictionary words, optionally matching a pattern.'''
     if pattern:
         try:
             pattern = re.compile(pattern)
-        except:
-            raise ValueError('Invalid regex pattern: `%s`' % pattern)
+        except Exception as e:
+            raise ValueError( 'Invalid regex pattern `%s`: %s' % (pattern, e) )
         items = [w for w in allWords if pattern.search(w) is not None]
     else:
         items = allWords
-    return random.sample(items, min(n, len(items)))
+    if n == -1:
+        n = len(items)
+    else:
+        n = min(n, len(items))
+    return random.sample(items, n)
 
 
 @make_source({

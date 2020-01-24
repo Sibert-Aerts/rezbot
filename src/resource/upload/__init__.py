@@ -141,7 +141,6 @@ class File:
         lines = self.get(sentences)
 
         if query:
-            print(query)
             search_items = self._get_search_lines() if not sentences else self._get_search_sentences()
 
             # Extract absolute matches "of this form" from the query as "exact matches"
@@ -149,7 +148,6 @@ class File:
             exact = [ a[i] for i in range(1, len(a), 2) ]
             others = re.split( '\s+', ' '.join( a[i] for i in range(0, len(a), 2) ).strip() )
             queries = exact + others
-            print(queries)
 
             ## Filter the items based on whether they contain every single of the queried terms
             search_items = filter( lambda item: all( q in item[1] for q in queries ), search_items )
@@ -166,13 +164,24 @@ class File:
 
     def get_random(self, count, sentences:bool, query=None, regex=None):
         indices = self._search(sentences, query=query, regex=regex)
+        ## Nothing found: Return nothing
+        if not indices: return []
+
         count = min(count, len(indices))
+        ## Special case: We want all matching lines
+        if count == -1: count = len(indices)
+
         indices = random.sample(indices, count)
         lines = self.get(sentences)
         return [lines[i] for i in indices]
 
     def get_sequential(self, count, sentences:bool, query=None, regex=None):
         indices = self._search(sentences, query=query, regex=regex)
+        ## Nothing found: Return nothing
+        if not indices: return []
+        ## Special case: Return all lines
+        if count == -1: return self.get(sentences)
+
         index = random.choice(indices)
         lines = self.get(sentences)
         # min ( random starting index containing index , biggest index that doesnt go out of bounds)
