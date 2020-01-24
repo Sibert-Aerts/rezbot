@@ -52,11 +52,9 @@ class Source(Pipe):
     def __call__(self, message, argstr, n=None):
         _, args = parse_args(self.signature, argstr)
         if n:
-            if n.lower() == 'all':
-                if self.depletable:
-                    n = -1
-                else:
-                    raise ValueError('Requested `all` items but the source is not depletable.')
+            if type(n) is str and n.lower() == 'all':
+                if self.depletable: n = -1
+                else: raise ValueError('Requested `all` items but the source is not depletable.')
 
             if 'n' in args: args['n'] = int(n)
             elif 'N' in args: args['N'] = int(n)

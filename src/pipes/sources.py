@@ -391,34 +391,34 @@ async def futurama_source(n, q, multiline):
 
 
 @make_source({
-    'q' : Sig(str, '', 'Search query, empty for random tweets.'),
+    'query' : Sig(str, '', 'Search query, empty for random tweets.'),
     'n' : Sig(int, 1, 'The amount of tweets.')
-})
-async def dril_source(q, n):
+}, depletable=True)
+async def dril_source(query, n):
     '''Random dril tweets.'''
     out = []
-    if q == '':
+    if query == '':
         out = tweets.dril.sample(n)
     else:
-        out = tweets.dril.search(q, n)
+        out = tweets.dril.search(query, n)
     return [t['text'] for t in out]
 
 
 @make_source({
     'COMIC' : Sig(int, -1, 'EXACT COMIC NUMBER, -1 FOR QUERY COMIC.'),
-    'Q'     : Sig(str, '', 'TITLE OR DIALOG TO LOOK FOR, EMPTY FOR RANDOM COMICS.'),
+    'QUERY' : Sig(str, '', 'TITLE OR DIALOG TO LOOK FOR (FUZZY!), EMPTY FOR RANDOM COMICS.'),
     'N'     : Sig(int, 1, 'NUMBER OF COMICS TO LOAD LINES FROM.', lambda x: x>0),
     'LINES' : Sig(int, 1, 'NUMBER OF LINES PER COMIC (0 FOR ALL LINES).'),
     'NAMES' : Sig(util.parse_bool, False, 'WHETHER OR NOT DIALOG ATTRIBUTIONS ("spigot: ") ARE KEPT')
-}, plural='JERKCITIES')
-async def JERKCITY_source(COMIC, Q, N, LINES, NAMES):
+}, plural='JERKCITIES', depletable=True)
+async def JERKCITY_source(COMIC, QUERY, N, LINES, NAMES):
     ''' JERKCITY COMIC DIALOG '''
     ISSUES = []
     if COMIC == -1:
-        if Q == '':
+        if QUERY == '':
             ISSUES = JERKCITY.GET_RANDOM(N)
         else:
-            ISSUES = JERKCITY.SEARCH(Q, N)
+            ISSUES = JERKCITY.SEARCH(QUERY, N)
     else:
         ISSUES = [JERKCITY.GET(COMIC)] * N
 
@@ -432,7 +432,11 @@ async def JERKCITY_source(COMIC, Q, N, LINES, NAMES):
             _LINES.extend(THESE_LINES[I:I+LINES])
 
     if not NAMES:
-        _LINES = [re.split(':\s*', LINE, 1)[1] for LINE in _LINES]
+        _NONAMES = []
+        for LINE in _LINES:
+            S = re.split(':\s*', LINE, 1)
+            _NONAMES.append(S[1] if len(S) > 1 else LINE)
+        _LINES = _NONAMES
 
     return _LINES
 

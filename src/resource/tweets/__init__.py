@@ -23,6 +23,8 @@ class TweetHistory:
         return random.choice(self.data)
 
     def sample(self, amount):
+        if amount == -1: amount = len(self.data)
+        else: amount = min( len(self.data), amount )
         return random.sample(self.data, amount)
 
     def search(self, query, amount=1):
@@ -36,6 +38,8 @@ class TweetHistory:
         queries = absolutes + others
 
         results = list(filter(lambda t: all([q in t['search'] for q in queries]), self.data))
+        if amount == -1: amount = len(results)
+        else: amount = min( len(results), amount )
         return random.sample(results, min(len(results), amount))
 
 # TODO: Load these in lazily (first time a tweet is actually queried)

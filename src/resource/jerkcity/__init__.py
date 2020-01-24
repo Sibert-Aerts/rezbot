@@ -27,10 +27,14 @@ class __JERKCITY__:
         self.ISSUES = [ISSUE(I) for I in ROOT]
 
     def GET_RANDOM(self, AMOUNT=0):
-        if AMOUNT <= 0:
+        # 0 MEANS RETURN A SINGLE RESULT INSTEAD OF A LIST OF RESULTS
+        if AMOUNT == 0:
             return random.choice(self.ISSUES)
+        if AMOUNT == -1:
+            AMOUNT = len(self.ISSUES)
         else:
-            return random.sample(self.ISSUES, AMOUNT)
+            AMOUNT = min(len(self.ISSUES), AMOUNT)
+        return random.sample(self.ISSUES, AMOUNT)
 
     def GET(self, NUM):
         return self.ISSUES[NUM-1]
@@ -42,7 +46,10 @@ class __JERKCITY__:
             self.DIALOG = QUERY
 
     def SEARCH(self, QUERY, AMOUNT=0):
-        # TODO: MAKE THIS LESS FUZZY
+        if AMOUNT == -1: AMOUNT = len(self.ISSUES)
+        else: AMOUNT = min(len(self.ISSUES), AMOUNT)
+
+        # TODO: MAKE THIS LESS FUZZY, RIGHT NOW 'ALL' JUST RETURNS ALL COMICS SINCE THEY ALL MATCH AT LEAST A LITTLE
         QUERY = __JERKCITY__.__QUERY__(QUERY)
         # PARTIAL_RATIO FEELS RIGHT
         RESULTS = process.extract(QUERY, self.ISSUES, processor=lambda X: X.TITLE+'\n'+X.DIALOG, scorer= fuzz.partial_ratio, limit=max(5, AMOUNT))
