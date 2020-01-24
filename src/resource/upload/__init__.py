@@ -141,13 +141,15 @@ class File:
         lines = self.get(sentences)
 
         if query:
+            print(query)
             search_items = self._get_search_lines() if not sentences else self._get_search_sentences()
 
             # Extract absolute matches "of this form" from the query as "exact matches"
-            a = searchify(query).split('"')
-            exact = [a[i] for i in range(1, len(a), 2)]
-            others = re.split('\s+', ''.join( a[i] for i in range(0, len(a), 2) ).strip())
+            a = [ searchify(s) for s in query.split('"') ]
+            exact = [ a[i] for i in range(1, len(a), 2) ]
+            others = re.split( '\s+', ' '.join( a[i] for i in range(0, len(a), 2) ).strip() )
             queries = exact + others
+            print(queries)
 
             ## Filter the items based on whether they contain every single of the queried terms
             search_items = filter( lambda item: all( q in item[1] for q in queries ), search_items )

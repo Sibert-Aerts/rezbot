@@ -32,7 +32,7 @@ class TweetHistory:
         # Extract absolute matches "of this form" from the query
         a = query.split('"')
         absolutes = [a[i] for i in range(1, len(a), 2)]
-        others = re.split('\s+', ''.join([a[i] for i in range(0, len(a), 2)]).strip())
+        others = re.split('\s+', ' '.join([a[i] for i in range(0, len(a), 2)]).strip())
         queries = absolutes + others
 
         results = list(filter(lambda t: all([q in t['search'] for q in queries]), self.data))
