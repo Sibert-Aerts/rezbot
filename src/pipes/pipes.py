@@ -178,8 +178,24 @@ def split_pipe(inputs, on, lim):
 
 
 @make_pipe({
+    'width': Sig(int, None, 'How many characters to trim each string down to.'),
+    'where': Sig(str, 'right', 'Which side to trim from: left/center/right', options=['left', 'center', 'right']),
+})
+@as_map
+def trim_pipe(text, width, where):
+    '''Trim the input to a certain width, discarding the rest.'''
+    where = where.lower()
+    if where == 'left':
+        return text[-width:]
+    if where == 'right':
+        return text[:width]
+    if where == 'center':
+        diff = max(0, len(text)-width)
+        return text[ diff//2 : -math.ceil(diff/2) ]
+
+@make_pipe({
+    'width': Sig(int, None, 'The minimum width to pad to.'),
     'where': Sig(str, 'right', 'Which side to pad on: left/center/right', options=['left', 'center', 'right']),
-    'width': Sig(int, 0, 'The minimum width to pad to.'),
     'fill' : Sig(str, ' ', 'The character used to pad out the string.'),
 })
 @as_map
@@ -199,7 +215,7 @@ def pad_pipe(text, where, width, fill):
     'width': Sig(int, 40, 'The minimum width to pad to.')
 })
 def wrap_pipe(inputs, mode, width):
-    '''Wrap the input to a certain width.'''
+    '''Text wrap the input: Split the input into multiple lines so that each line is shorter than a certain width.'''
     mode = mode.lower()
     if mode == 'dumb':
         return [text[i:i+width] for text in inputs for i in range(0, len(text), width)]
