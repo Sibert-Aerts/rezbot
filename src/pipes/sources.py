@@ -3,7 +3,7 @@ import re
 import random
 import asyncio
 from datetime import datetime, timezone, timedelta
-from functools import wraps
+from functools import wraps, lru_cache
 
 from .signature import Sig
 from .pipe import Source, Sources
@@ -18,6 +18,8 @@ from utils.frinkiac import simpsons, futurama
 import resource.tweets as tweets
 from resource.jerkcity import JERKCITY
 from resource.upload import uploads
+import nltk
+import wikipedia
 
 
 #######################################################
@@ -516,3 +518,95 @@ async def word_source(pattern, n):
 async def emoji_source():
     '''Random emoji.'''
     return choose(list(emoji.UNICODE_EMOJI.keys())).replace(' ', '')
+
+
+#####################################################
+#               Sources : WIKIPEDIA.                #
+#####################################################
+_CATEGORY = 'WIKI'
+
+# Cache Wikipedia pages based on (name, language)
+@lru_cache()
+def _wikipedia_page(page, language):
+    wikipedia.set_lang(language)
+    return wikipedia.page(page)
+    
+WIKIPEDIA_WHAT = ['title', 'url', 'summary', 'content', 'images', 'links']
+
+def _wikipedia_get_what(page, what, n):
+    what = what.lower()
+    if what == 'title':
+        return [page.title]
+    elif what == 'url':
+        return [page.url]
+    elif what == 'summary':
+        if not hasattr(page, 'summary_sentences'):
+            sentences = nltk.sent_tokenize(page.summary)
+            sentences = [ re.sub(r'\n[\n\s]*', ' ', s) for s in sentences ]
+            page.summary_sentences = sentences
+        return choose_slice( page.summary_sentences, n )
+    elif what == 'content':
+        if not hasattr(page, 'content_sentences'):
+            sentences = nltk.sent_tokenize(page.content)
+            sentences = [ re.sub(r'\n[\n\s]*', ' ', s) for s in sentences ]
+            page.content_sentences = sentences
+        return choose_slice( page.content_sentences, n )
+    elif what == 'images':
+        return sample( page.images, n )
+    elif what == 'links':
+        return sample( page.links, n )
+
+@make_source({
+    'what': Sig(str, 'summary', 'Which part(s) of the page you want.', options=WIKIPEDIA_WHAT, multi_options=True),
+    'language': Sig(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
+    'lines': Sig(int, 1, 'The number of lines you want (for summary and content: sentences, for images and links: number)'),
+    'n' : Sig(int, 1, 'The number of random pages to fetch')
+})
+async def wikipedia_random_source(what, language, lines, n):
+    '''
+    Fetches information from one or more random Wikipedia pages.
+    '''
+    pages = []
+    for _ in range(n):
+        while True:
+            ## Despite the module/API's insistence, wikipedia.random() may return an ambiguous page title
+            ## and EVEN when you then pick a random disambiguated one, it may still be ambiguous (or invalid) anyway???
+            ## So JUST KEEP freaking trying, it only fails like 1% of the time anyway
+            page = wikipedia.random()
+            try:
+                pages.append( _wikipedia_page(page, language) )
+                break
+            except wikipedia.DisambiguationError as e:
+                try:
+                    page = choose(e.options)
+                    pages.append( _wikipedia_page(page, language) )
+                    break
+                except:
+                    pass
+    
+    which = what.split(',')
+    return [ s for page in pages for what in which for s in _wikipedia_get_what(page, what, lines) ]
+
+
+@make_source({
+    'page': Sig(str, None, 'The page you want information from. (For a random page, use wikipedia_random.)'),
+    'what': Sig(str, 'summary', 'Which part(s) of the page you want.', options=WIKIPEDIA_WHAT, multi_options=True),
+    'language': Sig(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
+    'n' : Sig(int, 1, 'The number of things you want (for summary and content: sentences, for images and links: number)')
+}, depletable=True)
+async def wikipedia_source(page, what, language, n):
+    '''
+    Fetches various information from a Wikipedia page.
+    
+    Donate to wikimedia: https://donate.wikimedia.org/
+    '''
+    page = _wikipedia_page(page, language)
+    return [ s for what in what.split(',') for s in _wikipedia_get_what(page, what, n) ]
+
+
+@make_source({
+    'query': Sig(str, None, 'The search query')
+})
+async def wikipedia_search_source(query):
+    '''Returns the top Wikipedia search results for the query.'''
+    return wikipedia.search(query)
