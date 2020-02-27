@@ -8,15 +8,15 @@ from functools import wraps
 from .signature import Sig
 from .pipe import Source, Sources
 
-from utils.texttools import *
-from utils.rand import *
-from utils.FROG import FROG
+import utils.util as util
 import utils.soapstone as soapstone
 import utils.benedict as benedict
+from utils.rand import choose, sample, choose_slice 
+from utils.texttools import *
+from utils.FROG import FROG
 from utils.frinkiac import simpsons, futurama
 import resource.tweets as tweets
 from resource.jerkcity import JERKCITY
-import utils.util as util
 from resource.upload import uploads
 
 
@@ -40,18 +40,20 @@ def multi_source(func):
 def get_which(get_what):
     '''
     Takes a function
-        get_what(item:obj, attribute:str) -> result
+        get_what(items:List[X], attribute:str) -> results: List[Y]
+    where items and results have equal length (i.e. one result per item)
     and extends it to
-        get_which(item:obj, attributes:str) -> [result]
-    where attributes is a string of multiple attribute's joined by ","
+        get_which(items:List[X], attributes:str) -> results: List[Y]
+    where attributes is a string of multiple (attribute)s joined by ","
+    and results has length (#items × #attributes) ordered so that it's first the attributes of item 1, then the attributes of item 2, etc.
     
     e.g. if get_what = lambda x,y: x[y]
         then get_which({'foo': 'bar', 'abc': 'xyz'}, 'foo,abc,foo') returns ['bar', 'xyz', 'bar']
     '''
-    def f(items, which):
-        w = [get_what(items, what) for what in which.split(',')]
+    def _get_which(item, which):
+        w = [ get_what(item, what) for what in which.split(',') ]
         return [x for y in zip(*w) for x in y]
-    return f
+    return _get_which
 
 sources = Sources()
 sources.command_sources = []
@@ -206,11 +208,7 @@ async def member_source(message, n, what, id, name):
 
     # Take a random sample
     members = list(members)
-    if n == -1:
-        n = len(members)
-    else:
-        n = min(n, len(members))
-    members = random.sample(members, n)
+    members = sample(members, n)
 
     return _members_get_what(members, what)
 
@@ -266,11 +264,7 @@ async def custom_emoji_source(message, n, name):
     emojis = message.guild.emojis
     if name:
         emojis = [e for e in emojis if e.name == name]
-    if n == -1:
-        n = len(emojis)
-    else:
-        n = min(n, len(emojis))
-    return [ str(emoji) for emoji in random.sample(emojis, n) ]
+    return [ str(emoji) for emoji in sample(emojis, n) ]
 
 #####################################################
 #                   Sources : BOT                   #
@@ -512,11 +506,7 @@ async def word_source(pattern, n):
         items = [w for w in allWords if pattern.search(w) is not None]
     else:
         items = allWords
-    if n == -1:
-        n = len(items)
-    else:
-        n = min(n, len(items))
-    return random.sample(items, n)
+    return sample(items, n)
 
 
 @make_source({

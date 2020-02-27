@@ -114,7 +114,7 @@ class File:
             raw = self.read_raw()
             sentences = nltk.sent_tokenize(raw)
             # Sentences can still have line breaks in them, get rid of em first
-            sentences = [re.sub('\n+', ' ', s) for s in sentences]
+            sentences = [re.sub(r'\n[\n\s]*', ' ', s) for s in sentences]
             self.sentences = sentences
             # Write them to a file
             filename = self.info.name + '__sentences.txt'
@@ -184,7 +184,7 @@ class File:
 
         index = random.choice(indices)
         lines = self.get(sentences)
-        # min ( random starting index containing index , biggest index that doesnt go out of bounds)
+        # min ( <random starting index containing index> , <biggest index that doesnt go out of bounds> )
         index = max(0, min( index-random.randint(0, count-1) , len(lines)-count))
         return lines[index: index + count]
 
