@@ -543,7 +543,11 @@ def _wikipedia_page(page, language):
     wikipedia.set_lang(language)
     return wikipedia.page(page)
     
-WIKIPEDIA_WHAT = ['title', 'url', 'summary', 'content', 'images', 'links']
+WIKIPEDIA_WHAT = ['title', 'url', 'summary', 'content', 'images', 'videos', 'audio', 'links']
+_img_re = re.compile(r'(?i)(png|jpe?g|gif|webp)$')
+_vid_re = re.compile(r'(?i)(webm|gif|mp4)$')
+_aud_re = re.compile(r'(?i)(mp3|ogg|ogv|wav)$')
+_svg_re = re.compile(r'(?i)(svg)$')
 
 def _wikipedia_get_what(page, what, n):
     what = what.lower()
@@ -564,14 +568,18 @@ def _wikipedia_get_what(page, what, n):
             page.content_sentences = sentences
         return choose_slice( page.content_sentences, n )
     elif what == 'images':
-        return sample( page.images, n )
+        return sample( [image for image in page.images if _img_re.search(image)], n )
+    elif what == 'videos':
+        return sample( [image for image in page.images if _vid_re.search(image)], n )
+    elif what == 'audio':
+        return sample( [image for image in page.images if _aud_re.search(image)], n )
     elif what == 'links':
         return sample( page.links, n )
 
 @make_source({
-    'what': Sig(str, 'summary', 'Which part(s) of the page you want.', options=WIKIPEDIA_WHAT, multi_options=True),
     'language': Sig(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
-    'lines': Sig(int, 1, 'The number of lines you want (for summary and content: sentences, for images and links: number)'),
+    'lines': Sig(int, 1, 'The number of (what) you want ,for summary/content this means number of sentences.'),
+    'what': Sig(str, None, 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT), options=WIKIPEDIA_WHAT, multi_options=True),
     'n' : Sig(int, 1, 'The number of random pages to fetch')
 })
 async def wikipedia_random_source(what, language, lines, n):
@@ -604,9 +612,9 @@ async def wikipedia_random_source(what, language, lines, n):
 
 @make_source({
     'page': Sig(str, None, 'The page you want information from. (For a random page, use wikipedia_random.)'),
-    'what': Sig(str, 'summary', 'Which part(s) of the page you want.', options=WIKIPEDIA_WHAT, multi_options=True),
     'language': Sig(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
-    'n' : Sig(int, 1, 'The number of things you want (for summary and content: sentences, for images and links: number)')
+    'what': Sig(str, 'summary', 'Which part(s) of the page you want: ' + '/'.join(WIKIPEDIA_WHAT), options=WIKIPEDIA_WHAT, multi_options=True),
+    'n' : Sig(int, 1, 'The number of (what) you want, for summary/content this means number of sentences.')
 }, depletable=True)
 async def wikipedia_source(page, what, language, n):
     '''
