@@ -47,7 +47,7 @@ class Source(Pipe):
         super().__init__(signature, function, category)
         self.pass_message = pass_message
         self.depletable = depletable
-        self.plural = plural.lower() if plural else self.name + 's'
+        self.plural = plural.lower() if plural else (self.name + 's') if 'n' in signature else self.name
 
     def __call__(self, message, argstr, n=None):
         _, args = parse_args(self.signature, argstr)
@@ -64,8 +64,17 @@ class Source(Pipe):
             return self.function(**args)
             
     def as_command(self):
-        '''This method is not needed and only defined to hide the inherited as_command method to prevent'''
+        '''This method is not needed and only defined to hide the inherited as_command method'''
         raise NotImplementedError()
+
+    def embed(self):
+        embed = super().embed()
+        if self.plural != self.name:
+            embed.title += ' (' + self.plural + ')'
+        if self.depletable:
+            if embed.description[-1] != '\n': embed.description += '\n'
+            embed.description += '`depletable`'
+        return embed
 
 
 class Spout(Pipe):
