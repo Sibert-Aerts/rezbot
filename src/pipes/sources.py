@@ -579,7 +579,7 @@ def _wikipedia_get_what(page, what, n):
 @make_source({
     'language': Sig(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
     'lines': Sig(int, 1, 'The number of (what) you want ,for summary/content this means number of sentences.'),
-    'what': Sig(str, None, 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT), options=WIKIPEDIA_WHAT, multi_options=True),
+    'what': Sig(str, 'Summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT), options=WIKIPEDIA_WHAT, multi_options=True),
     'n' : Sig(int, 1, 'The number of random pages to fetch')
 })
 async def wikipedia_random_source(what, language, lines, n):
