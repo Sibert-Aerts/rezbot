@@ -583,6 +583,8 @@ async def wikipedia_random_source(what, language, lines, n):
                     break
                 except:
                     pass
+            except:
+                pass
     
     which = what.split(',')
     return [ s for page in pages for what in which for s in _wikipedia_get_what(page, what, lines) ]
