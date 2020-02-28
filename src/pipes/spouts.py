@@ -33,15 +33,16 @@ def url(s):
     return s
 
 def hex(h):
+    if h and h[0] == '#': h = h[1:]
     return int(h, base=16)
 
 
 @make_spout({
-    'title':    Sig(str, '', 'The title.'),
-    'color':    Sig(hex, 0, 'The highlight color as a hexadecimal value.'),
+    'title':    Sig(str, None, 'The title.'),
+    'color':    Sig(hex, 0x222222, 'The highlight color as a hexadecimal value.'),
     'footer':   Sig(str, '', 'The footer text.'),
-    'link':     Sig(str, None, 'A link opened by clicking the title.', required=False),
-    'image':    Sig(str, None, 'URL to an embedded image.', required=False)
+    'link':     Sig(url, None, 'A link opened by clicking the title.', required=False),
+    'image':    Sig(url, None, 'Link to an embedded image.', required=False)
 })
 async def embed_spout(bot, message, values, title, color, footer, link, image):
     '''Outputs text as a simple discord embed.'''
@@ -107,7 +108,6 @@ async def suppress_print_spout(bot, message, values):
 async def set_spout(bot, message, values, name):
     '''Stores the input as a variable with the given name, which can be retreived with {get (name)}.'''
     SourceResources.var_dict[name] = values
-
 
 
 @make_spout({

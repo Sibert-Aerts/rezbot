@@ -10,11 +10,13 @@ from functools import wraps, lru_cache
 from datamuse import datamuse
 datamuse_api = datamuse.Datamuse()
 from google.cloud import translate
+import nltk
 
 from .signature import Sig
 from .pipe import Pipe, Pipes
-
 from utils.texttools import vowelize, consonize, letterize, letterize2, converters, min_dist, case_pattern
+from utils.rand import choose_slice
+from utils.util import parse_bool
 from resource.upload import uploads
 
 #######################################################
@@ -123,19 +125,32 @@ def shuffle_pipe(input):
     return out
 
 
-@make_pipe({ 'amount' : Sig(int, 1, 'The amount of values to choose.', lambda x: x>=0) })
-def choose_pipe(input, amount):
+@make_pipe({ 'number' : Sig(int, 1, 'The number of values to choose.', lambda x: x>=0) })
+def choose_pipe(input, number):
     '''Chooses random values with replacement (i.e. may return repeated values).'''
-    return random.choices(input, k=amount)
+    return random.choices(input, k=number)
 
 
-@make_pipe({ 'amount' : Sig(int, 1, 'The amount of values to sample.', lambda x: x>=0) })
-def sample_pipe(input, amount):
-    '''Chooses random values without replacement. Never produces more values than the number it receives.'''
-    return random.sample(input, min(len(input), amount))
+@make_pipe({ 'number' : Sig(int, 1, 'The number of values to sample.', lambda x: x>=0) })
+def sample_pipe(input, number):
+    '''
+    Chooses random values without replacement.
+    Never produces more values than the number it receives.
+    '''
+    return random.sample(input, min(len(input), number))
 
 
-@make_pipe({ 'count' : Sig(bool, False, 'Whether each unique item should be followed by a count of how many there were of it.') })
+@make_pipe({
+    'length' : Sig(int, None, 'The desired slice length.', lambda x: x>=0),
+    'cyclical': Sig(parse_bool, False, 'Whether or not the slice is allowed to "loop back" to cover both some first elements and last elements. ' +
+            'i.e. If False, elements at the start and end of the input have lower chance of being selected, if True all elements have an equal chance.')
+})
+def choose_slice_pipe(input, length, cyclical):
+    '''Randomly chooses a contiguous sequence of items of the given length.'''
+    return choose_slice(input, length, cyclical=cyclical)
+
+
+@make_pipe({ 'count' : Sig(parse_bool, False, 'Whether each unique item should be followed by a count of how many there were of it.') })
 def unique_pipe(input, count):
     '''Returns the first unique occurence of each value.'''
     if not count: return [*{*input}]
@@ -148,7 +163,8 @@ def unique_pipe(input, count):
         except:
             values.append(value)
             counts.append(1)
-    return [x for tup in zip(values, (str(c) for c in counts)) for x in tup]
+    counts = map(str, counts)
+    return [x for tup in zip(values, counts) for x in tup]
 
 
 @make_pipe({})
@@ -343,6 +359,12 @@ _CATEGORY = 'LANGUAGE'
 
 # Wrap the API in a LRU cache
 _datamuse = lru_cache()(datamuse_api.words)
+
+@make_pipe({})
+def split_sentences_pipe(input):
+    ''' Splits a piece of text into individual sentences using the Natural Language Toolkit (NLTK). '''
+    return [sent for line in input for sent in nltk.sent_tokenize(line)]
+
 
 @make_pipe({
     'min': Sig(int, 0, 'Upper limit on minimum distance (e.g. 1 to never get the same word).'),

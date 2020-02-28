@@ -478,6 +478,18 @@ async def roll_source(min, max):
 
 
 @make_source({
+    'start': Sig(int, 0, 'The starting of the range'),
+    'end':   Sig(int, None, 'The end of the range (not included in the range!)'),
+    'step':  Sig(int, 1, 'The step size')
+})
+async def range_source(start, end, step):
+    ''' The complete range of numbers from start to end with a given step size.
+    More precisely:
+    The list [start, start + step, start + 2*step, ..., x ] so that x is "one step short" of reaching/passing end'''
+    return list(map(str, range(start, end, step)))
+
+
+@make_source({
     'format': Sig(str, '%Y/%m/%d %H:%M:%S', 'The format string, see http://strftime.org/ for syntax.'),
     'utc'   : Sig(int, 0, 'The UTC offset in hours.')
 })
