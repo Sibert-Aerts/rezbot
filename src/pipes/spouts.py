@@ -39,13 +39,17 @@ def hex(h):
 @make_spout({
     'title':    Sig(str, '', 'The title.'),
     'color':    Sig(hex, 0, 'The highlight color as a hexadecimal value.'),
-    'footer':   Sig(str, '', 'The footer text.')
+    'footer':   Sig(str, '', 'The footer text.'),
+    'link':     Sig(str, None, 'A link opened by clicking the title.', required=False),
+    'image':    Sig(str, None, 'URL to an embedded image.', required=False)
 })
-async def embed_spout(bot, message, values, title, color, footer):
+async def embed_spout(bot, message, values, title, color, footer, link, image):
     '''Outputs text as a simple discord embed.'''
-    embed = Embed(title=title, description='\n'.join(values), color=color)
+    embed = Embed(title=title, description='\n'.join(values), color=color, url=link)
     if footer:
         embed.set_footer(text=footer)
+    if image:
+        embed.set_image(url=image)
     await message.channel.send(embed=embed)
 
 
