@@ -38,7 +38,7 @@ def hex(h):
 
 
 @make_spout({
-    'title':    Sig(str, None, 'The title.'),
+    'title':    Sig(str, None, 'The title.', required=False),
     'color':    Sig(hex, 0x222222, 'The highlight color as a hexadecimal value.'),
     'footer':   Sig(str, '', 'The footer text.'),
     'link':     Sig(url, None, 'A link opened by clicking the title.', required=False),

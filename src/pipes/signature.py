@@ -62,13 +62,12 @@ class Sig:
             out.append( ' ' + self.desc )
 
         typ = self.type.__name__ + (' list' if self.multi_options else '')
-        out.append(' (' + typ + ', ' )
-        
-        if self.default is not None:
-            d = self.default
-            out.append( 'default: ' + repr(d) )
-        else:
-            out.append( 'REQUIRED' )
+
+        out.append(' (' + typ)    
+        if self.required:
+            out.append( ', REQUIRED' )
+        elif self.default is not None:
+            out.append( ', default: ' + repr(self.default) )
         out.append( ')' )
 
         self.str = ''.join(out)
