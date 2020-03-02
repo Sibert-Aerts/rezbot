@@ -465,7 +465,7 @@ class Pipeline:
         segment, stolen_quotes = self.steal_triple_quotes(segment)
 
         # ChoiceTree expands the single string into a set of strings.
-        parallel_pipes = ChoiceTree(segment, parse_flags=True, add_brackets=True).all()
+        parallel_pipes = ChoiceTree(segment, add_brackets=True).all()
 
         ### Parse the simultaneous pipes into a usable form: A list of (Pipeline or ParsedPipe) objects
         parsedPipes = []
@@ -521,8 +521,8 @@ class Pipeline:
             newValues = []
             newPrintValues = []
 
-            # GroupModes other than the default one add their own layer of context!
-            if not groupMode.is_trivial():
+            # GroupModes that mess with the items in some way add a new context layer.
+            if not groupMode.splits_trivially():
                 context.set(values)
                 context = Context(context)
 

@@ -1,6 +1,7 @@
 import re
 import math
 from typing import List, Tuple, Optional, Any, TypeVar
+from random import choice
 
 # Pipe grouping syntax!
 
@@ -480,12 +481,14 @@ class AssignMode:
         return 'MULTIPLY ' if self.multiply else ''
 
     def is_trivial(self):
+        ''' A method that returns False unless the AssignMode is DefaultAssign(multiply=False) '''
         return False
 
     def apply(self, tuples: List[Tuple[T, bool]], pipes: List[P]) -> List[Tuple[T, P]]:
         raise NotImplementedError()
 
 class DefaultAssign(AssignMode):
+    '''Assign mode that sends the n'th group to the (n%P)'th pipe with P the number of pipes.'''
     def __init__(self, multiply):
         self.multiply = multiply
 
@@ -494,7 +497,7 @@ class DefaultAssign(AssignMode):
     def is_trivial(self):
         return not self.multiply
 
-    def apply(self, tuples: List[Tuple[T, bool]], pipes: List[P]) -> List[Tuple[T, P]]:
+    def apply(self, tuples: List[Tuple[T, bool]], pipes: List[P]) -> List[Tuple[T, Optional[P]]]:
         out = []
         i = 0
         l = len(pipes)
@@ -509,6 +512,7 @@ class DefaultAssign(AssignMode):
         return out
 
 class Conditional(AssignMode):
+    '''Assign mode that assigns groups to pipes based on logical conditions that each group meets.'''
 
     class Condition():
         type1 = re.compile(r'(-?\d+)\s*(!)?=\s*(-?\d+)')              # item = item
@@ -568,7 +572,7 @@ class Conditional(AssignMode):
     def __str__(self):
         return '{}CONDITIONAL {{ {} }}'.format(super().__str__(), ' | '.join(str(c) for c in self.conditions))
 
-    def apply(self, tuples: List[Tuple[T, bool]], pipes: List[P]) -> List[Tuple[T, P]]:
+    def apply(self, tuples: List[Tuple[T, bool]], pipes: List[P]) -> List[Tuple[T, Optional[P]]]:
         #### Sends ALL VALUES as a single group to the FIRST pipe whose corresponding condition succeeds
         ## Multiply:    Send all values to EACH pipe whose condition succeeds
         ## Non-strict:  If all conditions fail, either pass to the (n+1)th pipe or leave values unaffected if it is not present
@@ -623,6 +627,13 @@ class Conditional(AssignMode):
                 if overflow_pipe_given: out.append( (values, pipes[-1]) )
             return out
 
+class Random(AssignMode):
+    '''Assign mode that sends each group to a random pipe.'''
+    def __str__(self):
+        return super().__str__() + 'RANDOM'
+
+    def apply(self, tuples: List[Tuple[T, bool]], pipes: List[P]) -> List[Tuple[T, Optional[P]]]:
+        return [ (items, None if ignore else choice(pipes)) for (items, ignore) in tuples ]
 
 class GroupMode:
     '''A class that combines multiple SplitModes and an AssignMode'''
@@ -631,12 +642,12 @@ class GroupMode:
         self.assignMode: AssignMode = assignMode
 
     def __str__(self):
-        if self.is_trivial():
+        if self.splits_trivially() and self.assignMode.is_trivial():
             return 'TRIVIAL'
         return ' > '.join(str(s) for s in self.splitModes) + ' × ' + str(self.assignMode)
 
-    def is_trivial(self):
-        return ( not self.splitModes and self.assignMode.is_trivial() )
+    def splits_trivially(self):
+        return not self.splitModes
 
     def apply(self, all_items: List[T], pipes: List[P]) -> List[Tuple[List[T], Optional[P]]]:
         groups: List[Tuple[List[T], bool]] = [(all_items, False)]
@@ -652,11 +663,14 @@ class GroupMode:
 
 
 # pattern:
-# optionally starting with a *
-# then either:
-#   (N) or %N or \N or /N or #N or #N:M
-#   or { COND1 | COND2 | COND3 | ... }
-# followed by 0 up to 2 !'s
+# optionally starting with a Multiply Flag: *
+# then 0 or more instances of SplitModes:
+#   (N)  |  %N  |  \N  |  /N  |  #N  |  #N:M
+# each optionally followed by a Strictness flag: ! | !!
+# optionally followed by a Multiply flag: *
+# optionally followed by an AssignMode:
+#   { COND1 | COND2 | COND3 | ... }  |  ?
+# each optionally followed by a Strictness flag: ! | !!
 
 mul_pattern = re.compile(r'\s*(\*?)\s*')
 #                              ^^^
@@ -667,8 +681,10 @@ op_pattern = re.compile(r'(/|%|\\)\s*(\d+)?')
 #                          ^^^^^^     ^^^
 int_pattern = re.compile(r'#(-?\d*)(?:(?::|\.\.+)(-?\d*))?')
 #                            ^^^^^                ^^^^^
+
 cond_pattern = re.compile(r'{([^{]*)}\s*(!?!?)\s*')
 #                             ^^^^^      ^^^^
+rand_pattern = re.compile(r'\?')
 
 strict_pattern = re.compile(r'\s*(!?!?)\s*')
 #                                 ^^^^
@@ -737,10 +753,15 @@ def parse(bigPipe):
     ### ASSIGNMODE
     m = cond_pattern.match(cropped)
     if m is not None:
-        assignMode = Conditional(multiply, len(m[2]) ,m[1])
+        assignMode = Conditional(multiply, len(m[2]), m[1])
         cropped = cropped[m.end():]
     else:
-        assignMode = DefaultAssign(multiply)
+        m = rand_pattern.match(cropped)
+        if m is not None:
+            assignMode = Random(multiply)
+            cropped = cropped[m.end():]
+        else:
+            assignMode = DefaultAssign(multiply)
 
     ### GROUPMODE
     groupMode = GroupMode(splitModes, assignMode)
