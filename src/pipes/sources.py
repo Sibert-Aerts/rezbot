@@ -545,6 +545,7 @@ def _wikipedia_page(page, language):
     
 WIKIPEDIA_WHAT = ['title', 'url', 'summary', 'content', 'images', 'videos', 'audio', 'links']
 _img_re = re.compile(r'(?i)(png|jpe?g|gif|webp)$')
+_banned_imgs = ['https://upload.wikimedia.org/wikipedia/commons/7/74/Red_Pencil_Icon.png']
 _vid_re = re.compile(r'(?i)(webm|gif|mp4)$')
 _aud_re = re.compile(r'(?i)(mp3|ogg|ogv|wav)$')
 _svg_re = re.compile(r'(?i)(svg)$')
@@ -563,16 +564,18 @@ def _wikipedia_get_what(page, what, n):
         return choose_slice( page.summary_sentences, n )
     elif what == 'content':
         if not hasattr(page, 'content_sentences'):
-            sentences = nltk.sent_tokenize(page.content)
+            # Get rid of section titles before parsing sentences
+            content = re.sub(r'^==+ .+ ==+\s*$', '', page.content, flags=re.M)
+            sentences = nltk.sent_tokenize(content)
             sentences = [ re.sub(r'\n[\n\s]*', ' ', s) for s in sentences ]
             page.content_sentences = sentences
         return choose_slice( page.content_sentences, n )
     elif what == 'images':
-        return sample( [image for image in page.images if _img_re.search(image)], n )
+        return sample( [img for img in page.images if _img_re.search(img) and img not in _banned_imgs], n )
     elif what == 'videos':
-        return sample( [image for image in page.images if _vid_re.search(image)], n )
+        return sample( list(filter(_vid_re.search, page.images)), n )
     elif what == 'audio':
-        return sample( [image for image in page.images if _aud_re.search(image)], n )
+        return sample( list(filter(_aud_re.search, page.images)), n )
     elif what == 'links':
         return sample( page.links, n )
 
