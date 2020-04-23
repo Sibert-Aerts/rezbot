@@ -297,6 +297,47 @@ def join_pipe(input, s):
     return [s.join(input)]
 
 
+@make_pipe({
+    'columns': Sig(str, None, 'The names of the different columns separated by commas, or an integer giving the number of columns.'),
+    'alignments': Sig(str, 'l', 'The way the columns should be aligned: l/c/r separated by commas.', options=['l', 'c', 'r'], multi_options=True),
+    'code_block': Sig(parse_bool, True, 'Whether or not the table should already be wrapped in a Discord code block.')
+})
+def table_pipe(input, columns, alignments, code_block):
+    '''Formats data as a table'''
+    try:
+        colNames = None
+        colCount = int(columns)
+    except:
+        colNames = columns.split(',')
+        colCount = len(colNames)
+
+    if colCount <= 0:
+        raise ValueError('Number of columns should be at least 1.')
+    # Pad out the list of alignments with itself
+    alignments = alignments.split(',')
+    alignments = alignments * math.ceil( colCount/len(alignments) )
+
+    rows = [ input[i:i+colCount] for i in range(0, len(input), colCount) ]
+    # Pad out the last row with empty strings
+    rows[-1] += [''] * (colCount - len(rows[-1]))
+
+    colWidths = [ max(len(row[i]) for row in rows) for i in range(colCount) ]
+    if colNames:
+        colWidths = [ max(w, len(name)) for (w, name) in zip(colWidths, colNames) ]
+
+    def pad(text, width, where, what=' '):
+        if where == 'l': return text.ljust(width, what)
+        if where == 'c': return text.center(width, what)
+        if where == 'r': return text.rjust(width, what)
+
+    rows = [ ' %s ' % ' │ '.join([ pad(row[i], colWidths[i], alignments[i]) for i in range(colCount) ]) for row in rows ]
+    if colNames:
+        rows = [ '_%s_' % '_│_'.join([ pad(colNames[i], colWidths[i], alignments[i], '_') for i in range(colCount) ]) ] + rows
+
+    return [ ('```%s```' if code_block else '%s') % '\n'.join(rows) ]
+
+    
+
 #####################################################
 #                  Pipes : LETTER                   #
 #####################################################
