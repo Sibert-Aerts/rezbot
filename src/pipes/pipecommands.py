@@ -186,7 +186,7 @@ class PipeCommands(MyCommands):
                 infos += [ '• ' + str(e) for e in enabled ]
             if disabled:
                 infos += ['**__Disabled:__**']
-                infos += [ '• ' + str(e) for e in disabled ]
+                infos += [ ', '.join( '**'+e.name+'**' for e in disabled ) ]
             await ctx.send('\n'.join(infos))
         
         else:
@@ -205,6 +205,7 @@ class PipeCommands(MyCommands):
         if ctx.channel.id in event.channels:
             await ctx.send('Event is already enabled in this channel.'); return
         event.channels.append(ctx.channel.id)
+        events.write()
         await ctx.send('Enabled event "{}" in {}'.format(event.name, ctx.channel.mention))
 
     @commands.command()
@@ -224,6 +225,7 @@ class PipeCommands(MyCommands):
         if ctx.channel.id not in event.channels:
             await ctx.send('Event is already disabled in this channel.'); return
         event.channels.remove(ctx.channel.id)
+        events.write()
         await ctx.send('Disabled event "{}" in {}'.format(event.name, ctx.channel.mention))
 
     @commands.command(aliases=['del_event'])

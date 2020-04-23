@@ -184,7 +184,7 @@ class BotCommands(MyCommands):
     @commands.command()
     async def word_gradient(self, ctx, w1:str, w2:str, n:int=5):
         '''gradient between two words'''
-        if n > 9: return
+        if n > 20: return
         text = '\n'.join(util.remove_duplicates([w1] + texttools.dist_gradient(w1, w2, n) + [w2]))
         await ctx.send(texttools.block_format(text))
 

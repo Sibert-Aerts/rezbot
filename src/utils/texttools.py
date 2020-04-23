@@ -225,8 +225,8 @@ def case_pattern(pattern, *inputs):
         A       Just turns the first character uppercase
         Aa      Turns the first character upper, the second lower
         A(a)    Turns the first character upper, all others lower
-        A(-)A   Turns the first upper, the last lower
-        ^(Aa)^  Reverses the first and last characters, AnD DoEs tHiS To tHe oNeS BeTwEeN
+        A(-)A   Turns the first and last characters upper
+        ^(Aa)^  Reverses case on the first and last characters, AnD DoEs tHiS To tHe oNeS BeTwEeN
     '''
     m = re.match(CASE_RE, pattern)
     if m is None:
