@@ -522,15 +522,17 @@ class Pipeline:
             newPrintValues = []
 
             # GroupModes that mess with the items in some way add a new context layer.
-            if not groupMode.splits_trivially():
+            if groupMode.splits_trivially():
+                pipeContext = context
+            else:
                 context.set(values)
-                context = Context(context)
+                pipeContext = Context(context)
 
             # The group mode turns the [values], [pipes] into a list of ([values], pipe) pairs
             # For more information: Check out groupmodes.py
             ### This loop essentially iterates over the pipes as they are applied in parallel. ( [first|second|third] )
             for vals, pipe in groupMode.apply(values, parsedPipes):
-                context.set(vals)
+                pipeContext.set(vals)
 
                 ## CASE: `None` is the group mode's way of ignoring these values
                 if pipe is None:
@@ -540,7 +542,7 @@ class Pipeline:
                 ## CASE: The pipe is an inline pipeline (recursion call)
                 if type(pipe) is Pipeline:
                     pipeline = pipe
-                    vals, pl_printValues, pl_errors, pl_SPOUT_CALLBACKS = await pipeline.apply(vals, message, context)
+                    vals, pl_printValues, pl_errors, pl_SPOUT_CALLBACKS = await pipeline.apply(vals, message, pipeContext)
                     newValues.extend(vals)
                     errors.extend(pl_errors, 'braces')
                     SPOUT_CALLBACKS += pl_SPOUT_CALLBACKS
@@ -551,10 +553,10 @@ class Pipeline:
                 args = pipe.argstr
 
                 # Evaluate sources and insert context into the arg string
-                args = await source_processor.evaluate_composite_source(args, context)
+                args = await source_processor.evaluate_composite_source(args, pipeContext)
                 errors.steal(source_processor.errors, context='args for "{}"'.format(name))
                 # Handle context's ignoring/filtering of values depending on their use in the argstring
-                ignored, vals = context.get_ignored_filtered()
+                ignored, vals = pipeContext.get_ignored_filtered()
                 newValues.extend(ignored)
 
                 #### Resolve the pipe's name, in order:
