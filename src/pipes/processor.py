@@ -260,7 +260,7 @@ class SourceProcessor:
 
             elif context:
                 ## Matched an item and we have context to fill it in
-                items.append(context.get_item(carrots, index, exclamation))
+                items.append(context.get_item(carrots, index, exclamation) or '')
                 futures.append(None)
                 matches.append(None)
 
@@ -273,7 +273,7 @@ class SourceProcessor:
 
         values = []
         for future, item, match in zip(futures, items, matches):
-            # By construction: (future is None) XOR (item is None)
+            # By construction: (item is None) XOR (future is None)
             if item is not None:
                 values.append(item)
             else:
