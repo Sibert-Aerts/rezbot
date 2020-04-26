@@ -301,9 +301,10 @@ def join_pipe(input, s):
 @make_pipe({
     'columns': Sig(str, None, 'The names of the different columns separated by commas, or an integer giving the number of columns.'),
     'alignments': Sig(str, 'l', 'The way the columns should be aligned: l/c/r separated by commas.', options=['l', 'c', 'r'], multi_options=True),
+    'sep': Sig(str, ' │ ', 'The separator between different columns'),
     'code_block': Sig(parse_bool, True, 'Whether or not the table should already be wrapped in a Discord code block.')
 })
-def table_pipe(input, columns, alignments, code_block):
+def table_pipe(input, columns, alignments, sep, code_block):
     '''Formats data as a table'''
     try:
         colNames = None
@@ -331,9 +332,9 @@ def table_pipe(input, columns, alignments, code_block):
         if where == 'c': return text.center(width, what)
         if where == 'r': return text.rjust(width, what)
 
-    rows = [ ' %s ' % ' │ '.join([ pad(row[i], colWidths[i], alignments[i]) for i in range(colCount) ]) for row in rows ]
+    rows = [ ' %s ' % sep.join([ pad(row[i], colWidths[i], alignments[i]) for i in range(colCount) ]) for row in rows ]
     if colNames:
-        rows = [ '_%s_' % '_│_'.join([ pad(colNames[i], colWidths[i], alignments[i], '_') for i in range(colCount) ]) ] + rows
+        rows = [ '_%s_' % sep.replace(' ', '_').join([ pad(colNames[i], colWidths[i], alignments[i], '_') for i in range(colCount) ]) ] + rows
 
     return [ ('```%s```' if code_block else '%s') % '\n'.join(rows) ]
 
