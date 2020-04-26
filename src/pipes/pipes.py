@@ -336,7 +336,7 @@ def table_pipe(input, columns, alignments, sep, code_block):
     if colNames:
         rows = [ '_%s_' % sep.replace(' ', '_').join([ pad(colNames[i], colWidths[i], alignments[i], '_') for i in range(colCount) ]) ] + rows
 
-    return [ ('```%s```' if code_block else '%s') % '\n'.join(rows) ]
+    return [ ('```\n%s\n```' if code_block else '%s') % '\n'.join(rows) ]
 
     
 
