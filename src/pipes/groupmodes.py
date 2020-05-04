@@ -515,9 +515,10 @@ class Conditional(AssignMode):
     '''Assign mode that assigns groups to pipes based on logical conditions that each group meets.'''
 
     class Condition():
-        type1 = re.compile(r'(-?\d+)\s*(!)?=\s*(-?\d+)')              # item = item
-        type2 = re.compile(r'(-?\d+)\s*(!)?=\s*"([^"]*)"')            # item = "literal"
-        type3 = re.compile(r'(-?\d+)\s+(NOT )?LIKE\s+/([^/]*)/', re.I)     # item [NOT] LIKE /regex/
+        type1 = re.compile(r'(-?\d+)\s*(!)?=\s*(-?\d+)')                # <index> = <index>
+        type2 = re.compile(r'(-?\d+)\s*(!)?=\s*"([^"]*)"')              # <index> = "<literal>"
+        type3 = re.compile(r'(-?\d+)\s+(NOT )?LIKE\s+/([^/]*)/', re.I)  # <index> [NOT] LIKE /<regex>/
+        type4 = re.compile(r'((NO|SOME|ANY)THING)', re.I)               # NOTHING or SOMETHING or ANYTHING
         def __init__(self, cond):
             m = re.match(self.type1, cond)
             if m is not None:
@@ -544,12 +545,18 @@ class Conditional(AssignMode):
                 self.re_str = r
                 self.re = re.compile(r)
                 return
+            m = re.match(self.type4, cond)
+            if m is not None:
+                self.type = 4
+                self.inverse = (m.group()[:2] == 'NO ')
+                return
             raise GroupModeError('Invalid condition format ({})'.format(cond))
 
         def __str__(self):
             if self.type == 1: return '{} {}= {}'.format(self.left, '!' if self.inverse else '', self.right)
             if self.type == 2: return '{} {}= "{}"'.format(self.left, '!' if self.inverse else '', self.right)
             if self.type == 3: return '{} {}LIKE /{}/'.format(self.left, 'NOT ' if self.inverse else '', self.re_str)
+            if self.type == 4: return '{}THING'.format('NO' if self.inverse else 'ANY')
 
         def check(self, values):
             try:
@@ -559,6 +566,8 @@ class Conditional(AssignMode):
                     return self.inverse ^ (values[self.left] == self.right)
                 if self.type == 3:
                     return self.inverse ^ (re.search(self.re, values[self.left]) is not None)
+                if self.type == 4:
+                    return self.inverse ^ (len(values) > 0)
             except IndexError:
                 raise GroupModeError('Index out of range in condition ({})'.format(self))
 
