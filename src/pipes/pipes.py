@@ -254,7 +254,7 @@ def strip_pipe(value):
 @as_map
 def sub_pipe(text, to, **argc):
     '''Substitutes patterns in the input.'''
-    return re.sub(argc['from'], to, text)
+    return re.sub(argc['from'], to, text, re.S)
 
 
 @make_pipe({
