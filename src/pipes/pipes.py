@@ -614,6 +614,8 @@ MATH_FUNCTIONS = {
     'sin': math.sin,
     'cos': math.cos,
     'tan': math.tan,
+    'asin': math.asin,
+    'acos': math.acos,
     'atan': math.atan,
     'atan2': math.atan2,
     # Exponentiation
@@ -657,7 +659,6 @@ def math_pipe(values, expr):
     Note: For finding the min, max, sum or avg of an arbitrary number of arguments, use the respective min, max, sum and avg pipes
     '''
     return [ smart_format(SIMPLE_EVAL.eval(expr)) ]
-        
 
 
 @make_pipe({})
