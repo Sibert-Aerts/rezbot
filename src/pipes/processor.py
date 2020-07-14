@@ -560,7 +560,7 @@ class Pipeline:
                 pipeContext.set(vals)
 
                 ## CASE: `None` is the group mode's way of leaving these values untouched
-                if pipe in [None, '', 'nop']:
+                if pipe is None:
                     newValues.extend(vals)
                     continue
 
@@ -589,8 +589,12 @@ class Pipeline:
 
                 #### Resolve the pipe's name, in order:
 
+                ## NO OPERATION
+                if pipe in ['', 'nop']:
+                    newValues.extend(vals)
+
                 ## HARDCODED 'PRINT' SPOUT (TODO: GET RID OF THIS)
-                if name == 'print':
+                elif name == 'print':
                     newPrintValues.extend(vals)
                     newValues.extend(vals)
                     SPOUT_CALLBACKS.append(spouts['print'](vals, args))
