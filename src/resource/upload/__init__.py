@@ -4,6 +4,8 @@ import pickle
 import random
 import nltk
 import markovify
+import spacy
+SPACY_NLP = None
 
 def DIR(filename=''):
     return os.path.join(os.path.dirname(__file__), 'files', filename)
@@ -50,11 +52,13 @@ class File:
     def __init__(self, info):
         '''Constructor used when a file is loaded at startup.'''
         self.info = info
+        # NOTE: None of these should be accessed from outside the class, use File.get_xyz() instead
         self.lines = None
         self.search_lines = None
         self.sentences = None
         self.search_sentences = None
         self.markov_model = None
+        self.pos_buckets = None
 
     @staticmethod
     def new(name, author_name, author_id, raw, **kwargs):
@@ -215,6 +219,22 @@ class File:
         else:
             return [model.make_short_sentence(length, tries=20) or model.make_sentence(length, test_output=False) for _ in range(count)]
 
+    def get_pos_buckets(self):
+        if self.pos_buckets is None:
+            global SPACY_NLP
+            if SPACY_NLP is None: SPACY_NLP = spacy.load('en_core_web_sm')
+            doc = SPACY_NLP(' '.join(self.get_lines()))
+
+            buckets = {}
+            # Fill up sets of words per POS tag
+            for token in doc:
+                try:    buckets[token.pos_].add(token.text)
+                except: buckets[token.pos_] = { token.text }
+            # Turn sets into tuples so we can easily sample them
+            for t in buckets:
+                buckets[t] = tuple(buckets[t])
+            self.pos_buckets = buckets
+        return self.pos_buckets
 
 class Files:
     def __init__(self):
@@ -253,7 +273,10 @@ class Files:
         return self.files.__iter__()
 
     def __getitem__(self, name):
-        return self.files[Files.clean_name(name)]
+        name = Files.clean_name(name)
+        if not name in self.files:
+            raise KeyError('No file "%s" loaded! Check >files for a list of files.' % name)
+        return self.files[name]
 
     def __setitem__(self, name, value):
         self.files[Files.clean_name(name)] = value

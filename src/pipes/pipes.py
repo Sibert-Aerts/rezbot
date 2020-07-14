@@ -550,6 +550,31 @@ def translate_pipe(text, to, **argc):
     return result['translatedText']
 
 
+
+@make_pipe({
+    'file'  : Sig(str, None, 'The file name'),
+    'n'     : Sig(int, 1, 'The amount of different phrases to generate.')
+}, command=True)
+def POS_fill_pipe(phrases, file, n):
+    '''
+        Replaces POS tags of the form %TAG% with grammatically matching pieces from a given file.
+
+        See >files for a list of uploaded files.
+        List of POS tags: https://universaldependencies.org/docs/u/pos/
+        See also the `POS` source.
+    '''
+    file = uploads[file]
+    pos_buckets = file.get_pos_buckets()
+
+    def repl(m):
+        if m[1].upper() in pos_buckets:
+            return random.choice( pos_buckets[m[1].upper()] )
+        return m[0]
+
+    return [ re.sub('%(\w+)%', repl, phrase) for phrase in phrases for _ in range(n) ]
+
+
+
 #####################################################
 #                  Pipes : ENCODING                 #
 #####################################################
@@ -601,9 +626,9 @@ def rot_pipe(text, by):
 
 
 #####################################################
-#                    Pipes : MATH                   #
+#                   Pipes : MATHS                   #
 #####################################################
-_CATEGORY = 'MATH'
+_CATEGORY = 'MATHS'
 
 def smart_format(x: float):
     x = str(x)

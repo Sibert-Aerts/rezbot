@@ -296,7 +296,7 @@ async def get_source(name, default):
 #                  Sources : FILE                   #
 #####################################################
 _CATEGORY = 'FILE'
-# NOTE: the category can't be called "FILE" if I rename "txt" to "file"
+# NOTE: the category can't be called "FILE" if I rename "txt" to "file", also the "file" source can't be a command then!
 
 def bool_or_none(val):
     if val is None or val == 'None': return None
@@ -309,16 +309,13 @@ def bool_or_none(val):
     'sentences' : Sig(bool_or_none, None, 'If the file should be split on sentences as opposed to on dividing characters, "None" for file-dependent.', required=False),
     'query'     : Sig(str, '', 'Optional search query'),
     'pattern'   : Sig(str, '', 'Optional search regex'),
-}, depletable=True)
+}, command=True, depletable=True)
 async def txt_source(file, n, sequential, sentences, query, pattern):
     '''Lines from an uploaded text file. Check >files for a list of files.'''
     if file == 'random':
         file = random.choice(list(uploads.files.keys()))
-
-    if file not in uploads:
-        raise KeyError('No file "%s" loaded! Check >files for a list of files.' % file)
-
     file = uploads[file]
+
     if sequential is None: sequential = file.info.sequential
     if sentences is None: sentences = file.info.sentences
 
@@ -335,10 +332,35 @@ async def txt_source(file, n, sequential, sentences, query, pattern):
 }, command=True)
 async def markov_source(file, n, length):
     '''Randomly generated markov chains based on an uploaded file. Check >files for a list of files.'''
-    if file not in uploads:
-        raise KeyError('No file "%s" loaded! Check >files for a list of files.' % file)
     file = uploads[file]
     return file.get_markov_lines(n, length)
+
+
+@make_source({
+    'file'  : Sig(str, None, 'The file name'),
+    'tag'   : Sig(str, None, 'The POS tag'),
+    'n'     : Sig(int, 1, 'The amount of phrases or tokens')
+}, depletable=True)
+async def POS_source(file, tag, n):
+    '''
+        Returns a Piece Of Sentence from a given text file that match a given grammatical POS tag.
+
+        See >files for a list of uploaded files.
+        List of POS tags: https://universaldependencies.org/docs/u/pos/
+        See also the `POS_fill` pipe.
+    '''
+    file = uploads[file]
+    pos_buckets = file.get_pos_buckets()
+    
+    tag = tag.upper()
+    if tag in pos_buckets:
+        # Slightly inconsistent behaviour: "ALL" gives all unique words, but the normal case can give repeats
+        if n == -1: return list(pos_buckets[tag])
+        return random.choices( pos_buckets[tag], k=n)
+    else: # Sad fallback: just return the tag n times
+        return [tag] * n if n > 0 else []
+
+
 
 #####################################################
 #                 Sources : QUOTES                  #
@@ -530,6 +552,7 @@ async def word_source(pattern, n):
 async def emoji_source():
     '''Random emoji.'''
     return choose(list(emoji.UNICODE_EMOJI.keys())).replace(' ', '')
+
 
 
 #####################################################

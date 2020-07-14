@@ -638,7 +638,7 @@ class Pipeline:
                     # Sources don't accept input values: Discard them but warn about it if it's a nonzero amount being discarded.
                     # This is just a style warning, if it turns out this is an annoying warning to prevent then just remove this bit...
                     if vals:
-                        errors('Source-as-pipe `{}` received nonempty input; either use it for arguments or explicitly `remove` it.'.format(name))
+                        errors('Source-as-pipe `{}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.'.format(name))
 
                     newVals = await source_processor.evaluate_parsed_source(name, args)
                     errors.steal(source_processor.errors, context='source-as-pipe')
