@@ -26,19 +26,17 @@ import utils.util as util
 
 class PipelineError(ValueError):
     '''Special error for some invalid element when processing a pipeline.'''
-    pass
 
 class ContextError(ValueError):
     '''Special error used by the Context class when a context string cannot be fulfilled.'''
-    pass
 
+class TerminalError(Exception):
+    '''Special error that serves as a signal to end script execution but contains no information.'''
 
 class ErrorLog:
     '''Class for logging warnings & error messages from a pipeline's execution.'''
     def __init__(self):
-        self.errors = []
-        self.terminal = False
-        self.time = datetime.now().strftime('%z %c')
+        self.clear()
 
     class ErrorMessage:
         def __init__(self, message, count=1):
@@ -73,6 +71,7 @@ class ErrorLog:
     def clear(self):
         self.errors = []
         self.terminal = False
+        self.time = datetime.now().strftime('%z %c')
 
     def __bool__(self): return len(self.errors) > 0
     def __len__(self): return len(self.errors)
@@ -142,7 +141,7 @@ class Context:
         count = len(ctx.items)
         # Make sure the index fits in the context's range of items
         i = int(index)
-        if i >= count: raise ContextError('Out of range: References item {} but only {} items were given.'.format(i, count))
+        if i >= count: raise ContextError('Out of range: References item {} out of only {} items.'.format(i, count))
         if i < 0: i += count
         if i < 0: raise ContextError('Out of range: Negative index {} for only {} items.'.format(i-count, count))
 
@@ -172,12 +171,15 @@ class Context:
 
 class SourceProcessor:
     # This is a class so I don't have to juggle the message (discord context) and error log around
+    # This class is responsible for all instances of replacing {}, {0}, {source}, etc. with actual strings
+    # TODO: The entire job of parsing sources could be improved by getting an actual parser to do the job,
+    #       this would also allow handling {nested what={sources}} which would be nice :)
 
     def __init__(self, message):
         self.message = message
         self.errors = ErrorLog()
 
-    # Matches: {source}, {source and some args}, {source args="{something}"}, {10 source}, etc.
+    # Matches: {source}, {source and some args}, {source args="{curly braces allowed}"}, {10 sources}, etc.
     # Doesn't match: {}, {0}, {1}, {2}, {2!} etc., those are matched by Context.item_regex
 
     _source_regex = r'(?i){\s*(ALL|\d*)\s*([_a-z][^\s}]*)\s*([^}\s](?:\"[^\"]*\"|[^}])*)?}'
@@ -199,7 +201,7 @@ class SourceProcessor:
             try:
                 return await sources[name](self.message, args, n=n)
             except Exception as e:
-                self.errors('Failed to evaluate source "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
+                self.errors('Failed to evaluate source `{}` with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
                 return None
 
         elif name in source_macros:
@@ -221,7 +223,7 @@ class SourceProcessor:
             self.errors.extend(errors, name)
             return values
 
-        self.errors('Unknown source "{}".'.format(name))
+        self.errors('Unknown source `{}`.'.format(name))
         return None
 
     async def evaluate_pure_source(self, source):
@@ -260,7 +262,13 @@ class SourceProcessor:
 
             elif context:
                 ## Matched an item and we have context to fill it in
-                items.append(context.get_item(carrots, index, exclamation) or '')
+                try:
+                    item = context.get_item(carrots, index, exclamation)
+                except ContextError as e:
+                    # This is a terminal error, but we continue so we can collect more possible errors/warnings in this loop before we quit.
+                    self.errors(str(e), True)
+                    continue
+                items.append(item or '')
                 futures.append(None)
                 matches.append(None)
 
@@ -270,6 +278,9 @@ class SourceProcessor:
 
             slices.append( source[start: match.start()] )
             start = match.end()
+
+        # We encountered some kind of terminal error! Get out of here!
+        if self.errors.terminal: return
 
         values = []
         for future, item, match in zip(futures, items, matches):
@@ -380,7 +391,7 @@ class Pipeline:
 
     # Matches the first (, until either the last ) or if there are no ), the end of the string
     # Use of this regex relies on the knowledge/assumption that the nested parentheses in the string are matched
-    wrapping_brackets_regex = re.compile(r'\(((.*)\)|(.*))', re.S)
+    wrapping_parens_regex = re.compile(r'\(((.*)\)|(.*))', re.S)
 
     def steal_parentheses(self, segment):
         '''Steals all (intelligently-parsed) parentheses-wrapped parts from a string and puts them in a list so we can put them back later.'''
@@ -479,7 +490,7 @@ class Pipeline:
             ## Inline pipeline: (foo > bar > baz)
             if pipe and pipe[0] == '(':
                 # TODO: This regex is dumb as tits. Somehow use the knowledge from the parentheses parsing earlier instead.
-                m = re.match(Pipeline.wrapping_brackets_regex, pipe)
+                m = re.match(Pipeline.wrapping_parens_regex, pipe)
                 pipeline = m[2] or m[3]
                 # Immediately parse the inline pipeline
                 parsedPipes.append(Pipeline(pipeline))
@@ -534,12 +545,12 @@ class Pipeline:
             for vals, pipe in groupMode.apply(values, parsedPipes):
                 pipeContext.set(vals)
 
-                ## CASE: `None` is the group mode's way of ignoring these values
-                if pipe is None:
+                ## CASE: `None` is the group mode's way of leaving these values untouched
+                if pipe in [None, '', 'nop']:
                     newValues.extend(vals)
                     continue
 
-                ## CASE: The pipe is an inline pipeline (recursion call)
+                ## CASE: The pipe is an inline pipeline (recursion!)
                 if type(pipe) is Pipeline:
                     pipeline = pipe
                     vals, pl_printValues, pl_errors, pl_SPOUT_CALLBACKS = await pipeline.apply(vals, message, pipeContext)
@@ -552,31 +563,30 @@ class Pipeline:
                 name = pipe.name
                 args = pipe.argstr
 
+                #### Argstring preprocessing
                 # Evaluate sources and insert context into the arg string
                 args = await source_processor.evaluate_composite_source(args, pipeContext)
-                errors.steal(source_processor.errors, context='args for "{}"'.format(name))
+                errors.steal(source_processor.errors, context='args for `{}`'.format(name))
+                # Cut script execution short by returning only the error log (I don't love this approach)
+                if errors.terminal: return None, None, errors, None
                 # Handle context's ignoring/filtering of values depending on their use in the argstring
                 ignored, vals = pipeContext.get_ignored_filtered()
                 newValues.extend(ignored)
 
                 #### Resolve the pipe's name, in order:
 
-                ## HARDCODED 'PRINT' SPOUT (TODO: GET RID OF THIS!)
+                ## HARDCODED 'PRINT' SPOUT (TODO: GET RID OF THIS)
                 if name == 'print':
                     newPrintValues.extend(vals)
                     newValues.extend(vals)
                     SPOUT_CALLBACKS.append(spouts['print'](vals, args))
-
-                ## NO OPERATION
-                elif name in ['', 'nop']:
-                    newValues.extend(vals)
 
                 ## A NATIVE PIPE
                 elif name in pipes:
                     try:
                         newValues.extend(pipes[name](vals, args))
                     except Exception as e:
-                        errors('Failed to process pipe "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
+                        errors('Failed to process pipe `{}` with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
                         newValues.extend(vals)
 
                 ## A SPOUT
@@ -587,7 +597,7 @@ class Pipeline:
                     try:
                         SPOUT_CALLBACKS.append(spouts[name](vals, args))
                     except Exception as e:
-                        errors('Failed to process spout "{}" with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
+                        errors('Failed to process spout `{}` with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
 
                 ## A MACRO PIPE
                 elif name in pipe_macros:
@@ -607,17 +617,21 @@ class Pipeline:
 
                 ## A SOURCE
                 elif name in sources or name in source_macros:
-                    # TODO: Check both singular and plural forms of name!!!!!!!
+                    # Sources don't accept input values: Discard them but warn about it if it's a nonzero amount being discarded.
+                    # This is just a style warning, if it turns out this is an annoying warning to prevent then just remove this bit...
+                    if vals:
+                        errors('Source-as-pipe `{}` received nonempty input; either use it for arguments or explicitly `remove` it.'.format(name))
+
                     newVals = await source_processor.evaluate_parsed_source(name, args)
                     errors.steal(source_processor.errors, context='source-as-pipe')
-                    if newVals is not None:
-                        newValues.extend(newVals)
-                    else:
-                        newValues.extend(vals)
+                    if newVals is None:
+                        errors.terminal = True
+                        return None, None, errors, None
+                    newValues.extend(newVals)
 
                 ## UNKNOWN NAME
                 else:
-                    errors('Unknown pipe "{}".'.format(name))
+                    errors('Unknown pipe `{}`.'.format(name))
                     newValues.extend(vals)
 
             values = newValues
@@ -735,6 +749,7 @@ class PipelineProcessor:
             ### STEP 2: APPLY THE PIPELINE TO THE STARTING VALUES
             values, printValues, pl_errors, SPOUT_CALLBACKS = await pipeline.apply(values, message, context)
             errors.extend(pl_errors)
+            if errors.terminal: raise TerminalError()
 
             ### STEP 3: (MUMBLING INCOHERENTLY)
 
@@ -753,15 +768,17 @@ class PipelineProcessor:
                 try:
                     await callback(self.bot, message, values, **args)
                 except Exception as e:
-                    errors('Failed to execute spout "{}":\n\t{}'.format(callback.__name__, str(e)))
+                    errors('Failed to execute spout `{}`:\n\t{}'.format(callback.__name__, str(e)))
 
-            ## Print error output!
+            ## Post warning output to the channel if any
             if errors:
                 await message.channel.send(embed=errors.embed())
 
         except Exception as e:
+            # Something terrible happened, post error output to the channel
             print('Error applying pipeline!')
-            errors('**Terminal pipeline error:**\n' + e.__class__.__name__ + ': ' + str(e), terminal=True)
+            if not isinstance(e, TerminalError):
+                errors('**Terminal pipeline error:**\n' + e.__class__.__name__ + ': ' + str(e), terminal=True)
             await message.channel.send(embed=errors.embed())
             raise e
 
