@@ -53,7 +53,8 @@ from random import choice
 # Might produce the 2 rows of output: "derides AND clambered", "swatting OR quays"
 
 #   >> {foo} > *(2) [bar|tox]
-# Means: Fetch output from source "foo", split it in groups of 2, feed each group individually into "bar", and then feed each group into "tox".
+# Means: Fetch output from source "foo", split it in groups of 2, feed one copy of the first group into "bar" and another copy into "tox", 
+# feed one copy of the second group into "bar" and another copy into "tox", and so on.
 
 # e.g. >> {words n=4} > *(2) [join s=" AND " | join s=" OR "]
 # Might produce these 4 outputs: "horseflies AND retool", "horseflies OR retool", "possum AND ducts", "possum OR ducts"
@@ -550,7 +551,9 @@ class Conditional(AssignMode):
                 self.type = 4
                 self.inverse = (m.group()[:2] == 'NO ')
                 return
-            raise GroupModeError('Invalid condition format ({})'.format(cond))
+            if cond:
+                raise GroupModeError('Invalid condition `{}`'.format(cond))
+            raise GroupModeError('Empty condition.')
 
         def __str__(self):
             if self.type == 1: return '{} {}= {}'.format(self.left, '!' if self.inverse else '', self.right)
@@ -569,7 +572,7 @@ class Conditional(AssignMode):
                 if self.type == 4:
                     return self.inverse ^ (len(values) > 0)
             except IndexError:
-                raise GroupModeError('Index out of range in condition ({})'.format(self))
+                raise GroupModeError('Index out of range in condition `{}`'.format(self))
 
 
     def __init__(self, multiply, strictness, conditions):

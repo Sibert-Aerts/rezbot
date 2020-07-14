@@ -4,6 +4,7 @@ import re
 import random
 import asyncio
 import time
+from typing import List, Tuple, Optional, Any, TypeVar
 
 from lru import LRU
 
@@ -317,8 +318,13 @@ class ParsedPipe:
         self.name = name
         self.argstr = argstr
 
-
 class Pipeline:
+    ''' 
+        The Pipeline class parses a string containing a pipeline script into a reusable Pipeline object.
+        Its state comprises only two things:
+            An internal representation of the script using e.g. lists of ParsedPipes, GroupModes, Pipelines, etc.
+            An ErrorLog containing errors encountered during parsing.
+    '''
     def __init__(self, string):
         self.parser_errors = ErrorLog()
 
@@ -328,9 +334,12 @@ class Pipeline:
         ### For each segment, parse the group mode and expand the parallel pipes.
         self.parsed_segments = []
         for segment in segments:
-            # TODO: A GroupModeError here breaks execution,
-            # but we could continue parsing to get ALL possible groupmode errors before breaking execution
-            segment, groupMode = groupmodes.parse(segment)
+            try:
+                segment, groupMode = groupmodes.parse(segment)
+            except groupmodes.GroupModeError as e:
+                # Encountered a terminal error during parsing! Keep parsing anyway so we can potentially scoop up more errors.
+                self.parser_errors(str(e), True)
+                continue
             parallel = self.parse_segment(segment)
             self.parsed_segments.append( (groupMode, parallel) )
 
@@ -493,7 +502,9 @@ class Pipeline:
                 m = re.match(Pipeline.wrapping_parens_regex, pipe)
                 pipeline = m[2] or m[3]
                 # Immediately parse the inline pipeline
-                parsedPipes.append(Pipeline(pipeline))
+                parsePl = Pipeline(pipeline)
+                self.parser_errors.steal(parsePl.parser_errors, context='braces')
+                parsedPipes.append(parsePl)
 
             ## Normal pipe: foo [bar=baz]*
             else:
@@ -513,12 +524,15 @@ class Pipeline:
         if chars > MAXCHARS and not permissions.has(message.author.id, permissions.owner):
             raise PipelineError('Attempted to process a flow of {} total characters at once, try staying under {}.'.format(chars, MAXCHARS))
 
-    async def apply(self, values, message, parentContext=None):
+    async def apply(self, values: List[str], message, parentContext=None) -> Tuple[ List[str], List[List[str]], ErrorLog, List[Any] ]:
         '''Apply the pipeline to the set of values.'''
         ## This is the big method where everything happens.
 
         errors = ErrorLog()
-        errors.extend(self.parser_errors) # Include the errors we found during parsing!
+        errors.extend(self.parser_errors)
+        # Turns out this code just isn't even executable due to parsing errors! abort!
+        if errors.terminal:
+            return None, None, errors, None
 
         context = Context(parentContext)
         printValues = []
