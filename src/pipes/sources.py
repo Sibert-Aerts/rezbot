@@ -340,7 +340,7 @@ async def markov_source(file, n, length):
     'file'  : Sig(str, None, 'The file name'),
     'tag'   : Sig(str, None, 'The POS tag'),
     'n'     : Sig(int, 1, 'The amount of phrases or tokens')
-}, depletable=True)
+}, depletable=True, plural='POS')
 async def POS_source(file, tag, n):
     '''
         Returns a Piece Of Sentence from a given text file that match a given grammatical POS tag.
