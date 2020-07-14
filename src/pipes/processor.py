@@ -590,7 +590,7 @@ class Pipeline:
                 #### Resolve the pipe's name, in order:
 
                 ## NO OPERATION
-                if pipe in ['', 'nop']:
+                if name in ['', 'nop']:
                     newValues.extend(vals)
 
                 ## HARDCODED 'PRINT' SPOUT (TODO: GET RID OF THIS)
