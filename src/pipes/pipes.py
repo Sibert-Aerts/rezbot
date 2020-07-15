@@ -552,10 +552,11 @@ def translate_pipe(text, to, **argc):
 
 
 @make_pipe({
-    'file'  : Sig(str, None, 'The file name'),
-    'n'     : Sig(int, 1, 'The amount of different phrases to generate.')
+    'file'   : Sig(str, None, 'The file name'),
+    'uniform': Sig(parse_bool, False, 'Whether to pick pieces uniformly or based on their frequency'),
+    'n'      : Sig(int, 1, 'The amount of different phrases to generate')
 }, command=True)
-def POS_fill_pipe(phrases, file, n):
+def POS_fill_pipe(phrases, file, uniform, n):
     '''
         Replaces POS tags of the form %TAG% with grammatically matching pieces from a given file.
 
@@ -567,8 +568,11 @@ def POS_fill_pipe(phrases, file, n):
     pos_buckets = file.get_pos_buckets()
 
     def repl(m):
-        if m[1].upper() in pos_buckets:
-            return random.choice( pos_buckets[m[1].upper()] )
+        tag = m[1].upper()
+        if tag in pos_buckets:
+            if uniform:
+                return random.choice( pos_buckets[tag].words )
+            return random.choices( pos_buckets[tag].words, cum_weights=pos_buckets[tag].cum_weights, k=1 )[0]
         return m[0]
 
     return [ re.sub('%(\w+)%', repl, phrase) for phrase in phrases for _ in range(n) ]

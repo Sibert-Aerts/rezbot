@@ -337,11 +337,12 @@ async def markov_source(file, n, length):
 
 
 @make_source({
-    'file'  : Sig(str, None, 'The file name'),
-    'tag'   : Sig(str, None, 'The POS tag'),
-    'n'     : Sig(int, 1, 'The amount of phrases or tokens')
+    'file'   : Sig(str, None, 'The file name'),
+    'tag'    : Sig(str, None, 'The POS tag'),
+    'uniform': Sig(util.parse_bool, False, 'Whether to pick pieces uniformly or based on their frequency'),
+    'n'      : Sig(int, 1, 'The amount of pieces')
 }, depletable=True, plural='POS')
-async def POS_source(file, tag, n):
+async def POS_source(file, tag, uniform, n):
     '''
         Returns a Piece Of Sentence from a given text file that match a given grammatical POS tag.
 
@@ -354,9 +355,13 @@ async def POS_source(file, tag, n):
     
     tag = tag.upper()
     if tag in pos_buckets:
-        # Slightly inconsistent behaviour: "ALL" gives all unique words, but the normal case can give repeats
-        if n == -1: return list(pos_buckets[tag])
-        return random.choices( pos_buckets[tag], k=n)
+        # Slightly inconsistent behaviour: "ALL" gives all unique words, but the normal case may give repeats
+        # Also, "ALL" returns each word once, regardless of the word's weight ?
+        if n == -1:
+            return list(pos_buckets[tag].words)
+        if uniform:
+            return random.choices( pos_buckets[tag].words, k=n )
+        return random.choices( pos_buckets[tag].words, cum_weights=pos_buckets[tag].cum_weights, k=n)
     else: # Sad fallback: just return the tag n times
         return [tag] * n if n > 0 else []
 

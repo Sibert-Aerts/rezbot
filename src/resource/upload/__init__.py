@@ -223,16 +223,33 @@ class File:
         if self.pos_buckets is None:
             global SPACY_NLP
             if SPACY_NLP is None: SPACY_NLP = spacy.load('en_core_web_sm')
+            # Oops this makes an error for huge input!
             doc = SPACY_NLP(' '.join(self.get_lines()))
 
             buckets = {}
-            # Fill up sets of words per POS tag
+            # buckets is {tag: {word: count}}
             for token in doc:
-                try:    buckets[token.pos_].add(token.text)
-                except: buckets[token.pos_] = { token.text }
+                if token.pos_ not in buckets:
+                    buckets[token.pos_] = { token.text: 1 }
+                elif token.text not in buckets[token.pos_]:
+                    buckets[token.pos_][token.text] = 1
+                else:
+                    buckets[token.pos_][token.text] += 1
+
+            class Bucket:
+                def __init__(self, words, cum_weights):
+                    self.words = words; self.cum_weights = cum_weights
+
             # Turn sets into tuples so we can easily sample them
             for t in buckets:
-                buckets[t] = tuple(buckets[t])
+                bucket = buckets[t]
+                words = tuple(bucket.keys())
+                cum_weights = []
+                cum = 0
+                for word in words:
+                    cum += bucket[word]
+                    cum_weights.append(cum)
+                buckets[t] = Bucket(words, cum_weights)
             self.pos_buckets = buckets
         return self.pos_buckets
 
@@ -245,6 +262,10 @@ class Files:
             if filename[-2:] != '.p':
                 continue
             file_info = pickle.load(open(DIR(filename), 'rb'))
+            # Upgrade v1's to v2 (DELETE LATER)
+            # if file_info.version == 1:
+            #     file_info.version = 2
+            #     file_info.editable = False
             self.files[file_info.name] = File(file_info)
 
         print('%d uploaded files found!' % len(self.files))
