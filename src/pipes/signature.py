@@ -149,8 +149,8 @@ def parse_args(signature, text, greedy=True):
         try:
             # Cast to the desired type (raises an exception if the value is bad)
             val = sig.type(val)
-        except:
-            raise ArgumentError('Invalid value "{}" for argument "{}": Must be of type {}'.format(val, s, sig.type.__name__))
+        except Exception as e:
+            raise ArgumentError('Invalid value "{}" for argument `{}`: Must be of type {} ({})'.format(val, s, sig.type.__name__, e))
 
         # Check whether the value meets certain requirements (raises an exception if not)
         sig.check(val)

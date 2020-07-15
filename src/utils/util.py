@@ -32,20 +32,21 @@ def strip_command(ctx):
     return s[1] if len(s) > 1 else ''
 
 def parse_bool(s):
-    return s.lower() in ['t', 'true', '1', 't', 'y', 'yes']
+    s = s.lower()
+    if s in ['t', 'true', '1', 'y', 'yes']: return True
+    if s in ['f', 'false', '0', 'n', 'no']: return False
+    raise ValueError('Cannot interpret "%s" as a boolean value' % s)
 
 def format_doc(**kwargs):
     '''Decorator that formats the function's docstring.'''
     def _format_doc(func):
-        try:
-            func.__doc__ = func.__doc__.format(**kwargs)
-        except:
-            pass
+        try: func.__doc__ = func.__doc__.format(**kwargs)
+        except: pass
         return func
     return _format_doc
 
-'''A dict that returns "{key}" if it does not contain an entry for "key".'''
 class FormatDict(dict):
+    '''A dict that returns "{key}" if it does not contain an entry for "key".'''
     def __missing__(self, key):
         return '{'+key+'}'
 

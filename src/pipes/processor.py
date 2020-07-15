@@ -39,6 +39,11 @@ class ErrorLog:
     def __init__(self):
         self.clear()
 
+    def clear(self):
+        self.errors = []
+        self.terminal = False
+        self.time = datetime.now().strftime('%z %c')
+
     class ErrorMessage:
         def __init__(self, message, count=1):
             self.count = count
@@ -50,7 +55,7 @@ class ErrorLog:
         if self.errors and self.errors[-1].message == message:
             self.errors[-1].count += 1
         else:
-            print('Error logged: ' + message)
+            print(datetime.now().strftime('[%X] Error logged: ') + message)
             self.errors.append(ErrorLog.ErrorMessage(message))
         self.terminal |= terminal
 
@@ -68,11 +73,6 @@ class ErrorLog:
     def steal(self, other, *args, **kwargs):
         self.extend(other, *args, **kwargs)
         other.clear()
-
-    def clear(self):
-        self.errors = []
-        self.terminal = False
-        self.time = datetime.now().strftime('%z %c')
 
     def __bool__(self): return len(self.errors) > 0
     def __len__(self): return len(self.errors)

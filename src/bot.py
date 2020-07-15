@@ -1,3 +1,5 @@
+
+from datetime import datetime
 import sys
 import asyncio
 from configparser import ConfigParser
@@ -33,6 +35,7 @@ async def on_ready():
     print(' ID:', bot.user.id)
     print(' Servers:', ', '.join(g.name for g in bot.guilds) )
     print(' Running discord.py %s' % discord.__version__)
+    print(' Time: ' + datetime.now().strftime('%c') )
     print('-------------------------------------------')
     print()
 
