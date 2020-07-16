@@ -51,10 +51,10 @@ class Macro:
         title = self.name + (' `hidden`' if not self.visible else '')
         embed = Embed(title='Macro: ' + title, description=(self.desc or ''), color=0x06ff83)
         
-        ### Arguments
+        ### Parameters
         if self.signature:
             argstr = '\n'.join(str(self.signature[s]) for s in self.signature)
-            embed.add_field(name='Arguments', value=argstr, inline=False)
+            embed.add_field(name='Parameters', value=argstr, inline=False)
 
         ### Script
         embed.add_field(name='Script', value=texttools.block_format(self.code), inline=False)

@@ -30,7 +30,7 @@ class Pipe:
     def command_doc(self):
         out = self.doc if self.doc else ''
         if self.signature:
-            out += '\nArguments:\n'
+            out += '\nParameters:\n'
             out += '\n'.join(['• ' + s + ': ' + str(self.signature[s]) for s in self.signature])
         return out
 
@@ -38,7 +38,7 @@ class Pipe:
         embed = Embed(title=(self.__class__.__name__ + ': ' + self.name), description=self.doc, color=0xfdca4b)
         if self.signature:
             sig = '\n'.join(['__'+s+':__ ' + str(self.signature[s]) for s in self.signature])
-            embed.add_field(name='Arguments', value=sig, inline=False)
+            embed.add_field(name='Parameters', value=sig, inline=False)
         return embed
 
 
