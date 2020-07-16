@@ -320,10 +320,11 @@ class ParsedPipe:
 
 class Pipeline:
     ''' 
-        The Pipeline class parses a string containing a pipeline script into a reusable Pipeline object.
-        Its state comprises only two things:
-            An internal representation of the script using e.g. lists of ParsedPipes, GroupModes, Pipelines, etc.
-            An ErrorLog containing errors encountered during parsing.
+        The Pipeline class parses a pipeline script into a reusable, applicable Pipeline object.
+        A Pipeline is made for each script execution, for nested (parenthesised) Pipelines, and for macros.
+        Its state should be immutable and comprises only two things:
+            An internal representation of the script using e.g. ParsedPipes, GroupModes, Pipelines, etc.
+            An ErrorLog containing warnings and errors encountered during parsing.
     '''
     def __init__(self, string):
         self.parser_errors = ErrorLog()
