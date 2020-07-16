@@ -2,16 +2,15 @@
 
 ## Introduction
 
-Pipelines are a text-based scripting toy inspired by functional programming and shell scripts, with users able to post scripts directly to a Discord chatroom where the bot runs the scripts and posts the results in the chatroom.  
-This way a group of discord users can easily use and compose unique bot features without needing much scripting experience or access to scripting tools.
+Pipelines are a text-based scripting toy inspired by functional programming and shell scripts, with users able to post scripts directly to a Discord chatroom where the bot runs the scripts and posts the results in the chatroom. This way a group of discord users can easily use and create unique bot features without needing much experience, access to scripting tools or without having to leave the Discord window.
 
-The concept is that you start with a text **source** (e.g. chat messages, tweets, random dictionary words...)
+The language's basic premise is that you start with a text **source** (e.g. chat messages, tweets, random dictionary words...)
 and you modify them using **pipes** that perform some simple task on text (e.g. turning everything uppercase, swapping random letters, translating it...) and you can chain together multiple pipes in a row to create a **pipeline** which combines to perform a more complex task.
 
-You can use this to set up a "game of telephone" by chaining translation pipes, construct ASCII/emoji-art, generate all kinds of random phrases, automatically respond to messages, compose poetry...
+Examples of what you can do in the language include chaining different translation pipes together to achieve a "game of telephone" effect, constructing ASCII/emoji-art, generating new phrases by randomly combining existing phrases, automatically responding to messages, composing poetry...
 
-Over time, as the number of features grew, the language became more powerful and complex. However, a primary design goal has always been to make the basic scripting features as simple to use as possible, to be accessible to people with little to no scripting experience.  
-At the same time, the more complex features are intended to invite an almost puzzle-solving approach from experienced programmers as they try to figure out the shortest/simplest/most elegant way of implementing an idea.
+Over time, as the number of features grew, the language became more complex, but a primary design goal has always been to make the most basic scripting features as accessible as possible, as to be usable by people with relatively little experience with programming languages.
+On the other hand, some of the more complex features may invite a puzzle-solving approach from more experienced programmers to try to figure out the shortest, simplest or most elegant solution to a scripting problem.
 
 ## Contents
 1. [Introduction](#introduction)
@@ -32,11 +31,11 @@ At the same time, the more complex features are intended to invite an almost puz
 
 A basic pipeline has the following form:  
     `>> [start] > [pipe] > [pipe] > ...`  
-e.g.  
+For example:  
     `>> Hello! > translate to=fr > convert to=fullwidth`  
-Is a pipeline which takes "Hello!", translates it to French, and then converts it to fullwidth characters.  
-This gives as output: `ｓａｌｕｔ！`
-   
+is a pipeline which takes "Hello!", translates it to French, and then converts it to fullwidth characters.  
+If you copy the above code (including the starting `>>`) and paste it in a chatroom where a Rezbot is active, it should reply: `ｓａｌｕｔ！`  
+This is the only way to directly execute scripts, all example scripts in the rest of the document can be tried out in this same way.
 
 ### Sources
 **[start]** can just be literal text, e.g. `Hello world!`.  
@@ -65,7 +64,7 @@ In a pipeline, **[pipe]** is an item of the form `name [args]`.
   <summary>Examples</summary>
 
   `>> Hello, world! > letterize` might produce `Hebdo, wornd!`  
-  `>> Hello, world! > case A` produces `HELLO, WORLD!`  
+  `>> Hello, world! > case (A)` produces `HELLO, WORLD!`  
   `>> Hello, world! > convert fraktur` produces `ℌ𝔢𝔩𝔩𝔬, 𝔴𝔬𝔯𝔩𝔡!`  
   `>> Hello, world! > translate to=fr > convert smallcaps` produces `ʙᴏɴᴊᴏᴜʀ ʟᴇ ᴍᴏɴᴅᴇ!`  
   </details>
@@ -212,14 +211,14 @@ two
 The `#1` says to only apply the pipe to the line index 1 (the second line), leaving the other lines unchanged.
 
 #### Interval grouping
-`>> zero|one|two|three > #1..3 convert fullwidth` produces:
+`>> zero|one|two|three > #1:3 convert fullwidth` produces:
 ```
 zero
 ｏｎｅ
 ｔｗｏ
 three
 ```
-The `#1..3` says to only apply the pipe to the lines index 1 through (but not including) 3, leaving the other lines unchanged.
+The `#1:3` says to only apply the pipe to the lines index 1 through (but not including) 3, leaving the other lines unchanged.
 
 For more precise documentation of group mode workings, please read the huge comment at the start of [groupmodes.py](src/pipes/groupmodes.py).
 
