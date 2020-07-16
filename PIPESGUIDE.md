@@ -15,10 +15,11 @@ On the other hand, some of the more complex features may invite a puzzle-solving
 ## Contents
 1. [Introduction](#introduction)
 2. [Basic Features](#basic-features)
-    * [Sources](#sources) 
-    * [Pipes](#pipes) 
-    * [Arguments](#arguments)
-    * [Print](#print) 
+    * [Sources](#sources)
+    * [Pipes](#pipes)
+    * [Spouts](#spouts)
+    * [Parameters](#parameters)
+    * [Print](#print)
 3. [Advanced Features](#advanced-features)
     * [Multiple lines](#multiple-lines) 
     * [Multi-line Start](#multi-line-start) 
@@ -29,18 +30,23 @@ On the other hand, some of the more complex features may invite a puzzle-solving
 
 ## Basic features
 
-A basic pipeline has the following form:  
+![A diagram showing a simple pipeline](https://i.imgur.com/gWzqpQc.png)
+
+A basic script has the following form:  
     `>> [start] > [pipe] > [pipe] > ...`  
 For example:  
-    `>> Hello! > translate to=fr > convert to=fullwidth`  
-is a pipeline which takes "Hello!", translates it to French, and then converts it to fullwidth characters.  
-If you copy the above code (including the starting `>>`) and paste it in a chatroom where a Rezbot is active, it should reply: `ｓａｌｕｔ！`  
-This is the only way to directly execute scripts, all example scripts in the rest of the document can be tried out in this same way.
+    `>> Hello! > translate to=fr > convert to=fraktur`  
+is a script which takes the text "Hello!", translates it to French, and then converts it to fraktur lettering.  
+If you copy the above code (including the starting `>>`) and paste it in a chatroom where a Rezbot is active, it should reply: `𝔰𝔞𝔩𝔲𝔱!`
+
+Sending a message in a chatroom with a Rezbot present is the only way to directly run scripts, and all example scripts in the rest of this document can be tried out in this same way. If you want access to a server where you can try out Rezbot, send me (Rezuaq#0736) a message on Discord.
 
 ### Sources
-**[start]** can just be literal text, e.g. `Hello world!`.  
-But it can also contain **sources**, special elements that find/produce text, of the form `{name [args]}`  
-    e.g. `{word}`, `Here's a simpsons quote: {simpsons}`, `dril once said "{dril q="my ass"}"`.
+The **[start]** part of a script can be literal text, e.g. `Hello world!`,
+but it can also contain **sources**, which are special elements that produce various kinds of text.  
+A source is used by writing `{ [sourceName] [arguments] }`, for example `{word}` or `{simpsons q=steam}`.
+Sources can be used on their own, for example `>>{word}` is a script that will fetch a single random dictionary word,
+but sources may also be mixed in with a piece of text, for example `>> I love {word}, but I hate {word}!` is a script that may produce "I love fronts, but I hate newspapermen!"
     
 <details>
   <summary>Examples</summary>
@@ -48,17 +54,19 @@ But it can also contain **sources**, special elements that find/produce text, of
   `>> Hello, world!` produces `Hello, world!`  
   `>> {word}` might produce `flops`  
   `>> I told you, no {word} in the kitchen!` might produce `I told you, no descendents in the kitchen!`  
-  `>> My father once told me "{dril}"` might produce `My father once told me "thinking of becoming a "Pipes" dipshit"`  
+  `>> My father once told me "{dril}"` might produce `My father once told me "pyramid was the first haunted hous.e Fact."`  
   `>> He yelled: {simpsons q=aurora}` might produce `He yelled: Good Lord! What is happening in there?`    
   </details>
 <br>
 
-The list of native sources can be seen using the `>sources` command.
+Use the `>sources` command to see a list of sources.
 
 ### Pipes
 
-In a pipeline, **[pipe]** is an item of the form `name [args]`.  
-    e.g. `print`, `letterize p=0.3`, `translate from=en to=fr`
+A **pipe** is a scripting element that takes some input text, applies some transformation to it, and outputs some other text.  
+A pipe is used by writing `[pipeName] [arguments]`, for example `strip` or `translate from=en to=de`.
+A sequence of pipes should be separated using greater than signs (`>`), and will result in the different pipes being applied in sequence from left to right, with each pipe receiving the output from the previous pipe as input. For example `translate to=de > case (A)` first translates text to German, and then turns the translated text entirely uppercase.  
+From a programming perspective, a pipe is a function that takes strings (and possibly some arguments) and returns strings. From a functional perspective, most pipes are *pure*: deterministic and without side-effects.
     
 <details>
   <summary>Examples</summary>
@@ -70,14 +78,38 @@ In a pipeline, **[pipe]** is an item of the form `name [args]`.
   </details>
 <br>
 
-The list of native pipes can be seen using the `>pipes` command.
+Use the `>pipes` command to see a list of pipes.
 
-### Arguments
+### Spouts
 
-Pipes and sources may take arguments (presented as **[args]** in the previous sections) this is a sequence of zero or more assignments of the form:  
-`name=value` or `name="value that allows spaces and 'single quotes' in it"` or `name='value with "double quotes" in it!'`
-If a pipe or source only has a single **required** argument, the `name=` part and quote marks may even be omitted entirely.
-For pipes, arguments are also allowed to contain *sources*. 
+A **spout** is a variation of pipe that has the special attribute that it does not transform its inputs whatsoever.
+Instead, a spout will perform some kind of *side effect*, for example: posting a message, writing inputs to a file, storing inputs as a variable, etc.  
+From a functional perspective, spouts are the opposite of pure: they *only* have side-effects.  
+
+(As of writing, a minor quirk with spouts: When a script is ran, the default behaviour is to post the final output of the script as a Discord message, if however any kind of spout is encountered during the script's execution, this quietly prevents that default behaviour. If you instead want to make sure script output is posted as a message, use the `send_message` spout.)
+    
+<details>
+  <summary>Examples</summary>
+
+  `>> Hello, world! > react 😂` will cause a 😂 reaction to your message, but produces no other output  
+  `>> Hello, world! > embed` produces `Hello, world!` displayed inside a Discord embed  
+  `>> Hello, world! > set myVar` produces no output, but `>>{get myVar}` will now produce `Hello, world!`
+  </details>
+<br>
+
+Use the `>spouts` command to see the list of spouts.
+
+### Parameters
+
+Sources, pipes and spouts may have **parameters**, which are listed by using the commands `>source sourceName`, `>pipe pipeName` or `>spout spoutName` respectively.  
+A parameter will be listed as:
+* <ins>param</ins>: Description of the parameter. (*paramType*, default: *paramDefault*)
+
+This indicates that the parameter is called `param`, its type is *paramType* (usually `str` for "string", `int` for "integer" or `parse_bool` for "true or false"), and that if it isn't passed an argument, it will use the default value *paramDefault*.
+
+Arguments (writen as **[arguments]** in the previous sections) may be passed to an parameter using the notation  
+`param=argWithoutSpaces` or `param="argument with spaces and 'single' quotes"` or `param='argument with spaces and "double" quotes'`, with different arguments separated by spaces. In the case of an element only having a single parameter, or only a single *required* parameter, the `param=` and enclosing quotation marks may be omitted. For example, `join s="+"`, `join s=+` and `join +` all do the same thing.  
+For pipes and spouts, arguments are also allowed to use sources. 
 
 <details>
   <summary>Examples</summary>
@@ -94,10 +126,9 @@ To see information on a source or pipe's possible arguments, use `>source source
 
 ### Print
 
-In a pipeline it can sometimes be fun or useful to know what the output was at a certain step of the process.
-The `print` pipe records intermediate output to be included in the message the bot sends once the pipeline has completed running.
-(The final output of the pipeline is automatically included in the message, so you don't need to put a `print` at the end of every pipeline.)
-Also, as a shorthand, `->` may be used in place of `> print >`.
+`print` is a unique spout that allows you to see a script's intermediate output alongside the final output.
+By default, the final output of each script is automatically `print`ed, so you never have to put a `print` at the end of a script.
+For ease of use, the *print arrow* `->` may be used, which is equivalent to writing `> print >`.
 
 
 <details>
@@ -109,6 +140,7 @@ Also, as a shorthand, `->` may be used in place of `> print >`.
   `>> Hello, world! -> convert fraktur` also produces `Hello, world! → ℌ𝔢𝔩𝔩𝔬, 𝔴𝔬𝔯𝔩𝔡!`  
   </details>
 <br>
+
 
 ## Advanced features
 Various advanced features that allow for more interesting use of pipelines.
