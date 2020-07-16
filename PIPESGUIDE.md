@@ -21,8 +21,8 @@ On the other hand, some of the more complex features may invite a puzzle-solving
     * [Parameters](#parameters)
     * [Print](#print)
 3. [Advanced Features](#advanced-features)
-    * [Multiple lines](#multiple-lines) 
-    * [Multi-line Start](#multi-line-start) 
+    * [Multiple items](#multiple-items) 
+    * [Multi-item Start](#multi-item-start) 
     * [Group modes](#group-modes) 
     * [Parallel pipes](#parallel-pipes)
     * [Input as arguments](#input-as-arguments)
@@ -107,8 +107,8 @@ A parameter will be listed as:
 
 This indicates that the parameter is called `param`, its type is *paramType* (usually `str` for "string", `int` for "integer" or `parse_bool` for "true or false"), and that if it isn't passed an argument, it will use the default value *paramDefault*.
 
-Arguments (writen as **[arguments]** in the previous sections) may be passed to an parameter using the notation  
-`param=argWithoutSpaces` or `param="argument with spaces and 'single' quotes"` or `param='argument with spaces and "double" quotes'`, with different arguments separated by spaces. In the case of an element only having a single parameter, or only a single *required* parameter, the `param=` and enclosing quotation marks may be omitted. For example, `join s="+"`, `join s=+` and `join +` all do the same thing.  
+Arguments may be passed to a parameter using the notation `param=argWithoutSpaces` or `param="argument with spaces and 'single' quotes"` or `param='argument with spaces and "double" quotes'`, with different assignments separated by spaces.  
+In the case of an element only having a single parameter, or only a single *required* parameter, the `param=` and enclosing quotation marks may be omitted. For example, `join s="+"`, `join s=+` and `join +` all do the same thing.  
 For pipes and spouts, arguments are also allowed to use sources. 
 
 <details>
@@ -142,48 +142,66 @@ For ease of use, the *print arrow* `->` may be used, which is equivalent to writ
 <br>
 
 
+
 ## Advanced features
 Various advanced features that allow for more interesting use of pipelines.
 
-### Multiple lines
-So far we've only seen pipelines where each *start* produced only a single line of output, but it's possible for a pipe(line) to apply on multiple lines of input at once.  
-For example: `>> {2 words}` might produce:
+### Multiple items
+So far we've only seen examples where **[start]** only evaluated to a single piece of text (which we will refer to as an **item**). It is however possible for a script to handle more than one item at a time, for example: `>> {2 words}` might produce:
 ```
-reciprocates
-gamuts
+environment
+precipitant
 ```
-Unlike all previous examples, the bot produces two lines of output instead of one. Let's try adding pipes and prints to the command.  
-`>> {2 words} -> case A -> convert fullwidth` might produce:  
+Not how, when a bot runs this script, the output message is now wrapped in a *code block* instead of the normal case where the bot posts script output unformatted. This is to indicate that the output of this very simple script contains *more than one* item, namely the two items `environment` and `precipitant`. In intuitive terms: two different *snippets* of text, in programming terms: two different *strings*.
+
+`>> {2 words} -> case (A) -> convert fullwidth` might produce:  
 ```
-captor       → CAPTOR       → ＣＡＰＴＯＲ
-deprogrammed → DEPROGRAMMED → ＤＥＰＲＯＧＲＡＭＭＥＤ
+cocktail → COCKTAIL → ＣＯＣＫＴＡＩＬ
+gamuts   → GAMUTS   → ＧＡＭＵＴＳ
 ```
-We see that `print` nicely formats the intermediate lines of output as different columns, and that the `case` and `convert` pipes simply apply to each individual input as one would expect.
+We see that `print` nicely formats the intermediate lines of output as different columns, and that the `case` and `convert` pipes seem to apply to each individual item as one would expect. You can visualise a script as a sort of flowchart:
+
+![a diagram of the multi-item example](https://i.imgur.com/ayUZBgk.png)
+
+(I left out the implicit `print` pipes since, being spouts, they do not affect the flow of the script)
+<br><br>
 
 Not all pipes are this simple, `split` for example, can be used to turn one line of input into multiple lines of output.  
-`>> Hello, world! > split on=,` produces:
+`>> Hello, world! > split on=","` produces:
 ```
 Hello
  world!
 ```
-One line of input "Hello, world!" is turned into two lines of output, "Hello" and " world!" by splitting on the character ",".
+One line of input "Hello, world!" is turned into two lines of output, "Hello" and " world!" by splitting on the character ",". Note how " world!" starts with a space!
+
+<img src=https://i.imgur.com/rKLMepZ.png width=50%><br><br>
 
 Conversely, there are also pipes that may expect multiple inputs. The pipe `join` for example takes any number of lines of input, and produces a single line of output:  
 `>> {3 words} > join s=" and "` might produce `rioters and intercepted and orbit`
 
-### Multi-line Start
-Some sources can produce multiple lines of output, as previously seen by the use of `{2 words}` and similar sources. This behaviour is sadly suppressed in the cases where a source is used inside a literal string, so `>> I like {2 words}!` is identical to simply `>> I like {word}!`, and will produce only a single line of output.
+<img src=https://i.imgur.com/2aTmGCD.png width=80%><br><br>
 
-A different way of having the *start* produce multiple lines of output is the following notation:  
-`>> [Hi|hello], my name is J[im|ohn]` produces:
+### Multi-item Start
+Some sources can evaluate to multiple items, as previously seen when using `{2 words}` and similar sources. This behaviour is sadly suppressed in the cases where a source is used inside a literal string, so `>> I like {2 words}!` is identical to simply writing `>> I like {word}!`, and will evaluate to only a single item.
+
+A different way of having the *[start]* evaluate to multiple items is the following notation:  
+`>> one|two|three` produces three output items:
+```
+one
+two
+three
+```
+So you can simply use bars (`|`) to separate the different items that you want to use as your starting input, if you want to actually type a bar you have to escape it with a `\` backslash.  
+The notation also allows for more complex constructions by using square brackets (`[]`):
+`>> [Hi|Hello], my name is J[im|ohn]` produces:
 ```
 Hi, my name is Jim
-hello, my name is Jim
+Hello, my name is Jim
 Hi, my name is John
-hello, my name is John
+Hello, my name is John
 ```
-Brackets are allowed to be nested, and options are allowed to be empty, so the following is also possible:  
-`>> My name is J[im[|my|bo]|ohn[|son]]` produces:
+i.e. square brackets allow you to describe a piece of text as being a *choice* of multiple different pieces of text separated by bars. The bot then expands these choices by picking every possible combination the different options that can be made, by going through every possible choice from left-to-right.  
+Choices can even be nested: `>> My name is J[im[|my|bo]|ohn[|son]]` produces:
 ```
 My name is Jim
 My name is Jimmy
@@ -191,17 +209,13 @@ My name is Jimbo
 My name is John
 My name is Johnson
 ```
-But more simply, this allows for an easy way to write multiple lines of input:  
-`>> first|second|third!` produces:
-```
-first
-second
-third!
-```
-As three individual lines of input!
+Try to look at that example and really see why it produces those outputs.  
+Because nested choices creates a "tree" structure, this process is called "choice tree expansion". Square brackets can also be escaped using backslashes in case you want to use actual square brackets.
 
-Additionally, a special "[?]" flag at the start will only result in a single *random* possible output to be picked:  
-`>> [?]My name is J[im[|my|bo]|ohn[|son]]` may produce `My name is John`.
+A different use: a "[?]" flag at the start will result in a single *random* possible combination to be picked:  
+`>> [?]My name is J[im[|my|bo]|ohn[|son]]` may produce `My name is John` as its single output.  
+This mode gives equal weight to each possible combination, e.g. for `[?][Tom|Will[|iam]]` is equally likely to evaluate as `Tom`, as `Will`, or as ``William`.
+
 
 ### Group modes
 Group modes are syntax that allow you to decide how inputs are grouped together when a pipe processes them. 
