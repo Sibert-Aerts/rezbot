@@ -550,6 +550,19 @@ def translate_pipe(text, to, **argc):
     return result['translatedText']
 
 
+@make_pipe({})
+@as_map
+def detect_language_pipe(text):
+    '''
+    Uses Google Cloud Translate API to detect the language in a given text.
+    Returns "UNKNOWN" if it cannot be determined.
+    The list of languages can be browsed at https://cloud.google.com/translate/docs/languages
+    '''
+    if _translate is None: return 'UNKNOWN'
+    if text.strip() == '': return 'UNKNOWN'
+    return translate_client.detect_language(text)['language']
+    
+
 
 @make_pipe({
     'file'   : Sig(str, None, 'The file name'),
