@@ -543,7 +543,7 @@ def translate_pipe(text, to, **argc):
     fro = argc['from'].lower() # because "from" is a keyword
     to = to.lower()
     if fro == 'auto': fro = ''
-    if to == 'random': to = choose(translate_languages)
+    if to == 'random': to = random.choice(translate_languages)
 
     result = _translate(text, source_language=fro, target_language=to)
 
