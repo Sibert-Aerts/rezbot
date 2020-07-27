@@ -21,12 +21,17 @@ class ErrorLog:
 
     def __call__(self, message, terminal=False):
         ''' The error-logging method '''
+        message = str(message)
         if self.errors and self.errors[-1].message == message:
             self.errors[-1].count += 1
         else:
             print(datetime.now().strftime('[%X] Error logged: ') + message)
             self.errors.append(ErrorLog.ErrorMessage(message))
         self.terminal |= terminal
+
+    log = __call__
+    def warn(self, message):
+        self.log(message, terminal=False)
 
     def extend(self, other, context=None):
         '''extend another error log, prepending the given 'context' for each error.'''

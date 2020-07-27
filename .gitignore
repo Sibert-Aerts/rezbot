@@ -46,6 +46,7 @@ Network Trash Folder
 Temporary Items
 .apdisk
 .vscode/settings.json
+.vscode/.ropeproject
 src/config.ini
 *.pyc
 src/.vscode/settings.json

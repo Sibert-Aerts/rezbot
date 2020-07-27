@@ -1,13 +1,17 @@
 import re
 import asyncio
 from .logger import ErrorLog
-from .sources import sources
 from .macros import source_macros
-from .processor import Pipeline, PipelineProcessor
 from utils.choicetree import ChoiceTree
+from .sources import sources
+from .processor import Pipeline, PipelineProcessor
+
+
+class ContextError(ValueError):
+    '''Special error used by the Context class when a context string cannot be fulfilled.'''
 
 class Context:
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, source_processor=None):
         self.items = []
         self.parent = parent
         self.to_be_ignored = set()
@@ -106,18 +110,18 @@ class SourceProcessor:
     #                          ^^^^^^^     ^^^^^^^^^^^^^     ^^^^^^^^^^^^^^^^^^^^^^^^^^
     #                             n            name                     args
     source_regex = re.compile(_source_regex)
-    source_match_regex = re.compile(_source_regex + '$')
+
+    # This one matches both sources and items, so any syntactically meaningful instance of curly braces in string literals.
+    # It has 6 capture groups: n, name, args, carrots, index, exclamation
     source_or_item_regex = re.compile('(?:' + _source_regex + '|' + Context._item_regex + ')')
-    # This is a regex with 6 capture groups: n, name, args, carrots, index, exclamation
 
     def is_pure_source(self, source):
         '''Checks whether a string matches the exact format "{[n] source [args]}", AKA "pure".'''
-        return re.match(SourceProcessor.source_match_regex, source)
+        return re.fullmatch(SourceProcessor.source_regex, source)
 
     async def evaluate_parsed_source(self, name, args, n=None):
         '''Given the exact name, arguments and `n` of a source, evaluates it.'''
         if name in sources:
-            ###### This is the SINGLE spot where a source is called during execution of pipelines
             try:
                 return await sources[name](self.message, args, n=n)
             except Exception as e:
@@ -127,20 +131,22 @@ class SourceProcessor:
         elif name in source_macros:
             code = source_macros[name].apply_args(args)
             # Dressed-down version of PipelineProcessor.execute_script:
-            source, pipeline = PipelineProcessor.split(code)
-            ## STEP 1
+            source, code = PipelineProcessor.split(code)
+            ## STEP 1: create a new SourceP. so we can contextualise errors
             source_processor = SourceProcessor(self.message)
             values = await source_processor.evaluate(source)
-            errors = source_processor.errors
-            ## STEP 2
-            # TODO: add a source_macros.pipeline_cache here
-            pipeline = Pipeline(pipeline)
-            ## STEP 3
-            values, _, pl_errors, _ = await pipeline.apply(values, self.message)
-            errors.extend(pl_errors)
+            self.errors.extend(source_processor.errors, name)
+            ## STEP 2: parse the Pipeline (but check the cache first)
+            if code in source_macros.pipeline_cache:
+                pipeline = source_macros.pipeline_cache[code]
+            else:
+                pipeline = Pipeline(code)
+                source_macros.pipeline_cache[code] = pipeline
+            ## STEP 3: apply
             # TODO: Ability to reuse a script N amount of times easily?
             # Right now we just ignore the N argument....
-            self.errors.extend(errors, name)
+            values, _, pl_errors, _ = await pipeline.apply(values, self.message)
+            self.errors.extend(pl_errors, name)
             return values
 
         self.errors('Unknown source `{}`.'.format(name))
@@ -160,6 +166,7 @@ class SourceProcessor:
         '''Applies and replaces all {sources} in a string that mixes sources and normal characters.'''
 
         if context: source = Context.preprocess(source)
+        print('SOURCE STR:', source)
 
         #### This method is huge because I essentially unwrapped re.sub to be able to handle coroutines
         slices = []
@@ -230,4 +237,3 @@ class SourceProcessor:
             else:
                 values.append(await self.evaluate_composite_source(source, context))
         return values
-

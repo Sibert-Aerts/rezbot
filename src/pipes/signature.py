@@ -1,6 +1,8 @@
 from functools import wraps
 from textwrap import dedent
-from utils.texttools import *
+import re
+from typing import List, Tuple, Dict, Any
+from .logger import ErrorLog
 
 class ArgumentError(ValueError):
     '''Special error in case a bad argument is passed.'''
@@ -8,9 +10,10 @@ class ArgumentError(ValueError):
 
 
 class Sig:
-    '''Class representing a single item in a function signature.'''
+    '''Represents a single parameter in a function signature.'''
     def __init__(self, type, default=None, desc=None, check=None, required=None, options=None, multi_options=False):
         self.type = type
+        self.name = None # Assigned externally, don't worry
         self.default = default
         self.desc = desc
         self._check = check
@@ -19,41 +22,7 @@ class Sig:
         self.required = required if required is not None else (default is None)
         self._re = None
         self.str = None
-
-    def re(self):
-        # This regex matches the following formats:
-        #   name=valueWithoutSpaces
-        #   name="value with spaces"  and  name=""  (for the empty string)
-        #   name='value with spaces'  and  name=''
-        # Doesn't match:
-        #   name=value with spaces
-        #   name="value with "quotes""
-        #   name= (for the empty string)
-        if self._re is None:
-            self._re = re.compile(r'\b' + self.name + r'=("[^"]*"|\'[^\']*\'|\S+)\s*')
-        return self._re
-
-    def check(self, val):
-        '''Check whether the value meets superficial requirements.'''
-        # If a manual check-function is given, use it
-        if self._check and not self._check(val):
-            raise ArgumentError('Invalid value "{}" for argument "{}".'.format(val, s))
-
-        # If a specific list of options is given, check if the value is one of them
-        if self.options:
-            if self.multi_options:
-                if any( v not in self.options for v in val.lower().split(',') ):
-                    if len(self.options) <= 8:
-                        raise ArgumentError('Invalid value "{}" for argument "{}": Must be a sequence of items from {} separated by commas.'.format(val, self.name, '/'.join(self.options)))
-                    else:
-                        raise ArgumentError('Invalid value "{}" for argument "{}".'.format(val, self.name))
-            else:
-                if val.lower() not in self.options:
-                    if len(self.options) <= 8:
-                        raise ArgumentError('Invalid value "{}" for argument "{}": Must be one of {}.'.format(val, self.name, '/'.join(self.options)))
-                    else:
-                        raise ArgumentError('Invalid value "{}" for argument "{}".'.format(val, self.name))
-
+        
     def __str__(self):
         if self.str: return self.str
 
@@ -73,9 +42,111 @@ class Sig:
         self.str = ''.join(out)
         return self.str
 
+    def re(self):
+        # This regex matches the following formats:
+        #   name=valueWithoutSpaces
+        #   name="value with spaces"  and  name=""  (for the empty string)
+        #   name='value with spaces'  and  name=''
+        # Doesn't match:
+        #   name=value with spaces
+        #   name="value with "quotes""
+        #   name= (for the empty string)
+        if self._re is None:
+            self._re = re.compile(r'\b' + self.name + r'=("[^"]*"|\'[^\']*\'|\S+)\s*')
+        return self._re
 
-def parse_args(signature, text, greedy=True):
-    '''Parses and removes args from a string of text.'''
+    def check(self, val):
+        '''Check whether the value meets superficial requirements.'''
+        # If a manual check-function is given, use it
+        if self._check and not self._check(val):
+            raise ArgumentError('Invalid value "{}" for parameter `{}`.'.format(val, self.name))
+
+        # If a specific list of options is given, check if the value is one of them
+        if self.options:
+            if self.multi_options:
+                if any( v not in self.options for v in val.lower().split(',') ):
+                    if len(self.options) <= 8:
+                        raise ArgumentError('Invalid value "{}" for parameter `{}`: Must be a sequence of items from {} separated by commas.'.format(val, self.name, '/'.join(self.options)))
+                    else:
+                        raise ArgumentError('Invalid value "{}" for parameter `{}`.'.format(val, self.name))
+            else:
+                if val.lower() not in self.options:
+                    if len(self.options) <= 8:
+                        raise ArgumentError('Invalid value "{}" for parameter `{}`: Must be one of {}.'.format(val, self.name, '/'.join(self.options)))
+                    else:
+                        raise ArgumentError('Invalid value "{}" for parameter `{}`.'.format(val, self.name))
+
+    def parse(self, str):
+        ''' Attempt to parse and check the given string as an argument for this parameter, raises ArgumentError if it fails. '''
+        try:
+            val = self.type(str)
+        except Exception as e:
+            raise ArgumentError('Invalid value "{}" for argument `{}`: Must be of type {} ({})'.format(val, self.name, self.type.__name__, e))
+        self.check(val)
+        return val
+
+
+class Arg:
+    ''' Represents a parsed assignment of a single argument to a single parameter. '''
+    def __init__(self, sig: Sig, raw: str):
+        self.sig = sig
+        self.raw = raw
+        self.predetermined = False
+        self.val = None
+
+    def predetermine(self, errors: ErrorLog):
+        ''' See if we can parse the argument value without needing to evaluate sources or items. '''        
+        # Regex for checking if a string contains anything that determined ahead of time
+        # i.e. sources in an argument may not be deterministic, and items can definitely not be predetermined
+        if SourceProcessor.source_or_item_regex.search(self.raw) is None:
+            try:
+                self.val = self.sig.parse(self.raw)
+                self.predetermined = True
+            except ArgumentError as e:
+                errors.log(e, True)
+
+    async def determine(self, context, source_processor, errors: ErrorLog) -> Any:
+        if self.predetermined: return self.val
+
+        # Evaluate sources and context items
+        evaluated = await source_processor.evaluate_composite_source(self.raw, context=context)
+        errors.steal(source_processor.errors, context='parameter `{}`'.format(self.sig.name))
+        # Attempt to parse the argument
+        try:
+            val = self.sig.parse(evaluated)
+        except ArgumentError as e:
+            errors.log(e, terminal=True)
+            return None
+        return val
+
+
+class DefaultArg(Arg):
+    ''' Special-case Arg representing a default argument. '''
+    def __init__(self, val):
+        self.predetermined = True
+        self.val = val
+
+
+class Arguments:
+    ''' Represents a parsed set of arguments assigned a set of parameters. '''
+    def __init__(self, args: Dict[str, Arg], raw: str):
+        self.args = args
+        self.raw = raw
+        # If every Arg is already predetermined then we don't even need them anymore, just their values
+        self.predetermined = all( args[p].predetermined for p in args )
+        if self.predetermined:
+            self.args = { param: args[param].val for param in args }
+
+    async def determine(self, context, source_processor) -> Tuple[ Dict[str, Any], ErrorLog ]:
+        ''' Returns a parsed {parameter: argument} dict ready for use. '''
+        errors = ErrorLog()
+        if self.predetermined: return self.args, errors
+        return { param: await self.args[param].determine(context, source_processor, errors) for param in self.args }, errors
+
+
+
+def parse_args(signature: Dict[str, Sig], text: str, greedy: bool=True) -> Tuple[ str, dict ]:
+    ''' Parses and removes arguments from a string of text. '''
     args = {}
 
     the_one = None
@@ -160,3 +231,81 @@ def parse_args(signature, text, greedy=True):
         text = text[:match.start(0)] + text[match.end(0):]
 
     return (text, args)
+
+# This regex matches all forms of:
+#   name=argNoSpaces    name="arg's with spaces"    name='arg with "spaces" even'
+#   name="""arg with spaces and quotation marks and anything"""     name='''same'''
+# It will not work for:
+#   name=arg with spaces                (simply parses as name=arg)
+#   name="quotes "nested" in quotes"    (simply parses as name="quotes ")
+#   emptyString=                        (does not work, use emptyString="" instead)
+#   2name=arg                           (names have to start with a letter or _)
+
+arg_re = re.compile( '(?i)\\b([_a-z]\w*)=("""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(\S+))' )
+#                             ^^^^^^^^^       ^^^            ^^^          ^^^      ^^^      ^^^    ^^^
+#                             parameter                           argument value
+
+# This one matches the same as above except without an explicit assignment and falls back on matching the entire string instead of just noSpaces
+impl_re = re.compile( '("""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(.*))' )
+#                           ^^^            ^^^          ^^^      ^^^      ^^^    ^^
+#                                               argument value
+
+def parse_smart_args(signature: Dict[str, Sig], argstr: str) -> Arguments:
+    ''' Smarter version of parse_args that instead returns an Arguments object. '''
+    errors = ErrorLog()
+    argstr_raw = argstr = argstr.strip()
+    argstr = Context.preprocess(argstr)
+    
+    ## Step 1: Collect all explicitly assigned parameters
+    collected = {}
+    def collect(m):
+        if m[1] in collected: errors.log('Repeated assignment of parameter `{}`'.format(m[1]))
+        collected[m[1]] = m[3] or m[4] or m[5] or m[6] or m[7] or m[8] or ''
+    remainder = arg_re.sub(collect, argstr).strip()
+
+    ## Step 2: Keep the ones that actually exist
+    args = {}
+    for param in collected:
+        if param in signature:
+            args[param] = Arg(signature[param], collected[param])
+            args[param].predetermine(errors)
+        else:
+            errors.warn('Unknown parameter `{}`'.format(param))
+
+    ## Step 3: Check if required parameters are missing
+    missing = [param for param in signature if param not in args and signature[param].required]
+    if missing:
+        if not remainder or len(missing) > 1:
+            # There's no argstring left; nothing can be done to find these missing arguments
+            # Or: there's more missing parameters than I'm willing to blindly parse
+            errors.log('Missing required parameter{} {}'.format('s' if len(missing) > 1 else '', ' '.join('`%s`'%p for p in missing)), True)
+
+        elif len(missing) == 1:
+            ## Only one required parameter is missing; assume the entire remaining argstring implicitly assigns it
+            [param] = missing
+            m = impl_re.fullmatch(remainder) # Always matches
+            raw = m[2] or m[3] or m[4] or m[5] or m[6] or m[7] or ''
+            args[param] = Arg(signature[param], raw)
+            args[param].predetermine(errors)
+            remainder = None
+
+    ## Step 4: Check if maybe the Signature only has one parameter at all (not required, but which has not been found yet)...
+    maybe_implicit = [param for param in signature if param not in args]
+    if len(maybe_implicit) == 1 and remainder:
+        # In which case: assume the entire remaining argstring implicitly assigns it
+        [param] = maybe_implicit
+        m = impl_re.match(remainder) # Always matches
+        raw = m[2] or m[3] or m[4] or m[5] or m[6] or m[7] or ''
+        args[param] = Arg(signature[param], raw)
+        args[param].predetermine(errors)
+
+    ## Step 5: We tried our best; fill out default values of missing non-required parameters
+    for param in signature:
+        if param not in args and not signature[param].required:
+            args[param] = DefaultArg(signature[param].default)
+
+    return Arguments(args, argstr_raw), errors
+
+
+# This lyne ys down here dve to dependencyes cyrcvlaire
+from .sourceprocessor import SourceProcessor, Context

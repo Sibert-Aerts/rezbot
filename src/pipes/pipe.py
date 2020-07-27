@@ -20,6 +20,7 @@ class Pipe:
             self.small_doc = self.doc.split('\n')[0]
 
     def __call__(self, values, argstr):
+        ''' Apply the pipe to a list of inputs using an unparsed argstr. '''
         _, args = parse_args(self.signature, argstr)
         return self.function(values, **args)
 
@@ -50,6 +51,7 @@ class Source(Pipe):
         self.plural = plural.lower() if plural else (self.name + 's') if 'n' in signature else self.name
 
     def __call__(self, message, argstr, n=None):
+        ''' Get the source's output using an unparsed argstr. '''
         _, args = parse_args(self.signature, argstr)
         if n:
             if type(n) is str and n.lower() == 'all':
@@ -58,13 +60,17 @@ class Source(Pipe):
 
             if 'n' in args: args['n'] = int(n)
             elif 'N' in args: args['N'] = int(n)
+        return self.apply(message, args)
+
+    def apply(self, message, args):
+        ''' Get the source's output using a dict of arguments. '''
         if self.pass_message:
             return self.function(message, **args)
         else:
             return self.function(**args)
-            
+
     def as_command(self):
-        '''This method is not needed and only defined to hide the inherited as_command method'''
+        # This method is not needed and only defined to hide the inherited as_command method, to prevent possible mystery bugs
         raise NotImplementedError()
 
     def embed(self):
@@ -93,7 +99,7 @@ class Spout(Pipe):
 
 
 class Pipes:
-    '''A class for storing multiple Pipe instances.'''
+    ''' A class for storing multiple Pipe instances. '''
     def __init__(self):
         self.pipes = {}
         self.categories = {}
@@ -110,7 +116,7 @@ class Pipes:
     def __contains__(self, name):
         return (name in self.pipes)
 
-    def __len__(self, name):
+    def __len__(self):
         return len(self.pipes)
 
     def __bool__(self):
@@ -120,7 +126,7 @@ class Pipes:
         return (i for i in self.pipes)
 
 class Sources(Pipes):
-    '''Pipes except sources can be addressed as either singular or plural'''
+    ''' Pipes except sources can be addressed as either singular or plural. '''
     def __init__(self):
         super().__init__()
         self.plurals = {}
