@@ -1,7 +1,5 @@
 import editdistance
 import re
-import requests
-
 import utils.util as util
 from .rand import *
 

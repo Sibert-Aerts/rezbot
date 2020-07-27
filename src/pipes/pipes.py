@@ -625,7 +625,7 @@ def unicode_pipe(text):
 
 
 @make_pipe({
-    'by': Sig(int, 13, 'The number of places to rotate the letters by.', lambda x: x in translate_languages or x == 'auto'),
+    'by': Sig(int, 13, 'The number of places to rotate the letters by.'),
 }, command=True)
 @as_map
 def rot_pipe(text, by):
