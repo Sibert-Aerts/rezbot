@@ -6,7 +6,6 @@ from .logger import ErrorLog
 
 class ArgumentError(ValueError):
     '''Special error in case a bad argument is passed.'''
-    pass
 
 
 class Sig:
@@ -45,14 +44,12 @@ class Sig:
     def re(self):
         # This regex matches the following formats:
         #   name=valueWithoutSpaces
-        #   name="value with spaces"  and  name=""  (for the empty string)
-        #   name='value with spaces'  and  name=''
-        # Doesn't match:
-        #   name=value with spaces
-        #   name="value with "quotes""
-        #   name= (for the empty string)
+        #   name="value with spaces"            name='likewise'
+        #   name="""just "about" anything"""    name='''likewise'''
+        #   name=/use this one for regexes/     (functionally identical to " or ')
         if self._re is None:
-            self._re = re.compile(r'\b' + self.name + r'=("[^"]*"|\'[^\']*\'|\S+)\s*')
+            self._re = re.compile(r'\b' + self.name + r'=(?:"""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(\S+))\s*')
+            #                                                   [1]            [2]          [3]      [4]      [5]    [6]        
         return self._re
 
     def check(self, val):
@@ -146,7 +143,7 @@ class Arguments:
 
 
 def parse_args(signature: Dict[str, Sig], text: str, greedy: bool=True) -> Tuple[ str, dict ]:
-    ''' Parses and removes arguments from a string of text. '''
+    ''' Parses and removes arguments from a string of text based on a signature. '''
     args = {}
 
     the_one = None
@@ -204,30 +201,17 @@ def parse_args(signature: Dict[str, Sig], text: str, greedy: bool=True) -> Tuple
 
         if not match:
             ## If it is required: Raise an error
-            if sig.required:
-                raise ArgumentError('Missing argument: "{}".'.format(s))
+            if sig.required: raise ArgumentError('Missing argument: "{}".'.format(s))
             ## Else: Use the default value and move on!
             args[s] = sig.default
             continue
 
         ## We found an assignment of some form
-        val = match.group(1)
+        val = match[1] or match[2] or match[3] or match[4] or match[5] or match[6] or ''
 
-        # Strip quote marks
-        if val[0] == val[-1] in ["'", '"']: # This works I swear
-            val = val[1:-1]
-
-        try:
-            # Cast to the desired type (raises an exception if the value is bad)
-            val = sig.type(val)
-        except Exception as e:
-            raise ArgumentError('Invalid value "{}" for argument `{}`: Must be of type {} ({})'.format(val, s, sig.type.__name__, e))
-
-        # Check whether the value meets certain requirements (raises an exception if not)
-        sig.check(val)
-
-        # It passed the checks, assign the value and clip it from the text
-        args[s] = val
+        ## If there's any kind of trouble with the value this'll raise a well-formatted error.
+        args[s] = sig.parse(val)
+        # Clip the entire match out of the text
         text = text[:match.start(0)] + text[match.end(0):]
 
     return (text, args)
@@ -235,6 +219,7 @@ def parse_args(signature: Dict[str, Sig], text: str, greedy: bool=True) -> Tuple
 # This regex matches all forms of:
 #   name=argNoSpaces    name="arg's with spaces"    name='arg with "spaces" even'
 #   name="""arg with spaces and quotation marks and anything"""     name='''same'''
+#   name=/semantically there is nothing signalling this is a regex but it's nice notation/
 # It will not work for:
 #   name=arg with spaces                (simply parses as name=arg)
 #   name="quotes "nested" in quotes"    (simply parses as name="quotes ")
@@ -272,7 +257,7 @@ def parse_smart_args(signature: Dict[str, Sig], argstr: str) -> Arguments:
         else:
             errors.warn('Unknown parameter `{}`'.format(param))
 
-    ## Step 3: Check if required parameters are missing
+    ## Step 3: Check if required arguments are missing
     missing = [param for param in signature if param not in args and signature[param].required]
     if missing:
         if not remainder or len(missing) > 1:
@@ -289,7 +274,7 @@ def parse_smart_args(signature: Dict[str, Sig], argstr: str) -> Arguments:
             args[param].predetermine(errors)
             remainder = None
 
-    ## Step 4: Check if maybe the Signature only has one parameter at all (not required, but which has not been found yet)...
+    ## Step 4: Check if maybe the Signature only has one not-yet-found (but not required) parameter at all
     maybe_implicit = [param for param in signature if param not in args]
     if len(maybe_implicit) == 1 and remainder:
         # In which case: assume the entire remaining argstring implicitly assigns it

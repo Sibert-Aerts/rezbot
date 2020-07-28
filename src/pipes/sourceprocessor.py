@@ -166,7 +166,6 @@ class SourceProcessor:
         '''Applies and replaces all {sources} in a string that mixes sources and normal characters.'''
 
         if context: source = Context.preprocess(source)
-        print('SOURCE STR:', source)
 
         #### This method is huge because I essentially unwrapped re.sub to be able to handle coroutines
         slices = []
