@@ -694,8 +694,8 @@ op_pattern = re.compile(r'(/|%|\\)\s*(\d+)?')
 int_pattern = re.compile(r'#(-?\d*)(?:(?::|\.\.+)(-?\d*))?')
 #                            ^^^^^                ^^^^^
 
-cond_pattern = re.compile(r'{([^{]*)}\s*(!?!?)\s*')
-#                             ^^^^^      ^^^^
+cond_pattern = re.compile(r'{(.*?)}\s*(!?!?)\s*', re.S)
+#                             ^^^      ^^^^
 rand_pattern = re.compile(r'\?')
 
 strict_pattern = re.compile(r'\s*(!?!?)\s*')
