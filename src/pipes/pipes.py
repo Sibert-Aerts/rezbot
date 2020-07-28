@@ -222,6 +222,22 @@ def split_pipe(text, on, lim):
 
 
 @make_pipe({
+    'pattern': Sig(regex, None, 'The pattern to find')
+})
+@one_to_many
+def find_all_pipe(text, pattern):
+    '''
+    Extracts all pattern matches from the input.
+    Only groups (parentheses) are returned, if none are given, the entire match is returned instead.
+    '''
+    matches = pattern.findall(text)
+    # matches is either a List[str] or a List[Tuple[str]] depending on the regex
+    if matches and isinstance(matches[0], tuple):
+        return [match for tup in matches for match in tup]
+    return matches
+
+
+@make_pipe({
     'from': Sig(regex, None, 'Pattern to replace (regex)'),
     'to' : Sig(str, None, 'Replacement string'),
 })
