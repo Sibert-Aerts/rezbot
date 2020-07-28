@@ -113,7 +113,7 @@ class Pipeline:
         '''
         # This is an extremely hand-written extremely low-level parser for the basic structure of a pipeline.
         # There are NO ESCAPE SEQUENCES. Every quotation mark is taken as one. Every parenthesis outside of quotation marks is 100% real.
-        # This causes parsing inconsistencies. e.g. "foo > bar x=( > baz" only splits on the first ">"
+        # TODO: NOTE: This causes terrible parsing inconsistencies. e.g.    foo > bar x=( > baz     only splits on the first >
 
         segments = []
         quotes = False
@@ -220,10 +220,10 @@ class Pipeline:
         '''Steals all triple quoted parts from a string and puts them in a list so we can put them back later.'''
         stolen = []
         def steal(match):
-            stolen.append('"' + match[1] + '"') # TODO: turning """ into " causes undersirable consequences!
+            stolen.append(match[0])
             return '§' + str(len(stolen)-1) + '§'
         segment = segment.replace('§', '!§!')
-        segment = re.sub(r'(?s)"""(.*?)"""', steal, segment) # (?s) means "dot matches all"
+        segment = re.sub(r'(?s)""".*?"""', steal, segment) # (?s) means "dot matches all"
         return segment, stolen
 
     def restore_triple_quotes(self, bereft, stolen):
@@ -256,10 +256,10 @@ class Pipeline:
                 # TODO: This regex is dumb as tits. Somehow use the knowledge from the parentheses parsing earlier instead.
                 m = re.match(Pipeline.wrapping_parens_regex, pipe)
                 pipeline = m[2] or m[3]
-                # Immediately parse the inline pipeline
-                parsePl = Pipeline(pipeline)
-                self.parser_errors.steal(parsePl.parser_errors, context='braces')
-                parsedPipes.append(parsePl)
+                # Immediately attempt to parse the inline pipeline (recursion call!)
+                parsed = Pipeline(pipeline)
+                self.parser_errors.steal(parsed.parser_errors, context='braces')
+                parsedPipes.append(parsed)
 
             ## Normal pipe: foo [bar=baz]*
             else:
@@ -578,11 +578,17 @@ class PipelineProcessor:
             if errors:
                 await message.channel.send(embed=errors.embed())
 
+        except TerminalError:
+            ## A TerminalError indicates that whatever problem we encountered was caught, logged, and we halted voluntarily.
+            # Nothing more to be done than posting log contents to the channel.
+            print('Script execution halted prematurely.')
+            await message.channel.send(embed=errors.embed())
+            
         except Exception as e:
-            # Something terrible happened, post error output to the channel
-            print('Error applying pipeline!')
-            if not isinstance(e, TerminalError):
-                errors('**Terminal pipeline error:**\n' + e.__class__.__name__ + ': ' + str(e), terminal=True)
+            ## An actual error has occurred in executing the script that we did not catch.
+            # No script, no matter how poorly formed or thought-out, should be able to trigger this; if this occurs it's a Rezbot bug.
+            print('Script execution halted unexpectedly!')
+            errors.log('**Unexpected pipeline error:**\n' + e.__class__.__name__ + ': ' + str(e), terminal=True)
             await message.channel.send(embed=errors.embed())
             raise e
 
