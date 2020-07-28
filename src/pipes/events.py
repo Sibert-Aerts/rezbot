@@ -3,6 +3,7 @@ import os
 import pickle
 from discord import Embed
 from utils.texttools import block_format
+from .processor import Pipeline, PipelineProcessor
 
 # Save events to the same directory as macros... because they're essentially macros.
 def DIR(filename=''):
@@ -85,14 +86,24 @@ class Events:
         mode = mode.upper()
         name = name.lower()
 
+        ## Check for naming conflicts
         if name in self.events and mode == 'NEW':
             await channel.send('An event by that name already exists. Use EDIT instead of NEW, or choose a different name.')
             return True
-
         if name not in self.events and mode == 'EDIT':
             await channel.send('An event by that name does not exist yet. Use NEW instead of EDIT, or choose an existing name.')
             return True
 
+        ## Statically analyse the script for parsing errors and warnings
+        _, script = PipelineProcessor.split(script)
+        errors = Pipeline(script).parser_errors
+        if errors.terminal:
+            await channel.send('Failed to save event due to parsing errors:', embed=errors.embed())
+            return True
+        elif errors:
+            await channel.send('Encountered warnings while parsing event:', embed=errors.embed())
+
+        ## Register the event
         try:
             if mode == 'EDIT':
                 self.events[name].update(script, pattern)
@@ -101,10 +112,12 @@ class Events:
             self.write()
 
         except Exception as e:
+            ## Failed to register event (most likely regex could not parse)
             await channel.send('Failed to {} event:\n\t{}: {}'.format( 'register' if mode=='NEW' else 'update', e.__class__.__name__, e))
             raise e
 
         else:
+            ## Mission complete
             await channel.send( ('New event "%s" registered.' if mode == 'NEW' else 'Event "%s" updated.') % name )
             return True
 

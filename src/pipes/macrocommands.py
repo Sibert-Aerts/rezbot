@@ -11,12 +11,11 @@ import utils.texttools as texttools
 
 async def check_pipe_macro(code, channel):
     ''' Statically analyses pipe macro code for errors or warnings. '''
-    pipeline = Pipeline(code)
-    errors = pipeline.parser_errors
+    errors = Pipeline(code).parser_errors
     if not errors: 
         return True
     if errors.terminal:
-        await channel.send('Did not save macro due to parsing errors:', embed=errors.embed())
+        await channel.send('Failed to save macro due to parsing errors:', embed=errors.embed())
         return False
     else:
         await channel.send('Encountered warnings while parsing macro:', embed=errors.embed())
