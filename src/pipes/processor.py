@@ -338,7 +338,7 @@ class Pipeline:
                 #### Determine the arguments (if needed)
                 if parsed_pipe.arguments:
                     # This is a smart method that only does what is needed
-                    arguments, arg_errors = await parsed_pipe.arguments.determine(context, source_processor)
+                    arguments, arg_errors = await parsed_pipe.arguments.determine(local_context, source_processor)
                     errors.extend(arg_errors, context=name)
 
                 elif parsed_pipe.needs_dumb_arg_eval:
