@@ -48,7 +48,7 @@ class Sig:
         #   name="""just "about" anything"""    name='''likewise'''
         #   name=/use this one for regexes/     (functionally identical to " or ')
         if self._re is None:
-            self._re = re.compile(r'\b' + self.name + r'=(?:"""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(\S+))\s*')
+            self._re = re.compile(r'\b' + self.name + r'=(?:"""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(\S+))\s*', re.S)
             #                                                   [1]            [2]          [3]      [4]      [5]    [6]        
         return self._re
 
@@ -226,14 +226,14 @@ def parse_args(signature: Dict[str, Sig], text: str, greedy: bool=True) -> Tuple
 #   emptyString=                        (does not work, use emptyString="" instead)
 #   2name=arg                           (names have to start with a letter or _)
 
-arg_re = re.compile( '(?i)\\b([_a-z]\w*)=("""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(\S+))' )
+arg_re = re.compile( r'(?i)\b([_a-z]\w*)=("""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(\S+))', re.S )
 #                             ^^^^^^^^^       ^^^            ^^^          ^^^      ^^^      ^^^    ^^^
 #                             parameter                           argument value
 
 # This one matches the same as above except without an explicit assignment and falls back on matching the entire string instead of just noSpaces
-impl_re = re.compile( '("""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(.*))' )
-#                           ^^^            ^^^          ^^^      ^^^      ^^^    ^^
-#                                               argument value
+impl_re = re.compile( r'("""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(.*))', re.S )
+#                            ^^^            ^^^          ^^^      ^^^      ^^^    ^^
+#                                                argument value
 
 def parse_smart_args(signature: Dict[str, Sig], argstr: str) -> Arguments:
     ''' Smarter version of parse_args that instead returns an Arguments object. '''
@@ -242,20 +242,20 @@ def parse_smart_args(signature: Dict[str, Sig], argstr: str) -> Arguments:
     argstr = Context.preprocess(argstr)
     
     ## Step 1: Collect all explicitly assigned parameters
-    collected = {}
+    args = {}
     def collect(m):
-        if m[1] in collected: errors.log('Repeated assignment of parameter `{}`'.format(m[1]))
-        collected[m[1]] = m[3] or m[4] or m[5] or m[6] or m[7] or m[8] or ''
+        if m[1] not in signature:
+            errors.warn('Unknown parameter `{}`'.format(m[1]))
+            return m[0]
+        if m[1] in args:
+            errors.log('Repeated assignment of parameter `{}`'.format(m[1]))
+        args[m[1]] = m[3] or m[4] or m[5] or m[6] or m[7] or m[8] or ''
     remainder = arg_re.sub(collect, argstr).strip()
 
-    ## Step 2: Keep the ones that actually exist
-    args = {}
-    for param in collected:
-        if param in signature:
-            args[param] = Arg(signature[param], collected[param])
-            args[param].predetermine(errors)
-        else:
-            errors.warn('Unknown parameter `{}`'.format(param))
+    ## Step 2: Process them
+    for param in args:
+        args[param] = Arg(signature[param], args[param])
+        args[param].predetermine(errors)
 
     ## Step 3: Check if required arguments are missing
     missing = [param for param in signature if param not in args and signature[param].required]
