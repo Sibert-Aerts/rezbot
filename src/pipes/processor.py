@@ -86,25 +86,23 @@ class Pipeline:
         ### Split the pipeline into segments (segment > segment > segment)
         segments = self.split_into_segments(string)
 
-        ### For each segment, parse the group mode and expand the parallel pipes.
+        ### For each segment, parse the group mode, expand the parallel pipes and parse each parallel pipe.
         self.parsed_segments = []
         for segment in segments:
             try:
                 segment, groupMode = groupmodes.parse(segment)
             except groupmodes.GroupModeError as e:
-                # Encountered a terminal error during parsing! Keep parsing anyway so we can potentially scoop up more errors.
                 self.parser_errors(e, True)
-                continue
+                # Don't attempt to parse the rest of this segment, since we aren't sure where the groupmode ends
+                continue 
             parallel = self.parse_segment(segment)
-            self.parsed_segments.append( (groupMode, parallel) )
+            self.parsed_segments.append((groupMode, parallel))
 
         ### That's as far as I'm willing to parse/pre-compile a pipeline before execution right now, but there is absolutely room for improvement.
 
-        # NOTE: The only errors that are logged in this entire function are in groupmodes.parse,
-        # which raise terminal errors that prevent the script from ever executing.
-        # The other two methods (split and parse_segment) are VERY naive and VERY lenient:
-        #   They take no effort to check if any of what they're parsing is even remotely well-formed or executable.
-        #   If they do notice that something is wrong (e.g. unclosed quotes or parentheses) they simply ignore it.
+        # NOTE: The only errors that are logged in this entire function are in groupmodes.parse, and parse_segment
+        # which may raise terminal errors or warnings, but we keep parsing the entire time hoping to scoop them all up at once.
+        # split_into_segments on the other hand never admits any errors, and will bravely parse anything no matter how poorly formed.
 
     def split_into_segments(self, string):
         '''
@@ -506,7 +504,7 @@ class PipelineProcessor:
         await dest.send(output)
 
     @staticmethod
-    def split(script):
+    def split(script: str) -> Tuple[str, str]:
         '''Splits a script into the source and pipeline.'''
         # So here's the deal:
         #    SOURCE > PIPE > PIPE > PIPE > ETC...
@@ -596,21 +594,25 @@ class PipelineProcessor:
         '''This is the starting point for all script execution.'''
         text = message.content
 
-        # Test for the script prefix (pipe_prefix in config.ini, default: '>>') and remove it
+        # Test for the script prefix and remove it (pipe_prefix in config.ini, default: '>>')
         if not text.startswith(self.prefix):
             return False
         script = text[len(self.prefix):]
 
-        ## Check if it's a script or some kind of script-like command, such as a macro or event definition
-
-        ##### MACRO DEFINITION: (TODO: push regex down into parse_macro_command)
-        # >> (NEW|EDIT|DESC) <type> <name> :: <code>
-        if re.match(r'\s*(NEW|EDIT|DESC)\s+(hidden)?(pipe|source).*::', script, re.I):
-            await parse_macro_command(script, message)
-
-        ##### EVENT DEFINITION:
-        elif await events.parse_command(script, message.channel):
-            pass
+        ## Check if it's a script or some kind of script-like command
+        if re.match(r'\s*(NEW|EDIT|DESC).*::', script, re.I):
+            ##### MACRO DEFINITION:
+            # >> (NEW|EDIT|DESC) <type> <name> :: <code>
+            if await parse_macro_command(script, message):
+                pass
+            ##### EVENT DEFINITION:
+            # >> (NEW|EDIT) EVENT <name> ON MESSAGE <regex> :: <code>
+            elif await events.parse_command(script, message.channel):
+                pass
+            ##### ERROR:
+            # Our script clearly resembles a script-like command but isn't one!
+            else:
+                await message.channel.send('Error: Poorly formed command.')
 
         ##### NORMAL SCRIPT EXECUTION:
         else:

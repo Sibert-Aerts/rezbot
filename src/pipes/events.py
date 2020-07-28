@@ -75,7 +75,7 @@ class Events:
             print('Failed to load events from "{}"!'.format(DIR(filename)))
 
     command_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w[\w.]+) ON MESSAGE (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I | re.S )
-    #                                ^^^^^^^^         ^^^^^^^^              ^^^          ^^
+    #                                  ^^^^^^^^         ^^^^^^^^              ^^^          ^^
 
     async def parse_command(self, string, channel):
         m = re.match(self.command_pattern, string)

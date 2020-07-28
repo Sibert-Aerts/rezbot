@@ -2,16 +2,37 @@ import discord
 import re
 from discord.ext import commands
 
+from .processor import Pipeline, PipelineProcessor
 from .pipes import pipes
 from .sources import sources
 from .macros import Macro, MacroSig, pipe_macros, source_macros
 import utils.texttools as texttools
 
+
+async def check_pipe_macro(code, channel):
+    ''' Statically analyses pipe macro code for errors or warnings. '''
+    pipeline = Pipeline(code)
+    errors = pipeline.parser_errors
+    if not errors: 
+        return True
+    if errors.terminal:
+        await channel.send('Did not save macro due to parsing errors:', embed=errors.embed())
+        return False
+    else:
+        await channel.send('Encountered warnings while parsing macro:', embed=errors.embed())
+        return True
+
+async def check_source_macro(code, channel):
+    ''' Statically analyses source macro code for errors or warnings. '''
+    _, code = PipelineProcessor.split(code)
+    return await check_pipe_macro(code, channel)
+    
+
 typedict = {
-    'pipe': (pipe_macros, True, pipes),
-    'hiddenpipe': (pipe_macros, False, pipes),
-    'source': (source_macros, True, sources),
-    'hiddensource': (source_macros, False, sources),
+    'pipe':         (pipe_macros, True,  pipes, check_pipe_macro),
+    'hiddenpipe':   (pipe_macros, False, pipes, check_pipe_macro),
+    'source':       (source_macros, True,  sources, check_source_macro),
+    'hiddensource': (source_macros, False, sources, check_source_macro),
 }
 typedict_options = ', '.join('"' + t + '"' for t in typedict)
 
@@ -34,13 +55,15 @@ class MacroCommands(commands.Cog):
         '''Define a macro.'''
         channel = message.channel
         what = what.lower()
-        try: macros, visible, native = typedict[what]
+        try: macros, visible, native, check = typedict[what]
         except: await self.what_complain(channel); return
 
         name = name.lower().split(' ')[0]
         if name in native or name in macros:
-            await channel.send('A {0} called "{1}" already exists, try `>redefine {0}` instead.'.format(what, name))
+            await channel.send('A {0} called `{1}` already exists, try `>redefine {0}` instead.'.format(what, name))
             return
+
+        if not await check(code, channel): return
 
         author = message.author
         macros[name] = Macro(name, code, author.name, author.id, str(author.avatar_url), visible=visible)
@@ -54,7 +77,7 @@ class MacroCommands(commands.Cog):
         '''Redefine an existing macro.'''
         channel = message.channel
         what = what.lower()
-        try: macros, *_ = typedict[what]
+        try: macros, _, _, check = typedict[what]
         except: await self.what_complain(channel); return
 
         name = name.lower().split(' ')[0]
@@ -63,6 +86,8 @@ class MacroCommands(commands.Cog):
 
         if not macros[name].authorised(message.author):
             await self.permission_complain(channel); return
+
+        if not await check(code, channel): return
 
         macros[name].code = code
         macros.write()
@@ -221,25 +246,26 @@ class MacroCommands(commands.Cog):
         '''A list of all source macros, or details on a specific source macro.'''
         await self._macros(ctx, 'source', name)
 
-#                                   command       what    name     value
-command_regex = re.compile(r'\s*(NEW|EDIT|DESC)\s+(\w+)\s+(\S+)\s*::(.*)', re.S)
+command_regex = re.compile(r'\s*(NEW|EDIT|DESC)\s+(hidden)?(pipe|source)\s+([_a-z]\w+)\s*::\s*(.*)', re.S | re.I)
+#                                ^^^command^^^     ^^^^^^^^what^^^^^^^^     ^^name^^^         code
 
 async def parse_macro_command(command, message):
     mc = MacroCommands()
 
     m = re.match(command_regex, command)
-    if m is None:
-        print('Error: failed to parse command: {}'.format(command))
-        await message.channel.send('Error: Poorly formed command.')
+    if m is None: return False
 
-    COM, what, name, value = m.groups()
+    COM, wh, at, name, code = m.groups()
+    what = (wh or '')+at
     what = what.lower()
     if COM == 'NEW':
-        await mc._define(message, what, name, value)
+        await mc._define(message, what, name, code)
     elif COM == 'EDIT':
-        await mc._redefine(message, what, name, value)
+        await mc._redefine(message, what, name, code)
     elif COM == 'DESC':
-        await mc._describe(message, what, name, value)
+        await mc._describe(message, what, name, code)
+
+    return True
 
 
 
