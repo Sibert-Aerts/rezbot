@@ -461,9 +461,9 @@ class PipelineProcessor:
                 if m is not True:
                     context = Context()
                     context.items = list(m.groups())
-                    await self.execute_script(event.script, message, context)
+                    await self.execute_script(event.script, message, context, name='Event: ' + event.name)
                 else:
-                    await self.execute_script(event.script, message)
+                    await self.execute_script(event.script, message, name='Event: ' + event.name)
 
     async def print(self, dest, output):
         ''' Nicely print the output in rows and columns and even with little arrows.'''
@@ -528,7 +528,7 @@ class PipelineProcessor:
             p = c
         return script.strip(), ''
 
-    async def execute_script(self, script, message, context=None):
+    async def execute_script(self, script, message, context=None, name=None):
         errors = ErrorLog()
 
         ### STEP 0: PRE-PROCESSING
@@ -574,20 +574,20 @@ class PipelineProcessor:
 
             ## Post warning output to the channel if any
             if errors:
-                await message.channel.send(embed=errors.embed())
+                await message.channel.send(embed=errors.embed(name=name))
 
         except TerminalError:
             ## A TerminalError indicates that whatever problem we encountered was caught, logged, and we halted voluntarily.
             # Nothing more to be done than posting log contents to the channel.
             print('Script execution halted prematurely.')
-            await message.channel.send(embed=errors.embed())
+            await message.channel.send(embed=errors.embed(name=name))
             
         except Exception as e:
             ## An actual error has occurred in executing the script that we did not catch.
             # No script, no matter how poorly formed or thought-out, should be able to trigger this; if this occurs it's a Rezbot bug.
             print('Script execution halted unexpectedly!')
             errors.log('**Unexpected pipeline error:**\n' + e.__class__.__name__ + ': ' + str(e), terminal=True)
-            await message.channel.send(embed=errors.embed())
+            await message.channel.send(embed=errors.embed(name=name))
             raise e
 
     async def process_script(self, message):

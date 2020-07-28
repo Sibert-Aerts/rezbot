@@ -51,11 +51,12 @@ class ErrorLog:
     def __bool__(self): return len(self.errors) > 0
     def __len__(self): return len(self.errors)
 
-    def embed(self):
+    def embed(self, name=None):
         desc = '\n'.join(str(m) for m in self.errors) if self.errors else 'No warnings!'
         if self.terminal:
-            embed = discord.Embed(title="Error log", description=desc, color=0xff3366 if self.terminal else 0xff88)
+            embed = discord.Embed(title='Error log', description=desc, color=0xff3366)
         else:
-            embed = discord.Embed(title="Warning log", description=desc, color=0xffdd33)
+            embed = discord.Embed(title='Warning log', description=desc, color=0xffdd33)
         embed.set_footer(text=self.time)
+        if name: embed.title += ' for ' + name
         return embed
