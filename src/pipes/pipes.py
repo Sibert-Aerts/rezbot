@@ -8,7 +8,6 @@ import re
 from functools import wraps, lru_cache
 
 from datamuse import datamuse
-datamuse_api = datamuse.Datamuse()
 from google.cloud import translate
 import nltk
 from simpleeval import SimpleEval
@@ -21,35 +20,50 @@ from utils.util import parse_bool
 from resource.upload import uploads
 
 #######################################################
-#                     Decorations                     #
+#                      Decorators                     #
 #######################################################
 
-def as_map(func):
+def one_to_one(func):
     '''
     Decorate a function to accept an array of first arguments:
-
-    f: (x, *args) -> y      becomes     f': ([x], args) -> [y]
+    i.e.
+    f: (X, ...) -> Y        becomes     f': (List[X], ...) -> List[Y]
     e.g.
-    pow(3, 2) -> 9          becomes     pow'([3, 4, 5], 2) -> [9, 16, 25]
+    pow(3, 2) == 9          becomes     pow'([3, 4, 5], 2) == [9, 16, 25]
     '''
     @wraps(func)
-    def _as_map(input, *args, **kwargs):
-        return [func(i, *args, **kwargs) for i in input]
-    return _as_map
+    def _one_to_one(input, *args, **kwargs):
+        return [func(item, *args, **kwargs) for item in input]
+    return _one_to_one
+
+def one_to_many(func):
+    '''
+    Same as one_to_one except it flattens outputs:
+    i.e.
+    (X, ...) -> List[Y]     becomes     (List[X], ...) -> List[Y]
+    '''
+    @wraps(func)
+    def _one_to_many(input, *args, **kwargs):
+        return [out for item in input for out in func(item, *args, **kwargs)]
+    return _one_to_many
+
+def many_to_one(func):
+    ''' Doesn't do anything, just a label. '''
+    return func
 
 _word_splitter = re.compile(r'([\w\'-]+)') # groups together words made out of letters or ' or -
 
-def word_map(func):
+def word_to_word(func):
     '''
     Decorator allowing a pipe to treat input on a word-by-word basis, with symbols etc. removed.
     '''
     @wraps(func)
-    def _word_map(line, *args, **kwargs):
+    def _word_to_word(line, *args, **kwargs):
         split = re.split(_word_splitter, line)
         for i in range(1, len(split), 2):
             split[i] = func(split[i], *args, **kwargs)
         return ''.join(split)
-    return as_map(_word_map)
+    return one_to_one(_word_to_word)
 
 pipes = Pipes()
 pipes.command_pipes = []
@@ -90,7 +104,9 @@ def repeat_pipe(input, times, max):
         return (input*times)[:max]
 
 
-@make_pipe({ 'what': Sig(str, 'all', 'What to filter: all/empty/whitespace', options=['all', 'empty', 'whitespace']) })
+@make_pipe({ 
+    'what': Sig(str, 'all', 'What to filter: all/empty/whitespace', options=['all', 'empty', 'whitespace']) 
+})
 def remove_pipe(input, what):
     '''
     Removes all items (or specific types of items) from the flow.
@@ -126,13 +142,17 @@ def shuffle_pipe(input):
     return out
 
 
-@make_pipe({ 'number' : Sig(int, 1, 'The number of values to choose.', lambda x: x>=0) })
+@make_pipe({
+    'number' : Sig(int, 1, 'The number of values to choose.', lambda x: x>=0)
+})
 def choose_pipe(input, number):
     '''Chooses random values with replacement (i.e. may return repeated values).'''
     return random.choices(input, k=number)
 
 
-@make_pipe({ 'number' : Sig(int, 1, 'The number of values to sample.', lambda x: x>=0) })
+@make_pipe({
+    'number' : Sig(int, 1, 'The number of values to sample.', lambda x: x>=0) 
+})
 def sample_pipe(input, number):
     '''
     Chooses random values without replacement.
@@ -147,13 +167,15 @@ def sample_pipe(input, number):
             'i.e. If False, elements at the start and end of the input have lower chance of being selected, if True all elements have an equal chance.')
 })
 def choose_slice_pipe(input, length, cyclical):
-    '''Randomly chooses a contiguous sequence of items of the given length.'''
+    '''Chooses a random contiguous sequence of inputs.'''
     return choose_slice(input, length, cyclical=cyclical)
 
 
-@make_pipe({ 'count' : Sig(parse_bool, False, 'Whether each unique item should be followed by a count of how many there were of it.') })
+@make_pipe({
+    'count' : Sig(parse_bool, False, 'Whether each unique item should be followed by a count of how many there were of it.')
+})
 def unique_pipe(input, count):
-    '''Returns the first unique occurence of each value.'''
+    '''Leaves only the first unique occurence of each item.'''
     if not count: return [*{*input}]
 
     values = []
@@ -170,13 +192,14 @@ def unique_pipe(input, count):
 
 @make_pipe({})
 def reverse_pipe(input):
-    '''Reverses the order of the input values.'''
+    '''Reverses the order of input items.'''
     return input[::-1]
 
 
 @make_pipe({})
+@many_to_one
 def count_pipe(input):
-    '''Counts the number of input values it receives.'''
+    '''Counts the number of input items.'''
     return [str(len(input))]
 
 
@@ -185,22 +208,39 @@ def count_pipe(input):
 #####################################################
 _CATEGORY = 'STRING'
 
+# So the name correctly shows up as "regex"
+def regex(*args, **kwargs): return re.compile(*args, **kwargs)
+
 @make_pipe({
-    'on' : Sig(str, r'\s*\n+\s*', 'Pattern to split on (regex)'),
+    'on' : Sig(regex, None, 'Pattern to split on'),
     'lim': Sig(int, 0, 'Maximum number of splits. (0 for no limit)')
 })
-def split_pipe(inputs, on, lim):
-    '''Split the input into multiple outputs.'''
-    return [x for y in inputs for x in re.split(on, y, maxsplit=lim)]
+@one_to_many
+def split_pipe(text, on, lim):
+    '''Splits the input into multiple outputs according to a pattern.'''
+    return re.split(on, text, maxsplit=lim)
+
+
+@make_pipe({
+    'from': Sig(regex, None, 'Pattern to replace (regex)'),
+    'to' : Sig(str, None, 'Replacement string'),
+})
+@one_to_one
+def sub_pipe(text, to, **argc):
+    '''
+    Substitutes patterns in text.
+    Use \\1, \\2, ... in the `to` string to insert matched groups (parentheses) of the regex pattern.
+    '''
+    return re.sub(argc['from'], to, text, re.S)
 
 
 @make_pipe({
     'width': Sig(int, None, 'How many characters to trim each string down to.'),
     'where': Sig(str, 'right', 'Which side to trim from: left/center/right', options=['left', 'center', 'right']),
 })
-@as_map
+@one_to_one
 def trim_pipe(text, width, where):
-    '''Trim the input to a certain width, discarding the rest.'''
+    ''' Trims input text to a certain width, discarding the rest. '''
     where = where.lower()
     if where == 'left':
         return text[-width:]
@@ -210,14 +250,15 @@ def trim_pipe(text, width, where):
         diff = max(0, len(text)-width)
         return text[ diff//2 : -math.ceil(diff/2) ]
 
+
 @make_pipe({
     'width': Sig(int, None, 'The minimum width to pad to.'),
     'where': Sig(str, 'right', 'Which side to pad on: left/center/right', options=['left', 'center', 'right']),
     'fill' : Sig(str, ' ', 'The character used to pad out the string.'),
 })
-@as_map
+@one_to_one
 def pad_pipe(text, where, width, fill):
-    '''Pad the input to a certain width.'''
+    ''' Pads input text to a certain width. '''
     where = where.lower()
     if where == 'left':
         return text.rjust(width, fill)
@@ -231,36 +272,30 @@ def pad_pipe(text, where, width, fill):
     'mode' : Sig(str, 'smart', 'How to wrap: dumb (char-by-char) or smart (on spaces).', options=['dumb', 'smart']),
     'width': Sig(int, 40, 'The minimum width to pad to.')
 })
-def wrap_pipe(inputs, mode, width):
-    '''Text wrap the input: Split the input into multiple lines so that each line is shorter than a certain width.'''
+@one_to_many
+def wrap_pipe(text, mode, width):
+    '''
+    Text wraps input text.
+    Split input text into multiple output lines so that each line is shorter than a given number of characters.
+    '''
     mode = mode.lower()
     if mode == 'dumb':
-        return [text[i:i+width] for text in inputs for i in range(0, len(text), width)]
+        return [text[i:i+width] for i in range(0, len(text), width)]
     if mode == 'smart':
-        return [wrapped for text in inputs for wrapped in textwrap.wrap(text, width)]
+        return textwrap.wrap(text, width)
 
 
 @make_pipe({})
-@as_map
+@one_to_one
 def strip_pipe(value):
-    '''Strips whitespace from the starts and ends of each input.'''
+    ''' Strips whitespace from the start and end of each input text. '''
     return value.strip()
-
-
-@make_pipe({
-    'from': Sig(str, None, 'Pattern to replace (regex)'),
-    'to' : Sig(str, None, 'Replacement string'),
-})
-@as_map
-def sub_pipe(text, to, **argc):
-    '''Substitutes patterns in the input.'''
-    return re.sub(argc['from'], to, text, re.S)
 
 
 @make_pipe({
     'pattern': Sig(str, None, 'Case pattern to obey'),
 })
-def case_pipe(text, pattern):
+def case_pipe(inputs, pattern):
     '''
     Converts the case of each input according to a pattern.
 
@@ -278,34 +313,36 @@ def case_pipe(text, pattern):
         A(-)A   Turns the first upper, the last lower
         ^(Aa)^  Reverses the first and last characters, AnD DoEs tHiS To tHe oNeS BeTwEeN
     '''
-    return case_pattern(pattern, *text)
+    return case_pattern(pattern, *inputs)
 
 
 @make_pipe({
     'f' : Sig(str, None, 'The format string. Items of the form {0}, {1} etc. are replaced with the respective item at that index.')
 })
+@many_to_one
 def format_pipe(input, f):
-    '''Format one or more rows into a single row according to a format string.'''
-    # return [f.format(*input)]
+    ''' Formats input text according to a format template. '''
+    ## Due to arguments automatically being formatted as described, this pipe does nothing but return `f` as its only output.
     return [f]
-    # The formatting already happens beforehand, but trying to do it again risks messing things up
 
 @make_pipe({
     's' : Sig(str, '', 'The separator inserted between two items.')
 })
+@many_to_one
 def join_pipe(input, s):
-    '''Joins rows into a single row, separated by the given separator.'''
+    ''' Joins inputs into a single item, separated by the given separator. '''
     return [s.join(input)]
 
 
 @make_pipe({
     'columns': Sig(str, None, 'The names of the different columns separated by commas, or an integer giving the number of columns.'),
-    'alignments': Sig(str, 'l', 'The way the columns should be aligned: l/c/r separated by commas.', options=['l', 'c', 'r'], multi_options=True),
-    'sep': Sig(str, ' │ ', 'The separator between different columns'),
-    'code_block': Sig(parse_bool, True, 'Whether or not the table should already be wrapped in a Discord code block.')
+    'alignments': Sig(str, 'l', 'How the columns should be aligned: l/c/r separated by commas.', options=['l', 'c', 'r'], multi_options=True),
+    'sep': Sig(str, ' │ ', 'The column separator'),
+    'code_block': Sig(parse_bool, True, 'If the table should be wrapped in a Discord code block.')
 })
+@many_to_one
 def table_pipe(input, columns, alignments, sep, code_block):
-    '''Formats data as a table'''
+    ''' Formats data as a table. '''
     try:
         colNames = None
         colCount = int(columns)
@@ -348,49 +385,48 @@ _CATEGORY = 'LETTER'
 @make_pipe({
     'p' : Sig(float, 0.4, 'Character swap probability'),
 }, command=True)
-@as_map
+@one_to_one
 def vowelize_pipe(text, p):
-    '''Randomly replaces vowels.'''
+    ''' Randomly replaces vowels. '''
     return vowelize(text, p)
 
 
 @make_pipe({
     'p' : Sig(float, 0.4, 'Character swap probability'),
 }, command=True)
-@as_map
+@one_to_one
 def consonize_pipe(text, p):
-    '''Randomly replaces consonants with funnier ones.'''
+    ''' Randomly replaces consonants with funnier ones. '''
     return consonize(text, p)
 
 
 @make_pipe({
     'p' : Sig(float, 0.2, 'Character swap probability'),
 }, command=True)
-@as_map
+@one_to_one
 def letterize_pipe(text, p):
-    '''Both vowelizes and consonizes.'''
+    ''' Vowelizes and consonizes at the same time. '''
     return letterize(text, p)
 
 
 @make_pipe({
     'p' : Sig(float, 0.4, 'Character swap probability'),
 }, command=True)
-@as_map
+@one_to_one
 def letterize2_pipe(text, p):
-    '''Letterize, but smarter™.'''
+    ''' Letterizes, but smarter™. '''
     return letterize2(text, p)
 
 
 @make_pipe({
     'to' : Sig(str, None, 'Which conversion should be used.', options=converters.keys()),
 }, command=True)
-@as_map
+@one_to_one
 @util.format_doc(convs=', '.join([c for c in converters]))
 def convert_pipe(text, to):
-    '''\
-    Convert text using a variety of settings.
-
-    Valid conversions: {convs}
+    '''
+    Converts text using a variety of settings.
+    Options: {convs}
     '''
     return converters[to.lower()](text)
 
@@ -401,30 +437,29 @@ def convert_pipe(text, to):
 _CATEGORY = 'LANGUAGE'
 
 # Wrap the API in a LRU cache
+datamuse_api = datamuse.Datamuse()
 _datamuse = lru_cache()(datamuse_api.words)
 
 @make_pipe({})
+@one_to_many
 def split_sentences_pipe(input):
-    ''' Splits a piece of text into individual sentences using the Natural Language Toolkit (NLTK). '''
-    return [sent for line in input for sent in nltk.sent_tokenize(line)]
+    ''' Splits text into individual sentences using the Natural Language Toolkit (NLTK). '''
+    return nltk.sent_tokenize(line)
 
 
 @make_pipe({
-    'min': Sig(int, 0, 'Upper limit on minimum distance (e.g. 1 to never get the same word).'),
-    'file': Sig(str, None, 'The name of the file to be matched from. >files for a list of files')
+    'file': Sig(str, None, 'The name of the file to be matched from. >files for a list of files'),
+    'min':  Sig(int, 0, 'Upper limit on minimum distance (e.g. 1 to never get the same word).')
 }, command=True)
-@as_map
+@one_to_one
 def nearest_pipe(text, min, file):
-    '''Replaces text with the nearest item (by edit distance) from the given file.'''
-    # TODO? MORE FILE LOGIC EQUIVALENT TO {TXT} SOURCE
-    if file not in uploads:
-        raise KeyError('No file "%s" loaded! Check >files for a list of files.' % file)
+    ''' Replaces each item with the nearest item (by edit distance) from the given file. '''
     file = uploads[file]
     return min_dist(text, min, file.get())
 
 
 @make_pipe({}, command=True)
-@word_map
+@word_to_word
 def rhyme_pipe(word):
     '''
     Replaces words with random (nearly) rhyming words.
@@ -440,7 +475,7 @@ def rhyme_pipe(word):
 
 
 @make_pipe({}, command=True)
-@word_map
+@word_to_word
 def homophone_pipe(word):
     '''
     Replaces words with random homophones.
@@ -454,10 +489,10 @@ def homophone_pipe(word):
 
 
 @make_pipe({}, command=True)
-@word_map
+@word_to_word
 def synonym_pipe(word):
     '''
-    Replaces words with random antonyms.
+    Replaces words with random synonyms.
     Thanks to datamuse.com
     '''
     res = _datamuse(rel_syn=word, max=5)
@@ -468,7 +503,7 @@ def synonym_pipe(word):
 
 
 @make_pipe({}, command=True)
-@word_map
+@word_to_word
 def antonym_pipe(word):
     '''
     Replaces words with random antonyms.
@@ -482,7 +517,7 @@ def antonym_pipe(word):
 
 
 @make_pipe({}, command=True)
-@word_map
+@word_to_word
 def part_pipe(word):
     '''
     Replaces words with something it is considered "a part of", inverse of comprises pipe.
@@ -496,13 +531,13 @@ def part_pipe(word):
 
 
 @make_pipe({}, command=True)
-@word_map
+@word_to_word
 def comprises_pipe(word):
     '''
     Replaces words with things considered "its parts", inverse of "part" pipe.
     Thanks to datamuse.com
     '''
-    res = _datamuse(rel_com=word, max=10)
+    res = _datamuse(rel_com=word, max=15)
     if res:
         return random.choice(res)['word']
     else:
@@ -530,12 +565,12 @@ uz vi cy xh yi yo zu'''.split()
     'from': Sig(str, 'auto', 'The language code to translate from, "auto" to automatically detect the language.', options=translate_languages + ['auto']),
     'to' : Sig(str, 'en', 'The language code to translate to, "random" for a random language.', options=translate_languages + ['random']),
 }, command=True)
-@as_map
+@one_to_one
 @util.format_doc(langs=' '.join(c for c in translate_languages))
 def translate_pipe(text, to, **argc):
     '''
-    Translates the input using the Google Cloud Translate API.
-    The list of languages can be browsed at https://cloud.google.com/translate/docs/languages
+    Translates text using the Google Translate.
+    A list of languages can be browsed at https://cloud.google.com/translate/docs/languages
     '''
     if _translate is None: return text
     if text.strip() == '': return text
@@ -551,18 +586,17 @@ def translate_pipe(text, to, **argc):
 
 
 @make_pipe({})
-@as_map
+@one_to_one
 def detect_language_pipe(text):
     '''
-    Uses Google Cloud Translate API to detect the language in a given text.
-    Returns "UNKNOWN" if it cannot be determined.
+    Detects language of a given text using Google Translate.
+    Returns "und" if it cannot be determined.
     The list of languages can be browsed at https://cloud.google.com/translate/docs/languages
     '''
-    if _translate is None: return 'UNKNOWN'
-    if text.strip() == '': return 'UNKNOWN'
+    if _translate is None: return 'und'
+    if text.strip() == '': return 'und'
     return translate_client.detect_language(text)['language']
     
-
 
 @make_pipe({
     'file'   : Sig(str, None, 'The file name'),
@@ -577,8 +611,7 @@ def POS_fill_pipe(phrases, file, uniform, n):
         List of POS tags: https://universaldependencies.org/docs/u/pos/
         See also the `POS` source.
     '''
-    file = uploads[file]
-    pos_buckets = file.get_pos_buckets()
+    pos_buckets = uploads[file].get_pos_buckets()
 
     def repl(m):
         tag = m[1].upper()
@@ -598,7 +631,7 @@ def POS_fill_pipe(phrases, file, uniform, n):
 _CATEGORY = 'ENCODING'
 
 @make_pipe({}, command=True)
-@as_map
+@one_to_one
 def demoji_pipe(text):
     '''Replaces emoji in text with their official names.'''
     out = []
@@ -614,7 +647,7 @@ def demoji_pipe(text):
 
 
 @make_pipe({}, command=True)
-@as_map
+@one_to_one
 def unicode_pipe(text):
     '''Replaces unicode characters with their official names.'''
     out = []
@@ -627,7 +660,7 @@ def unicode_pipe(text):
 @make_pipe({
     'by': Sig(int, 13, 'The number of places to rotate the letters by.'),
 }, command=True)
-@as_map
+@one_to_one
 def rot_pipe(text, by):
     '''Applies a Caeserian cypher.'''
     if by % 26 == 0: return text
@@ -690,6 +723,7 @@ SIMPLE_EVAL = SimpleEval(functions=MATH_FUNCTIONS, names={'e': math.e, 'pi': mat
 @make_pipe({
     'expr': Sig(str, None, 'The mathematical expression to evaluate. Use {} notation to insert items into the expression.')
 }, command=True)
+@many_to_one
 @util.format_doc(funcs=', '.join(c for c in MATH_FUNCTIONS))
 def math_pipe(values, expr):
     '''
@@ -704,24 +738,28 @@ def math_pipe(values, expr):
 
 
 @make_pipe({})
+@many_to_one
 def max_pipe(values):
-    ''' Returns the maximum value of the inputs evaluated as numbers. '''
+    ''' Produces the maximum value of the inputs evaluated as numbers. '''
     return [smart_format(max(float(x) for x in values))]
 
 
 @make_pipe({})
+@many_to_one
 def min_pipe(values):
-    ''' Returns the minimum value of the inputs evaluated as numbers. '''
+    ''' Produces the minimum value of the inputs evaluated as numbers. '''
     return [smart_format(min(float(x) for x in values))]
 
 
 @make_pipe({})
+@many_to_one
 def sum_pipe(values):
-    ''' Returns the sum of the inputs evaluated as numbers. '''
+    ''' Produces the sum of the inputs evaluated as numbers. '''
     return [smart_format(sum(float(x) for x in values))]
 
 
 @make_pipe({})
+@many_to_one
 def avg_pipe(values):
-    ''' Returns the mean average of the inputs evaluated as numbers. '''
+    ''' Produces the mean average of the inputs evaluated as numbers. '''
     return [smart_format(sum(float(x) for x in values)/len(values))]

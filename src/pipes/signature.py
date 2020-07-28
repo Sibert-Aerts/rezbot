@@ -53,32 +53,32 @@ class Sig:
         return self._re
 
     def check(self, val):
-        '''Check whether the value meets superficial requirements.'''
+        '''Check whether the value meets superficial requirements by raising an error if it doesn't.'''
         # If a manual check-function is given, use it
         if self._check and not self._check(val):
             raise ArgumentError('Invalid value "{}" for parameter `{}`.'.format(val, self.name))
 
         # If a specific list of options is given, check if the value is one of them
-        if self.options:
-            if self.multi_options:
-                if any( v not in self.options for v in val.lower().split(',') ):
-                    if len(self.options) <= 8:
-                        raise ArgumentError('Invalid value "{}" for parameter `{}`: Must be a sequence of items from {} separated by commas.'.format(val, self.name, '/'.join(self.options)))
-                    else:
-                        raise ArgumentError('Invalid value "{}" for parameter `{}`.'.format(val, self.name))
-            else:
-                if val.lower() not in self.options:
-                    if len(self.options) <= 8:
-                        raise ArgumentError('Invalid value "{}" for parameter `{}`: Must be one of {}.'.format(val, self.name, '/'.join(self.options)))
-                    else:
-                        raise ArgumentError('Invalid value "{}" for parameter `{}`.'.format(val, self.name))
+        if not self.options: return
+        if self.multi_options:
+            if any( v not in self.options for v in val.lower().split(',') ):
+                if len(self.options) <= 8:
+                    raise ArgumentError('Invalid value "{}" for parameter `{}`: Must be a sequence of items from {} separated by commas.'.format(val, self.name, '/'.join(self.options)))
+                else:
+                    raise ArgumentError('Invalid value "{}" for parameter `{}`.'.format(val, self.name))
+        else:
+            if val.lower() not in self.options:
+                if len(self.options) <= 8:
+                    raise ArgumentError('Invalid value "{}" for parameter `{}`: Must be one of {}.'.format(val, self.name, '/'.join(self.options)))
+                else:
+                    raise ArgumentError('Invalid value "{}" for parameter `{}`.'.format(val, self.name))
 
-    def parse(self, str):
+    def parse(self, raw):
         ''' Attempt to parse and check the given string as an argument for this parameter, raises ArgumentError if it fails. '''
         try:
-            val = self.type(str)
+            val = self.type(raw)
         except Exception as e:
-            raise ArgumentError('Invalid value "{}" for argument `{}`: Must be of type {} ({})'.format(val, self.name, self.type.__name__, e))
+            raise ArgumentError('Invalid value "{}" for parameter `{}`: Must be of type `{}` ({})'.format(raw, self.name, self.type.__name__, e))
         self.check(val)
         return val
 
