@@ -1,11 +1,12 @@
 from functools import wraps
 import pickle
+import re
 
 import discord
 from discord.ext import commands
 
 from .pipes import pipes
-from .sources import sources
+from .sources import sources, SourceResources
 from .spouts import spouts
 from .macros import pipe_macros, source_macros
 from .processor import PipelineProcessor, SourceProcessor
@@ -236,6 +237,20 @@ class PipeCommands(MyCommands):
         e = events[name]
         del events[name]
         await ctx.send('Deleted event "{}"'.format(e.name))
+
+    ## VARIABLES
+    
+    @commands.command(aliases=['list_persistent'])
+    async def persistent_variables(self, ctx, pattern=None):
+        await ctx.send( SourceResources.variables.list_names(pattern, True) )
+    
+    @commands.command(aliases=['list_transient'])
+    async def transient_variables(self, ctx, pattern=None):
+        await ctx.send( SourceResources.variables.list_names(pattern, False) )
+    
+    @commands.command(aliases=['list_all'])
+    async def all_variables(self, ctx, pattern=None):
+        await ctx.send( SourceResources.variables.list_names(pattern, True) +'\n'+ SourceResources.variables.list_names(pattern, False) )
 
 
 # Load the bot cog

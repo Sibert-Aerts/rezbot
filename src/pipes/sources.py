@@ -18,6 +18,7 @@ from utils.frinkiac import simpsons, futurama
 import resource.tweets as tweets
 from resource.jerkcity import JERKCITY
 from resource.upload import uploads
+from resource.variables import VariableStore
 import nltk
 import wikipedia
 
@@ -87,10 +88,12 @@ def make_source(signature, *, command=False, **kwargs):
 
 # Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.
 class SourceResources:
-    previous_pipeline_output = []
-    var_dict = {}
     bot = None
+    previous_pipeline_output = []
+    variables = VariableStore('variables.json')
 
+# So the typename correctly shows up as "regex"
+def regex(*args, **kwargs): return re.compile(*args, **kwargs)
 
 #####################################################
 #                      Sources                      #
@@ -195,7 +198,7 @@ async def me_source(message, what):
     'n'   : Sig(int, 1, 'The maximum number of members to return.'),
     'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), options=MEMBER_WHAT_OPTIONS, multi_options=True),
     'id'  : Sig(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
-    'name': Sig(str, '', 'A regex that should match their nickname or username.'),
+    'name': Sig(regex, '', 'A pattern that should match their nickname or username.'),
     # 'rank': ...?
 }, pass_message=True, depletable=True)
 async def member_source(message, n, what, id, name):
@@ -286,10 +289,7 @@ async def output_source():
 }, command=True)
 async def get_source(name, default):
     '''Loads variables stored using the "set" pipe'''
-    if name in SourceResources.var_dict or default is None:
-        return SourceResources.var_dict[name]
-    else:
-        return [default]
+    return SourceResources.variables.get(name, None if default is None else [default])
 
 
 #####################################################
@@ -308,7 +308,7 @@ def bool_or_none(val):
     'sequential': Sig(bool_or_none, None, 'If the multiple lines should be sequential as opposed to random, "None" for file-dependent.', required=False),
     'sentences' : Sig(bool_or_none, None, 'If the file should be split on sentences as opposed to on dividing characters, "None" for file-dependent.', required=False),
     'query'     : Sig(str, '', 'Optional search query'),
-    'pattern'   : Sig(str, '', 'Optional search regex'),
+    'pattern'   : Sig(regex, '', 'Optional search regex'),
 }, command=True, depletable=True)
 async def txt_source(file, n, sequential, sentences, query, pattern):
     '''Lines from an uploaded text file. Check >files for a list of files.'''
@@ -534,17 +534,13 @@ async def timestamp_source(utc):
 
 
 @make_source({
-    'pattern': Sig(str, '', 'The pattern to look for (regex)'),
+    'pattern': Sig(regex, None, 'The pattern to look for', required=False),
     'n'      : Sig(int, 1, 'The number of sampled words.')
 }, depletable=True)
 async def word_source(pattern, n):
     '''Random dictionary words, optionally matching a pattern.'''
     if pattern:
-        try:
-            pattern = re.compile(pattern)
-        except Exception as e:
-            raise ValueError( 'Invalid regex pattern `%s`: %s' % (pattern, e) )
-        items = [w for w in allWords if pattern.search(w) is not None]
+        items = [w for w in allWords if pattern.search(w)]
     else:
         items = allWords
     return sample(items, n)

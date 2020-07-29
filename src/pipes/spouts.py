@@ -86,7 +86,7 @@ async def send_message_spout(bot, message, values):
 
 @make_spout({'emote': Sig(str, None, 'The emote that you\'d like to use to react. (Emoji or custom emote)'),})
 async def react_spout(bot, message, values, emote):
-    '''Reacts to the message using the specified emote.'''
+    ''' Reacts to the message using the specified emote. '''
     try:
         await message.add_reaction(emote)
     except HTTPException as e:
@@ -104,11 +104,30 @@ async def suppress_print_spout(bot, message, values):
     pass
 
 
-@make_spout({'name' : Sig(str, None, 'The variable name')}, command=True)
-async def set_spout(bot, message, values, name):
-    '''Stores the input as a variable with the given name, which can be retreived with {get (name)}.'''
-    SourceResources.var_dict[name] = values
+@make_spout({
+    'name' :   Sig(str, None, 'The variable name'),
+    'persist': Sig(parse_bool, False, 'Whether the variable should persist indefinitely.')
+}, command=True)
+async def set_spout(bot, message, values, name, persist):
+    '''
+    Stores the input as a variable with the given name.
+    Variables can be retrieved via the `get` Source.
+    If `persist`=True, variables will never disappear until manually deleted by the `delete_var` Spout.
+    '''
+    SourceResources.variables.set(name, values, persistent=persist)
 
+
+@make_spout({
+    'name' :  Sig(str, None, 'The variable name'),
+    'strict': Sig(parse_bool, False, 'Whether an error should be raised if the variable does not exist.')
+}, command=True)
+async def delete_var_spout(bot, message, values, name, strict):
+    ''' Deletes the variable with the given name. '''
+    try:
+        SourceResources.variables.delete(name)
+    except:
+        if strict:
+            raise KeyError('No variable "{}" found.')
 
 @make_spout({
     'name' : Sig(str, None, 'The new file\'s name'),
@@ -133,15 +152,17 @@ async def new_file_spout(bot, message, values, name, sequential, sentences):
 
 @make_spout({})
 async def print_spout(bot, message, values):
-    '''Appends the values to the output message. (WIP: /any/ other spout suppresses print output right now!)'''
+    ''' Appends the values to the output message. (WIP: /any/ other spout suppresses print output right now!) '''
     # The actual implementation of "print" is hardcoded into the pipeline processor code
     # This definition is just here so it shows up in the list of spouts
     pass
 
 
-@make_spout({'name': Sig(str, None, 'The name of the event to be disabled.')})
+@make_spout({
+    'name': Sig(str, None, 'The name of the event to be disabled.')
+})
 async def disable_event_spout(bot, message, values, name):
-    '''Disables the specified event.'''
+    ''' Disables the specified event. '''
     if name not in events:
         raise ValueError('Event %s does not exist!' % name)
     event = events[name]
