@@ -95,8 +95,8 @@ class Events:
             return True
 
         ## Statically analyse the script for parsing errors and warnings
-        _, script = PipelineProcessor.split(script)
-        errors = Pipeline(script).parser_errors
+        _, pipeline = PipelineProcessor.split(script)
+        errors = Pipeline(pipeline).parser_errors
         if errors.terminal:
             await channel.send('Failed to save event due to parsing errors:', embed=errors.embed())
             return True
