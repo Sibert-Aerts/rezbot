@@ -214,47 +214,73 @@ Because nested choices creates a "tree" structure, this process is called "choic
 
 A different use: a "[?]" flag at the start will result in a single *random* possible combination to be picked:  
 `>> [?]My name is J[im[|my|bo]|ohn[|son]]` may produce `My name is John` as its single output.  
-This mode gives equal weight to each possible combination, e.g. for `[?][Tom|Will[|iam]]` is equally likely to evaluate as `Tom`, as `Will`, or as ``William`.
+This mode gives equal weight to each possible combination, e.g. for `[?][Tom|Will[|iam]]` is equally likely to evaluate as `Tom`, as `Will`, or as `William`.
 
 
 ### Group modes
 Group modes are syntax that allow you to decide how inputs are grouped together when a pipe processes them. 
 
-As we previously saw, the `join` pipe takes all input it is given and turns them into a single output. By default the pipeline will feed *all* lines into a pipe as a single group, but by using group modes we can change that.
+As we previously saw, the `join` pipe takes all input it is given and turns them into a single output. By default the pipeline will feed *all* items into a pipe "at once", as a single group, which is not always what we want. Group modes let us change that.
 
-#### Normal grouping
-`>> one|two|three|four > (2) join s=" and "` produces:
+#### Row grouping
+`>> one|two|three|four > (2) join s=" and "` produces two outputs:
 ```
 one and two
 three and four
 ```
-The `(2)` after the `>` and before `join`, tells the pipe to process the inputs in groups of 2.
+The `(2)` after the `>` and before `join`, tells the bot to split the inputs into groups of 2, and to feed each group into the `split` pipe individually.  
+Consider the following visualisation, with bundles of arrows represent how items are grouped:
+
+<img src=https://i.imgur.com/BIjTOvI.png width=50%><br><br>
+
+(The green arrows in the diagram indicate arrows affected by the group mode. A second "phantom" `join` pipe was added to more clearly visualise the fact the two groups of items are handled totally independently, as if there were two different `join` pipes at play. )
 
 #### Divide grouping
-`>> one|two|three|four|five > /2 join s=" and "` produces:
+`>> one|two|three|four|five > /2 join s=" and "` produces two outputs:
 ```
 one and two and three
 four and five
 ```
 The `/2` splits the input into 2 groups of roughly equal size.
 
+<img src=https://i.imgur.com/WSvnkem.png width=55%><br><br>
+
 #### Modulo grouping
 
-`>> one|two|three|four|five|six > %2 join s=" and "` produces:
+`>> one|two|three|four|five|six > %2 join s=" and "` produces two outputs:
 ```
 one and three and five
 two and four and six
 ```
-The `%2` splits the input into 2 groups, determined by the line numbers beind identical modulo 2.
+The `%2` splits the input into 2 groups, determined by the line numbers beind identical modulo 2 (i.e. having the same remainder after division by 2; whether the number is even or odd).
+
+<img src=https://i.imgur.com/TIPIE2m.png width=55%><br><br>
+
+#### Column grouping
+
+`>> one|two|three|four|five|six > \2 join s=" and "` produces three outputs:
+```
+one and four
+two and five
+three and six
+```
+This one is the least intuitive of them all, but the name "column" suggests considering the items as table: `\2` says to consider the list of items as a row-first matrix consisting of two rows (or equivalently: columns of height 2), and to take the resulting columns as the groups, going left to right. (Diagram to be added.)  
+If that doesn't make any sense, don't worry, you'll never have to use this one.
+
+<img src=https://i.imgur.com/D4jclVH.png width=55%><br><br>
 
 #### Index grouping
-`>> zero|one|two > #1 convert fullwidth` produces:
+`>> zero|one|two > #1 convert fraktur` produces:
 ```
 zero
 ｏｎｅ
 two
 ```
-The `#1` says to only apply the pipe to the line index 1 (the second line), leaving the other lines unchanged.
+The `#1` says to only apply the pipe to the item index 1 (the second item, since we start counting at 0), leaving the other items unchanged.
+
+<img src=https://i.imgur.com/n6WC1hW.png width=50%><br><br>
+
+(That is not a typo, "1th" ("oneth") is playful notation meant to distinguish it from "1st"; we're not actually selecting the *first* item.)
 
 #### Interval grouping
 `>> zero|one|two|three > #1:3 convert fullwidth` produces:
@@ -264,9 +290,11 @@ zero
 ｔｗｏ
 three
 ```
-The `#1:3` says to only apply the pipe to the lines index 1 through (but not including) 3, leaving the other lines unchanged.
+The `#1:3` says to only apply the pipe to the items index 1 through (but not including) 3, leaving the other items unchanged.
 
-For more precise documentation of group mode workings, please read the huge comment at the start of [groupmodes.py](src/pipes/groupmodes.py).
+<img src=https://i.imgur.com/qR5ckHV.png width=50%><br><br><br>
+
+For more precise documentation of group mode workings and special cases, feel free to consult read the huge, meticulously formatted comment at the head of [groupmodes.py](src/pipes/groupmodes.py).
 
 
 ### Parallel pipes
