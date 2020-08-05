@@ -292,7 +292,9 @@ three
 ```
 The `#1:3` says to only apply the pipe to the items index 1 through (but not including) 3, leaving the other items unchanged.
 
-<img src=https://i.imgur.com/qR5ckHV.png width=50%><br><br><br>
+<img src=https://i.imgur.com/qR5ckHV.png width=50%><br><br>
+
+<br>
 
 For more precise documentation of group mode workings and special cases, feel free to consult read the huge, meticulously formatted comment at the head of [groupmodes.py](src/pipes/groupmodes.py).
 
@@ -301,33 +303,42 @@ For more precise documentation of group mode workings and special cases, feel fr
 Now that we know how to produce multiple rows of input and how to control their grouping, we can start applying different pipes in parallel.
 
 In a normal pipeline pipes are applied in sequence. Using parallel pipes we can branch the flow to have different parts of the flow go through different pipes. This system also re-uses the multi-line syntax from earlier. Let's start with an example:  
-`>> one|two|three|four > (2)[convert fullwidth | convert fraktur]` produces:
+`>> one|two|three|four > (2)[translate to=fr | convert fraktur]` produces:
 ```
-ｏｎｅ
-ｔｗｏ
+un
+deux
 𝔱𝔥𝔯𝔢𝔢
 𝔣𝔬𝔲𝔯
 ```
-Two pipes are written in parallel: `convert fullwidth` and `convert fraktur`. The group mode `(2)` takes the input in groups of 2, sends the **first** group to the **first** parallel pipe, the **second** group to the **second** parallel pipe. Each line of input only goes through a *single* pipe on its way to the end of the pipeline. 
+Two pipes are written in parallel: `translate to=fr` and `convert fraktur`. The group mode `(2)` takes the input in groups of 2, sends the *first* group to the *first* parallel pipe and the *second* group to the *second* parallel pipe. Each item only goes through a *single* pipe. 
 
-The group mode is key, as illustrated in this example:  
-`>> one|two|three > [convert fullwidth | convert fraktur]` just produces:
-```
-ｏｎｅ
-ｔｗｏ
-ｔｈｒｅｅ
-```
-`convert fraktur` is not applied to any input. This is because by default all input is considered as a single group (equivalent to `/1`), and this single group is only fed into the first of the parallel pipes, making the other parallel pipes useless.
+<img src=https://i.imgur.com/yeotPGg.png width=50%><br><br>
 
-Notation is also not very rigid, following the same logic as multi-line starts discussed above:
-`>> one|two|three|four > (1) convert [fullwidth|smallcaps]` produces:
+Parallel pipes are visualised as pipes (grey rectangles) positioned vertically.
+
+The group mode is key, see what happens when we remove the `(2)`:  
+`>> one|two|three|four > [translate to=fr | convert fraktur]` just produces:
 ```
-ｏｎｅ
-ᴛᴡᴏ
-ｔｈｒｅｅ
-ꜰᴏᴜʀ
+un
+deux
+trois
+quatre
 ```
-If there are more input groups than there are parallel pipes it simply cycles through them.
+`convert fraktur` is not applied to any input. This is because by default all items are considered as a single group (equivalent to groupmode `/1`), and this single group is only fed into the first of the parallel pipes, making the other parallel pipes unreachable.
+
+<img src=https://i.imgur.com/AYGGHk2.png width=50%><br><br>
+
+Notation is also not very rigid, and follows the same expansion rules as multi-line starts discussed earlier: `[convert smallcaps|convert fraktur]` is equivalent to `convert [smallcaps|fraktur]`;
+`>> one|two|three|four > (1) convert [smallcaps|fraktur]` produces:
+```
+ᴏɴᴇ
+𝔱𝔴𝔬
+ᴛʜʀᴇᴇ
+𝔣𝔬𝔲𝔯
+```
+<img src=https://i.imgur.com/0Vj5VO9.png width=50%><br><br>
+
+Additionally, by default, if there are more input groups than there are parallel pipes it simply cycles through them again (visualised as semi-transparent "phantom" pipes).
 
 #### Multiply mode
 Another desirable feature is to apply a group of inputs to *every* pipe in a sequence.  
@@ -337,7 +348,7 @@ Another desirable feature is to apply a group of inputs to *every* pipe in a seq
 Ｈｅｌｌｏ
 ʜᴇʟʟᴏ
 ```
-The `*` makes it apply each group of input to each of the parallel pipes. Watch out as this can easily produce a large number of output rows. If you want to specify a group mode, write it after the asterisk, like so: `*(1) convert` or `*/2 join`.
+The `*` makes it apply each group of input to each of the parallel pipes. Watch out as this can easily produce a large number of output rows. If you want to specify a group mode, write it before the asterisk, like so: `(1)* convert` or `/2* join`.
 
 
 ### Input as arguments
