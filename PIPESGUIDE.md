@@ -328,7 +328,7 @@ quatre
 
 <img src=https://i.imgur.com/AYGGHk2.png width=50%><br><br>
 
-Notation is also not very rigid, and follows the same expansion rules as multi-line starts discussed earlier: `[convert smallcaps|convert fraktur]` is equivalent to `convert [smallcaps|fraktur]`;
+Notation is also not very rigid, and follows the same expansion rules as multi-line starts discussed earlier: `[convert smallcaps|convert fraktur]` is equivalent to `convert [smallcaps|fraktur]`:  
 `>> one|two|three|four > (1) convert [smallcaps|fraktur]` produces:
 ```
 ᴏɴᴇ
