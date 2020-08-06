@@ -16,7 +16,7 @@ def searchify(text):
 
 
 class FileInfo:
-    '''Metadata class for a File, these are pickled, and don't store any actual data.'''
+    '''Metadata class for a File. These are pickled and don't store any of the file's actual contents.'''
     def __init__(self, name, author_name, author_id, sequential=True, sentences=False, splitter=None):
         # File metadata:
         self.version = 1
@@ -29,11 +29,9 @@ class FileInfo:
         self.sentences = sentences
         self.splitter = splitter or '\n+'
 
-        # Making some assumptions here that these are available filenames
+        # TODO: Making some assumptions here that these are available filenames
         self.pickle_file = name + '.p'
         self.raw_file = name + '.txt'
-        self.sentences_file = None
-        self.markov_file = None
 
     def write(self):
         # Write contents to a pickle file so that we can find all this info again next boot
@@ -41,11 +39,14 @@ class FileInfo:
 
     def delete(self):
         # Remove the pickle file, the raw file, and all created files
-        for file in [self.pickle_file, self.raw_file, self.sentences_file, self.markov_file]:
-            if file: os.remove(DIR(file))
+        for file in [self.pickle_file, self.raw_file]:
+            try:
+                os.remove(DIR(file))
+            except:
+                print('Failed to delete file "{}", it may have already been deleted.'.format(DIR(file)))
 
     def __repr__(self):
-        return '\n'.join(str(x) for x in [self.name, self.author_name, self.author_id, self.raw_file, self.sentences_file, self.markov_file])
+        return '\n'.join(str(x) for x in [self.name, self.author_name, self.author_id, self.raw_file])
 
 
 class File:
@@ -62,7 +63,7 @@ class File:
 
     @staticmethod
     def new(name, author_name, author_id, raw, **kwargs):
-        '''Constructor used when a file is uploaded.'''
+        '''Constructor used when a file is uploaded or created via the new_file spout.'''
         info = FileInfo(name, author_name, author_id, **kwargs)
         info.write()
         file = File(info)
@@ -105,28 +106,13 @@ class File:
         return self.search_lines
 
     def get_sentences(self):
-        if self.sentences is not None:
-            return self.sentences
-        elif self.info.sentences_file is not None:
-            # We've already split the file into sentences once, just read it
-            with open(DIR(self.info.sentences_file), 'r', encoding='utf-8') as file:
-                self.sentences = file.read().split('\n')
-            return self.sentences
-        else:
-            # We've never sentence split this file before
-            # Get the raw file and split it
+        if self.sentences is None:
+            # Get the raw file data, before any splitting
             raw = self.read_raw()
             sentences = nltk.sent_tokenize(raw)
             # Sentences can still have line breaks in them, get rid of em first
-            sentences = [re.sub(r'\n[\n\s]*', ' ', s) for s in sentences]
-            self.sentences = sentences
-            # Write them to a file
-            filename = self.info.name + '__sentences.txt'
-            with open(DIR(filename), 'w+', encoding='utf-8') as file:
-                file.write('\n'.join(sentences))
-            self.info.sentences_file = filename
-            self.info.write()
-            return self.sentences
+            self.sentences = [re.sub(r'\s*\n[\n\s]*', ' ', s) for s in sentences]
+        return self.sentences
 
     def _get_search_sentences(self):
         # search_sentences is a list of (index, searchified_line) tuples
@@ -193,24 +179,11 @@ class File:
         return lines[index: index + count]
 
     def get_markov_model(self):
-        if self.markov_model is not None:
-            return self.markov_model
-        elif self.info.markov_file is not None:
-            with open(DIR(self.info.markov_file), encoding='utf-8') as file:
-                self.markov_model = markovify.NewlineText.from_json(file.read())
-            return self.markov_model
-        else:
-            # We've never made a markov model for this file before
-            # Make a markov model from whatever the default line split mode is!
+        if self.markov_model is None:
+            # Make a markov model from whatever the default line split mode is
             sentences = '\n'.join(self.get())
             self.markov_model = markovify.NewlineText(sentences)
-            filename = self.info.name + '__markov.json'
-            with open(DIR(filename), 'w+', encoding='utf-8') as file:
-                file.write(self.markov_model.to_json())
-
-            self.info.markov_file = filename
-            self.info.write()
-            return self.markov_model
+        return self.markov_model
 
     def get_markov_lines(self, count=1, length=0):
         model = self.get_markov_model()
@@ -259,7 +232,7 @@ class Files:
 
         ## Load pickled FileInfo files from the /files directory
         for filename in os.listdir(DIR()):
-            if filename[-2:] != '.p':
+            if not filename.endswith('.p'):
                 continue
             file_info = pickle.load(open(DIR(filename), 'rb'))
             # Upgrade v1's to v2 (DELETE LATER)
