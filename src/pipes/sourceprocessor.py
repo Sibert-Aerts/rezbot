@@ -11,8 +11,8 @@ class ContextError(ValueError):
     '''Special error used by the Context class when a context string cannot be fulfilled.'''
 
 class Context:
-    def __init__(self, parent=None, source_processor=None):
-        self.items = []
+    def __init__(self, parent=None, source_processor=None, items=None):
+        self.items = items or []
         self.parent = parent
         self.to_be_ignored = set()
         self.to_be_removed = set()

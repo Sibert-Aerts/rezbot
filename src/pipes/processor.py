@@ -457,12 +457,9 @@ class PipelineProcessor:
         for event in events.values():
             m = event.test(message)
             if m:
-                if m is not True:
-                    context = Context()
-                    context.items = list(m.groups())
-                    await self.execute_script(event.script, message, context, name='Event: ' + event.name)
-                else:
-                    await self.execute_script(event.script, message, name='Event: ' + event.name)
+                # If m is not just a bool, but a regex match object, fill the context up with the match groups, otherwise with the entire message.
+                context = Context(items=(list(m.groups()) or [message.content]) if m is not True else [message.content])
+                await self.execute_script(event.script, message, context, name='Event: ' + event.name)
 
     async def print(self, dest, output):
         ''' Nicely print the output in rows and columns and even with little arrows.'''
