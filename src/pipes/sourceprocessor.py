@@ -75,7 +75,7 @@ class Context:
             (self.to_be_ignored if ignore else self.to_be_removed).add(i)
         return ctx.items[i]
 
-    def get_ignored_filtered(self):
+    def extract_ignored(self):
         ### Merge the sets into a clear view:
         # If "conflicting" instances occur (i.e. both {0} and {0!}) give precedence to the {0!}
         # Since the ! is an intentional indicator of what they want to happen; Do not remove the item
@@ -84,13 +84,13 @@ class Context:
         # Finnicky list logic for ignoring/removing the appropriate indices
         to_be.sort(key=lambda x: x[0], reverse=True)
         ignored = []
-        filtered = list(self.items)
+        items = list(self.items)
         for i, rem in to_be:
             if not rem: ignored.append(self.items[i])
-            del filtered[i]
+            del items[i]
         ignored.reverse()
 
-        return ignored, filtered
+        return ignored, items
 
 
 class SourceProcessor:

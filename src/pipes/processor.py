@@ -41,7 +41,7 @@ class ParsedPipe:
         self.argstr = args[0] if args else ''
         self.errors = ErrorLog()
         self.needs_dumb_arg_eval = False
-        self.arguments = None   # type: Arguments
+        self.arguments = None   # type: Optional[Arguments]
         
         # Attempt to determine what kind of pipe it is ahead of time
         if self.name in ['', 'nop', 'print']:
@@ -267,7 +267,7 @@ class Pipeline:
 
         return parsedPipes
 
-    def check_values(self, values, message):
+    def check_items(self, values, message):
         '''Raises an error if the user is asking too much of the bot.'''
         # TODO: this could stand to be smarter/more oriented to the type of operation you're trying to do, or something, maybe...?
         # meditate on this...
@@ -276,60 +276,60 @@ class Pipeline:
         if chars > MAXCHARS and not permissions.has(message.author.id, permissions.owner):
             raise PipelineError('Attempted to process a flow of {} total characters at once, try staying under {}.'.format(chars, MAXCHARS))
 
-    async def apply(self, values: List[str], message, parentContext=None) -> Tuple[ List[str], List[List[str]], ErrorLog, List[Any] ]:
-        '''Apply the pipeline to the set of values.'''
+    async def apply(self, items: List[str], message, parent_context=None) -> Tuple[ List[str], List[List[str]], ErrorLog, List[Any] ]:
+        '''Apply the pipeline to a list of items.'''
         ## This is the big method where everything happens.
 
         errors = ErrorLog()
         errors.extend(self.parser_errors)
-        # When a terminal error is encountered, stop normal script execution and only return our error log
-        # For simplicity I have defined this suggestively named variable to use in just such a case.
+        # When a terminal error is encountered, cut script execution short and only return the error log
+        # This suggestively named tuple is for such cases.
         NOTHING_BUT_ERRORS = (None, None, errors, None)
 
-        # Turns out this code just isn't even executable due to parsing errors! abort!
+        # Turns out this pipeline just isn't even executable due to parsing errors! abort!
         if errors.terminal:
             return NOTHING_BUT_ERRORS
 
-        # There's a lot of running variables going on here... would be nice to ball them up into one or something
-        context = Context(parentContext)
-        printValues = []
-        SPOUT_CALLBACKS = []
+        # Set up some objects we'll likely need
+        context = Context(parent_context)
         source_processor = SourceProcessor(message)
+        printed_items = []
+        spout_callbacks = []
+        loose_items = items
 
-        self.check_values(values, message)
+        self.check_items(loose_items, message)
 
-        ### This loop iterates over the pipeline's pipes as they are applied in sequence. (first > second > third)
-        for groupMode, parsedPipes in self.parsed_segments:
-            newValues = []
-            newPrintValues = []
+        ### This loop iterates over the pipeline's segments as they are applied in sequence. (first > second > third)
+        for groupmode, parsed_pipes in self.parsed_segments:
+            next_items = []
+            new_printed_items = []
 
-            # Non-trivial groupmodes add a new context layer.
-            if groupMode.splits_trivially():
-                local_context = context
+            # Non-trivial groupmodes add a new context layer
+            if groupmode.splits_trivially():
+                group_context = context
             else:
-                context.set(values)
-                local_context = Context(context)
+                context.set(loose_items)
+                group_context = Context(context)
 
-            ### The group mode turns the [values], [pipes] into a list of ([values], pipe) pairs,
-            # all according to the arcane flowchart magicke as detailed in the file `groupmodes.py`
-            # In the simplest case, this loop essentially iterates over the pipes as they are applied in parallel. ( [first|second|third] )
-            # In the absolute simplest (and most common) case all values are sent to a single pipe at once, requiring only one iteration here.
-            for vals, parsed_pipe in groupMode.apply(values, parsedPipes):
-                local_context.set(vals)
+            ### The group mode turns the List[item], List[pipe] into  List[Tuple[ List[item], Optional[Pipe] ]]
+            # i.e. it splits the list of items into smaller lists, and assigns each one a pipe to be applied to (if any).
+            # The implemenation of this arcane flowchart magicke is detailed in `./groupmodes.py`
+            # In the absolute simplest (and most common) case, all values are simply sent to a single pipe, and this loop iterates exactly once.
+            for items, parsed_pipe in groupmode.apply(loose_items, parsed_pipes):
+                group_context.set(items)
 
-                ## CASE: `None` is the group mode's way of leaving these values untouched
+                ## CASE: `None` is how the groupmode assigns values to remain unaffected
                 if parsed_pipe is None:
-                    newValues.extend(vals)
+                    next_items.extend(items)
                     continue
 
-                ## CASE: The pipe is an inline pipeline (recursion!)
-                if type(parsed_pipe) is Pipeline:
-                    pipeline = parsed_pipe
-                    vals, pl_printValues, pl_errors, pl_SPOUT_CALLBACKS = await pipeline.apply(vals, message, local_context)
+                ## CASE: The pipe is itself an inlined Pipeline (recursion!)
+                if isinstance(parsed_pipe, Pipeline):
+                    items, pl_printValues, pl_errors, pl_spout_callbacks = await parsed_pipe.apply(items, message, group_context)
                     errors.extend(pl_errors, 'braces')
                     if errors.terminal: return NOTHING_BUT_ERRORS
-                    newValues.extend(vals)
-                    SPOUT_CALLBACKS += pl_SPOUT_CALLBACKS
+                    next_items.extend(items)
+                    spout_callbacks += pl_spout_callbacks
                     continue
 
                 ## CASE: The pipe is a ParsedPipe: something of the form "name [param=arg ...]"
@@ -338,39 +338,38 @@ class Pipeline:
                 #### Determine the arguments (if needed)
                 if parsed_pipe.arguments:
                     # This is a smart method that only does what is needed
-                    arguments, arg_errors = await parsed_pipe.arguments.determine(local_context, source_processor)
+                    arguments, arg_errors = await parsed_pipe.arguments.determine(group_context, source_processor)
                     errors.extend(arg_errors, context=name)
 
                 elif parsed_pipe.needs_dumb_arg_eval:
                     # Evaluate sources and insert context directly into the argument string (flawed!)
                     # This is used for macros, who don't necessarily have nice Signatures that we can be smart about
-                    argstr = await source_processor.evaluate_composite_source(parsed_pipe.argstr, local_context)
+                    argstr = await source_processor.evaluate_composite_source(parsed_pipe.argstr, group_context)
                     errors.steal(source_processor.errors, context='args for `{}`'.format(name))
 
-                # If something went wrong while determining arguments: cut script execution short and only return the error log.
-                if errors.terminal: return NOTHING_BUT_ERRORS
-                
-                # Otherwise: Handle context's ignoring/filtering of values depending on their use in the arguments
-                ignored, vals = local_context.get_ignored_filtered()
-                newValues.extend(ignored)
+                # Check if something went wrong while determining arguments
+                if errors.terminal: return NOTHING_BUT_ERRORS                
+                # Handle certain items being ignoring/filtering depending on their use in arguments
+                ignored, items = group_context.extract_ignored()
+                next_items.extend(ignored)
 
                 ###################################################
                 #### Figure out what the pipe is, this is important
 
                 ## NO OPERATION
                 if name in ['', 'nop']:
-                    newValues.extend(vals)
+                    next_items.extend(items)
                     
                 ## HARDCODED 'PRINT' SPOUT (TODO: GET RID OF THIS)
                 elif name == 'print':
-                    newValues.extend(vals)
-                    newPrintValues.extend(vals)
-                    SPOUT_CALLBACKS.append(spouts['print'](vals, ''))
+                    next_items.extend(items)
+                    new_printed_items.extend(items)
+                    spout_callbacks.append(spouts['print'](items, ''))
 
                 ## A NATIVE PIPE
                 elif parsed_pipe.type == ParsedPipe.NATIVEPIPE:
                     try:
-                        newValues.extend( parsed_pipe.pipe.function(vals, **arguments) )
+                        next_items.extend( parsed_pipe.pipe.function(items, **arguments) )
                     except Exception as e:
                         # This mentions *all* arguments, even default ones, not all of which is very useful for error output...
                         argfmt = ' '.join( '`{}`={}'.format(p, arguments[p]) for p in arguments )
@@ -380,10 +379,10 @@ class Pipeline:
                 ## A SPOUT
                 elif parsed_pipe.type == ParsedPipe.SPOUT:
                     # As a rule, spouts do not affect the values
-                    newValues.extend(vals)
+                    next_items.extend(items)
                     try:
                         # Queue up the spout's side-effects instead, to be executed once the entire script has completed
-                        SPOUT_CALLBACKS.append( (parsed_pipe.pipe.function, arguments, vals) )
+                        spout_callbacks.append( (parsed_pipe.pipe.function, arguments, items) )
                     except Exception as e:
                         argfmt = ' '.join( '`{}`={}'.format(p, arguments[p]) for p in arguments )
                         errors('Failed to process spout `{}` with args {}:\n\t{}: {}'.format(name, argfmt, e.__class__.__name__, e), True)
@@ -392,12 +391,12 @@ class Pipeline:
                 ## A NATIVE SOURCE
                 elif parsed_pipe.type == ParsedPipe.NATIVESOURCE:
                     # Sources don't accept input values: Discard them but warn about it if nontrivial input is being discarded.
-                    # This is just a style warning, if it turns out this is just annoying then it should just be removed.
-                    if vals and not (len(vals) == 1 and vals[0] == ''):
+                    # This is just a style warning, if it turns out this is annoying then it should be removed.
+                    if items and not (len(items) == 1 and items[0] == ''):
                         errors('Source-as-pipe `{}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.'.format(name))
 
                     try:
-                       newValues.extend( await parsed_pipe.pipe.apply(message, arguments) )
+                       next_items.extend( await parsed_pipe.pipe.apply(message, arguments) )
                     except Exception as e:
                         argfmt = ' '.join( '`{}`={}'.format(p, arguments[p]) for p in arguments )
                         errors('Failed to process source-as-pipe `{}` with args {}:\n\t{}: {}'.format(name, argfmt, e.__class__.__name__, e), True)
@@ -413,16 +412,16 @@ class Pipeline:
                         macro = Pipeline(code)
                         pipe_macros.pipeline_cache[code] = macro
 
-                    newvals, macro_printValues, macro_errors, macro_SPOUT_CALLBACKS = await macro.apply(vals, message)
+                    newvals, macro_printValues, macro_errors, macro_spout_callbacks = await macro.apply(items, message)
                     errors.extend(macro_errors, name)
                     if errors.terminal:
                         return NOTHING_BUT_ERRORS
-                    newValues.extend(newvals)
-                    SPOUT_CALLBACKS += macro_SPOUT_CALLBACKS
+                    next_items.extend(newvals)
+                    spout_callbacks += macro_spout_callbacks
 
                 ## A SOURCE MACRO
                 elif name in sources or name in source_macros:
-                    if vals and not (len(vals) == 1 and vals[0] == ''):
+                    if items and not (len(items) == 1 and items[0] == ''):
                         errors('Macro-source-as-pipe `{}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.'.format(name))
 
                     newVals = await source_processor.evaluate_parsed_source(name, argstr)
@@ -430,20 +429,20 @@ class Pipeline:
                     if newVals is None or errors.terminal:
                         errors.terminal = True
                         return NOTHING_BUT_ERRORS
-                    newValues.extend(newVals)
+                    next_items.extend(newVals)
 
                 ## UNKNOWN NAME
                 else:
                     errors('Unknown pipe `{}`.'.format(name), True)
                     return NOTHING_BUT_ERRORS
 
-            values = newValues
-            if len(newPrintValues):
-                printValues.append(newPrintValues)
+            loose_items = next_items
+            if new_printed_items:
+                printed_items.append(new_printed_items)
 
-            self.check_values(values, message)
+            self.check_items(loose_items, message)
 
-        return values, printValues, errors, SPOUT_CALLBACKS
+        return loose_items, printed_items, errors, spout_callbacks
 
 class PipelineProcessor:
     def __init__(self, bot, prefix):
@@ -549,7 +548,7 @@ class PipelineProcessor:
             errors.extend(source_processor.errors)
 
             ### STEP 2: APPLY THE PIPELINE TO THE STARTING VALUES
-            values, printValues, pl_errors, SPOUT_CALLBACKS = await pipeline.apply(values, message, context)
+            values, printValues, pl_errors, spout_callbacks = await pipeline.apply(values, message, context)
             errors.extend(pl_errors)
             if errors.terminal: raise TerminalError()
 
@@ -561,12 +560,12 @@ class PipelineProcessor:
             ## Print the output!
             # TODO: ~~SPOUT CALLBACK HAPPENS HERE~~
             # TODO: auto-print if the LAST output was not a spout of any kind
-            if not SPOUT_CALLBACKS or any( callback is spouts['print'].function for (callback, _, _) in SPOUT_CALLBACKS ):
+            if not spout_callbacks or any( callback is spouts['print'].function for (callback, _, _) in spout_callbacks ):
                 # TODO: `print` as a spout?! could it be???????
                 printValues.append(values)
                 await self.print(message.channel, printValues)
 
-            for callback, args, values in SPOUT_CALLBACKS:
+            for callback, args, values in spout_callbacks:
                 try:
                     await callback(self.bot, message, values, **args)
                 except Exception as e:
