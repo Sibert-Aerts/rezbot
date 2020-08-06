@@ -70,7 +70,8 @@ class ParsedPipe:
         else:
             self.type = ParsedPipe.UNKNOWN
             self.needs_dumb_arg_eval = True
-            self.errors.warn('`{}` is no known pipe, source, spout or macro at the time of parsing.'.format(self.name))
+            # This one will keep being posted repeatedly even if the name eventually is defined, so don't do it
+            # self.errors.warn(f'`{self.name}` is no known pipe, source, spout or macro at the time of parsing.')
 
 class Pipeline:
     ''' 
@@ -274,7 +275,7 @@ class Pipeline:
         MAXCHARS = 10000
         chars = sum(len(i) for i in values)
         if chars > MAXCHARS and not permissions.has(message.author.id, permissions.owner):
-            raise PipelineError('Attempted to process a flow of {} total characters at once, try staying under {}.'.format(chars, MAXCHARS))
+            raise PipelineError(f'Attempted to process a flow of {chars} total characters at once, try staying under {MAXCHARS}.')
 
     async def apply(self, items: List[str], message, parent_context=None) -> Tuple[ List[str], List[List[str]], ErrorLog, List[Any] ]:
         '''Apply the pipeline to a list of items.'''
@@ -345,7 +346,7 @@ class Pipeline:
                     # Evaluate sources and insert context directly into the argument string (flawed!)
                     # This is used for macros, who don't necessarily have nice Signatures that we can be smart about
                     argstr = await source_processor.evaluate_composite_source(parsed_pipe.argstr, group_context)
-                    errors.steal(source_processor.errors, context='args for `{}`'.format(name))
+                    errors.steal(source_processor.errors, context=f'args for `{name}`')
 
                 # Check if something went wrong while determining arguments
                 if errors.terminal: return NOTHING_BUT_ERRORS                
@@ -372,8 +373,8 @@ class Pipeline:
                         next_items.extend( parsed_pipe.pipe.function(items, **arguments) )
                     except Exception as e:
                         # This mentions *all* arguments, even default ones, not all of which is very useful for error output...
-                        argfmt = ' '.join( '`{}`={}'.format(p, arguments[p]) for p in arguments )
-                        errors('Failed to process pipe `{}` with args {}:\n\t{}: {}'.format(name, argfmt, e.__class__.__name__, e), True)
+                        argfmt = ' '.join( f'`{p}`={arguments[p]}' for p in arguments )
+                        errors(f'Failed to process pipe `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
 
                 ## A SPOUT
@@ -384,8 +385,8 @@ class Pipeline:
                         # Queue up the spout's side-effects instead, to be executed once the entire script has completed
                         spout_callbacks.append( (parsed_pipe.pipe.function, arguments, items) )
                     except Exception as e:
-                        argfmt = ' '.join( '`{}`={}'.format(p, arguments[p]) for p in arguments )
-                        errors('Failed to process spout `{}` with args {}:\n\t{}: {}'.format(name, argfmt, e.__class__.__name__, e), True)
+                        argfmt = ' '.join( f'`{p}`={arguments[p]}' for p in arguments )
+                        errors(f'Failed to process spout `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
                     
                 ## A NATIVE SOURCE
@@ -393,13 +394,13 @@ class Pipeline:
                     # Sources don't accept input values: Discard them but warn about it if nontrivial input is being discarded.
                     # This is just a style warning, if it turns out this is annoying then it should be removed.
                     if items and not (len(items) == 1 and items[0] == ''):
-                        errors('Source-as-pipe `{}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.'.format(name))
+                        errors(f'Source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
 
                     try:
                        next_items.extend( await parsed_pipe.pipe.apply(message, arguments) )
                     except Exception as e:
-                        argfmt = ' '.join( '`{}`={}'.format(p, arguments[p]) for p in arguments )
-                        errors('Failed to process source-as-pipe `{}` with args {}:\n\t{}: {}'.format(name, argfmt, e.__class__.__name__, e), True)
+                        argfmt = ' '.join( f'`{p}`={arguments[p]}' for p in arguments )
+                        errors(f'Failed to process source-as-pipe `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
 
                 ## A PIPE MACRO
@@ -422,7 +423,7 @@ class Pipeline:
                 ## A SOURCE MACRO
                 elif name in sources or name in source_macros:
                     if items and not (len(items) == 1 and items[0] == ''):
-                        errors('Macro-source-as-pipe `{}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.'.format(name))
+                        errors(f'Macro-source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
 
                     newVals = await source_processor.evaluate_parsed_source(name, argstr)
                     errors.steal(source_processor.errors, context='source-as-pipe')
@@ -433,7 +434,7 @@ class Pipeline:
 
                 ## UNKNOWN NAME
                 else:
-                    errors('Unknown pipe `{}`.'.format(name), True)
+                    errors(f'Unknown pipe `{name}`.', True)
                     return NOTHING_BUT_ERRORS
 
             loose_items = next_items
@@ -566,7 +567,7 @@ class PipelineProcessor:
                 try:
                     await callback(self.bot, message, values, **args)
                 except Exception as e:
-                    errors('Failed to execute spout `{}`:\n\t{}'.format(callback.__name__, str(e)))
+                    errors(f'Failed to execute spout `{callback.__name__}`:\n\t{e}')
 
             ## Post warning output to the channel if any
             if errors:
