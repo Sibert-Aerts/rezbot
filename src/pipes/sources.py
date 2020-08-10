@@ -341,8 +341,8 @@ async def markov_source(file, n, length):
     'tag'    : Sig(str, None, 'The POS tag'),
     'uniform': Sig(util.parse_bool, False, 'Whether to pick pieces uniformly or based on their frequency'),
     'n'      : Sig(int, 1, 'The amount of pieces')
-}, depletable=True, plural='POS')
-async def POS_source(file, tag, uniform, n):
+}, depletable=True, plural='pos')
+async def pos_source(file, tag, uniform, n):
     '''
         Returns a Piece Of Sentence from a given text file that match a given grammatical POS tag.
 

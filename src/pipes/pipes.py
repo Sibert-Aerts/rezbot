@@ -11,6 +11,8 @@ from datamuse import datamuse
 from google.cloud import translate
 import nltk
 from simpleeval import SimpleEval
+import spacy
+spacy.LOADED_NLP = None
 
 from .signature import Sig
 from .pipe import Pipe, Pipes
@@ -448,9 +450,10 @@ def convert_pipe(text, to):
 
 
 #####################################################
-#                  Pipes : LANGUAGE                 #
+#                  Pipes : DATAMUSE                 #
 #####################################################
-_CATEGORY = 'LANGUAGE'
+_CATEGORY = 'DATAMUSE'
+# TODO: 'n' parameter for all of these!!!!!!!!!!!!!
 
 # Wrap the API in a LRU cache
 datamuse_api = datamuse.Datamuse()
@@ -560,6 +563,11 @@ def comprises_pipe(word):
         return word
 
 
+#####################################################
+#                  Pipes : LANGUAGE                 #
+#####################################################
+_CATEGORY = 'LANGUAGE'
+
 try:
     translate_client = translate.Client()
     # Wrap the API call in a LRU cache!
@@ -619,13 +627,13 @@ def detect_language_pipe(text):
     'uniform': Sig(parse_bool, False, 'Whether to pick pieces uniformly or based on their frequency'),
     'n'      : Sig(int, 1, 'The amount of different phrases to generate')
 }, command=True)
-def POS_fill_pipe(phrases, file, uniform, n):
+def pos_fill_pipe(phrases, file, uniform, n):
     '''
-        Replaces POS tags of the form %TAG% with grammatically matching pieces from a given file.
+    Replaces POS tags of the form %TAG% with grammatically matching pieces from a given file.
 
-        See >files for a list of uploaded files.
-        List of POS tags: https://universaldependencies.org/docs/u/pos/
-        See also the `POS` source.
+    See >files for a list of uploaded files.
+    List of POS tags: https://universaldependencies.org/docs/u/pos/
+    See also the `pos` source.
     '''
     pos_buckets = uploads[file].get_pos_buckets()
 
@@ -640,6 +648,44 @@ def POS_fill_pipe(phrases, file, uniform, n):
     return [ re.sub('%(\w+)%', repl, phrase) for phrase in phrases for _ in range(n) ]
 
 
+POS_TAGS = ['ADJ', 'ADJ', 'ADP', 'PUNCT', 'ADV', 'AUX', 'SYM', 'INTJ', 'CONJ', 'X', 'NOUN', 'DET', 'PROPN', 'NUM', 'VERB', 'PART', 'PRON', 'SCONJ', 'SPACE']
+
+@make_pipe({
+    'include': Sig(str, None, 'Which POS tags to replace, separated by commas. If blank, uses the `exclude` list instead.', required=False, options=POS_TAGS, multi_options=True),
+    'exclude': Sig(str, 'PUNCT,SPACE,SYM,X', 'Which POS tags not to replace, separated by commas. Ignored if `include` is given.', options=POS_TAGS, multi_options=True)
+})
+@one_to_one
+def pos_unfill_pipe(text, include, exclude):
+    '''
+    Inverse of `pos_fill`: replaces parts of the given text with %TAG% formatted POS tags.
+    
+    List of POS tags: https://universaldependencies.org/docs/u/pos/
+    See `pos_analyse` for a more complex alternative to this pipe.
+    '''
+    if spacy.LOADED_NLP is None: spacy.LOADED_NLP = spacy.load('en_core_web_sm')
+    doc = spacy.LOADED_NLP(text)
+    if include:
+        include = include.split(',')
+        return ''.join( f'%{t.pos_}%{t.whitespace_}' if t.pos_ in include else t.text_with_ws for t in doc )
+    else:
+        exclude = exclude.split(',')
+        return ''.join( f'%{t.pos_}%{t.whitespace_}' if t.pos_ not in exclude else t.text_with_ws for t in doc )
+
+
+@make_pipe({})
+@one_to_many
+def pos_analyse_pipe(text):
+    '''
+    Splits a piece of text into grammatically distinct pieces along with their POS tag.
+    Each part of text turns into three output item: The original text, its POS tag, and its trailing whitespace.
+    e.g. `pos_analyse > (3) format ("{}", {}, "{}")` nicely formats this pipe's output.
+    
+    List of POS tags: https://universaldependencies.org/docs/u/pos/
+    '''
+    if spacy.LOADED_NLP is None: spacy.LOADED_NLP = spacy.load('en_core_web_sm')
+    doc = spacy.LOADED_NLP(text)
+    # Return flattened tuples of (text, tag, whitespace)
+    return [ x for t in doc for x in (t.text, t.pos_, t.whitespace_) ]
 
 #####################################################
 #                  Pipes : ENCODING                 #

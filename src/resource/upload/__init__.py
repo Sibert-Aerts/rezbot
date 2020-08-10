@@ -5,7 +5,7 @@ import random
 import nltk
 import markovify
 import spacy
-SPACY_NLP = None
+spacy.LOADED_NLP = None
 
 def DIR(filename=''):
     return os.path.join(os.path.dirname(__file__), 'files', filename)
@@ -194,10 +194,9 @@ class File:
 
     def get_pos_buckets(self):
         if self.pos_buckets is None:
-            global SPACY_NLP
-            if SPACY_NLP is None: SPACY_NLP = spacy.load('en_core_web_sm')
-            # Oops this makes an error for huge input!
-            doc = SPACY_NLP(' '.join(self.get_lines()))
+            if spacy.LOADED_NLP is None: spacy.LOADED_NLP = spacy.load('en_core_web_sm')
+            # Oops, this raises an error for huge input!
+            doc = spacy.LOADED_NLP(' '.join(self.get_lines()))
 
             buckets = {}
             # buckets is {tag: {word: count}}
