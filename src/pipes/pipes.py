@@ -14,7 +14,7 @@ from simpleeval import SimpleEval
 import spacy
 spacy.LOADED_NLP = None
 
-from .signature import Sig
+from .signature import Sig, Option, Multi
 from .pipe import Pipe, Pipes
 from utils.texttools import vowelize, consonize, letterize, letterize2, converters, min_dist, case_pattern
 from utils.rand import choose_slice
@@ -105,9 +105,10 @@ def repeat_pipe(input, times, max):
         times = min(times, math.ceil(max/len(input))) # Limit how many unnecessary items the [:max] in the next line shaves off
         return (input*times)[:max]
 
+REMOVE_WHAT = Option('all', 'empty', 'whitespace')
 
 @make_pipe({ 
-    'what': Sig(str, 'all', 'What to filter: all/empty/whitespace', options=['all', 'empty', 'whitespace']) 
+    'what': Sig(REMOVE_WHAT, REMOVE_WHAT.all, 'What to filter: all/empty/whitespace') 
 })
 def remove_pipe(input, what):
     '''
@@ -117,12 +118,11 @@ def remove_pipe(input, what):
     whitespace: Removes items that only consist of whitespace (including empty ones)
     empty: Only removes items equal to the empty string ("")
     '''
-    what = what.lower()
-    if what == 'all':
+    if what == REMOVE_WHAT.all:
         return []
-    if what == 'whitespace':
-        return [x for x in input if x.strip() != '']
-    if what == 'empty':
+    if what == REMOVE_WHAT.whitespace:
+        return [x for x in input if x.isspace()]
+    if what == REMOVE_WHAT.empty:
         return [x for x in input if x != '']
 
 
@@ -251,43 +251,43 @@ def sub_pipe(text, to, **argc):
     '''
     return re.sub(argc['from'], to, text, re.S)
 
+DIRECTION = Option('left', 'center', 'right')
 
 @make_pipe({
     'width': Sig(int, None, 'How many characters to trim each string down to.'),
-    'where': Sig(str, 'right', 'Which side to trim from: left/center/right', options=['left', 'center', 'right']),
+    'where': Sig(DIRECTION, DIRECTION.right, 'Which side to trim from: left/center/right'),
 })
 @one_to_one
 def trim_pipe(text, width, where):
     ''' Trims input text to a certain width, discarding the rest. '''
-    where = where.lower()
-    if where == 'left':
+    if where == DIRECTION.left:
         return text[-width:]
-    if where == 'right':
+    if where == DIRECTION.right:
         return text[:width]
-    if where == 'center':
+    if where == DIRECTION.center:
         diff = max(0, len(text)-width)
         return text[ diff//2 : -math.ceil(diff/2) ]
 
 
 @make_pipe({
     'width': Sig(int, None, 'The minimum width to pad to.'),
-    'where': Sig(str, 'right', 'Which side to pad on: left/center/right', options=['left', 'center', 'right']),
+    'where': Sig(DIRECTION, DIRECTION.right, 'Which side to pad on: left/center/right'),
     'fill' : Sig(str, ' ', 'The character used to pad out the string.'),
 })
 @one_to_one
 def pad_pipe(text, where, width, fill):
     ''' Pads input text to a certain width. '''
-    where = where.lower()
-    if where == 'left':
+    if where == DIRECTION.left:
         return text.rjust(width, fill)
-    if where == 'center':
+    if where == DIRECTION.center:
         return text.center(width, fill)
-    if where == 'right':
+    if where == DIRECTION.right:
         return text.ljust(width, fill)
 
+WRAP_MODE = Option('dumb', 'smart')
 
 @make_pipe({
-    'mode' : Sig(str, 'smart', 'How to wrap: dumb (char-by-char) or smart (on spaces).', options=['dumb', 'smart']),
+    'mode' : Sig(WRAP_MODE, WRAP_MODE.smart, 'How to wrap: dumb (char-by-char) or smart (on spaces).'),
     'width': Sig(int, 40, 'The minimum width to pad to.')
 })
 @one_to_many
@@ -296,10 +296,9 @@ def wrap_pipe(text, mode, width):
     Text wraps input text.
     Split input text into multiple output lines so that each line is shorter than a given number of characters.
     '''
-    mode = mode.lower()
-    if mode == 'dumb':
+    if mode == WRAP_MODE.dumb:
         return [text[i:i+width] for i in range(0, len(text), width)]
-    if mode == 'smart':
+    if mode == WRAP_MODE.smart:
         return textwrap.wrap(text, width)
 
 
@@ -351,10 +350,11 @@ def join_pipe(input, s):
     ''' Joins inputs into a single item, separated by the given separator. '''
     return [s.join(input)]
 
+TABLE_ALIGN = Option('l', 'c', 'r', name='alignment')
 
 @make_pipe({
     'columns': Sig(str, None, 'The names of the different columns separated by commas, or an integer giving the number of columns.'),
-    'alignments': Sig(str, 'l', 'How the columns should be aligned: l/c/r separated by commas.', options=['l', 'c', 'r'], multi_options=True),
+    'alignments': Sig(Multi(TABLE_ALIGN), Multi(TABLE_ALIGN)('l'), 'How the columns should be aligned: l/c/r separated by commas.'),
     'sep': Sig(str, ' │ ', 'The column separator'),
     'code_block': Sig(parse_bool, True, 'If the table should be wrapped in a Discord code block.')
 })
@@ -371,7 +371,6 @@ def table_pipe(input, columns, alignments, sep, code_block):
     if colCount <= 0:
         raise ValueError('Number of columns should be at least 1.')
     # Pad out the list of alignments with itself
-    alignments = alignments.split(',')
     alignments = alignments * math.ceil( colCount/len(alignments) )
 
     rows = [ input[i:i+colCount] for i in range(0, len(input), colCount) ]
@@ -383,9 +382,9 @@ def table_pipe(input, columns, alignments, sep, code_block):
         colWidths = [ max(w, len(name)) for (w, name) in zip(colWidths, colNames) ]
 
     def pad(text, width, where, what=' '):
-        if where == 'l': return text.ljust(width, what)
-        if where == 'c': return text.center(width, what)
-        if where == 'r': return text.rjust(width, what)
+        if where == TABLE_ALIGN.l: return text.ljust(width, what)
+        if where == TABLE_ALIGN.c: return text.center(width, what)
+        if where == TABLE_ALIGN.r: return text.rjust(width, what)
 
     rows = [ ' %s ' % sep.join([ pad(row[i], colWidths[i], alignments[i]) for i in range(colCount) ]) for row in rows ]
     if colNames:
@@ -437,16 +436,16 @@ def letterize2_pipe(text, p):
 
 
 @make_pipe({
-    'to' : Sig(str, None, 'Which conversion should be used.', options=converters.keys()),
+    'to' : Sig(Option(*converters, stringy=True), None, 'Which conversion should be used.'),
 }, command=True)
 @one_to_one
-@util.format_doc(convs=', '.join([c for c in converters]))
+@util.format_doc(convs=', '.join(converters))
 def convert_pipe(text, to):
     '''
-    Converts text using a variety of settings.
+    Character-by-character converts text into unicode abominations. 
     Options: {convs}
     '''
-    return converters[to.lower()](text)
+    return converters[to](text)
 
 
 #####################################################
@@ -579,28 +578,32 @@ except Exception as e:
     _translate = None
 
 # Retreived once using translate_client.get_languages()
-translate_languages = '''af sq am ar hy az eu be bn bs bg ca ceb ny zh zh-TW co
-hr cs da nl en eo et tl fi fr fy gl ka de el gu ht ha haw iw hi hmn hu is ig id
-ga it ja jw kn kk km ko ku ky lo la lv lt lb mk mg ms ml mt mi mr mn my ne no ps
-fa pl pt pa ro ru sm gd sr st sn sd si sk sl so es su sw sv tg ta te th tr uk ur
-uz vi cy xh yi yo zu'''.split()
+translate_languages = ['af', 'sq', 'am', 'ar', 'hy', 'az', 'eu', 'be', 'bn', 'bs', 'bg',
+'ca', 'ceb', 'ny', 'zh-CN', 'zh-TW', 'co', 'hr', 'cs', 'da', 'nl', 'en', 'eo', 'et',
+'tl', 'fi', 'fr', 'fy', 'gl', 'ka', 'de', 'el', 'gu', 'ht', 'ha', 'haw', 'iw', 'hi',
+'hmn', 'hu', 'is', 'ig', 'id', 'ga', 'it', 'ja', 'jw', 'kn', 'kk', 'km', 'rw', 'ko',
+'ku', 'ky', 'lo', 'la', 'lv', 'lt', 'lb', 'mk', 'mg', 'ms', 'ml', 'mt', 'mi', 'mr',
+'mn', 'my', 'ne', 'no', 'or', 'ps', 'fa', 'pl', 'pt', 'pa', 'ro', 'ru', 'sm', 'gd',
+'sr', 'st', 'sn', 'sd', 'si', 'sk', 'sl', 'so', 'es', 'su', 'sw', 'sv', 'tg', 'ta',
+'tt', 'te', 'th', 'tr', 'tk', 'uk', 'ur', 'ug', 'uz', 'vi', 'cy', 'xh', 'yi', 'yo',
+'zu', 'he', 'zh']
+
+LANGUAGE = Option(*translate_languages, name='language', stringy=True)
 
 @make_pipe({
-    'from': Sig(str, 'auto', 'The language code to translate from, "auto" to automatically detect the language.', options=translate_languages + ['auto']),
-    'to' : Sig(str, 'en', 'The language code to translate to, "random" for a random language.', options=translate_languages + ['random']),
+    'from': Sig(LANGUAGE + ['auto'], 'auto', 'The language code to translate from, "auto" to automatically detect the language.'),
+    'to':   Sig(LANGUAGE + ['random'], 'en', 'The language code to translate to, "random" for a random language.'),
 }, command=True)
 @one_to_one
-@util.format_doc(langs=' '.join(c for c in translate_languages))
 def translate_pipe(text, to, **argc):
     '''
     Translates text using the Google Translate.
     A list of languages can be browsed at https://cloud.google.com/translate/docs/languages
     '''
     if _translate is None: return text
-    if text.strip() == '': return text
+    if text.isspace(): return text
 
-    fro = argc['from'].lower() # because "from" is a keyword
-    to = to.lower()
+    fro = argc['from'] # Can't have a variable named 'from' because it's a keyword
     if fro == 'auto': fro = ''
     if to == 'random': to = random.choice(translate_languages)
 
@@ -648,11 +651,12 @@ def pos_fill_pipe(phrases, file, uniform, n):
     return [ re.sub('%(\w+)%', repl, phrase) for phrase in phrases for _ in range(n) ]
 
 
-POS_TAGS = ['ADJ', 'ADJ', 'ADP', 'PUNCT', 'ADV', 'AUX', 'SYM', 'INTJ', 'CONJ', 'X', 'NOUN', 'DET', 'PROPN', 'NUM', 'VERB', 'PART', 'PRON', 'SCONJ', 'SPACE']
+POS_TAG = Option('ADJ', 'ADJ', 'ADP', 'PUNCT', 'ADV', 'AUX', 'SYM', 'INTJ', 'CONJ',
+'X', 'NOUN', 'DET', 'PROPN', 'NUM', 'VERB', 'PART', 'PRON', 'SCONJ', 'SPACE', name='POS tag', stringy=True, prefer_upper=True)
 
 @make_pipe({
-    'include': Sig(str, None, 'Which POS tags to replace, separated by commas. If blank, uses the `exclude` list instead.', required=False, options=POS_TAGS, multi_options=True),
-    'exclude': Sig(str, 'PUNCT,SPACE,SYM,X', 'Which POS tags not to replace, separated by commas. Ignored if `include` is given.', options=POS_TAGS, multi_options=True)
+    'include': Sig(Multi(POS_TAG), None, 'Which POS tags to replace, separated by commas. If blank, uses the `exclude` list instead.', required=False),
+    'exclude': Sig(Multi(POS_TAG), Multi(POS_TAG)('PUNCT,SPACE,SYM,X'), 'Which POS tags not to replace, separated by commas. Ignored if `include` is given.')
 })
 @one_to_one
 def pos_unfill_pipe(text, include, exclude):
@@ -665,10 +669,8 @@ def pos_unfill_pipe(text, include, exclude):
     if spacy.LOADED_NLP is None: spacy.LOADED_NLP = spacy.load('en_core_web_sm')
     doc = spacy.LOADED_NLP(text)
     if include:
-        include = include.split(',')
         return ''.join( f'%{t.pos_}%{t.whitespace_}' if t.pos_ in include else t.text_with_ws for t in doc )
     else:
-        exclude = exclude.split(',')
         return ''.join( f'%{t.pos_}%{t.whitespace_}' if t.pos_ not in exclude else t.text_with_ws for t in doc )
 
 

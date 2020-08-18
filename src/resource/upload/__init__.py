@@ -195,7 +195,7 @@ class File:
     def get_pos_buckets(self):
         if self.pos_buckets is None:
             if spacy.LOADED_NLP is None: spacy.LOADED_NLP = spacy.load('en_core_web_sm')
-            # Oops, this raises an error for huge input!
+            # TODO: Oops, this raises an error for huge input!
             doc = spacy.LOADED_NLP(' '.join(self.get_lines()))
 
             buckets = {}

@@ -7,39 +7,136 @@ from .logger import ErrorLog
 class ArgumentError(ValueError):
     '''Special error in case a bad argument is passed.'''
 
+# In this file, a "type" is an object which has a __name__ field
+#   and a method __call__(str) -> T which may raise errors for poorly formed input
+# e.g. `str`, `int` and `float` are "types", but also any function (str -> T) is a "type"
+# The two classes below are used to create simple new "types" as well
+
+
+class Option:
+    '''
+    An Option object behaves like a "type" for parsing enums from strings, returning str-like objects.
+    By default it is case insensitive, and will normalise all names to lowercase.
+    Set prefer_upper=True to instead normalise all names to uppercase.
+    If stringy=True it will return regular strings instead of str-like objects.
+
+    >>> Color = Option('red', 'green', 'blue', name='color')
+    >>> Color.red
+    red
+    >>> Color('red') == Color.red
+    True
+    >>> 'red' == Color.red
+    False
+    >>> Color('magenta')
+    ArgumentError: Unknown color: "magenta"
+
+    >>> Color2 = Color + ['cyan', 'magenta', 'yellow']
+    >>> Color2('magenta') == Color2.magenta
+    True
+    >>> Color2.red == Color.red
+    False
+    '''
+
+    class Str:
+        def __init__(self, str): self.str = str
+        def __repr__(self): return self.str
+        def __str__(self): return self.str
+
+    def __init__(self, *options, name='option', case_sensitive=False, prefer_upper=False, stringy=False):
+        self.__name__ = name
+        self._case_sens = case_sensitive
+        self._stringy = stringy
+        self._pref_upp = prefer_upper
+
+        if not case_sensitive:
+            options = [opt.upper() if prefer_upper else opt.lower() for opt in options]
+        self._options = options
+        for option in self._options:
+            setattr(self, option, option if stringy else Option.Str(option))
+        
+    def __call__(self, text):
+        if not self._case_sens: text = text.upper() if self._pref_upp else text.lower()
+        if hasattr(self, text):
+            return getattr(self, text)
+        if len(self._options) <= 8:
+            raise ArgumentError(f'Must be one of {"/".join(self._options)}')
+        raise ArgumentError(f'Unknown {self.__name__} "{text}"')
+
+    def __add__(self, other):
+        if isinstance(other, list):
+            return Option(*self._options, *other, name=self.__name__, case_sensitive=self._case_sens, stringy=self._stringy)
+        raise Exception('Option can only be added to list')
+
+    def __iter__(self):
+        return self._options.__iter__()
+
+class Multi:
+    '''
+    A Multi object wraps a "type" to be a comma (or otherwise) separated list of said type.
+    The output type is a list but with __repr__ changed to resemble the original input.
+
+    >>> intList = Multi(int)
+    >>> intList('10,20,30') == [10, 20, 30]
+    True
+    >>> intList('10,20,30')
+    10,20,30
+    '''
+    class List(list):
+        def __init__(self, sep, *a, **kw):
+            super().__init__(self, *a, **kw)
+            self.sep = sep
+        def __repr__(self): return self.sep.join(str(s) for s in self)
+
+    def __init__(self, type, sep=','):
+        self.__name__ = type.__name__ + ' list'
+        self.type = type
+        self.sep = sep
+
+    def __call__(self, text: str):
+        out = Multi.List(self.sep)
+        for item in text.split(self.sep):
+            try:
+                out.append(self.type(item))
+            except Exception as e:
+                if isinstance(self.type, Option) and len(self.type._options) <= 8:
+                    raise ArgumentError(f'Must be a sequence of items from {"/".join(self.type._options)} separated by "{self.sep}"s.')
+                raise ArgumentError(f'"{item}" must be of type {self.type.__name__} ({e})')
+        return out
+
 
 class Sig:
-    '''Represents a single parameter in a function signature.'''
-    def __init__(self, type, default=None, desc=None, check=None, required=None, options=None, multi_options=False):
+    ''' Represents a single parameter in a function signature. '''
+    def __init__(self, type, default=None, desc=None, check=None, required=None):
+        '''
+        Arguments:
+            type: A "type" as described above; a function (str -> T).
+            default: The default value of type T to be used in case the argument is not given, if None parameter is assumed required.
+            desc: The signature's description string.
+            check: A function (T -> bool) that verifies if the output of `type` meets some arbitrary requirement.
+            required: Normally inferred from whether or not `default` is None, set as True if you want None to actually be the default value.
+        '''
         self.type = type
         self.name = None # Assigned externally, don't worry
         self.default = default
         self.desc = desc
         self._check = check
-        self.options = options and [option.lower() for option in options]
-        self.multi_options = multi_options
         self.required = required if required is not None else (default is None)
         self._re = None
-        self.str = None
+        self._str = None
         
     def __str__(self):
-        if self.str: return self.str
-
-        out = []
-        if self.desc is not None:
-            out.append( ' ' + self.desc )
-
-        typ = self.type.__name__ + (' list' if self.multi_options else '')
-
-        out.append(' (' + typ)    
-        if self.required:
-            out.append( ', REQUIRED' )
-        elif self.default is not None:
-            out.append( ', default: ' + repr(self.default) )
-        out.append( ')' )
-
-        self.str = ''.join(out)
-        return self.str
+        if not self._str:
+            s = ''
+            if self.desc:
+                s += ' ' + self.desc
+            s += ' (' + self.type.__name__
+            if self.required:
+                s += ', REQUIRED'
+            elif self.default is not None:
+                s +=', default: ' + repr(self.default)
+            s += ')'
+            self._str = s
+        return self._str
 
     def re(self):
         # This regex matches the following formats:
@@ -52,39 +149,24 @@ class Sig:
             #                                                   [1]            [2]          [3]      [4]      [5]    [6]        
         return self._re
 
-    def check(self, val):
-        '''Check whether the value meets superficial requirements by raising an error if it doesn't.'''
-        # If a manual check-function is given, use it
-        if self._check and not self._check(val):
-            raise ArgumentError('Invalid value "{}" for parameter `{}`.'.format(val, self.name))
-
-        # If a specific list of options is given, check if the value is one of them
-        if not self.options: return
-        if self.multi_options:
-            if any( v not in self.options for v in val.lower().split(',') ):
-                if len(self.options) <= 8:
-                    raise ArgumentError('Invalid value "{}" for parameter `{}`: Must be a sequence of items from {} separated by commas.'.format(val, self.name, '/'.join(self.options)))
-                else:
-                    raise ArgumentError('Invalid value "{}" for parameter `{}`.'.format(val, self.name))
-        else:
-            if val.lower() not in self.options:
-                if len(self.options) <= 8:
-                    raise ArgumentError('Invalid value "{}" for parameter `{}`: Must be one of {}.'.format(val, self.name, '/'.join(self.options)))
-                else:
-                    raise ArgumentError('Invalid value "{}" for parameter `{}`.'.format(val, self.name))
-
     def parse(self, raw):
         ''' Attempt to parse and check the given string as an argument for this parameter, raises ArgumentError if it fails. '''
         try:
             val = self.type(raw)
+        except ArgumentError as e:
+            ## ArgumentError means it's a nicely formatted error that we made ourselves
+            raise ArgumentError(f'Invalid value "{raw}" for parameter `{self.name}`: {e}')
         except Exception as e:
-            raise ArgumentError('Invalid value "{}" for parameter `{}`: Must be of type `{}` ({})'.format(raw, self.name, self.type.__name__, e))
-        self.check(val)
+            ## Exceptions may be less clear so we need to be more verbose
+            raise ArgumentError(f'Invalid value "{raw}" for parameter `{self.name}`: Must be of type `{self.type.__name__}` ({e})')
+
+        if self._check and not self._check(val):
+            raise ArgumentError(f'Invalid value "{val}" for parameter `{self.name}`: Did not pass check.')
         return val
 
 
 class Arg:
-    ''' Represents a parsed assignment of a single argument to a single parameter. '''
+    ''' Represents a raw argument to a single parameter. '''
     def __init__(self, sig: Sig, raw: str):
         self.sig = sig
         self.raw = raw
@@ -116,13 +198,11 @@ class Arg:
             return None
         return val
 
-
 class DefaultArg(Arg):
     ''' Special-case Arg representing a default argument. '''
     def __init__(self, val):
         self.predetermined = True
         self.val = val
-
 
 class Arguments:
     ''' Represents a parsed set of arguments assigned a set of parameters. '''
@@ -178,18 +258,15 @@ def parse_args(signature: Dict[str, Sig], text: str, greedy: bool=True) -> Tuple
                 _text = split[1] if len(split) > 1 else ''
 
             # If the "found" argument is the empty string we didnt actually find anything
-            if val.strip() != '':
+            if not val.isspace():
                 try:
-                    # Try casting what we found and see if it works
-                    val = sig.type(val)
-                    # The check raises an exception if it fails
-                    sig.check(val)
-                    # It successfully converted AND passed the check: assign it and cut it from the text
+                    # If what we found works (parses and meets requirements), cut it out and consider it assigned
+                    val = sig.parse(val)
                     args[s] = val
                     text = _text
                 except Exception as e:
-                    # We already know that there's no "arg=val" present in the string, the arg is required and we can't find it blindly:
                     if require_the_one:
+                        # It didn't work, but we needed it to work, so the argstring is invalid!
                         raise e
 
     for s in signature:

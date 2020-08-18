@@ -5,7 +5,7 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 from functools import wraps, lru_cache
 
-from .signature import Sig
+from .signature import Sig, Option, Multi
 from .pipe import Source, Sources
 
 import utils.util as util
@@ -43,18 +43,14 @@ def multi_source(func):
 def get_which(get_what):
     '''
     Takes a function
-        get_what(items:List[X], attribute:str) -> results: List[Y]
-    where items and results have equal length (i.e. one result per item)
+        get_what(items:List[X], what:T) -> results:List[Y]
+    where `items` and `results` have equal length (i.e. one result per item)
     and extends it to
-        get_which(items:List[X], attributes:str) -> results: List[Y]
-    where attributes is a string of multiple (attribute)s joined by ","
-    and results has length (#items × #attributes) ordered so that it's first the attributes of item 1, then the attributes of item 2, etc.
-    
-    e.g. if get_what = lambda x,y: x[y]
-        then get_which({'foo': 'bar', 'abc': 'xyz'}, 'foo,abc,foo') returns ['bar', 'xyz', 'bar']
+        get_which(items:List[X], which:List[T]) -> results:List[Y]
+    and results has length (#items × #which) ordered so that it's first the attributes of item 1, then the attributes of item 2, etc.
     '''
     def _get_which(item, which):
-        w = [ get_what(item, what) for what in which.split(',') ]
+        w = [ get_what(item, what) for what in which ]
         return [x for y in zip(*w) for x in y]
     return _get_which
 
@@ -106,17 +102,16 @@ _CATEGORY = 'DISCORD'
 
 #### MESSAGES #######################################
 
-MESSAGE_WHAT_OPTIONS = ['content', 'id', 'timestamp', 'author_id']
+MESSAGE_WHAT = Option('content', 'id', 'timestamp', 'author_id')
 @get_which
-def _messages_get_what(messages, what):
-    what = what.lower()
-    if what == 'content':
+def messages_get_what(messages, what):
+    if what == MESSAGE_WHAT.content:
         return [msg.content for msg in messages]
-    if what == 'id':
+    if what == MESSAGE_WHAT.id:
         return [str(msg.id) for msg in messages]
-    if what == 'timestamp':
+    if what == MESSAGE_WHAT.timestamp:
         return [str(int(msg.created_at.timestamp())) for msg in messages]
-    if what == 'author_id':
+    if what == MESSAGE_WHAT.author_id:
         return [str(msg.author.id) for msg in messages]
 
 
@@ -129,28 +124,28 @@ async def that_source(message):
 
 @make_source({
     'n': Sig(int, 1, 'The number of next messages to wait for.', lambda n: n < 1000),
-    'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), options=MESSAGE_WHAT_OPTIONS, multi_options=True)
+    'what': Sig(Multi(MESSAGE_WHAT), Multi(MESSAGE_WHAT)('content'), '/'.join(MESSAGE_WHAT))
 }, pass_message=True)
 async def next_message_source(message, n, what):
     '''The next message to be sent in the channel.'''
     messages = []
     while len(messages) < n:
         messages.append( await SourceResources.bot.wait_for('message', check=lambda m: m.channel == message.channel) )
-    return _messages_get_what(messages, what)
+    return messages_get_what(messages, what)
 
 
 @make_source({
-    'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), options=MESSAGE_WHAT_OPTIONS, multi_options=True)
+    'what': Sig(Multi(MESSAGE_WHAT), Multi(MESSAGE_WHAT)('content'), '/'.join(MESSAGE_WHAT))
 }, pass_message=True)
 async def message_source(message, what):
     '''The message which triggered script execution. Useful in Event scripts.'''
-    return _messages_get_what([message], what)
+    return messages_get_what([message], what)
 
 
 @make_source({
     'n': Sig(int, 1, 'The number of messages'),
-    'i': Sig(int, 1, 'From which previous message to start counting. (0 for the message that triggers the script itself)'),
-    'what': Sig(str, 'content', '/'.join(MESSAGE_WHAT_OPTIONS), options=MESSAGE_WHAT_OPTIONS, multi_options=True),
+    'i': Sig(int, 1, 'From which previous message to start counting. (0 for the message that triggers the script itself)', lambda i: i <= 10000),
+    'what': Sig(Multi(MESSAGE_WHAT), Multi(MESSAGE_WHAT)('content'), '/'.join(MESSAGE_WHAT)),
     'by': Sig(int, 0, 'A user id, if given will filter the results down to only that users\' messages within the range of messages (if any).'),
 }, pass_message=True)
 async def previous_message_source(message, n, i, what, by):
@@ -160,43 +155,38 @@ async def previous_message_source(message, n, i, what, by):
     The N messages in this channel, counting backwards from the Ith previous message.
     i.e. N messages, ordered newest to oldest, with the newest being the Ith previous message.
     '''
-    # Arbitrary limit on how far back you can load messages I guess?
-    if i > 10000: raise ValueError('`I` should be smaller than 10000')
-
     messages = ( await message.channel.history(limit=n+i).flatten() )[i:i+n]
-    if by:
-        messages = [m for m in messages if m.author.id == by]
+    if by: messages = [m for m in messages if m.author.id == by]
 
-    return _messages_get_what(messages, what)
+    return messages_get_what(messages, what)
 
 #### MEMBERS ########################################
 
-MEMBER_WHAT_OPTIONS = ['nickname', 'username', 'id', 'avatar']
+MEMBER_WHAT = Option('nickname', 'username', 'id', 'avatar')
 @get_which
-def _members_get_what(members, what):
-    what = what.lower()
-    if what == 'nickname':
+def members_get_what(members, what):
+    if what == MEMBER_WHAT.nickname:
         return [member.display_name for member in members]
-    elif what == 'username':
+    elif what == MEMBER_WHAT.username:
         return [member.name for member in members]
-    elif what == 'id':
+    elif what == MEMBER_WHAT.id:
         return [str(member.id) for member in members]
-    elif what == 'avatar':
+    elif what == MEMBER_WHAT.avatar:
         return [str(member.avatar_url) for member in members]
-    # elif what == 'activity':
+    # elif what == MEMBER_WHAT.activity:
     #     return [str(member.activities[0]) if member.activities else '' for member in members]
 
 @make_source({
-    'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), options=MEMBER_WHAT_OPTIONS, multi_options=True)
+    'what': Sig(Multi(MEMBER_WHAT), Multi(MEMBER_WHAT)('nickname'), '/'.join(MEMBER_WHAT))
 }, pass_message=True)
 async def me_source(message, what):
     '''The name (or other attribute) of the user invoking the script or event.'''
-    return _members_get_what([message.author], what)
+    return members_get_what([message.author], what)
 
 
 @make_source({
     'n'   : Sig(int, 1, 'The maximum number of members to return.'),
-    'what': Sig(str, 'nickname', '/'.join(MEMBER_WHAT_OPTIONS), options=MEMBER_WHAT_OPTIONS, multi_options=True),
+    'what': Sig(Multi(MEMBER_WHAT), MEMBER_WHAT.nickname, '/'.join(MEMBER_WHAT)),
     'id'  : Sig(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
     'name': Sig(regex, '', 'A pattern that should match their nickname or username.'),
     # 'rank': ...?
@@ -215,48 +205,46 @@ async def member_source(message, n, what, id, name):
     members = list(members)
     members = sample(members, n)
 
-    return _members_get_what(members, what)
+    return members_get_what(members, what)
 
 #### CHANNEL ########################################
 
-CHANNEL_WHAT_OPTIONS = ['name', 'topic', 'id', 'category', 'mention']
+CHANNEL_WHAT = Option('name', 'topic', 'id', 'category', 'mention')
 
 @make_source({
-    'what': Sig(str, 'name', '/'.join(CHANNEL_WHAT_OPTIONS), options=CHANNEL_WHAT_OPTIONS),
+    'what': Sig(CHANNEL_WHAT, CHANNEL_WHAT.name, '/'.join(CHANNEL_WHAT)),
 }, pass_message=True)
 async def channel_source(message, what):
     '''The name (or other attribute) of the current channel.'''
-    what = what.lower()
     channel = message.channel
-    if what == 'name':
+    if what == CHANNEL_WHAT.name:
         return [channel.name]
-    if what == 'id':
+    if what == CHANNEL_WHAT.id:
         return [str(channel.id)]
-    if what == 'topic':
+    if what == CHANNEL_WHAT.topic:
         return [channel.topic or '']
-    if what == 'category':
+    if what == CHANNEL_WHAT.category:
         return [channel.category.name] if channel.category else []
-    if what == 'mention':
+    if what == CHANNEL_WHAT.mention:
         return [channel.mention]
 
 #### SERVER ########################################
 
-SERVER_WHAT_OPTIONS = ['name', 'description', 'icon', 'member_count']
+SERVER_WHAT = Option('name', 'description', 'icon', 'member_count')
 
 @make_source({
-    'what': Sig(str, 'name', '/'.join(SERVER_WHAT_OPTIONS), options=SERVER_WHAT_OPTIONS),
+    'what': Sig(SERVER_WHAT, SERVER_WHAT.name, '/'.join(SERVER_WHAT)),
 }, pass_message=True)
 async def server_source(message, what):
     '''The name (or other attribute) of the current server.'''
-    what = what.lower()
     server = message.guild
-    if what == 'name':
+    if what == SERVER_WHAT.name:
         return [server.name]
-    if what == 'description':
+    if what == SERVER_WHAT.description:
         return [server.description or '']
-    if what == 'icon':
+    if what == SERVER_WHAT.icon:
         return [str(server.icon_url or '')]
-    if what == 'member_count':
+    if what == SERVER_WHAT.member_count:
         return [str(server.member_count)]
 
 
@@ -463,18 +451,18 @@ async def JERKCITY_source(COMIC, QUERY, N, LINES, NAMES):
 
     return _LINES
 
+SOULS_GAME = Option('?','1','2','3','b', name='game', stringy=True)
 
 @make_source({
     'n'     : Sig(int, 1, 'The number of generated messages.'),
-    'game'  : Sig(str, '?', 'Which game should be used (1/2/3/B/? for random).', options=['?','1','2','3','b']),
-    'phrase': Sig(str, '%phrase%', 'Overrides game argument. Construct a custom phrase using the following categories:\n{}'.format(', '.join([c for c in soapstone.phraseDict])))
+    'game'  : Sig(SOULS_GAME, '?', 'Which game should be used (1/2/3/B/? for random).'),
+    'phrase': Sig(str, '%phrase%', 'Overrides game argument. Construct a custom phrase using the following categories:\nphrase, {}'.format(', '.join(soapstone.phraseDict)))
 }, command=True)
 @multi_source
 async def soapstone_source(game, phrase):
     '''Random Dark Souls soapstone messages.'''
     if phrase != '%phrase%':
         return soapstone.makePhrase(phrase)
-    game = game.lower()
     if game == '?':
         game = choose(['1','2','3','b'])
     if game == '1':
@@ -567,7 +555,7 @@ def _wikipedia_page(page, language):
     wikipedia.set_lang(language)
     return wikipedia.page(page)
     
-WIKIPEDIA_WHAT = ['title', 'url', 'summary', 'content', 'images', 'videos', 'audio', 'links']
+WIKIPEDIA_WHAT = Option('title', 'url', 'summary', 'content', 'images', 'videos', 'audio', 'links')
 _img_re = re.compile(r'(?i)(png|jpe?g|gif|webp)$')
 _banned_imgs = ['https://upload.wikimedia.org/wikipedia/commons/7/74/Red_Pencil_Icon.png']
 _vid_re = re.compile(r'(?i)(webm|gif|mp4)$')
@@ -575,18 +563,17 @@ _aud_re = re.compile(r'(?i)(mp3|ogg|ogv|wav)$')
 _svg_re = re.compile(r'(?i)(svg)$')
 
 def _wikipedia_get_what(page, what, n):
-    what = what.lower()
-    if what == 'title':
+    if what == WIKIPEDIA_WHAT.title:
         return [page.title]
-    elif what == 'url':
+    elif what == WIKIPEDIA_WHAT.url:
         return [page.url]
-    elif what == 'summary':
+    elif what == WIKIPEDIA_WHAT.summary:
         if not hasattr(page, 'summary_sentences'):
             sentences = nltk.sent_tokenize(page.summary)
             sentences = [ re.sub(r'\n[\n\s]*', ' ', s) for s in sentences ]
             page.summary_sentences = sentences
         return choose_slice( page.summary_sentences, n )
-    elif what == 'content':
+    elif what == WIKIPEDIA_WHAT.content:
         if not hasattr(page, 'content_sentences'):
             # Get rid of section titles before parsing sentences
             content = re.sub(r'^==+ .+ ==+\s*$', '', page.content, flags=re.M)
@@ -594,19 +581,19 @@ def _wikipedia_get_what(page, what, n):
             sentences = [ re.sub(r'\n[\n\s]*', ' ', s) for s in sentences ]
             page.content_sentences = sentences
         return choose_slice( page.content_sentences, n )
-    elif what == 'images':
+    elif what == WIKIPEDIA_WHAT.images:
         return sample( [img for img in page.images if _img_re.search(img) and img not in _banned_imgs], n )
-    elif what == 'videos':
+    elif what == WIKIPEDIA_WHAT.videos:
         return sample( list(filter(_vid_re.search, page.images)), n )
-    elif what == 'audio':
+    elif what == WIKIPEDIA_WHAT.audio:
         return sample( list(filter(_aud_re.search, page.images)), n )
-    elif what == 'links':
+    elif what == WIKIPEDIA_WHAT.links:
         return sample( page.links, n )
 
 @make_source({
     'language': Sig(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
     'lines': Sig(int, 1, 'The number of (what) you want ,for summary/content this means number of sentences.'),
-    'what': Sig(str, 'Summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT), options=WIKIPEDIA_WHAT, multi_options=True),
+    'what': Sig(Multi(WIKIPEDIA_WHAT), Multi(WIKIPEDIA_WHAT)('Summary'), 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
     'n' : Sig(int, 1, 'The number of random pages to fetch')
 })
 async def wikipedia_random_source(what, language, lines, n):
@@ -633,14 +620,13 @@ async def wikipedia_random_source(what, language, lines, n):
             except:
                 pass
     
-    which = what.split(',')
-    return [ s for page in pages for what in which for s in _wikipedia_get_what(page, what, lines) ]
+    return [ s for page in pages for wh in what for s in _wikipedia_get_what(page, wh, lines) ]
 
 
 @make_source({
     'page': Sig(str, None, 'The page you want information from. (For a random page, use wikipedia_random.)'),
     'language': Sig(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
-    'what': Sig(str, 'summary', 'Which part(s) of the page you want: ' + '/'.join(WIKIPEDIA_WHAT), options=WIKIPEDIA_WHAT, multi_options=True),
+    'what': Sig(Multi(WIKIPEDIA_WHAT), Multi(WIKIPEDIA_WHAT)('Summary'), 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
     'n' : Sig(int, 1, 'The number of (what) you want, for summary/content this means number of sentences.')
 }, depletable=True)
 async def wikipedia_source(page, what, language, n):
@@ -650,7 +636,7 @@ async def wikipedia_source(page, what, language, n):
     Donate to wikimedia: https://donate.wikimedia.org/
     '''
     page = _wikipedia_page(page, language)
-    return [ s for what in what.split(',') for s in _wikipedia_get_what(page, what, n) ]
+    return [ s for wh in what for s in _wikipedia_get_what(page, wh, n) ]
 
 
 @make_source({
