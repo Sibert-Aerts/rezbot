@@ -5,7 +5,7 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 from functools import wraps, lru_cache
 
-from .signature import Sig, Option, Multi
+from .signature import Par, Signature, Option, Multi
 from .pipe import Source, Sources
 
 import utils.util as util
@@ -63,19 +63,18 @@ def make_source(signature, *, command=False, **kwargs):
     Makes a source out of a function.
 
     Keyword arguments:
+        command: Whether or not the source should be usable as a standalone bot command (default: False)
 
-    command: Whether or not the source should be usable as a standalone bot command (default: False)
+        pass_message: Whether or not the function should receive the Discord message as its first argument (default: False)
 
-    pass_message: Whether or not the function should receive the Discord message as its first argument (default: False)
+        plural: The source's name pluralised (default: name + 's')
 
-    plural: The source's name pluralised (default: name + 's')
-
-    depletable: Whether the source allows to request "all" elements (e.g. "{all words}" instead of just "{10 words}"),
+        depletable: Whether the source allows to request "all" elements (e.g. "{all words}" instead of just "{10 words}"),
     in this case `n` will be passed as -1 (default: False)
     '''
     def _make_source(func):
         global sources, _CATEGORY
-        source = Source(signature, func, _CATEGORY, **kwargs)
+        source = Source(Signature(signature), func, _CATEGORY, **kwargs)
         sources.add(source)
         if command:
             sources.command_sources.append(source)
@@ -123,8 +122,8 @@ async def that_source(message):
 
 
 @make_source({
-    'n': Sig(int, 1, 'The number of next messages to wait for.', lambda n: n < 1000),
-    'what': Sig(Multi(MESSAGE_WHAT), Multi(MESSAGE_WHAT)('content'), '/'.join(MESSAGE_WHAT))
+    'n': Par(int, 1, 'The number of next messages to wait for.', lambda n: n < 1000),
+    'what': Par(Multi(MESSAGE_WHAT), Multi(MESSAGE_WHAT)('content'), '/'.join(MESSAGE_WHAT))
 }, pass_message=True)
 async def next_message_source(message, n, what):
     '''The next message to be sent in the channel.'''
@@ -135,7 +134,7 @@ async def next_message_source(message, n, what):
 
 
 @make_source({
-    'what': Sig(Multi(MESSAGE_WHAT), Multi(MESSAGE_WHAT)('content'), '/'.join(MESSAGE_WHAT))
+    'what': Par(Multi(MESSAGE_WHAT), Multi(MESSAGE_WHAT)('content'), '/'.join(MESSAGE_WHAT))
 }, pass_message=True)
 async def message_source(message, what):
     '''The message which triggered script execution. Useful in Event scripts.'''
@@ -143,10 +142,10 @@ async def message_source(message, what):
 
 
 @make_source({
-    'n': Sig(int, 1, 'The number of messages'),
-    'i': Sig(int, 1, 'From which previous message to start counting. (0 for the message that triggers the script itself)', lambda i: i <= 10000),
-    'what': Sig(Multi(MESSAGE_WHAT), Multi(MESSAGE_WHAT)('content'), '/'.join(MESSAGE_WHAT)),
-    'by': Sig(int, 0, 'A user id, if given will filter the results down to only that users\' messages within the range of messages (if any).'),
+    'n': Par(int, 1, 'The number of messages'),
+    'i': Par(int, 1, 'From which previous message to start counting. (0 for the message that triggers the script itself)', lambda i: i <= 10000),
+    'what': Par(Multi(MESSAGE_WHAT), Multi(MESSAGE_WHAT)('content'), '/'.join(MESSAGE_WHAT)),
+    'by': Par(int, 0, 'A user id, if given will filter the results down to only that users\' messages within the range of messages (if any).'),
 }, pass_message=True)
 async def previous_message_source(message, n, i, what, by):
     '''
@@ -177,7 +176,7 @@ def members_get_what(members, what):
     #     return [str(member.activities[0]) if member.activities else '' for member in members]
 
 @make_source({
-    'what': Sig(Multi(MEMBER_WHAT), Multi(MEMBER_WHAT)('nickname'), '/'.join(MEMBER_WHAT))
+    'what': Par(Multi(MEMBER_WHAT), Multi(MEMBER_WHAT)('nickname'), '/'.join(MEMBER_WHAT))
 }, pass_message=True)
 async def me_source(message, what):
     '''The name (or other attribute) of the user invoking the script or event.'''
@@ -185,10 +184,10 @@ async def me_source(message, what):
 
 
 @make_source({
-    'n'   : Sig(int, 1, 'The maximum number of members to return.'),
-    'what': Sig(Multi(MEMBER_WHAT), MEMBER_WHAT.nickname, '/'.join(MEMBER_WHAT)),
-    'id'  : Sig(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
-    'name': Sig(regex, '', 'A pattern that should match their nickname or username.'),
+    'n'   : Par(int, 1, 'The maximum number of members to return.'),
+    'what': Par(Multi(MEMBER_WHAT), MEMBER_WHAT.nickname, '/'.join(MEMBER_WHAT)),
+    'id'  : Par(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
+    'name': Par(regex, '', 'A pattern that should match their nickname or username.'),
     # 'rank': ...?
 }, pass_message=True, depletable=True)
 async def member_source(message, n, what, id, name):
@@ -212,7 +211,7 @@ async def member_source(message, n, what, id, name):
 CHANNEL_WHAT = Option('name', 'topic', 'id', 'category', 'mention')
 
 @make_source({
-    'what': Sig(CHANNEL_WHAT, CHANNEL_WHAT.name, '/'.join(CHANNEL_WHAT)),
+    'what': Par(CHANNEL_WHAT, CHANNEL_WHAT.name, '/'.join(CHANNEL_WHAT)),
 }, pass_message=True)
 async def channel_source(message, what):
     '''The name (or other attribute) of the current channel.'''
@@ -233,7 +232,7 @@ async def channel_source(message, what):
 SERVER_WHAT = Option('name', 'description', 'icon', 'member_count')
 
 @make_source({
-    'what': Sig(SERVER_WHAT, SERVER_WHAT.name, '/'.join(SERVER_WHAT)),
+    'what': Par(SERVER_WHAT, SERVER_WHAT.name, '/'.join(SERVER_WHAT)),
 }, pass_message=True)
 async def server_source(message, what):
     '''The name (or other attribute) of the current server.'''
@@ -249,8 +248,8 @@ async def server_source(message, what):
 
 
 @make_source({
-    'n': Sig(int, 1, 'The number of emojis'),
-    'name': Sig(str, None, 'The name of the emoji if you want a specific one.', required=False),
+    'n': Par(int, 1, 'The number of emojis'),
+    'name': Par(str, None, 'The name of the emoji if you want a specific one.', required=False),
 }, pass_message=True, depletable=True)
 async def custom_emoji_source(message, n, name):
     '''The server's custom emojis.'''
@@ -272,8 +271,8 @@ async def output_source():
 
 
 @make_source({
-    'name'    : Sig(str, None, 'The variable name'),
-    'default' : Sig(str, None, 'The default value in case the variable isn\'t assigned (None to throw an error if it isn\'t assigned)', required=False)
+    'name'    : Par(str, None, 'The variable name'),
+    'default' : Par(str, None, 'The default value in case the variable isn\'t assigned (None to throw an error if it isn\'t assigned)', required=False)
 }, command=True)
 async def get_source(name, default):
     '''Loads variables stored using the "set" pipe'''
@@ -291,12 +290,12 @@ def bool_or_none(val):
     return(util.parse_bool(val))
 
 @make_source({
-    'file' : Sig(str, None, 'The file name, "random" for a random file'),
-    'n'    : Sig(int, 1, 'The amount of lines'),
-    'sequential': Sig(bool_or_none, None, 'If the multiple lines should be sequential as opposed to random, "None" for file-dependent.', required=False),
-    'sentences' : Sig(bool_or_none, None, 'If the file should be split on sentences as opposed to on dividing characters, "None" for file-dependent.', required=False),
-    'query'     : Sig(str, '', 'Optional search query'),
-    'pattern'   : Sig(regex, '', 'Optional search regex'),
+    'file' : Par(str, None, 'The file name, "random" for a random file'),
+    'n'    : Par(int, 1, 'The amount of lines'),
+    'sequential': Par(bool_or_none, None, 'If the multiple lines should be sequential as opposed to random, "None" for file-dependent.', required=False),
+    'sentences' : Par(bool_or_none, None, 'If the file should be split on sentences as opposed to on dividing characters, "None" for file-dependent.', required=False),
+    'query'     : Par(str, '', 'Optional search query'),
+    'pattern'   : Par(regex, '', 'Optional search regex'),
 }, command=True, depletable=True)
 async def txt_source(file, n, sequential, sentences, query, pattern):
     '''Lines from an uploaded text file. Check >files for a list of files.'''
@@ -314,9 +313,9 @@ async def txt_source(file, n, sequential, sentences, query, pattern):
 
 
 @make_source({
-    'file'  : Sig(str, None, 'The file name'),
-    'n'     : Sig(int, 1, 'The amount of lines'),
-    'length': Sig(int, 0, 'The maximum length of the generated sentence. (0 for unlimited)'),
+    'file'  : Par(str, None, 'The file name'),
+    'n'     : Par(int, 1, 'The amount of lines'),
+    'length': Par(int, 0, 'The maximum length of the generated sentence. (0 for unlimited)'),
 }, command=True)
 async def markov_source(file, n, length):
     '''Randomly generated markov chains based on an uploaded file. Check >files for a list of files.'''
@@ -325,10 +324,10 @@ async def markov_source(file, n, length):
 
 
 @make_source({
-    'file'   : Sig(str, None, 'The file name'),
-    'tag'    : Sig(str, None, 'The POS tag'),
-    'uniform': Sig(util.parse_bool, False, 'Whether to pick pieces uniformly or based on their frequency'),
-    'n'      : Sig(int, 1, 'The amount of pieces')
+    'file'   : Par(str, None, 'The file name'),
+    'tag'    : Par(str, None, 'The POS tag'),
+    'uniform': Par(util.parse_bool, False, 'Whether to pick pieces uniformly or based on their frequency'),
+    'n'      : Par(int, 1, 'The amount of pieces')
 }, depletable=True, plural='pos')
 async def pos_source(file, tag, uniform, n):
     '''
@@ -362,9 +361,9 @@ _CATEGORY = 'QUOTES'
 
 
 @make_source({
-    'n'         : Sig(int, 1, 'The amount of captions.'),
-    'q'         : Sig(str, '', 'Search query, empty for a random quote'),
-    'multiline' : Sig(util.parse_bool, True, 'Allow captions longer than one line.')
+    'n'         : Par(int, 1, 'The amount of captions.'),
+    'q'         : Par(str, '', 'Search query, empty for a random quote'),
+    'multiline' : Par(util.parse_bool, True, 'Allow captions longer than one line.')
 })
 async def simpsons_source(n, q, multiline):
     '''Random simpsons captions from the Frinkiac.com API.'''
@@ -382,9 +381,9 @@ async def simpsons_source(n, q, multiline):
 
 
 @make_source({
-    'n'         : Sig(int, 1, 'The amount of captions.'),
-    'q'         : Sig(str, '', 'Search query, empty for a random quote'),
-    'multiline' : Sig(util.parse_bool, True, 'Allow captions longer than one line.')
+    'n'         : Par(int, 1, 'The amount of captions.'),
+    'q'         : Par(str, '', 'Search query, empty for a random quote'),
+    'multiline' : Par(util.parse_bool, True, 'Allow captions longer than one line.')
 })
 async def futurama_source(n, q, multiline):
     '''Random futurama captions from the Morbotron.com API.'''
@@ -402,8 +401,8 @@ async def futurama_source(n, q, multiline):
 
 
 @make_source({
-    'query' : Sig(str, '', 'Search query, empty for random tweets.'),
-    'n' : Sig(int, 1, 'The amount of tweets.')
+    'query' : Par(str, '', 'Search query, empty for random tweets.'),
+    'n' : Par(int, 1, 'The amount of tweets.')
 }, depletable=True)
 async def dril_source(query, n):
     '''Random dril tweets.'''
@@ -416,11 +415,11 @@ async def dril_source(query, n):
 
 
 @make_source({
-    'COMIC' : Sig(int, -1, 'EXACT COMIC NUMBER, -1 FOR QUERY COMIC.'),
-    'QUERY' : Sig(str, '', 'TITLE OR DIALOG TO LOOK FOR (FUZZY!), EMPTY FOR RANDOM COMICS.'),
-    'N'     : Sig(int, 1, 'NUMBER OF COMICS TO LOAD LINES FROM.', lambda x: x>0),
-    'LINES' : Sig(int, 1, 'NUMBER OF LINES PER COMIC (0 FOR ALL LINES).'),
-    'NAMES' : Sig(util.parse_bool, False, 'WHETHER OR NOT DIALOG ATTRIBUTIONS ("spigot: ") ARE KEPT')
+    'COMIC' : Par(int, -1, 'EXACT COMIC NUMBER, -1 FOR QUERY COMIC.'),
+    'QUERY' : Par(str, '', 'TITLE OR DIALOG TO LOOK FOR (FUZZY!), EMPTY FOR RANDOM COMICS.'),
+    'N'     : Par(int, 1, 'NUMBER OF COMICS TO LOAD LINES FROM.', lambda x: x>0),
+    'LINES' : Par(int, 1, 'NUMBER OF LINES PER COMIC (0 FOR ALL LINES).'),
+    'NAMES' : Par(util.parse_bool, False, 'WHETHER OR NOT DIALOG ATTRIBUTIONS ("spigot: ") ARE KEPT')
 }, plural='JERKCITIES', depletable=True)
 async def JERKCITY_source(COMIC, QUERY, N, LINES, NAMES):
     ''' JERKCITY COMIC DIALOG '''
@@ -454,9 +453,9 @@ async def JERKCITY_source(COMIC, QUERY, N, LINES, NAMES):
 SOULS_GAME = Option('?','1','2','3','b', name='game', stringy=True)
 
 @make_source({
-    'n'     : Sig(int, 1, 'The number of generated messages.'),
-    'game'  : Sig(SOULS_GAME, '?', 'Which game should be used (1/2/3/B/? for random).'),
-    'phrase': Sig(str, '%phrase%', 'Overrides game argument. Construct a custom phrase using the following categories:\nphrase, {}'.format(', '.join(soapstone.phraseDict)))
+    'n'     : Par(int, 1, 'The number of generated messages.'),
+    'game'  : Par(SOULS_GAME, '?', 'Which game should be used (1/2/3/B/? for random).'),
+    'phrase': Par(str, '%phrase%', 'Overrides game argument. Construct a custom phrase using the following categories:\nphrase, {}'.format(', '.join(soapstone.phraseDict)))
 }, command=True)
 @multi_source
 async def soapstone_source(game, phrase):
@@ -482,9 +481,9 @@ async def soapstone_source(game, phrase):
 _CATEGORY = 'ETC'
 
 @make_source({
-    'min': Sig(int, 1, 'The minimum value'),
-    'max': Sig(int, 20, 'The maximum value'),
-    'n'  : Sig(int, 1, 'The amount of rolls')
+    'min': Par(int, 1, 'The minimum value'),
+    'max': Par(int, 20, 'The maximum value'),
+    'n'  : Par(int, 1, 'The amount of rolls')
 }, command=True)
 @multi_source
 async def roll_source(min, max):
@@ -493,9 +492,9 @@ async def roll_source(min, max):
 
 
 @make_source({
-    'start': Sig(int, 0, 'The starting of the range'),
-    'end':   Sig(int, None, 'The end of the range (not included in the range!)'),
-    'step':  Sig(int, 1, 'The step size')
+    'start': Par(int, 0, 'The starting of the range'),
+    'end':   Par(int, None, 'The end of the range (not included in the range!)'),
+    'step':  Par(int, 1, 'The step size')
 })
 async def range_source(start, end, step):
     ''' The complete range of numbers from start to end with a given step size.
@@ -505,8 +504,8 @@ async def range_source(start, end, step):
 
 
 @make_source({
-    'format': Sig(str, '%Y/%m/%d %H:%M:%S', 'The format string, see http://strftime.org/ for syntax.'),
-    'utc'   : Sig(int, 0, 'The UTC offset in hours.')
+    'format': Par(str, '%Y/%m/%d %H:%M:%S', 'The format string, see http://strftime.org/ for syntax.'),
+    'utc'   : Par(int, 0, 'The UTC offset in hours.')
 })
 async def datetime_source(format, utc):
     '''The current date and time, with optional custom formatting.'''
@@ -514,7 +513,7 @@ async def datetime_source(format, utc):
 
 
 @make_source({
-    'utc' : Sig(int, 0, 'The UTC offset in hours.')
+    'utc' : Par(int, 0, 'The UTC offset in hours.')
 })
 async def timestamp_source(utc):
     '''The current date and time as a UNIX timestamp representing seconds since 1970.'''
@@ -522,8 +521,8 @@ async def timestamp_source(utc):
 
 
 @make_source({
-    'pattern': Sig(regex, None, 'The pattern to look for', required=False),
-    'n'      : Sig(int, 1, 'The number of sampled words.')
+    'pattern': Par(regex, None, 'The pattern to look for', required=False),
+    'n'      : Par(int, 1, 'The number of sampled words.')
 }, depletable=True)
 async def word_source(pattern, n):
     '''Random dictionary words, optionally matching a pattern.'''
@@ -535,7 +534,7 @@ async def word_source(pattern, n):
 
 
 @make_source({
-    'n' : Sig(int, 1, 'The amount of emoji.')
+    'n' : Par(int, 1, 'The amount of emoji.')
 }, command=True)
 @multi_source
 async def emoji_source():
@@ -591,10 +590,10 @@ def _wikipedia_get_what(page, what, n):
         return sample( page.links, n )
 
 @make_source({
-    'language': Sig(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
-    'lines': Sig(int, 1, 'The number of (what) you want ,for summary/content this means number of sentences.'),
-    'what': Sig(Multi(WIKIPEDIA_WHAT), Multi(WIKIPEDIA_WHAT)('Summary'), 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
-    'n' : Sig(int, 1, 'The number of random pages to fetch')
+    'language': Par(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
+    'lines': Par(int, 1, 'The number of (what) you want ,for summary/content this means number of sentences.'),
+    'what': Par(Multi(WIKIPEDIA_WHAT), Multi(WIKIPEDIA_WHAT)('Summary'), 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
+    'n' : Par(int, 1, 'The number of random pages to fetch')
 })
 async def wikipedia_random_source(what, language, lines, n):
     '''
@@ -624,10 +623,10 @@ async def wikipedia_random_source(what, language, lines, n):
 
 
 @make_source({
-    'page': Sig(str, None, 'The page you want information from. (For a random page, use wikipedia_random.)'),
-    'language': Sig(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
-    'what': Sig(Multi(WIKIPEDIA_WHAT), Multi(WIKIPEDIA_WHAT)('Summary'), 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
-    'n' : Sig(int, 1, 'The number of (what) you want, for summary/content this means number of sentences.')
+    'page': Par(str, None, 'The page you want information from. (For a random page, use wikipedia_random.)'),
+    'language': Par(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
+    'what': Par(Multi(WIKIPEDIA_WHAT), Multi(WIKIPEDIA_WHAT)('Summary'), 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
+    'n' : Par(int, 1, 'The number of (what) you want, for summary/content this means number of sentences.')
 }, depletable=True)
 async def wikipedia_source(page, what, language, n):
     '''
@@ -640,7 +639,7 @@ async def wikipedia_source(page, what, language, n):
 
 
 @make_source({
-    'query': Sig(str, None, 'The search query')
+    'query': Par(str, None, 'The search query')
 })
 async def wikipedia_search_source(query):
     '''Returns the top Wikipedia search results for the query.'''

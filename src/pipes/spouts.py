@@ -3,7 +3,7 @@ import random
 from discord import Embed
 from discord.errors import HTTPException
 
-from .signature import Sig
+from .signature import Par, Signature
 from .pipe import Spout, Pipes
 from .sources import SourceResources
 from .events import events
@@ -19,7 +19,7 @@ def make_spout(signature, command=False):
     '''Makes a Spout out of a function.'''
     def _make_spout(func):
         global spouts, _CATEGORY
-        spout = Spout(signature, func, _CATEGORY)
+        spout = Spout(Signature(signature), func, _CATEGORY)
         spouts.add(spout)
         if command:
             spouts.command_spouts.append(spout)
@@ -38,11 +38,11 @@ def hex(h):
 
 
 @make_spout({
-    'title':    Sig(str, None, 'The title.', required=False),
-    'color':    Sig(hex, 0x222222, 'The highlight color as a hexadecimal value.'),
-    'footer':   Sig(str, '', 'The footer text.'),
-    'link':     Sig(url, None, 'A link opened by clicking the title.', required=False),
-    'image':    Sig(url, None, 'Link to an embedded image.', required=False)
+    'title':    Par(str, None, 'The title.', required=False),
+    'color':    Par(hex, 0x222222, 'The highlight color as a hexadecimal value.'),
+    'footer':   Par(str, '', 'The footer text.'),
+    'link':     Par(url, None, 'A link opened by clicking the title.', required=False),
+    'image':    Par(url, None, 'Link to an embedded image.', required=False)
 })
 async def embed_spout(bot, message, values, title, color, footer, link, image):
     '''Outputs text as a simple discord embed.'''
@@ -55,11 +55,11 @@ async def embed_spout(bot, message, values, title, color, footer, link, image):
 
 
 @make_spout({
-    'name':     Sig(str, 'test_user', 'The account\'s display name.'),
-    'handle':   Sig(str, 'test_user', 'The account\'s handle, (without the @).'),
-    'icon':     Sig(url, 'https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png', 'URL linking to their profile picture.'),
-    'retweets': Sig(str, '', 'The number of retweets, hidden if empty.'),
-    'likes':    Sig(str, '', 'The number of likes, hidden if empty.'),
+    'name':     Par(str, 'test_user', 'The account\'s display name.'),
+    'handle':   Par(str, 'test_user', 'The account\'s handle, (without the @).'),
+    'icon':     Par(url, 'https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png', 'URL linking to their profile picture.'),
+    'retweets': Par(str, '', 'The number of retweets, hidden if empty.'),
+    'likes':    Par(str, '', 'The number of likes, hidden if empty.'),
 })
 async def tweet_spout(bot, message, values, name, handle, icon, retweets, likes):
     '''Outputs text as a fake embedded tweet.'''
@@ -84,7 +84,7 @@ async def send_message_spout(bot, message, values):
     await message.channel.send('\n'.join(values))
 
 
-@make_spout({'emote': Sig(str, None, 'The emote that you\'d like to use to react. (Emoji or custom emote)'),})
+@make_spout({'emote': Par(str, None, 'The emote that you\'d like to use to react. (Emoji or custom emote)'),})
 async def react_spout(bot, message, values, emote):
     ''' Reacts to the message using the specified emote. '''
     try:
@@ -105,8 +105,8 @@ async def suppress_print_spout(bot, message, values):
 
 
 @make_spout({
-    'name' :   Sig(str, None, 'The variable name'),
-    'persist': Sig(parse_bool, False, 'Whether the variable should persist indefinitely.')
+    'name' :   Par(str, None, 'The variable name'),
+    'persist': Par(parse_bool, False, 'Whether the variable should persist indefinitely.')
 }, command=True)
 async def set_spout(bot, message, values, name, persist):
     '''
@@ -118,8 +118,8 @@ async def set_spout(bot, message, values, name, persist):
 
 
 @make_spout({
-    'name' :  Sig(str, None, 'The variable name'),
-    'strict': Sig(parse_bool, False, 'Whether an error should be raised if the variable does not exist.')
+    'name' :  Par(str, None, 'The variable name'),
+    'strict': Par(parse_bool, False, 'Whether an error should be raised if the variable does not exist.')
 }, command=True)
 async def delete_var_spout(bot, message, values, name, strict):
     ''' Deletes the variable with the given name. '''
@@ -130,9 +130,9 @@ async def delete_var_spout(bot, message, values, name, strict):
             raise KeyError('No variable "{}" found.')
 
 @make_spout({
-    'name' : Sig(str, None, 'The new file\'s name'),
-    'sequential': Sig(parse_bool, True, 'Whether the order of entries matters when retrieving them from the file later.'),
-    'sentences': Sig(parse_bool, False, 'Whether the entries should be split based on sentence recognition instead of a splitter regex.')
+    'name' : Par(str, None, 'The new file\'s name'),
+    'sequential': Par(parse_bool, True, 'Whether the order of entries matters when retrieving them from the file later.'),
+    'sentences': Par(parse_bool, False, 'Whether the entries should be split based on sentence recognition instead of a splitter regex.')
 }, command=True)
 async def new_file_spout(bot, message, values, name, sequential, sentences):
     '''Writes the input to a new txt file.'''
@@ -159,7 +159,7 @@ async def print_spout(bot, message, values):
 
 
 @make_spout({
-    'name': Sig(str, None, 'The name of the event to be disabled.')
+    'name': Par(str, None, 'The name of the event to be disabled.')
 })
 async def disable_event_spout(bot, message, values, name):
     ''' Disables the specified event. '''

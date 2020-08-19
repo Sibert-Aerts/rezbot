@@ -49,17 +49,17 @@ class ParsedPipe:
         elif self.name in pipes:
             self.type = ParsedPipe.NATIVEPIPE
             self.pipe = pipes[self.name]
-            self.arguments, errors = parse_smart_args(self.pipe.signature, self.argstr)
+            self.arguments, errors = self.pipe.signature.parse_args(self.argstr)
             self.errors.extend(errors, self.name)
         elif self.name in spouts:
             self.type = ParsedPipe.SPOUT
             self.pipe = spouts[self.name]
-            self.arguments, errors = parse_smart_args(self.pipe.signature, self.argstr)
+            self.arguments, errors = self.pipe.signature.parse_args(self.argstr)
             self.errors.extend(errors, self.name)
         elif self.name in sources:
             self.type = ParsedPipe.NATIVESOURCE
             self.pipe = sources[self.name]
-            self.arguments, errors = parse_smart_args(self.pipe.signature, self.argstr)
+            self.arguments, errors = self.pipe.signature.parse_args(self.argstr)
             self.errors.extend(errors, self.name)
         elif self.name in pipe_macros:
             self.type = ParsedPipe.PIPEMACRO
@@ -339,7 +339,7 @@ class Pipeline:
                 #### Determine the arguments (if needed)
                 if parsed_pipe.arguments:
                     # This is a smart method that only does what is needed
-                    arguments, arg_errors = await parsed_pipe.arguments.determine(group_context, source_processor)
+                    args, arg_errors = await parsed_pipe.arguments.determine(group_context, source_processor)
                     errors.extend(arg_errors, context=name)
 
                 elif parsed_pipe.needs_dumb_arg_eval:
@@ -370,10 +370,10 @@ class Pipeline:
                 ## A NATIVE PIPE
                 elif parsed_pipe.type == ParsedPipe.NATIVEPIPE:
                     try:
-                        next_items.extend( parsed_pipe.pipe.function(items, **arguments) )
+                        next_items.extend( parsed_pipe.pipe(items, **args) )
                     except Exception as e:
                         # This mentions *all* arguments, even default ones, not all of which is very useful for error output...
-                        argfmt = ' '.join( f'`{p}`={arguments[p]}' for p in arguments )
+                        argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
                         errors(f'Failed to process pipe `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
 
@@ -383,9 +383,9 @@ class Pipeline:
                     next_items.extend(items)
                     try:
                         # Queue up the spout's side-effects instead, to be executed once the entire script has completed
-                        spout_callbacks.append( (parsed_pipe.pipe.function, arguments, items) )
+                        spout_callbacks.append( parsed_pipe.pipe(items, **args) )
                     except Exception as e:
-                        argfmt = ' '.join( f'`{p}`={arguments[p]}' for p in arguments )
+                        argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
                         errors(f'Failed to process spout `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
                     
@@ -397,9 +397,9 @@ class Pipeline:
                         errors(f'Source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
 
                     try:
-                       next_items.extend( await parsed_pipe.pipe.apply(message, arguments) )
+                       next_items.extend( await parsed_pipe.pipe.apply(message, args) )
                     except Exception as e:
-                        argfmt = ' '.join( f'`{p}`={arguments[p]}' for p in arguments )
+                        argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
                         errors(f'Failed to process source-as-pipe `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
 
@@ -625,6 +625,6 @@ from .sources import sources, SourceResources
 from .spouts import spouts
 from .macros import pipe_macros, source_macros
 from .events import events
-from .signature import Arguments, parse_smart_args
+from .signature import Arguments
 from .sourceprocessor import Context, SourceProcessor
 from .macrocommands import parse_macro_command

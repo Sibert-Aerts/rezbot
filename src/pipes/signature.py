@@ -8,10 +8,9 @@ class ArgumentError(ValueError):
     '''Special error in case a bad argument is passed.'''
 
 # In this file, a "type" is an object which has a __name__ field
-#   and a method __call__(str) -> T which may raise errors for poorly formed input
+#   and a __call__ method of type (str -> T), which may also raise errors for poorly formed input strings.
 # e.g. `str`, `int` and `float` are "types", but also any function (str -> T) is a "type"
 # The two classes below are used to create simple new "types" as well
-
 
 class Option:
     '''
@@ -104,8 +103,12 @@ class Multi:
         return out
 
 
-class Sig:
-    ''' Represents a single parameter in a function signature. '''
+#####################################################
+#                     Signature                     #
+#####################################################
+
+class Par:
+    ''' Represents a single parameter in a signature. '''
     def __init__(self, type, default=None, desc=None, check=None, required=None):
         '''
         Arguments:
@@ -164,11 +167,101 @@ class Sig:
             raise ArgumentError(f'Invalid value "{val}" for parameter `{self.name}`: Did not pass check.')
         return val
 
+class Signature(dict):
+    ''' dict-like class representing a set of parameters for a single function. '''
+    def __init__(self, params):
+        super().__init__(params)
+        for param in params:
+            params[param].name = param
+            
+    # This regex matches all forms of:
+    #   name=argNoSpaces    name="arg's with spaces"    name='arg with "spaces" even'
+    #   name="""arg with spaces and quotation marks and anything"""     name='''same'''
+    #   name=/semantically there is nothing signalling this is a regex but it's nice notation/
+    # It will not work for:
+    #   name=arg with spaces                (simply parses as name=arg)
+    #   name="quotes "nested" in quotes"    (simply parses as name="quotes ")
+    #   emptyString=                        (does not work, use emptyString="" instead)
+    #   2name=arg                           (names have to start with a letter or _)
+
+    arg_re = re.compile( r'(?i)\b([_a-z]\w*)=("""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(\S+))', re.S )
+    #                             ^^^^^^^^^       ^^^            ^^^          ^^^      ^^^      ^^^    ^^^
+    #                             parameter                           argument value
+
+    # This one matches the same as above except without an explicit assignment and falls back on matching the entire string instead of just noSpaces
+    impl_re = re.compile( r'("""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(.*))', re.S )
+    #                            ^^^            ^^^          ^^^      ^^^      ^^^    ^^
+    #                                                argument value
+
+    def parse_args(self, argstr: str) -> Tuple['Arguments', ErrorLog]:
+        ''' Pre-parse an argument string into an Arguments object according to this Signature's parameters. '''
+        errors = ErrorLog()
+        argstr_raw = argstr = argstr.strip()
+        argstr = Context.preprocess(argstr)
+        
+        ## Step 1: Collect all explicitly assigned parameters
+        args = {}
+        def collect(m):
+            if m[1] not in self:
+                errors.warn('Unknown parameter `{}`'.format(m[1]))
+                return m[0]
+            if m[1] in args:
+                errors.log('Repeated assignment of parameter `{}`'.format(m[1]))
+            args[m[1]] = m[3] or m[4] or m[5] or m[6] or m[7] or m[8] or ''
+        remainder = Signature.arg_re.sub(collect, argstr).strip()
+
+        ## Step 2: Create Arg objects and already try to predetermine them
+        for param in args:
+            args[param] = Arg(self[param], args[param])
+            args[param].predetermine(errors)
+
+        ## Step 3: Check if any required arguments are missing
+        missing = [param for param in self if param not in args and self[param].required]
+        if missing:
+            if not remainder or len(missing) > 1:
+                # There's no argstring left; nothing can be done to find these missing arguments
+                # Or: there's more missing parameters than I'm willing to blindly parse
+                errors.log('Missing required parameter{} {}'.format('s' if len(missing) > 1 else '', ' '.join('`%s`'%p for p in missing)), True)
+
+            elif len(missing) == 1:
+                ## Only one required parameter is missing; assume the entire remaining argstring implicitly assigns it
+                [param] = missing
+                m = Signature.impl_re.fullmatch(remainder) # Always matches
+                raw = m[2] or m[3] or m[4] or m[5] or m[6] or m[7] or ''
+                args[param] = Arg(self[param], raw)
+                args[param].predetermine(errors)
+                remainder = None
+
+        ## Step 4: Check if maybe the Signature only has one not-yet-found (but not required) parameter at all
+        maybe_implicit = [param for param in self if param not in args]
+        if len(maybe_implicit) == 1 and remainder:
+            # In which case: assume the entire remaining argstring implicitly assigns it
+            [param] = maybe_implicit
+            m = Signature.impl_re.match(remainder) # Always matches
+            raw = m[2] or m[3] or m[4] or m[5] or m[6] or m[7] or ''
+            args[param] = Arg(self[param], raw)
+            args[param].predetermine(errors)
+
+        ## Step 5: We tried our best; fill out default values of missing non-required parameters
+        for param in self:
+            if param not in args and not self[param].required:
+                args[param] = DefaultArg(self[param].default)
+
+        return Arguments(args, argstr_raw), errors
+
+
+
+#####################################################
+#                     Arguments                     #
+#####################################################
 
 class Arg:
-    ''' Represents a raw argument to a single parameter. '''
-    def __init__(self, sig: Sig, raw: str):
-        self.sig = sig
+    '''
+    Represents a raw argument that's being passed to a specific parameter.
+    They are created at the moment a script is compiled, and used during actual script execution.
+    '''
+    def __init__(self, par: Par, raw: str):
+        self.par = par
         self.raw = raw
         self.predetermined = False
         self.val = None
@@ -179,7 +272,7 @@ class Arg:
         # i.e. sources in an argument may not be deterministic, and items can definitely not be predetermined
         if SourceProcessor.source_or_item_regex.search(self.raw) is None:
             try:
-                self.val = self.sig.parse(self.raw)
+                self.val = self.par.parse(self.raw)
                 self.predetermined = True
             except ArgumentError as e:
                 errors.log(e, True)
@@ -189,10 +282,10 @@ class Arg:
 
         # Evaluate sources and context items
         evaluated = await source_processor.evaluate_composite_source(self.raw, context=context)
-        errors.steal(source_processor.errors, context='parameter `{}`'.format(self.sig.name))
+        errors.steal(source_processor.errors, context='parameter `{}`'.format(self.par.name))
         # Attempt to parse the argument
         try:
-            val = self.sig.parse(evaluated)
+            val = self.par.parse(evaluated)
         except ArgumentError as e:
             errors.log(e, terminal=True)
             return None
@@ -221,8 +314,9 @@ class Arguments:
         return { param: await self.args[param].determine(context, source_processor, errors) for param in self.args }, errors
 
 
+#### Primitive version of Signature.parse_arguments that's still used in certain places (Deprecate!)
 
-def parse_args(signature: Dict[str, Sig], text: str, greedy: bool=True) -> Tuple[ str, dict ]:
+def parse_args(signature: Dict[str, Par], text: str, greedy: bool=True) -> Tuple[ str, dict ]:
     ''' Parses and removes arguments from a string of text based on a signature. '''
     args = {}
 
@@ -293,80 +387,6 @@ def parse_args(signature: Dict[str, Sig], text: str, greedy: bool=True) -> Tuple
 
     return (text, args)
 
-# This regex matches all forms of:
-#   name=argNoSpaces    name="arg's with spaces"    name='arg with "spaces" even'
-#   name="""arg with spaces and quotation marks and anything"""     name='''same'''
-#   name=/semantically there is nothing signalling this is a regex but it's nice notation/
-# It will not work for:
-#   name=arg with spaces                (simply parses as name=arg)
-#   name="quotes "nested" in quotes"    (simply parses as name="quotes ")
-#   emptyString=                        (does not work, use emptyString="" instead)
-#   2name=arg                           (names have to start with a letter or _)
-
-arg_re = re.compile( r'(?i)\b([_a-z]\w*)=("""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(\S+))', re.S )
-#                             ^^^^^^^^^       ^^^            ^^^          ^^^      ^^^      ^^^    ^^^
-#                             parameter                           argument value
-
-# This one matches the same as above except without an explicit assignment and falls back on matching the entire string instead of just noSpaces
-impl_re = re.compile( r'("""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(.*))', re.S )
-#                            ^^^            ^^^          ^^^      ^^^      ^^^    ^^
-#                                                argument value
-
-def parse_smart_args(signature: Dict[str, Sig], argstr: str) -> Arguments:
-    ''' Smarter version of parse_args that instead returns an Arguments object. '''
-    errors = ErrorLog()
-    argstr_raw = argstr = argstr.strip()
-    argstr = Context.preprocess(argstr)
-    
-    ## Step 1: Collect all explicitly assigned parameters
-    args = {}
-    def collect(m):
-        if m[1] not in signature:
-            errors.warn('Unknown parameter `{}`'.format(m[1]))
-            return m[0]
-        if m[1] in args:
-            errors.log('Repeated assignment of parameter `{}`'.format(m[1]))
-        args[m[1]] = m[3] or m[4] or m[5] or m[6] or m[7] or m[8] or ''
-    remainder = arg_re.sub(collect, argstr).strip()
-
-    ## Step 2: Process them
-    for param in args:
-        args[param] = Arg(signature[param], args[param])
-        args[param].predetermine(errors)
-
-    ## Step 3: Check if required arguments are missing
-    missing = [param for param in signature if param not in args and signature[param].required]
-    if missing:
-        if not remainder or len(missing) > 1:
-            # There's no argstring left; nothing can be done to find these missing arguments
-            # Or: there's more missing parameters than I'm willing to blindly parse
-            errors.log('Missing required parameter{} {}'.format('s' if len(missing) > 1 else '', ' '.join('`%s`'%p for p in missing)), True)
-
-        elif len(missing) == 1:
-            ## Only one required parameter is missing; assume the entire remaining argstring implicitly assigns it
-            [param] = missing
-            m = impl_re.fullmatch(remainder) # Always matches
-            raw = m[2] or m[3] or m[4] or m[5] or m[6] or m[7] or ''
-            args[param] = Arg(signature[param], raw)
-            args[param].predetermine(errors)
-            remainder = None
-
-    ## Step 4: Check if maybe the Signature only has one not-yet-found (but not required) parameter at all
-    maybe_implicit = [param for param in signature if param not in args]
-    if len(maybe_implicit) == 1 and remainder:
-        # In which case: assume the entire remaining argstring implicitly assigns it
-        [param] = maybe_implicit
-        m = impl_re.match(remainder) # Always matches
-        raw = m[2] or m[3] or m[4] or m[5] or m[6] or m[7] or ''
-        args[param] = Arg(signature[param], raw)
-        args[param].predetermine(errors)
-
-    ## Step 5: We tried our best; fill out default values of missing non-required parameters
-    for param in signature:
-        if param not in args and not signature[param].required:
-            args[param] = DefaultArg(signature[param].default)
-
-    return Arguments(args, argstr_raw), errors
 
 
 # This lyne ys down here dve to dependencyes cyrcvlaire

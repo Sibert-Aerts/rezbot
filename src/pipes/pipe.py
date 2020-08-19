@@ -1,35 +1,35 @@
 from textwrap import dedent
 from discord import Embed
 
-from .signature import parse_args
+from .signature import Signature, Arguments, parse_args
+from typing import List, Dict, Callable, Any
 
 
 class Pipe:
-    def __init__(self, signature, function, category):
+    def __init__(self, signature: Signature, function: Callable[..., List[str]], category: str):
         self.signature = signature
-        # Make sure each Sig knows its own name (this shouldn't happen here but there's no better place)
-        for s in signature: signature[s].name = s
         self.function = function
         self.category = category
         # remove _pipe or _source or _spout from the function's name
         self.name = function.__name__.rsplit('_', 1)[0].lower()
         self.doc = function.__doc__
         self.small_doc = None
-        if self.doc is not None:
+        if self.doc:
+            # doc is the full docstring
             self.doc = dedent(self.doc).lstrip()
+            # small_doc is only the first line of the docstring
             self.small_doc = self.doc.split('\n')[0]
 
-    def __call__(self, values, argstr):
-        ''' Apply the pipe to a list of inputs using an unparsed argstr. '''
-        _, args = parse_args(self.signature, argstr)
-        return self.function(values, **args)
+    def __call__(self, items: List[str], **args) -> List[str]:
+        ''' Apply the pipe to a list of items given a dict of arguments. '''
+        return self.function(items, **args)
 
     def as_command(self, text):
         text, args = parse_args(self.signature, text, greedy=False)
         return self.function([text], **args)
 
     def command_doc(self):
-        out = self.doc if self.doc else ''
+        out = self.doc or ''
         if self.signature:
             out += '\nParameters:\n'
             out += '\n'.join(['• ' + s + ': ' + str(self.signature[s]) for s in self.signature])
@@ -54,7 +54,7 @@ class Source(Pipe):
         ''' Get the source's output using an unparsed argstr. '''
         _, args = parse_args(self.signature, argstr)
         if n:
-            if type(n) is str and n.lower() == 'all':
+            if isinstance(n, str) and n.lower() == 'all':
                 if self.depletable: n = -1
                 else: raise ValueError('Requested `all` items but the source is not depletable.')
 
@@ -87,11 +87,9 @@ class Spout(Pipe):
     def __init__(self, signature, function, category):
         super().__init__(signature, function, category)
         
-    def __call__(self, values, argstr):
-        # DOES NOT actually call the underlying function, instead parses the arguments
-        # and returns a tuple of items that allows the underlying function to be called at a later time
-        _, args = parse_args(self.signature, argstr)
-        return (self.function, args, values)
+    def __call__(self, items: List[str], **args) -> (Callable[..., None], Dict[str, Any], List[str]) :
+        # DOES NOT actually call the underlying function yet, but returns the tuple of items so it can be done later...
+        return (self.function, args, items)
 
     async def as_command(self, bot, message, text):
         text, args = parse_args(self.signature, text, greedy=False)

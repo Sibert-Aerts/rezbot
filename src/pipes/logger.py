@@ -25,7 +25,7 @@ class ErrorLog:
         if self.errors and self.errors[-1].message == message:
             self.errors[-1].count += 1
         else:
-            print(datetime.now().strftime('[%X] Error logged: ') + message)
+            print(datetime.now().strftime('[%X]'), 'Error' if terminal else 'Warning', 'logged:', message)
             self.errors.append(ErrorLog.ErrorMessage(message))
         self.terminal |= terminal
 

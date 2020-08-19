@@ -14,7 +14,7 @@ from simpleeval import SimpleEval
 import spacy
 spacy.LOADED_NLP = None
 
-from .signature import Sig, Option, Multi
+from .signature import Par, Signature, Option, Multi
 from .pipe import Pipe, Pipes
 from utils.texttools import vowelize, consonize, letterize, letterize2, converters, min_dist, case_pattern
 from utils.rand import choose_slice
@@ -75,7 +75,7 @@ def make_pipe(signature, command=False):
     '''Makes a Pipe out of a function.'''
     def _make_pipe(func):
         global pipes, _CATEGORY
-        pipe = Pipe(signature, func, _CATEGORY)
+        pipe = Pipe(Signature(signature), func, _CATEGORY)
         pipes.add(pipe)
         if command:
             pipes.command_pipes.append(pipe)
@@ -93,8 +93,8 @@ def make_pipe(signature, command=False):
 _CATEGORY = 'FLOW'
 
 @make_pipe( {
-    'times': Sig(int, None, 'Number of times repeated'),
-    'max'  : Sig(int, -1, 'Maximum number of outputs produced, -1 for unlimited.')
+    'times': Par(int, None, 'Number of times repeated'),
+    'max'  : Par(int, -1, 'Maximum number of outputs produced, -1 for unlimited.')
 })
 def repeat_pipe(input, times, max):
     '''Repeats each row a given number of times.'''
@@ -108,7 +108,7 @@ def repeat_pipe(input, times, max):
 REMOVE_WHAT = Option('all', 'empty', 'whitespace')
 
 @make_pipe({ 
-    'what': Sig(REMOVE_WHAT, REMOVE_WHAT.all, 'What to filter: all/empty/whitespace') 
+    'what': Par(REMOVE_WHAT, REMOVE_WHAT.all, 'What to filter: all/empty/whitespace') 
 })
 def remove_pipe(input, what):
     '''
@@ -145,7 +145,7 @@ def shuffle_pipe(input):
 
 
 @make_pipe({
-    'number' : Sig(int, 1, 'The number of values to choose.', lambda x: x>=0)
+    'number' : Par(int, 1, 'The number of values to choose.', lambda x: x>=0)
 })
 def choose_pipe(input, number):
     '''Chooses random values with replacement (i.e. may return repeated values).'''
@@ -153,7 +153,7 @@ def choose_pipe(input, number):
 
 
 @make_pipe({
-    'number' : Sig(int, 1, 'The number of values to sample.', lambda x: x>=0) 
+    'number' : Par(int, 1, 'The number of values to sample.', lambda x: x>=0) 
 })
 def sample_pipe(input, number):
     '''
@@ -164,8 +164,8 @@ def sample_pipe(input, number):
 
 
 @make_pipe({
-    'length' : Sig(int, None, 'The desired slice length.', lambda x: x>=0),
-    'cyclical': Sig(parse_bool, False, 'Whether or not the slice is allowed to "loop back" to cover both some first elements and last elements. ' +
+    'length' : Par(int, None, 'The desired slice length.', lambda x: x>=0),
+    'cyclical': Par(parse_bool, False, 'Whether or not the slice is allowed to "loop back" to cover both some first elements and last elements. ' +
             'i.e. If False, elements at the start and end of the input have lower chance of being selected, if True all elements have an equal chance.')
 })
 def choose_slice_pipe(input, length, cyclical):
@@ -174,7 +174,7 @@ def choose_slice_pipe(input, length, cyclical):
 
 
 @make_pipe({
-    'count' : Sig(parse_bool, False, 'Whether each unique item should be followed by a count of how many there were of it.')
+    'count' : Par(parse_bool, False, 'Whether each unique item should be followed by a count of how many there were of it.')
 })
 def unique_pipe(input, count):
     '''Leaves only the first unique occurence of each item.'''
@@ -214,8 +214,8 @@ _CATEGORY = 'STRING'
 def regex(*args, **kwargs): return re.compile(*args, **kwargs)
 
 @make_pipe({
-    'on' : Sig(regex, None, 'Pattern to split on'),
-    'lim': Sig(int, 0, 'Maximum number of splits. (0 for no limit)')
+    'on' : Par(regex, None, 'Pattern to split on'),
+    'lim': Par(int, 0, 'Maximum number of splits. (0 for no limit)')
 })
 @one_to_many
 def split_pipe(text, on, lim):
@@ -224,7 +224,7 @@ def split_pipe(text, on, lim):
 
 
 @make_pipe({
-    'pattern': Sig(regex, None, 'The pattern to find')
+    'pattern': Par(regex, None, 'The pattern to find')
 })
 @one_to_many
 def find_all_pipe(text, pattern):
@@ -240,8 +240,8 @@ def find_all_pipe(text, pattern):
 
 
 @make_pipe({
-    'from': Sig(regex, None, 'Pattern to replace (regex)'),
-    'to' : Sig(str, None, 'Replacement string'),
+    'from': Par(regex, None, 'Pattern to replace (regex)'),
+    'to' : Par(str, None, 'Replacement string'),
 })
 @one_to_one
 def sub_pipe(text, to, **argc):
@@ -254,8 +254,8 @@ def sub_pipe(text, to, **argc):
 DIRECTION = Option('left', 'center', 'right')
 
 @make_pipe({
-    'width': Sig(int, None, 'How many characters to trim each string down to.'),
-    'where': Sig(DIRECTION, DIRECTION.right, 'Which side to trim from: left/center/right'),
+    'width': Par(int, None, 'How many characters to trim each string down to.'),
+    'where': Par(DIRECTION, DIRECTION.right, 'Which side to trim from: left/center/right'),
 })
 @one_to_one
 def trim_pipe(text, width, where):
@@ -270,9 +270,9 @@ def trim_pipe(text, width, where):
 
 
 @make_pipe({
-    'width': Sig(int, None, 'The minimum width to pad to.'),
-    'where': Sig(DIRECTION, DIRECTION.right, 'Which side to pad on: left/center/right'),
-    'fill' : Sig(str, ' ', 'The character used to pad out the string.'),
+    'width': Par(int, None, 'The minimum width to pad to.'),
+    'where': Par(DIRECTION, DIRECTION.right, 'Which side to pad on: left/center/right'),
+    'fill' : Par(str, ' ', 'The character used to pad out the string.'),
 })
 @one_to_one
 def pad_pipe(text, where, width, fill):
@@ -287,8 +287,8 @@ def pad_pipe(text, where, width, fill):
 WRAP_MODE = Option('dumb', 'smart')
 
 @make_pipe({
-    'mode' : Sig(WRAP_MODE, WRAP_MODE.smart, 'How to wrap: dumb (char-by-char) or smart (on spaces).'),
-    'width': Sig(int, 40, 'The minimum width to pad to.')
+    'mode' : Par(WRAP_MODE, WRAP_MODE.smart, 'How to wrap: dumb (char-by-char) or smart (on spaces).'),
+    'width': Par(int, 40, 'The minimum width to pad to.')
 })
 @one_to_many
 def wrap_pipe(text, mode, width):
@@ -310,7 +310,7 @@ def strip_pipe(value):
 
 
 @make_pipe({
-    'pattern': Sig(str, None, 'Case pattern to obey'),
+    'pattern': Par(str, None, 'Case pattern to obey'),
 })
 def case_pipe(inputs, pattern):
     '''
@@ -334,7 +334,7 @@ def case_pipe(inputs, pattern):
 
 
 @make_pipe({
-    'f' : Sig(str, None, 'The format string. Items of the form {0}, {1} etc. are replaced with the respective item at that index.')
+    'f' : Par(str, None, 'The format string. Items of the form {0}, {1} etc. are replaced with the respective item at that index.')
 })
 @many_to_one
 def format_pipe(input, f):
@@ -343,7 +343,7 @@ def format_pipe(input, f):
     return [f]
 
 @make_pipe({
-    's' : Sig(str, '', 'The separator inserted between two items.')
+    's' : Par(str, '', 'The separator inserted between two items.')
 })
 @many_to_one
 def join_pipe(input, s):
@@ -353,10 +353,10 @@ def join_pipe(input, s):
 TABLE_ALIGN = Option('l', 'c', 'r', name='alignment')
 
 @make_pipe({
-    'columns': Sig(str, None, 'The names of the different columns separated by commas, or an integer giving the number of columns.'),
-    'alignments': Sig(Multi(TABLE_ALIGN), Multi(TABLE_ALIGN)('l'), 'How the columns should be aligned: l/c/r separated by commas.'),
-    'sep': Sig(str, ' │ ', 'The column separator'),
-    'code_block': Sig(parse_bool, True, 'If the table should be wrapped in a Discord code block.')
+    'columns': Par(str, None, 'The names of the different columns separated by commas, or an integer giving the number of columns.'),
+    'alignments': Par(Multi(TABLE_ALIGN), Multi(TABLE_ALIGN)('l'), 'How the columns should be aligned: l/c/r separated by commas.'),
+    'sep': Par(str, ' │ ', 'The column separator'),
+    'code_block': Par(parse_bool, True, 'If the table should be wrapped in a Discord code block.')
 })
 @many_to_one
 def table_pipe(input, columns, alignments, sep, code_block):
@@ -400,7 +400,7 @@ def table_pipe(input, columns, alignments, sep, code_block):
 _CATEGORY = 'LETTER'
 
 @make_pipe({
-    'p' : Sig(float, 0.4, 'Character swap probability'),
+    'p' : Par(float, 0.4, 'Character swap probability'),
 }, command=True)
 @one_to_one
 def vowelize_pipe(text, p):
@@ -409,7 +409,7 @@ def vowelize_pipe(text, p):
 
 
 @make_pipe({
-    'p' : Sig(float, 0.4, 'Character swap probability'),
+    'p' : Par(float, 0.4, 'Character swap probability'),
 }, command=True)
 @one_to_one
 def consonize_pipe(text, p):
@@ -418,7 +418,7 @@ def consonize_pipe(text, p):
 
 
 @make_pipe({
-    'p' : Sig(float, 0.2, 'Character swap probability'),
+    'p' : Par(float, 0.2, 'Character swap probability'),
 }, command=True)
 @one_to_one
 def letterize_pipe(text, p):
@@ -427,7 +427,7 @@ def letterize_pipe(text, p):
 
 
 @make_pipe({
-    'p' : Sig(float, 0.4, 'Character swap probability'),
+    'p' : Par(float, 0.4, 'Character swap probability'),
 }, command=True)
 @one_to_one
 def letterize2_pipe(text, p):
@@ -436,7 +436,7 @@ def letterize2_pipe(text, p):
 
 
 @make_pipe({
-    'to' : Sig(Option(*converters, stringy=True), None, 'Which conversion should be used.'),
+    'to' : Par(Option(*converters, stringy=True), None, 'Which conversion should be used.'),
 }, command=True)
 @one_to_one
 @util.format_doc(convs=', '.join(converters))
@@ -466,8 +466,8 @@ def split_sentences_pipe(input):
 
 
 @make_pipe({
-    'file': Sig(str, None, 'The name of the file to be matched from. >files for a list of files'),
-    'min':  Sig(int, 0, 'Upper limit on minimum distance (e.g. 1 to never get the same word).')
+    'file': Par(str, None, 'The name of the file to be matched from. >files for a list of files'),
+    'min':  Par(int, 0, 'Upper limit on minimum distance (e.g. 1 to never get the same word).')
 }, command=True)
 @one_to_one
 def nearest_pipe(text, min, file):
@@ -591,8 +591,8 @@ translate_languages = ['af', 'sq', 'am', 'ar', 'hy', 'az', 'eu', 'be', 'bn', 'bs
 LANGUAGE = Option(*translate_languages, name='language', stringy=True)
 
 @make_pipe({
-    'from': Sig(LANGUAGE + ['auto'], 'auto', 'The language code to translate from, "auto" to automatically detect the language.'),
-    'to':   Sig(LANGUAGE + ['random'], 'en', 'The language code to translate to, "random" for a random language.'),
+    'from': Par(LANGUAGE + ['auto'], 'auto', 'The language code to translate from, "auto" to automatically detect the language.'),
+    'to':   Par(LANGUAGE + ['random'], 'en', 'The language code to translate to, "random" for a random language.'),
 }, command=True)
 @one_to_one
 def translate_pipe(text, to, **argc):
@@ -626,9 +626,9 @@ def detect_language_pipe(text):
     
 
 @make_pipe({
-    'file'   : Sig(str, None, 'The file name'),
-    'uniform': Sig(parse_bool, False, 'Whether to pick pieces uniformly or based on their frequency'),
-    'n'      : Sig(int, 1, 'The amount of different phrases to generate')
+    'file'   : Par(str, None, 'The file name'),
+    'uniform': Par(parse_bool, False, 'Whether to pick pieces uniformly or based on their frequency'),
+    'n'      : Par(int, 1, 'The amount of different phrases to generate')
 }, command=True)
 def pos_fill_pipe(phrases, file, uniform, n):
     '''
@@ -655,8 +655,8 @@ POS_TAG = Option('ADJ', 'ADJ', 'ADP', 'PUNCT', 'ADV', 'AUX', 'SYM', 'INTJ', 'CON
 'X', 'NOUN', 'DET', 'PROPN', 'NUM', 'VERB', 'PART', 'PRON', 'SCONJ', 'SPACE', name='POS tag', stringy=True, prefer_upper=True)
 
 @make_pipe({
-    'include': Sig(Multi(POS_TAG), None, 'Which POS tags to replace, separated by commas. If blank, uses the `exclude` list instead.', required=False),
-    'exclude': Sig(Multi(POS_TAG), Multi(POS_TAG)('PUNCT,SPACE,SYM,X'), 'Which POS tags not to replace, separated by commas. Ignored if `include` is given.')
+    'include': Par(Multi(POS_TAG), None, 'Which POS tags to replace, separated by commas. If blank, uses the `exclude` list instead.', required=False),
+    'exclude': Par(Multi(POS_TAG), Multi(POS_TAG)('PUNCT,SPACE,SYM,X'), 'Which POS tags not to replace, separated by commas. Ignored if `include` is given.')
 })
 @one_to_one
 def pos_unfill_pipe(text, include, exclude):
@@ -722,7 +722,7 @@ def unicode_pipe(text):
 
 
 @make_pipe({
-    'by': Sig(int, 13, 'The number of places to rotate the letters by.'),
+    'by': Par(int, 13, 'The number of places to rotate the letters by.'),
 }, command=True)
 @one_to_one
 def rot_pipe(text, by):
@@ -785,7 +785,7 @@ MATH_FUNCTIONS = {
 SIMPLE_EVAL = SimpleEval(functions=MATH_FUNCTIONS, names={'e': math.e, 'pi': math.pi, 'inf': math.inf, 'True': True, 'False': False})
 
 @make_pipe({
-    'expr': Sig(str, None, 'The mathematical expression to evaluate. Use {} notation to insert items into the expression.')
+    'expr': Par(str, None, 'The mathematical expression to evaluate. Use {} notation to insert items into the expression.')
 }, command=True)
 @many_to_one
 @util.format_doc(funcs=', '.join(c for c in MATH_FUNCTIONS))
