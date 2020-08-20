@@ -78,8 +78,7 @@ class Source(Pipe):
         if self.plural != self.name:
             embed.title += ' (' + self.plural + ')'
         if self.depletable:
-            if embed.description[-1] != '\n': embed.description += '\n'
-            embed.description += '`depletable`'
+            embed.title += ' `depletable`'
         return embed
 
 

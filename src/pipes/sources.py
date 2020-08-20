@@ -123,7 +123,7 @@ async def that_source(message):
 
 @make_source({
     'n': Par(int, 1, 'The number of next messages to wait for.', lambda n: n < 1000),
-    'what': Par(Multi(MESSAGE_WHAT), Multi(MESSAGE_WHAT)('content'), '/'.join(MESSAGE_WHAT))
+    'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT))
 }, pass_message=True)
 async def next_message_source(message, n, what):
     '''The next message to be sent in the channel.'''
@@ -134,7 +134,7 @@ async def next_message_source(message, n, what):
 
 
 @make_source({
-    'what': Par(Multi(MESSAGE_WHAT), Multi(MESSAGE_WHAT)('content'), '/'.join(MESSAGE_WHAT))
+    'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT))
 }, pass_message=True)
 async def message_source(message, what):
     '''The message which triggered script execution. Useful in Event scripts.'''
@@ -144,7 +144,7 @@ async def message_source(message, what):
 @make_source({
     'n': Par(int, 1, 'The number of messages'),
     'i': Par(int, 1, 'From which previous message to start counting. (0 for the message that triggers the script itself)', lambda i: i <= 10000),
-    'what': Par(Multi(MESSAGE_WHAT), Multi(MESSAGE_WHAT)('content'), '/'.join(MESSAGE_WHAT)),
+    'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
     'by': Par(int, 0, 'A user id, if given will filter the results down to only that users\' messages within the range of messages (if any).'),
 }, pass_message=True)
 async def previous_message_source(message, n, i, what, by):
@@ -176,7 +176,7 @@ def members_get_what(members, what):
     #     return [str(member.activities[0]) if member.activities else '' for member in members]
 
 @make_source({
-    'what': Par(Multi(MEMBER_WHAT), Multi(MEMBER_WHAT)('nickname'), '/'.join(MEMBER_WHAT))
+    'what': Par(Multi(MEMBER_WHAT), 'nickname', '/'.join(MEMBER_WHAT))
 }, pass_message=True)
 async def me_source(message, what):
     '''The name (or other attribute) of the user invoking the script or event.'''
@@ -185,7 +185,7 @@ async def me_source(message, what):
 
 @make_source({
     'n'   : Par(int, 1, 'The maximum number of members to return.'),
-    'what': Par(Multi(MEMBER_WHAT), MEMBER_WHAT.nickname, '/'.join(MEMBER_WHAT)),
+    'what': Par(Multi(MEMBER_WHAT), 'nickname', '/'.join(MEMBER_WHAT)),
     'id'  : Par(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
     'name': Par(regex, '', 'A pattern that should match their nickname or username.'),
     # 'rank': ...?
@@ -211,7 +211,7 @@ async def member_source(message, n, what, id, name):
 CHANNEL_WHAT = Option('name', 'topic', 'id', 'category', 'mention')
 
 @make_source({
-    'what': Par(CHANNEL_WHAT, CHANNEL_WHAT.name, '/'.join(CHANNEL_WHAT)),
+    'what': Par(CHANNEL_WHAT, 'name', '/'.join(CHANNEL_WHAT)),
 }, pass_message=True)
 async def channel_source(message, what):
     '''The name (or other attribute) of the current channel.'''
@@ -364,7 +364,7 @@ _CATEGORY = 'QUOTES'
     'n'         : Par(int, 1, 'The amount of captions.'),
     'q'         : Par(str, '', 'Search query, empty for a random quote'),
     'multiline' : Par(util.parse_bool, True, 'Allow captions longer than one line.')
-})
+}, plural='simpsons')
 async def simpsons_source(n, q, multiline):
     '''Random simpsons captions from the Frinkiac.com API.'''
     out = []
@@ -592,7 +592,7 @@ def _wikipedia_get_what(page, what, n):
 @make_source({
     'language': Par(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
     'lines': Par(int, 1, 'The number of (what) you want ,for summary/content this means number of sentences.'),
-    'what': Par(Multi(WIKIPEDIA_WHAT), Multi(WIKIPEDIA_WHAT)('Summary'), 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
+    'what': Par(Multi(WIKIPEDIA_WHAT), 'summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
     'n' : Par(int, 1, 'The number of random pages to fetch')
 })
 async def wikipedia_random_source(what, language, lines, n):
@@ -625,7 +625,7 @@ async def wikipedia_random_source(what, language, lines, n):
 @make_source({
     'page': Par(str, None, 'The page you want information from. (For a random page, use wikipedia_random.)'),
     'language': Par(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
-    'what': Par(Multi(WIKIPEDIA_WHAT), Multi(WIKIPEDIA_WHAT)('Summary'), 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
+    'what': Par(Multi(WIKIPEDIA_WHAT), 'summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
     'n' : Par(int, 1, 'The number of (what) you want, for summary/content this means number of sentences.')
 }, depletable=True)
 async def wikipedia_source(page, what, language, n):

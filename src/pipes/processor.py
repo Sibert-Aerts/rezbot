@@ -39,6 +39,7 @@ class ParsedPipe:
         name, *args = pipestr.strip().split(' ', 1)
         self.name = name.lower()
         self.argstr = args[0] if args else ''
+
         self.errors = ErrorLog()
         self.needs_dumb_arg_eval = False
         self.arguments = None   # type: Optional[Arguments]

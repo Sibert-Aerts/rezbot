@@ -113,14 +113,14 @@ class Par:
         '''
         Arguments:
             type: A "type" as described above; a function (str -> T).
-            default: The default value of type T to be used in case the argument is not given, if None parameter is assumed required.
+            default: The default value of type str or T to be used in case the argument is not given, if None parameter is assumed required.
             desc: The signature's description string.
             check: A function (T -> bool) that verifies if the output of `type` meets some arbitrary requirement.
             required: Normally inferred from whether or not `default` is None, set as True if you want None to actually be the default value.
         '''
         self.type = type
-        self.name = None # Assigned externally, don't worry
-        self.default = default
+        self.name = None # Set by Signature
+        self.default = default if not isinstance(default, str) else type(default)
         self.desc = desc
         self._check = check
         self.required = required if required is not None else (default is None)
@@ -164,7 +164,7 @@ class Par:
             raise ArgumentError(f'Invalid value "{raw}" for parameter `{self.name}`: Must be of type `{self.type.__name__}` ({e})')
 
         if self._check and not self._check(val):
-            raise ArgumentError(f'Invalid value "{val}" for parameter `{self.name}`: Did not pass check.')
+            raise ArgumentError(f'Parameter `{self.name}` is not allowed to be "{raw}".')
         return val
 
 class Signature(dict):
@@ -173,7 +173,7 @@ class Signature(dict):
         super().__init__(params)
         for param in params:
             params[param].name = param
-            
+
     # This regex matches all forms of:
     #   name=argNoSpaces    name="arg's with spaces"    name='arg with "spaces" even'
     #   name="""arg with spaces and quotation marks and anything"""     name='''same'''
@@ -242,7 +242,7 @@ class Signature(dict):
             args[param] = Arg(self[param], raw)
             args[param].predetermine(errors)
 
-        ## Step 5: We tried our best; fill out default values of missing non-required parameters
+        ## Step 5: Fill out default values of missing non-required parameters
         for param in self:
             if param not in args and not self[param].required:
                 args[param] = DefaultArg(self[param].default)

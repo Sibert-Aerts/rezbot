@@ -98,7 +98,6 @@ _CATEGORY = 'FLOW'
 })
 def repeat_pipe(input, times, max):
     '''Repeats each row a given number of times.'''
-    # Isn't decorated as_map so both input and output are expected to be arrays.
     if max == -1:
         return input * times
     else:
@@ -174,7 +173,7 @@ def choose_slice_pipe(input, length, cyclical):
 
 
 @make_pipe({
-    'count' : Par(parse_bool, False, 'Whether each unique item should be followed by a count of how many there were of it.')
+    'count' : Par(parse_bool, False, 'Whether each unique item should be followed by an item counting its number of occurrences')
 })
 def unique_pipe(input, count):
     '''Leaves only the first unique occurence of each item.'''
@@ -310,7 +309,7 @@ def strip_pipe(value):
 
 
 @make_pipe({
-    'pattern': Par(str, None, 'Case pattern to obey'),
+    'pattern': Par(str, None, 'Case pattern to apply'),
 })
 def case_pipe(inputs, pattern):
     '''
@@ -354,7 +353,7 @@ TABLE_ALIGN = Option('l', 'c', 'r', name='alignment')
 
 @make_pipe({
     'columns': Par(str, None, 'The names of the different columns separated by commas, or an integer giving the number of columns.'),
-    'alignments': Par(Multi(TABLE_ALIGN), Multi(TABLE_ALIGN)('l'), 'How the columns should be aligned: l/c/r separated by commas.'),
+    'alignments': Par(Multi(TABLE_ALIGN), 'l', 'How the columns should be aligned: l/c/r separated by commas.'),
     'sep': Par(str, ' │ ', 'The column separator'),
     'code_block': Par(parse_bool, True, 'If the table should be wrapped in a Discord code block.')
 })
@@ -656,7 +655,7 @@ POS_TAG = Option('ADJ', 'ADJ', 'ADP', 'PUNCT', 'ADV', 'AUX', 'SYM', 'INTJ', 'CON
 
 @make_pipe({
     'include': Par(Multi(POS_TAG), None, 'Which POS tags to replace, separated by commas. If blank, uses the `exclude` list instead.', required=False),
-    'exclude': Par(Multi(POS_TAG), Multi(POS_TAG)('PUNCT,SPACE,SYM,X'), 'Which POS tags not to replace, separated by commas. Ignored if `include` is given.')
+    'exclude': Par(Multi(POS_TAG), 'PUNCT,SPACE,SYM,X', 'Which POS tags not to replace, separated by commas. Ignored if `include` is given.')
 })
 @one_to_one
 def pos_unfill_pipe(text, include, exclude):
