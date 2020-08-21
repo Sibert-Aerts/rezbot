@@ -1,7 +1,7 @@
 from functools import wraps
 from textwrap import dedent
 import re
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional, TypeVar, Union, Callable
 from .logger import ErrorLog
 
 class ArgumentError(ValueError):
@@ -107,22 +107,24 @@ class Multi:
 #                     Signature                     #
 #####################################################
 
+T = TypeVar('T')
+
 class Par:
     ''' Represents a single parameter in a signature. '''
-    def __init__(self, type, default=None, desc=None, check=None, required=None):
+    def __init__(self, type: Callable[[str], T], default: Union[str, T]=None, desc: str=None, check: Callable[[T], bool]=None, required: bool=None):
         '''
         Arguments:
-            type: A "type" as described above; a function (str -> T).
-            default: The default value of type str or T to be used in case the argument is not given, if None parameter is assumed required.
+            type: A "type" as described above; a callable (str -> T) with a __name__.
+            default: The default value of type str or T to be used in case the parameter is not assigned, if `None` the parameter is assumed required.
             desc: The signature's description string.
             check: A function (T -> bool) that verifies if the output of `type` meets some arbitrary requirement.
-            required: Normally inferred from whether or not `default` is None, set as True if you want None to actually be the default value.
+            required: Set to False if default=None should be interpreted literally; using None is the default value.
         '''
         self.type = type
         self.name = None # Set by Signature
         self.default = default if not isinstance(default, str) else type(default)
         self.desc = desc
-        self._check = check
+        self.checkfun = check
         self.required = required if required is not None else (default is None)
         self._re = None
         self._str = None
@@ -163,7 +165,7 @@ class Par:
             ## Exceptions may be less clear so we need to be more verbose
             raise ArgumentError(f'Invalid value "{raw}" for parameter `{self.name}`: Must be of type `{self.type.__name__}` ({e})')
 
-        if self._check and not self._check(val):
+        if self.checkfun and not self.checkfun(val):
             raise ArgumentError(f'Parameter `{self.name}` is not allowed to be "{raw}".')
         return val
 
@@ -184,16 +186,20 @@ class Signature(dict):
     #   emptyString=                        (does not work, use emptyString="" instead)
     #   2name=arg                           (names have to start with a letter or _)
 
-    arg_re = re.compile( r'(?i)\b([_a-z]\w*)=("""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(\S+))', re.S )
+    arg_re = re.compile( r'(?i)\b([_a-z]\w*)=("""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(\S+))\s*', re.S )
     #                             ^^^^^^^^^       ^^^            ^^^          ^^^      ^^^      ^^^    ^^^
     #                             parameter                           argument value
 
-    # This one matches the same as above except without an explicit assignment and falls back on matching the entire string instead of just noSpaces
-    impl_re = re.compile( r'("""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(.*))', re.S )
-    #                            ^^^            ^^^          ^^^      ^^^      ^^^    ^^
+    # This one assumes the entire string is an argument (as above) but without the param= part, OR just matches the full string spaces and all!
+    greedy_re = re.compile( r'^\s*("""(.*)"""|\'\'\'(.*)\'\'\'|"(.*)"|\'(.*)\'|/(.*)/|(.*))\s*$', re.S )
+    #                                  ^^            ^^          ^^      ^^      ^^    ^^
+    #                                                argument value
+    # Same as above, but non-greedy: Assumes the smallest bit of quoted or noSpaces at the start of the string is the argument
+    implicit_re = re.compile( r'\s*("""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(\S*))\s*', re.S )
+    #                                   ^^^            ^^^          ^^^      ^^^      ^^^    ^^^
     #                                                argument value
 
-    def parse_args(self, argstr: str) -> Tuple['Arguments', ErrorLog]:
+    def parse_args(self, argstr: str, greedy: bool=True) -> Tuple['Arguments', ErrorLog, Optional[str]]:
         ''' Pre-parse an argument string into an Arguments object according to this Signature's parameters. '''
         errors = ErrorLog()
         argstr_raw = argstr = argstr.strip()
@@ -206,48 +212,54 @@ class Signature(dict):
                 errors.warn('Unknown parameter `{}`'.format(m[1]))
                 return m[0]
             if m[1] in args:
-                errors.log('Repeated assignment of parameter `{}`'.format(m[1]))
+                errors.warn('Repeated assignment of parameter `{}`'.format(m[1]))
             args[m[1]] = m[3] or m[4] or m[5] or m[6] or m[7] or m[8] or ''
         remainder = Signature.arg_re.sub(collect, argstr).strip()
 
-        ## Step 2: Create Arg objects and already try to predetermine them
+        ## Step 2: Turn into Arg objects
         for param in args:
             args[param] = Arg(self[param], args[param])
             args[param].predetermine(errors)
 
-        ## Step 3: Check if any required arguments are missing
+        ## Step 3: Check if required arguments are missing
         missing = [param for param in self if param not in args and self[param].required]
         if missing:
             if not remainder or len(missing) > 1:
                 # There's no argstring left; nothing can be done to find these missing arguments
-                # Or: there's more missing parameters than I'm willing to blindly parse
+                # OR: There's more missing parameters than we can safely implicitly extract right now
                 errors.log('Missing required parameter{} {}'.format('s' if len(missing) > 1 else '', ' '.join('`%s`'%p for p in missing)), True)
 
             elif len(missing) == 1:
-                ## Only one required parameter is missing; assume the entire remaining argstring implicitly assigns it
+                ## Only one required parameter is missing; implicitly look for it in what remains of the argstring
                 [param] = missing
-                m = Signature.impl_re.fullmatch(remainder) # Always matches
+                m = (Signature.greedy_re if greedy else Signature.implicit_re).match(remainder) # Always matches
                 raw = m[2] or m[3] or m[4] or m[5] or m[6] or m[7] or ''
                 args[param] = Arg(self[param], raw)
                 args[param].predetermine(errors)
-                remainder = None
+                remainder = None if greedy else remainder[m.end():]
 
-        ## Step 4: Check if maybe the Signature only has one not-yet-found (but not required) parameter at all
-        maybe_implicit = [param for param in self if param not in args]
-        if len(maybe_implicit) == 1 and remainder:
-            # In which case: assume the entire remaining argstring implicitly assigns it
-            [param] = maybe_implicit
-            m = Signature.impl_re.match(remainder) # Always matches
-            raw = m[2] or m[3] or m[4] or m[5] or m[6] or m[7] or ''
-            args[param] = Arg(self[param], raw)
-            args[param].predetermine(errors)
+        ## Step 4: Check if the Signature simply has one parameter, and it hasn't been assigned yet (i.e. it's non-required)
+        elif len(self) == 1 and remainder:
+            param = list(self.keys())[0]
+            if param not in args:
+                # Implicitly look for it in the remaining argstring, but if it fails, back off quietly
+                m = (Signature.greedy_re if greedy else Signature.implicit_re).match(remainder) # Always matches
+                raw = m[2] or m[3] or m[4] or m[5] or m[6] or m[7] or ''
+                # Create a hypothetical arg to check if it gives any trouble
+                maybe_errors = ErrorLog()
+                arg = Arg(self[param], raw)
+                arg.predetermine(maybe_errors)
+                # If it causes no trouble: use it!
+                if not maybe_errors.terminal:
+                    args[param] = arg
+                    remainder = None if greedy else remainder[m.end():]
 
-        ## Step 5: Fill out default values of missing non-required parameters
+        ## Last step: Fill out default values of unassigned non-required parameters
         for param in self:
             if param not in args and not self[param].required:
                 args[param] = DefaultArg(self[param].default)
 
-        return Arguments(args, argstr_raw), errors
+        return Arguments(args, argstr_raw), errors, remainder
 
 
 
@@ -277,7 +289,7 @@ class Arg:
             except ArgumentError as e:
                 errors.log(e, True)
 
-    async def determine(self, context, source_processor, errors: ErrorLog) -> Any:
+    async def determine(self, context: Optional['Context'], source_processor: 'SourceProcessor', errors: ErrorLog) -> Any:
         if self.predetermined: return self.val
 
         # Evaluate sources and context items
@@ -307,11 +319,12 @@ class Arguments:
         if self.predetermined:
             self.args = { param: args[param].val for param in args }
 
-    async def determine(self, context, source_processor) -> Tuple[ Dict[str, Any], ErrorLog ]:
+    async def determine(self, context: Optional['Context'], source_processor: 'SourceProcessor') -> Tuple[ Dict[str, Any], ErrorLog ]:
         ''' Returns a parsed {parameter: argument} dict ready for use. '''
         errors = ErrorLog()
         if self.predetermined: return self.args, errors
         return { param: await self.args[param].determine(context, source_processor, errors) for param in self.args }, errors
+
 
 
 #### Primitive version of Signature.parse_arguments that's still used in certain places (Deprecate!)

@@ -50,17 +50,17 @@ class ParsedPipe:
         elif self.name in pipes:
             self.type = ParsedPipe.NATIVEPIPE
             self.pipe = pipes[self.name]
-            self.arguments, errors = self.pipe.signature.parse_args(self.argstr)
+            self.arguments, errors, _ = self.pipe.signature.parse_args(self.argstr)
             self.errors.extend(errors, self.name)
         elif self.name in spouts:
             self.type = ParsedPipe.SPOUT
             self.pipe = spouts[self.name]
-            self.arguments, errors = self.pipe.signature.parse_args(self.argstr)
+            self.arguments, errors, _ = self.pipe.signature.parse_args(self.argstr)
             self.errors.extend(errors, self.name)
         elif self.name in sources:
             self.type = ParsedPipe.NATIVESOURCE
             self.pipe = sources[self.name]
-            self.arguments, errors = self.pipe.signature.parse_args(self.argstr)
+            self.arguments, errors, _ = self.pipe.signature.parse_args(self.argstr)
             self.errors.extend(errors, self.name)
         elif self.name in pipe_macros:
             self.type = ParsedPipe.PIPEMACRO

@@ -4,13 +4,16 @@ import re
 
 import discord
 from discord.ext import commands
+from http.client import HTTPException
 
+from .pipe import Pipe, Source, Spout
 from .pipes import pipes
 from .sources import sources, SourceResources
 from .spouts import spouts
 from .macros import pipe_macros, source_macros
 from .processor import PipelineProcessor, SourceProcessor
 from .events import events
+from .logger import ErrorLog
 from mycommands import MyCommands
 import utils.texttools as texttools
 import utils.util as util
@@ -269,13 +272,26 @@ def setup(bot):
 
     newCommands = []
 
-    def pipe_to_func(pipe):
+    def pipe_to_func(pipe: Pipe):
         async def func(self, ctx):
             text = util.strip_command(ctx)
-            proc = SourceProcessor(ctx.message)
-            text = await proc.evaluate_composite_source(text)
-            text = '\n'.join(pipe.as_command(text))
-            await ctx.send(text)
+
+            # Extract arguments from the discord command
+            args, err, text = pipe.signature.parse_args(text, greedy=False)
+            if err.terminal: await ctx.send(embed=err.embed(f'`{pipe.name}`')); return
+            # Evaluate sources inside arguments and parse them
+            args, err = await args.determine(None, SourceProcessor(ctx.message))
+            if err.terminal: await ctx.send(embed=err.embed(f'`{pipe.name}`')); return
+
+            try:
+                # Apply the pipe to what remains of the command string
+                text = '\n'.join(pipe([text], **args))
+                await ctx.send(text)
+            except Exception as e:
+                err = ErrorLog()
+                err(f'With args {" ".join( f"`{p}`={args[p]}" for p in args )}:\n\t{e.__class__.__name__}: {e}', True)
+                await ctx.send(embed=err.embed(f'`{pipe.name}`'))
+
         func.__name__ = pipe.name
         func.__doc__ = pipe.command_doc()
         return func
@@ -291,13 +307,26 @@ def setup(bot):
     #                 Turn sources into commands!                 #
     ###############################################################
 
-    def source_to_func(source):
+    def source_to_func(source: Source):
         async def func(self, ctx):
             text = util.strip_command(ctx)
-            proc = SourceProcessor(ctx.message)
-            text = await proc.evaluate_composite_source(text)
-            text = '\n'.join(await source(ctx.message, text))
-            await ctx.send(text)
+
+            # Extract arguments from the discord command
+            args, err, text = source.signature.parse_args(text, greedy=False)
+            if err.terminal: await ctx.send(embed=err.embed(f'`{source.name}`')); return
+            # Evaluate sources inside arguments and parse them
+            args, err = await args.determine(None, SourceProcessor(ctx.message))
+            if err.terminal: await ctx.send(embed=err.embed(f'`{source.name}`')); return
+
+            try:
+                # Apply the source with the given arguments
+                text = '\n'.join(await source.apply(ctx.message, args))
+                await ctx.send(text)
+            except Exception as e:
+                err = ErrorLog()
+                err(f'With args {" ".join( f"`{p}`={args[p]}" for p in args )}:\n\t{e.__class__.__name__}: {e}', True)
+                await ctx.send(embed=err.embed(f'`{source.name}`'))
+
         func.__name__ = source.name
         func.__doc__ = source.command_doc()
         return func
@@ -316,9 +345,26 @@ def setup(bot):
     def spout_to_func(spout):
         async def func(self, ctx):
             text = util.strip_command(ctx)
-            proc = SourceProcessor(ctx.message)
-            text = await proc.evaluate_composite_source(text)
-            await spout.as_command(self.bot, ctx.message, text)
+
+            # proc = SourceProcessor(ctx.message)
+            # text = await proc.evaluate_composite_source(text)
+            # await spout.as_command(self.bot, ctx.message, text)
+
+            # Extract arguments from the discord command
+            args, err, text = spout.signature.parse_args(text, greedy=False)
+            if err.terminal: await ctx.send(embed=err.embed(f'`{spout.name}`')); return
+            # Evaluate sources inside arguments and parse them
+            args, err = await args.determine(None, SourceProcessor(ctx.message))
+            if err.terminal: await ctx.send(embed=err.embed(f'`{spout.name}`')); return
+
+            try:
+                # Apply the spout to what remains of the argstr
+                await spout.function(self.bot, ctx.message, [text], **args)
+            except Exception as e:
+                err = ErrorLog()
+                err(f'With args {" ".join( f"`{p}`={args[p]}" for p in args )}:\n\t{e.__class__.__name__}: {e}', True)
+                await ctx.send(embed=err.embed(f'`{spout.name}`'))
+
         func.__name__ = spout.name
         func.__doc__ = spout.command_doc()
         return func

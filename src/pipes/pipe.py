@@ -23,11 +23,7 @@ class Pipe:
     def __call__(self, items: List[str], **args) -> List[str]:
         ''' Apply the pipe to a list of items given a dict of arguments. '''
         return self.function(items, **args)
-
-    def as_command(self, text):
-        text, args = parse_args(self.signature, text, greedy=False)
-        return self.function([text], **args)
-
+        
     def command_doc(self):
         out = self.doc or ''
         if self.signature:
@@ -69,10 +65,6 @@ class Source(Pipe):
         else:
             return self.function(**args)
 
-    def as_command(self):
-        # This method is not needed and only defined to hide the inherited as_command method, to prevent possible mystery bugs
-        raise NotImplementedError()
-
     def embed(self):
         embed = super().embed()
         if self.plural != self.name:
@@ -89,10 +81,6 @@ class Spout(Pipe):
     def __call__(self, items: List[str], **args) -> (Callable[..., None], Dict[str, Any], List[str]) :
         # DOES NOT actually call the underlying function yet, but returns the tuple of items so it can be done later...
         return (self.function, args, items)
-
-    async def as_command(self, bot, message, text):
-        text, args = parse_args(self.signature, text, greedy=False)
-        await self.function(bot, message, [text], **args)
 
 
 class Pipes:
