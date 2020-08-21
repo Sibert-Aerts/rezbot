@@ -339,7 +339,6 @@ class Pipeline:
 
                 #### Determine the arguments (if needed)
                 if parsed_pipe.arguments:
-                    # This is a smart method that only does what is needed
                     args, arg_errors = await parsed_pipe.arguments.determine(group_context, source_processor)
                     errors.extend(arg_errors, context=name)
 
@@ -398,7 +397,7 @@ class Pipeline:
                         errors(f'Source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
 
                     try:
-                       next_items.extend( await parsed_pipe.pipe.apply(message, args) )
+                       next_items.extend( await parsed_pipe.pipe(message, args) )
                     except Exception as e:
                         argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
                         errors(f'Failed to process source-as-pipe `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
@@ -422,7 +421,7 @@ class Pipeline:
                     spout_callbacks += macro_spout_callbacks
 
                 ## A SOURCE MACRO
-                elif name in sources or name in source_macros:
+                elif name in source_macros:
                     if items and not (len(items) == 1 and items[0] == ''):
                         errors(f'Macro-source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
 
@@ -541,29 +540,28 @@ class PipelineProcessor:
             self.script_cache[script] = (source, pipeline)
 
         try:
-            ### STEP 1: GET STARTING VALUES FROM SOURCE
+            ### STEP 1: GET STARTING VALUES
             source_processor = SourceProcessor(message)
             values = await source_processor.evaluate(source, context)
             errors.extend(source_processor.errors)
 
-            ### STEP 2: APPLY THE PIPELINE TO THE STARTING VALUES
+            ### STEP 2: APPLY PIPELINE TO STARTING VALUES
             values, printValues, pl_errors, spout_callbacks = await pipeline.apply(values, message, context)
             errors.extend(pl_errors)
             if errors.terminal: raise TerminalError()
 
-            ### STEP 3: (MUMBLING INCOHERENTLY)
+            ### STEP 3: JOB'S DONE, PERFORM SIDE-EFFECTS!
 
             ## Put the thing there
             SourceResources.previous_pipeline_output = values
 
             ## Print the output!
-            # TODO: ~~SPOUT CALLBACK HAPPENS HERE~~
             # TODO: auto-print if the LAST output was not a spout of any kind
             if not spout_callbacks or any( callback is spouts['print'].function for (callback, _, _) in spout_callbacks ):
-                # TODO: `print` as a spout?! could it be???????
                 printValues.append(values)
                 await self.print(message.channel, printValues)
 
+            ## Perform all Spouts (TODO: MAKE THIS BETTER)
             for callback, args, values in spout_callbacks:
                 try:
                     await callback(self.bot, message, values, **args)
@@ -577,7 +575,7 @@ class PipelineProcessor:
         except TerminalError:
             ## A TerminalError indicates that whatever problem we encountered was caught, logged, and we halted voluntarily.
             # Nothing more to be done than posting log contents to the channel.
-            print('Script execution halted prematurely.')
+            print('Script execution halted due to error.')
             await message.channel.send(embed=errors.embed(name=name))
             
         except Exception as e:

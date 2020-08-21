@@ -106,9 +106,9 @@ class SourceProcessor:
     # Matches: {source}, {source and some args}, {source args="{curly braces allowed}"}, {10 sources}, etc.
     # Doesn't match: {}, {0}, {1}, {2}, {2!} etc., those are matched by Context.item_regex
 
-    _source_regex = r'(?i){\s*(ALL|\d*)\s*([_a-z][^\s}]*)\s*([^}\s](?:\"[^\"]*\"|[^}])*)?}'
-    #                          ^^^^^^^     ^^^^^^^^^^^^^     ^^^^^^^^^^^^^^^^^^^^^^^^^^
-    #                             n            name                     args
+    _source_regex = r'(?i){\s*(ALL|\d*)\s*([_a-z][\w]*)\s*((?:\"[^\"]*\"|[^}])*)?}'
+    #                          ^^^^^^^     ^^^^^^^^^^^     ^^^^^^^^^^^^^^^^^^^^
+    #                             n            name                args
     source_regex = re.compile(_source_regex)
 
     # This one matches both sources and items, so any syntactically meaningful instance of curly braces in string literals.
@@ -119,13 +119,18 @@ class SourceProcessor:
         '''Checks whether a string matches the exact format "{[n] source [args]}", AKA "pure".'''
         return re.fullmatch(SourceProcessor.source_regex, source)
 
-    async def evaluate_parsed_source(self, name, args, n=None):
-        '''Given the exact name, arguments and `n` of a source, evaluates it.'''
+    async def evaluate_parsed_source(self, name, argstr, n=None):
+        '''Given the exact name, argstring and `n` of a source, attempts to find and evaluate it.'''
         if name in sources:
+            source = sources[name]
+            args, errors, _ = await source.signature.parse_and_determine(argstr, self, context=None)
+            self.errors.extend(errors, context=name)
+            if errors.terminal: return None
             try:
-                return await sources[name](self.message, args, n=n)
+                return await source(self.message, args, n=n)
             except Exception as e:
-                self.errors('Failed to evaluate source `{}` with args "{}":\n\t{}: {}'.format(name, args, e.__class__.__name__, e))
+                argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
+                self.errors(f'Failed to evaluate source `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
                 return None
 
         elif name in source_macros:

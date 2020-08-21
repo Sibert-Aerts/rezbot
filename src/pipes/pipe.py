@@ -1,7 +1,7 @@
 from textwrap import dedent
 from discord import Embed
 
-from .signature import Signature, Arguments, parse_args
+from .signature import Signature, Arguments
 from typing import List, Dict, Callable, Any
 
 
@@ -21,7 +21,7 @@ class Pipe:
             self.small_doc = self.doc.split('\n')[0]
 
     def __call__(self, items: List[str], **args) -> List[str]:
-        ''' Apply the pipe to a list of items given a dict of arguments. '''
+        ''' Apply the pipe to a list of items. '''
         return self.function(items, **args)
         
     def command_doc(self):
@@ -46,24 +46,24 @@ class Source(Pipe):
         self.depletable = depletable
         self.plural = plural.lower() if plural else (self.name + 's') if 'n' in signature else self.name
 
-    def __call__(self, message, argstr, n=None):
-        ''' Get the source's output using an unparsed argstr. '''
-        _, args = parse_args(self.signature, argstr)
+    def __call__(self, message, args: Dict[str, Any], n=None):
+        ''' Call the Source to produce items using a parsed dict of arguments. '''
         if n:
+            # Handle the `n` that may be given using the {n sources} notation
             if isinstance(n, str) and n.lower() == 'all':
                 if self.depletable: n = -1
                 else: raise ValueError('Requested `all` items but the source is not depletable.')
-
             if 'n' in args: args['n'] = int(n)
             elif 'N' in args: args['N'] = int(n)
-        return self.apply(message, args)
-
-    def apply(self, message, args):
-        ''' Get the source's output using a dict of arguments. '''
         if self.pass_message:
             return self.function(message, **args)
         else:
             return self.function(**args)
+
+    def apply(self, message, args):
+        ''' Get the source's output using a dict of arguments. '''
+        print('SOURCE.APPLY!!!!!!!!!!!!!!!!!')
+        raise Exception()
 
     def embed(self):
         embed = super().embed()
@@ -89,16 +89,16 @@ class Pipes:
         self.pipes = {}
         self.categories = {}
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> Pipe:
         return self.pipes[name]
 
-    def add(self, pipe):
+    def add(self, pipe: Pipe) -> None:
         self.pipes[pipe.name] = pipe
         if pipe.category not in self.categories:
             self.categories[pipe.category] = []
         self.categories[pipe.category].append(pipe)
 
-    def __contains__(self, name):
+    def __contains__(self, name: str) -> bool:
         return (name in self.pipes)
 
     def __len__(self):
@@ -116,14 +116,14 @@ class Sources(Pipes):
         super().__init__()
         self.plurals = {}
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> Source:
         if name in self.pipes:
             return self.pipes[name]
         return self.plurals[name]
 
-    def add(self, source):
+    def add(self, source: Source) -> None:
         super().add(source)
         self.plurals[source.plural] = source
 
-    def __contains__(self, name):
+    def __contains__(self, name: str) -> bool:
         return (name in self.pipes) or (name in self.plurals)

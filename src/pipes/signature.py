@@ -261,12 +261,11 @@ class Signature(dict):
 
         return Arguments(args, argstr_raw), errors, remainder
 
-
-    async def parse_command_args(self, argstr: str, src_proc: 'SourceProcessor') -> Tuple[ Dict[str, Any], ErrorLog, str]:
-        ''' Used when parsing command strings, combines Signature.parse_args and Arguments.determine into one. '''
+    async def parse_and_determine(self, argstr: str, src_proc: 'SourceProcessor', context: 'Context'=None, greedy=True) -> Tuple[ Dict[str, Any], ErrorLog, str]:
+        ''' Combines Signature.parse_args and Arguments.determine into one. '''
         args, err, text = self.parse_args(argstr, greedy=False)
-        if err.terminal: return None, err, None        
-        args, err = await args.determine(None, src_proc)
+        if err.terminal: return None, err, None
+        args, err = await args.determine(context, src_proc)
         return args, err, text
 
 
@@ -331,81 +330,6 @@ class Arguments:
         errors = ErrorLog()
         if self.predetermined: return self.args, errors
         return { param: await self.args[param].determine(context, source_processor, errors) for param in self.args }, errors
-
-
-
-#### Primitive version of Signature.parse_arguments that's still used in certain places (Deprecate!)
-
-def parse_args(signature: Dict[str, Par], text: str, greedy: bool=True) -> Tuple[ str, dict ]:
-    ''' Parses and removes arguments from a string of text based on a signature. '''
-    args = {}
-
-    the_one = None
-    require_the_one = False
-
-    ### Two scenarios where we implicitly assume an argument is assigned (without arg=val syntax!):
-    if len(signature) == 1:
-        ## If there is only one argument
-        the_one = next(iter(signature))
-    else:
-        ## OR if there is only one REQUIRED argument
-        reqs = [s for s in signature if signature[s].required]
-        if len(reqs) == 1:
-            the_one = reqs[0]
-            require_the_one = True
-
-    if the_one is not None and text is not None:
-        s = the_one
-        sig = signature[s]
-
-        # Just in case, look if the argument isn't given as "arg=val"
-        # If it is: Leave this special case alone and fall back to the block below
-        if sig.re().search(text) is None:
-
-            if greedy: # Greedy: Assume the entire input string is the argument value.
-                val = text
-                _text = ''
-
-            else: # Not greedy: Only try the first word
-                split = re.split(r'\s+', text, 1)
-                val = split[0]
-                _text = split[1] if len(split) > 1 else ''
-
-            # If the "found" argument is the empty string we didnt actually find anything
-            if not val.isspace():
-                try:
-                    # If what we found works (parses and meets requirements), cut it out and consider it assigned
-                    val = sig.parse(val)
-                    args[s] = val
-                    text = _text
-                except Exception as e:
-                    if require_the_one:
-                        # It didn't work, but we needed it to work, so the argstring is invalid!
-                        raise e
-
-    for s in signature:
-        # If we already determined the argument value in the previous block, skip it
-        if s in args: continue
-
-        sig = signature[s]
-        match = text and sig.re().search(text)
-
-        if not match:
-            ## If it is required: Raise an error
-            if sig.required: raise ArgumentError('Missing argument: "{}".'.format(s))
-            ## Else: Use the default value and move on!
-            args[s] = sig.default
-            continue
-
-        ## We found an assignment of some form
-        val = match[1] or match[2] or match[3] or match[4] or match[5] or match[6] or ''
-
-        ## If there's any kind of trouble with the value this'll raise a well-formatted error.
-        args[s] = sig.parse(val)
-        # Clip the entire match out of the text
-        text = text[:match.start(0)] + text[match.end(0):]
-
-    return (text, args)
 
 
 
