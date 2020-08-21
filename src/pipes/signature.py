@@ -262,6 +262,13 @@ class Signature(dict):
         return Arguments(args, argstr_raw), errors, remainder
 
 
+    async def parse_command_args(self, argstr: str, src_proc: 'SourceProcessor') -> Tuple[ Dict[str, Any], ErrorLog, str]:
+        ''' Used when parsing command strings, combines Signature.parse_args and Arguments.determine into one. '''
+        args, err, text = self.parse_args(argstr, greedy=False)
+        if err.terminal: return None, err, None        
+        args, err = await args.determine(None, src_proc)
+        return args, err, text
+
 
 #####################################################
 #                     Arguments                     #

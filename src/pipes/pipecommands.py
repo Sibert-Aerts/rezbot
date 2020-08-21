@@ -276,11 +276,8 @@ def setup(bot):
         async def func(self, ctx):
             text = util.strip_command(ctx)
 
-            # Extract arguments from the discord command
-            args, err, text = pipe.signature.parse_args(text, greedy=False)
-            if err.terminal: await ctx.send(embed=err.embed(f'`{pipe.name}`')); return
-            # Evaluate sources inside arguments and parse them
-            args, err = await args.determine(None, SourceProcessor(ctx.message))
+            # Parse and process arguments from the command string
+            args, err, text = await pipe.signature.parse_command_args(text, SourceProcessor(ctx.message))
             if err.terminal: await ctx.send(embed=err.embed(f'`{pipe.name}`')); return
 
             try:
@@ -311,11 +308,8 @@ def setup(bot):
         async def func(self, ctx):
             text = util.strip_command(ctx)
 
-            # Extract arguments from the discord command
-            args, err, text = source.signature.parse_args(text, greedy=False)
-            if err.terminal: await ctx.send(embed=err.embed(f'`{source.name}`')); return
-            # Evaluate sources inside arguments and parse them
-            args, err = await args.determine(None, SourceProcessor(ctx.message))
+            # Parse and process arguments from the command string
+            args, err, text = await source.signature.parse_command_args(text, SourceProcessor(ctx.message))
             if err.terminal: await ctx.send(embed=err.embed(f'`{source.name}`')); return
 
             try:
@@ -346,15 +340,8 @@ def setup(bot):
         async def func(self, ctx):
             text = util.strip_command(ctx)
 
-            # proc = SourceProcessor(ctx.message)
-            # text = await proc.evaluate_composite_source(text)
-            # await spout.as_command(self.bot, ctx.message, text)
-
-            # Extract arguments from the discord command
-            args, err, text = spout.signature.parse_args(text, greedy=False)
-            if err.terminal: await ctx.send(embed=err.embed(f'`{spout.name}`')); return
-            # Evaluate sources inside arguments and parse them
-            args, err = await args.determine(None, SourceProcessor(ctx.message))
+            # Parse and process arguments from the command string
+            args, err, text = await spout.signature.parse_command_args(text, SourceProcessor(ctx.message))
             if err.terminal: await ctx.send(embed=err.embed(f'`{spout.name}`')); return
 
             try:
