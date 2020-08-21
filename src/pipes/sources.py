@@ -187,7 +187,7 @@ async def me_source(message, what):
     'n'   : Par(int, 1, 'The maximum number of members to return.'),
     'what': Par(Multi(MEMBER_WHAT), 'nickname', '/'.join(MEMBER_WHAT)),
     'id'  : Par(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
-    'name': Par(regex, '', 'A pattern that should match their nickname or username.'),
+    'name': Par(regex, None, 'A pattern that should match their nickname or username.', required=False),
     # 'rank': ...?
 }, pass_message=True, depletable=True)
 async def member_source(message, n, what, id, name):
@@ -295,7 +295,7 @@ def bool_or_none(val):
     'sequential': Par(bool_or_none, None, 'If the multiple lines should be sequential as opposed to random, "None" for file-dependent.', required=False),
     'sentences' : Par(bool_or_none, None, 'If the file should be split on sentences as opposed to on dividing characters, "None" for file-dependent.', required=False),
     'query'     : Par(str, '', 'Optional search query'),
-    'pattern'   : Par(regex, '', 'Optional search regex'),
+    'pattern'   : Par(regex, None, 'Optional search regex', required=False),
 }, command=True, depletable=True)
 async def txt_source(file, n, sequential, sentences, query, pattern):
     '''Lines from an uploaded text file. Check >files for a list of files.'''

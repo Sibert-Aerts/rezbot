@@ -109,7 +109,7 @@ REMOVE_WHAT = Option('all', 'empty', 'whitespace')
 @make_pipe({ 
     'what': Par(REMOVE_WHAT, REMOVE_WHAT.all, 'What to filter: all/empty/whitespace') 
 })
-def remove_pipe(input, what):
+def remove_pipe(items, what):
     '''
     Removes all items (or specific types of items) from the flow.
 
@@ -120,9 +120,9 @@ def remove_pipe(input, what):
     if what == REMOVE_WHAT.all:
         return []
     if what == REMOVE_WHAT.whitespace:
-        return [x for x in input if x.isspace()]
+        return [x for x in items if x.strip()]
     if what == REMOVE_WHAT.empty:
-        return [x for x in input if x != '']
+        return [x for x in items if x]
 
 
 @make_pipe({})

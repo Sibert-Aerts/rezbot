@@ -127,13 +127,13 @@ async def delete_var_spout(bot, message, values, name, strict):
         SourceResources.variables.delete(name)
     except:
         if strict:
-            raise KeyError('No variable "{}" found.')
+            raise KeyError(f'No variable "{name}" found.')
 
 @make_spout({
     'name' : Par(str, None, 'The new file\'s name'),
     'sequential': Par(parse_bool, True, 'Whether the order of entries matters when retrieving them from the file later.'),
     'sentences': Par(parse_bool, False, 'Whether the entries should be split based on sentence recognition instead of a splitter regex.')
-}, command=True)
+})
 async def new_file_spout(bot, message, values, name, sequential, sentences):
     '''Writes the input to a new txt file.'''
     # Files are stored as raw txt's, but we want to make sure our list of strings remain distinguishable.
