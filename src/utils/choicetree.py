@@ -130,14 +130,11 @@ class ChoiceTree:
         self.tree = ChoiceTree.group.parseString(text).asList()[0]
         self.count = self.tree.count
 
-    def all(self):
-        if self.flag_random:
-            return [self.random()]
-        out = []
+    def __iter__(self):
+        if self.flag_random: return [self.random()]
         while not self.tree.done:
-            out.append(self.tree.next())
+            yield self.tree.next()
         self.tree.reset()
-        return out
 
     def random(self):
         return self.tree.random()

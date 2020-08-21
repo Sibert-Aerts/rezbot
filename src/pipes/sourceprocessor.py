@@ -235,7 +235,7 @@ class SourceProcessor:
         values = []
         if len(source) > 1 and source[0] == source[-1] == '"':
             source = source[1:-1]
-        for source in ChoiceTree(source, parse_flags=True, add_brackets=True).all():
+        for source in ChoiceTree(source, parse_flags=True, add_brackets=True):
             if self.is_pure_source(source):
                 values.extend(await self.evaluate_pure_source(source))
             else:

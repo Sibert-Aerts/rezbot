@@ -239,13 +239,11 @@ class Pipeline:
         segment, stolen_parens = self.steal_parentheses(segment)
         segment, stolen_quotes = self.steal_triple_quotes(segment)
 
-        # ChoiceTree expands the single string into a set of strings.
-        parallel_pipes = ChoiceTree(segment, add_brackets=True).all()
-
-        ### Parse the simultaneous pipes into a usable form: A list of (Pipeline or ParsedPipe) objects
+        ### Parse the simultaneous pipes into a usable form: A List[Union[Pipeline, ParsedPipe]]
         parsedPipes = []
 
-        for pipe in parallel_pipes:
+        # ChoiceTree expands the segment into the different parallel pipes 
+        for pipe in ChoiceTree(segment, add_brackets=True):
             ## Put the stolen triple-quoted strings and parentheses back.
             pipe = self.restore_triple_quotes(pipe, stolen_quotes)
             pipe = self.restore_parentheses(pipe, stolen_parens)
