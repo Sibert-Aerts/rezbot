@@ -19,8 +19,9 @@ import resource.tweets as tweets
 from resource.jerkcity import JERKCITY
 from resource.upload import uploads
 from resource.variables import VariableStore
+import resource.wikipedia as wikipedia
+
 import nltk
-import wikipedia
 
 
 #######################################################
@@ -548,8 +549,8 @@ async def emoji_source():
 #####################################################
 _CATEGORY = 'WIKI'
 
-# Cache Wikipedia pages based on (name, language)
-@lru_cache()
+# Cache the most recent Wikipedia pages based on (name, language)
+@lru_cache(maxsize=20)
 def _wikipedia_page(page, language):
     wikipedia.set_lang(language)
     return wikipedia.page(page)
@@ -626,7 +627,7 @@ async def wikipedia_random_source(what, language, lines, n):
     'page': Par(str, None, 'The page you want information from. (For a random page, use wikipedia_random.)'),
     'language': Par(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
     'what': Par(Multi(WIKIPEDIA_WHAT), 'summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
-    'n' : Par(int, 1, 'The number of (what) you want, for summary/content this means number of sentences.')
+    'n'   : Par(int, 1, 'The number of (what) you want, for summary/content this means number of sentences.')
 }, depletable=True)
 async def wikipedia_source(page, what, language, n):
     '''
