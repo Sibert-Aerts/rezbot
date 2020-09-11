@@ -422,11 +422,9 @@ class WikipediaPage(object):
 
       pages = request['query']['pages']
       if 'generator' in query_params:
-        for datum in pages.values():  # in python 3.3+: "yield from pages.values()"
-          yield datum
+        yield from pages.values()
       else:
-        for datum in pages[self.pageid][prop]:
-          yield datum
+        yield from pages[self.pageid][prop]
 
       if 'continue' not in request:
         break
@@ -552,7 +550,7 @@ class WikipediaPage(object):
           'prop': 'imageinfo',
           'iiprop': 'url',
         })
-        if 'imageinfo' in page
+        if 'imageinfo' in page and 'url' in page['imageinfo'][0]
       ]
 
     return self._images
