@@ -24,7 +24,7 @@ bot = commands.Bot(command_prefix=command_prefix)
 
 # initialise some of my own stuffs
 patterns = patterns.Patterns(bot)
-pipeProcessor = PipelineProcessor(bot, pipe_prefix)
+scriptProcessor = PipelineProcessor(bot, pipe_prefix)
 
 
 @bot.event
@@ -54,17 +54,24 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    # Try for text pipes, if it's a pipe, don't look for anything else.
-    if await pipeProcessor.process_script(message):
+    # See if it looks like a script, if it does: run the script and don't do anything else
+    if await scriptProcessor.process_script(message):
         return
 
-    # Try for patterns if it doesn't look like a command
-    if(message.content[:len(command_prefix)] != command_prefix):
-        await pipeProcessor.on_message(message)
+    # Try for patterns and custom Events if it doesn't look like a command
+    if message.content[:len(command_prefix)] != command_prefix:
+        await scriptProcessor.on_message(message)
         await patterns.process_patterns(message)
 
     # Try for commands
     await bot.process_commands(message)
+
+
+@bot.event
+async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
+    guild = bot.get_guild(payload.guild_id)
+    channel = guild.get_channel(payload.channel_id)
+    await scriptProcessor.on_reaction(channel, str(payload.emoji), payload.user_id, payload.message_id)
 
 
 @bot.event

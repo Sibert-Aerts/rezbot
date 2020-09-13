@@ -263,7 +263,7 @@ class Signature(dict):
 
     async def parse_and_determine(self, argstr: str, src_proc: 'SourceProcessor', context: 'Context'=None, greedy=True) -> Tuple[ Dict[str, Any], ErrorLog, str]:
         ''' Combines Signature.parse_args and Arguments.determine into one. '''
-        args, err, text = self.parse_args(argstr, greedy=False)
+        args, err, text = self.parse_args(argstr, greedy=greedy)
         if err.terminal: return None, err, None
         args, err = await args.determine(context, src_proc)
         return args, err, text
@@ -301,6 +301,7 @@ class Arg:
         # Evaluate sources and context items
         evaluated = await source_processor.evaluate_composite_source(self.raw, context=context)
         errors.steal(source_processor.errors, context='parameter `{}`'.format(self.par.name))
+        if errors.terminal: return
         # Attempt to parse the argument
         try:
             val = self.par.parse(evaluated)

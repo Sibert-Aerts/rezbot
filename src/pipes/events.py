@@ -23,6 +23,22 @@ class Event:
     def update(self, script):
         self.script = script
 
+    def test(self, channel):
+        return channel.id in self.channels
+
+    def embed(self, ctx):
+        desc = '{}abled in this channel'.format( 'En' if ctx.channel.id in self.channels else 'Dis' )
+        embed = Embed(title='Event: ' + self.name, description=desc, color=0x7628cc)
+        
+        ### List of the current server's channels it's enabled in
+        channels = [ ch.mention for ch in ctx.guild.text_channels if ch.id in self.channels ]
+        embed.add_field(name='Enabled channels', value=', '.join(channels) or 'None', inline=True)
+
+        ## Script
+        embed.add_field(name='Script', value=block_format(self.script), inline=False)
+
+        return embed
+
 class OnMessage(Event):
     def __init__(self, name, channel, script, pattern):
         super().__init__(name, channel, script)
@@ -36,26 +52,35 @@ class OnMessage(Event):
 
     def test(self, message):
         '''Test whether or not the given message should trigger the Event's execution.'''
-        return message.channel.id in self.channels and self.pattern.search(message.content)
+        return super().test(message.channel) and self.pattern.search(message.content)
 
     def __str__(self):
         return '**{}**: ON MESSAGE `{}`'.format(self.name, self.patternstr)
 
     def embed(self, ctx):
-        desc = '{} in this channel'.format( 'Enabled' if ctx.channel.id in self.channels else 'Disabled' )
-        embed = Embed(title='Event: ' + self.name, description=desc, color=0x7628cc)
+        embed = super().embed(ctx)
+        return embed.insert_field_at(0, name='On message', value='`%s`' % self.patternstr, inline=True)
+        
 
-        ## On message
-        embed.add_field(name='On message', value='`%s`' % self.patternstr, inline=True)
+class OnReaction(Event):
+    def __init__(self, name, channel, script, emotes):
+        super().__init__(name, channel, script)
+        self.emotes = re.split('\s*,\s*', emotes)
 
-        ### List of the current server's channels it's enabled in
-        channels = [ ch.mention for ch in ctx.guild.text_channels if ch.id in self.channels ]
-        embed.add_field(name='Enabled channels', value=', '.join(channels) or 'None', inline=True)
+    def update(self, script, emotes):
+        super().update(script)
+        self.emotes = re.split('\s*,\s*', emotes)
 
-        ## Script
-        embed.add_field(name='Script', value=block_format(self.script), inline=False)
+    def test(self, channel, emoji):
+        '''Test whether or not a given reaction-addition should trigger this Event.'''
+        return super().test(channel) and emoji in self.emotes
 
-        return embed
+    def __str__(self):
+        return '**{}**: ON REACTION `{}`'.format(self.name, ','.join(self.emotes))
+
+    def embed(self, ctx):
+        embed = super().embed(ctx)
+        return embed.insert_field_at(0, name='On reaction', value=','.join(self.emotes), inline=True)
 
 ###############################################################
 #                             Events                          #
@@ -75,15 +100,16 @@ class Events:
             print(e)
             print('Failed to load events from "{}"!'.format(DIR(filename)))
 
-    command_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w[\w.]+) ON MESSAGE (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I | re.S )
-    #                                  ^^^^^^^^         ^^^^^^^^              ^^^          ^^
+    command_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w[\w.]+) ON (MESSAGE|REACT(?:ION)?) (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I | re.S )
+    #                                  ^^^^^^^^         ^^^^^^^^      ^^^^^^^^^^^^^^^^^^^^^   ^^^          ^^
 
     async def parse_command(self, string, channel):
         m = re.match(self.command_pattern, string)
         if m is None: return False
 
-        mode, name, pattern, script = m.groups()
+        mode, name, what, trigger, script = m.groups()
         mode = mode.upper()
+        eventType = {'M': OnMessage, 'R': OnReaction}[what[0].upper()]
         name = name.lower()
 
         ## Check for naming conflicts
@@ -106,9 +132,14 @@ class Events:
         ## Register the event
         try:
             if mode == 'EDIT':
-                self.events[name].update(script, pattern)
+                event = self.events[name]
+                if not isinstance(event, eventType):
+                    # Is this error lame? we .update() events so that the list of channels isn't lost but maybe it could happen differently
+                    await channel.send(f'Event "{name}" cannot be edited to be a different type. Try deleting it first.')
+                    return True
+                event.update(script, trigger)
             else:
-                self.events[name] = OnMessage(name, channel, script, pattern)
+                self.events[name] = eventType(name, channel, script, trigger)
             self.write()
 
         except Exception as e:

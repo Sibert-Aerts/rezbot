@@ -454,11 +454,18 @@ class PipelineProcessor:
     async def on_message(self, message):
         '''Check if an incoming message triggers any custom Events.'''
         for event in events.values():
+            if not isinstance(event, OnMessage): continue
             m = event.test(message)
             if m:
                 # If m is not just a bool, but a regex match object, fill the context up with the match groups, otherwise with the entire message.
                 context = Context(items=(list(m.groups()) or [message.content]) if m is not True else [message.content])
                 await self.execute_script(event.script, message, context, name='Event: ' + event.name)
+
+    async def on_reaction(self, channel, emoji, user_id, msg_id):
+        for event in events.values():
+            if isinstance(event, OnReaction) and event.test(channel, emoji):
+                message = await channel.fetch_message(msg_id)
+                await self.execute_script(event.script, message, Context(items=[emoji, str(user_id)]), name='Event: ' + event.name)
 
     async def print(self, dest, output):
         ''' Nicely print the output in rows and columns and even with little arrows.'''
@@ -621,7 +628,7 @@ from .pipes import pipes
 from .sources import sources, SourceResources
 from .spouts import spouts
 from .macros import pipe_macros, source_macros
-from .events import events
+from .events import events, OnMessage, OnReaction
 from .signature import Arguments
 from .sourceprocessor import Context, SourceProcessor
 from .macrocommands import parse_macro_command

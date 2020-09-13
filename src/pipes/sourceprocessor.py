@@ -119,11 +119,11 @@ class SourceProcessor:
         '''Checks whether a string matches the exact format "{[n] source [args]}", AKA "pure".'''
         return re.fullmatch(SourceProcessor.source_regex, source)
 
-    async def evaluate_parsed_source(self, name, argstr, n=None):
+    async def evaluate_parsed_source(self, name, argstr, n=None, context=None):
         '''Given the exact name, argstring and `n` of a source, attempts to find and evaluate it.'''
         if name in sources:
             source = sources[name]
-            args, errors, _ = await source.signature.parse_and_determine(argstr, self, context=None)
+            args, errors, _ = await source.signature.parse_and_determine(argstr, self, context)
             self.errors.extend(errors, context=name)
             if errors.terminal: return None
             try:
@@ -139,7 +139,7 @@ class SourceProcessor:
             source, code = PipelineProcessor.split(code)
             ## STEP 1: create a new SourceP. so we can contextualise errors
             source_processor = SourceProcessor(self.message)
-            values = await source_processor.evaluate(source)
+            values = await source_processor.evaluate(source, context)
             self.errors.extend(source_processor.errors, name)
             ## STEP 2: parse the Pipeline (but check the cache first)
             if code in source_macros.pipeline_cache:
@@ -157,13 +157,13 @@ class SourceProcessor:
         self.errors('Unknown source `{}`.'.format(name))
         return None
 
-    async def evaluate_pure_source(self, source):
+    async def evaluate_pure_source(self, source, context=None):
         '''Takes a string containing exactly one source and nothing more, a special case which allows it to produce multiple values at once.'''
         match = re.match(SourceProcessor.source_regex, source)
         n, name, args = match.groups()
         name = name.lower()
 
-        values = await self.evaluate_parsed_source(name, args, n)
+        values = await self.evaluate_parsed_source(name, args, n, context)
         if values is not None: return values
         return([match.group()])
 
@@ -185,7 +185,7 @@ class SourceProcessor:
             if name:
                 ## Matched a source
                 name = name.lower()
-                coro = self.evaluate_parsed_source(name, args, 1) # n=1 because we only want 1 item anyway...
+                coro = self.evaluate_parsed_source(name, args, 1, context) # n=1 because we only want 1 item anyway...
                 # Turn it into a Future; it immediately starts the call but we only actually await it outside of this loop
                 futures.append(asyncio.ensure_future(coro))
                 matches.append(match.group())
@@ -237,7 +237,7 @@ class SourceProcessor:
             source = source[1:-1]
         for source in ChoiceTree(source, parse_flags=True, add_brackets=True):
             if self.is_pure_source(source):
-                values.extend(await self.evaluate_pure_source(source))
+                values.extend(await self.evaluate_pure_source(source, context))
             else:
                 values.append(await self.evaluate_composite_source(source, context))
         return values
