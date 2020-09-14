@@ -131,7 +131,7 @@ class ChoiceTree:
         self.count = self.tree.count
 
     def __iter__(self):
-        if self.flag_random: return [self.random()]
+        if self.flag_random: yield self.random(); return
         while not self.tree.done:
             yield self.tree.next()
         self.tree.reset()
