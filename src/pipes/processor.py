@@ -363,7 +363,7 @@ class Pipeline:
                 elif name == 'print':
                     next_items.extend(items)
                     new_printed_items.extend(items)
-                    spout_callbacks.append(spouts['print'](items, ''))
+                    spout_callbacks.append(spouts['print'](items))
 
                 ## A NATIVE PIPE
                 elif parsed_pipe.type == ParsedPipe.NATIVEPIPE:
