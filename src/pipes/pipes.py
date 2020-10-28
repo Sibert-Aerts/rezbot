@@ -248,7 +248,7 @@ def sub_pipe(text, to, **argc):
     Substitutes patterns in text.
     Use \\1, \\2, ... in the `to` string to insert matched groups (parentheses) of the regex pattern.
     '''
-    return re.sub(argc['from'], to, text, flags=re.S)
+    return re.sub(argc['from'].pattern, to, text, flags=re.S)
 
 DIRECTION = Option('left', 'center', 'right')
 
