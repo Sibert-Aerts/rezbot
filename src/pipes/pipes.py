@@ -239,16 +239,16 @@ def find_all_pipe(text, pattern):
 
 
 @make_pipe({
-    'from': Par(regex, None, 'Pattern to replace (regex)'),
+    'from': Par(regex, None, 'Pattern to replace'),
     'to' : Par(str, None, 'Replacement string'),
 })
 @one_to_one
 def sub_pipe(text, to, **argc):
     '''
-    Substitutes patterns in text.
+    Substitutes regex patterns in text.
     Use \\1, \\2, ... in the `to` string to insert matched groups (parentheses) of the regex pattern.
     '''
-    return re.sub(argc['from'].pattern, to, text, flags=re.S)
+    return argc['from'].sub(to, text, flags=re.S)
 
 DIRECTION = Option('left', 'center', 'right')
 
