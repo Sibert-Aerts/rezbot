@@ -119,7 +119,7 @@ class SourceProcessor:
         '''Checks whether a string matches the exact format "{[n] source [args]}", AKA "pure".'''
         return re.fullmatch(SourceProcessor.source_regex, source)
 
-    async def evaluate_parsed_source(self, name, argstr, n=None, context=None):
+    async def evaluate_parsed_source(self, name: str, argstr: str, n=None, context=None):
         '''Given the exact name, argstring and `n` of a source, attempts to find and evaluate it.'''
         if name in sources:
             source = sources[name]
@@ -134,7 +134,7 @@ class SourceProcessor:
                 return None
 
         elif name in source_macros:
-            code = source_macros[name].apply_args(args)
+            code = source_macros[name].apply_args(argstr)
             # Dressed-down version of PipelineProcessor.execute_script:
             source, code = PipelineProcessor.split(code)
             ## STEP 1: create a new SourceP. so we can contextualise errors

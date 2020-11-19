@@ -66,7 +66,7 @@ class Macro:
     # Regex partially identical to the one in signature.py
     arg_finder = re.compile(r'\b(\w+)=("[^"]*"|\'[^\']*\'|\S+)\s*')
 
-    def apply_args(self, argstr):
+    def apply_args(self, argstr: str):
         # TODO: required args?
         # Load the defaults
         args = {s: self.signature[s].default for s in self.signature}
@@ -135,7 +135,7 @@ class Macros:
     def __iter__(self):
         return (i for i in self.macros)
 
-    def __getitem__(self, name):
+    def __getitem__(self, name) -> Macro:
         return self.macros[name]
 
     def __setitem__(self, name, val):
