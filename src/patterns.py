@@ -192,10 +192,8 @@ class Patterns:
                     break
 
                 elif self.odds.test('knife'):
-                    if not attack.leftFacing:
-                        continue
                     oldWeapon = attack.weapon
-                    attack.weapon = choose('🔪🗡')
+                    attack.weapon = '🔪' if attack.leftFacing else '🗡️'
                     await post(attack.status_quo())
 
                     acts = ['unsheathes', 'pulls out', 'reveals', 'whips out']
@@ -218,7 +216,7 @@ class Patterns:
                 elif self.odds.test('tool'):
                     if attack.leftFacing:
                         continue
-                    attack.weapon = choose('🔨⛏')
+                    attack.weapon = choose('🔨⛏🪓🪚')
                     await post(attack.status_quo())
                     await post(attack.attacking())
                     
@@ -228,7 +226,11 @@ class Patterns:
                     if attack.weapon == '🔨': 
                         quips += ['`hammer time!`', '`get hammered.`']
                     elif attack.weapon == '⛏': 
-                        quips += ['`i learned this from mine craft.`']
+                        quips += ['`get minecrafted.`', 'get fortnited.', '(fortnite default dance)']
+                    elif attack.weapon == '🪓':
+                        quips += ['get lumberjacked.', 'can I "axe" you a question?', 'hey Paul!']
+                    elif attack.weapon == '🪚':
+                        quips += ['I bet you didn\'t saw that one coming.']
                     
                     await post(choose(quips))
                     break
@@ -277,7 +279,7 @@ class Patterns:
                     await post('`w-what?!`')
                     await post(attack.left + attack.weapon + ':boom:' + attack.weapon + attack.left)
                     await post(attack.left + attack.weapon + '                    ' + attack.left)
-                    await post('`quick, take his weapon and my time machine.`')
+                    await post('`quick, take their weapon and my time machine.`')
                     await post(':cyclone::cyclone:' + '                    ' + attack.left)
                     await post('`~bzoom~`')
                     break
@@ -286,15 +288,20 @@ class Patterns:
                     if rolls > 3:
                         continue
                     oldWeapon = attack.weapon
+                    kawarimi = chance(0.5)
+                    if kawarimi: await post(attack.attacking())
+
                     if attack.leftFacing:
-                        await post(':dash:' + oldWeapon + attack.right)
-                        await post('`*teleports behind you*`')
+                        await post((':wood:' if kawarimi else ':dash:') + oldWeapon + attack.right)
+                        if kawarimi: await post('`Kawarimi no jutsu!`')
+                        else: await post('`*teleports behind you*`')
                         (attack.left, attack.right) = (attack.right, attack.left)
                         attack.weapon = choose(Attack.leftWeapons)
                         await post(oldWeapon + attack.left + attack.weapon + attack.right)
                     else:
-                        await post(attack.left + oldWeapon + ':dash:')
-                        await post('`*teleports behind you*`')
+                        await post(attack.left + oldWeapon + (':wood:' if kawarimi else ':dash:'))
+                        if kawarimi: await post('`Kawarimi no jutsu!`')
+                        else: await post('`*teleports behind you*`')
                         (attack.left, attack.right) = (attack.right, attack.left)
                         attack.weapon = choose(Attack.rightWeapons)
                         await post(attack.left + attack.weapon + attack.right + oldWeapon)
@@ -322,6 +329,7 @@ class Patterns:
                     if chance(0.5):
                         attack.attacker(oldAttacker)
                     continue
+
 
     def make_reply(reply):
         return lambda self, message: self.reply(message, reply)
