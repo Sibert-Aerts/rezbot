@@ -20,7 +20,7 @@ from resource.jerkcity import JERKCITY
 import utils.biogenerator
 from utils.rand import *
 from utils.meal import Meal
-from utils.attack import Attack
+from utils.emojifight import EmojiFight
 from mycommands import MyCommands
 
 '''
@@ -192,8 +192,9 @@ class BotCommands(MyCommands):
     @commands.command()
     async def weapons(self, ctx):
         '''Show all weapons the bot recognises to start emoji fights.'''
-        text = "`left-facing weapons:` " + " ".join(Attack.leftWeapons)
-        text += "\n`right-facing weapons:` " + " ".join(Attack.rightWeapons)
+        text = "`left-facing weapons:` " + " ".join(EmojiFight.leftWeapons)
+        text += "\n`right-facing weapons:` " + " ".join(EmojiFight.rightWeapons)
+        text += "\n`duel-starting weapons:` " + " ".join(EmojiFight.dualWeapons)
         await ctx.send(text)
 
 

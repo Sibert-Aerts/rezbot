@@ -9,8 +9,8 @@ from discord.ext import commands
 
 import utils.util as util
 import utils.texttools as texttools
-from utils.rand import *
-from utils.attack import Attack
+from utils.rand import chance, choose, RandomBranch
+from utils.emojifight import EmojiFight
 
 '''
 This file is a bit of a mess, but what happens here is that the bot will scan all messages
@@ -60,279 +60,267 @@ class Patterns:
 
         for pattern in self.generalPatterns:
             if matches(pattern['pattern'], text):
-                print('Recognised pattern \"{0}\".'.format(
-                    pattern['function'].__name__))
+                name = pattern['function'].__name__
+                print(f'Recognised pattern "{name}".')
                 await pattern['function'](self, message)
 
         if matches(self.robotRegex, text):
-            print('I may have been addressed: "{0}".'.format(text))
+            print(f'I may have been addressed: "{text}".')
             for pattern in self.addressedPaterns:
                 if matches(pattern['addressPattern'], text):
                     print('Reacting.')
                     await pattern['function'](self, message)
                     return
 
-        if await self.implicitAddress(message):
+        elif await self.implicitAddress(message):
             for pattern in self.addressedPaterns:
                 if matches(pattern['pattern'], text):
                     print('I\'ve been implicitly addressed, reacting.')
                     await pattern['function'](self, message)
                     return
 
-    async def reply(self, message, replyText):
-        msg = await message.channel.send(replyText)
+    async def reply(self, message, text):
+        await message.channel.send(text)
 
     async def react(self, message, emote):
         await message.add_reaction(emote)
 
     async def current_year(self, message):
-        await self.reply(message, '`The current year is {0}.`'.format(datetime.datetime.now().year))
+        await message.channel.send('`The current year is {0}.`'.format(datetime.datetime.now().year))
 
 
-    # TODO: Pull all this stuff up to utils.attack
-    odds = None
+    # TODO: Pull all this stuff up to utils.emojifight
+    odds = RandomBranch([
+        ('attack',      50),
+        ('noBullets',   10),
+        ('knife',       10),
+        ('tool',        10),
+        ('punch',       10),
+        ('hero',        10),
+        ('time',        5),
 
-    def compile_odds(self):
-        if self.odds != None:
-            return
+        ('love',        10),
+        ('shake',       10),
+        
+        ('kiss',        10),
+        ('teleport',    10),
+    ])
 
-        self.odds = Odds([
-            ('shoot', 50),
-            ('noBullets', 10),
-            ('knife', 10),
-            ('tool', 10),
-            ('punch', 10),
-            ('hero', 10),
-            ('time', 5),
-
-            ('love', 10),
-            ('shake', 10),
-            
-            ('kiss', 10),
-            ('teleport', 10),
-        ])
-
-    weaponRegex = '(' + '|'.join(Attack.leftWeapons) + '|' + '|'.join(Attack.rightWeapons) + ')'
-    corpses = [':skull_crossbones:', ':skull:', ':ghost:', ':bone:', ':headstone:', ':urn:', ':coffin:']
+    fightRegex = re.compile( r'(\S*)\s*' + EmojiFight.weaponRegex.pattern + r'\s*(\S*)' )
 
     async def attack(self, message):
         '''This function is called when the bot recognises an "emoji fight" in a message.'''
+        match = re.search(Patterns.fightRegex, message.content)
+        l, w, r = match.groups()        
+        fight = EmojiFight(l, w, r)
+        # print(f'({fight.attacker}) attacking ({fight.target}) with ({fight.weapon})')
 
-        s = re.search('[^\\s]+\\s*' + self.weaponRegex + '.*', message.content)
-        if s == None:
-            print('Couldn\'t find victim...? "{0}"'.format(message.content))
+        if not fight.target:
+            ## No target, no fight
+            return                    
+        elif not fight.attacker:
+            ## No attacker: interpret it as the target is threatening themselves
+            await message.channel.send('`don\'t do it.`' if chance(0.5) else '`do it.`')
             return
-        s = s.group(0)
-        l, w, r = re.split(self.weaponRegex, s, maxsplit=1)[:3]
 
-        l = l.lstrip().rstrip()
-        r = r.lstrip().rstrip()
-        
-        attack = Attack(l, w, r)
-        
-        # Don't uncomment this, linux doesn't like printing emoji
-        # print('left: "%s"\t weapon: "%s"\t right: "%s"' % (attack.left, attack.weapon, attack.right))
-        
-        def corpse():
-            return choose(self.corpses)
+        ## Someone's attacking someone else: Fight!
+
+        async def post(*args):
+            await message.channel.send(''.join(args))
+        async def postRandom(*args):
+            await message.channel.send(random.choice(args))
             
-        if attack.attacker() == "":
-            # Someone's attacking themselves
-            if random.random() < 0.5:
-                await self.reply(message, '`don\'t do it.`')
-            else:
-                await self.reply(message, '`do it.`')
+        if fight.weapon in EmojiFight.dualWeapons:
+            ## Start the battle by having one side draw a random weapon
+            fight.weapon = choose(EmojiFight.leftWeapons) if chance(0.5) else choose(EmojiFight.rightWeapons)
+            await post(fight.status_quo())
+            if chance(0.5):
+                await postRandom('`en guarde!`', '`have at you!`', '`on your guard!`')
 
-        else:
-            # Someone's attacking someone else
-            async def post(x):
-                await self.reply(message, x)
+        # Loop until the fight ends somehow
+        rollCount = 0
+        while True:
+            self.odds.roll()
+            rollCount += 1
 
-            self.compile_odds()
+            if self.odds.test('attack'):
+                await post(fight.attacking())
+                r = random.random()
 
-            # Loop until the fight ends somehow
-            rolls = 0
+                if r < 0.3: # 30% chance the attack is unsuccessful
+                    await post(fight.status_quo())
+                    await postRandom('`huh?!`', '`what?!`', '`nani?!`', '`...huh?!`', '`w-what?!`')
 
-            while True:
-                self.odds.roll()
-                rolls += 1
-
-                if self.odds.test('shoot'):
-                    await post(attack.attacking())
-                    r = random.random()
-
-                    if r < 0.3:
-                        await post(attack.status_quo())
-                        shrieks = ['`huh?!`', '`what?!`', '`nani?!`', '`...huh?!`', '`w-what?!`']
-                        await post(choose(shrieks))
-
-                        if r < 0.2:
-                            continue
-
-                        else:
-                            disbeliefs = [
-                                '`h-he\'s not even scratched !!`', 
-                                '`t-this thing ain\'t human!`', 
-                                '`i-it\'s invincible !`'
-                            ]
-                            await post(choose(disbeliefs))
-                            break
-                            
-                    elif r < 0.7:
-                        attack.target(corpse())
-                        await post(attack.status_quo())
-                    break
-
-                elif self.odds.test('noBullets'):
-                    if rolls == 1 or attack.weapon != '🔫':
+                    if r < 0.2: # after which a 2/3 chance the fight continues
                         continue
-                    await post(attack.status_quo())
-                    await post('`*click* *click* *click*`')
-                    await post('`... out of bullets !!`')
-                    break
-
-                elif self.odds.test('knife'):
-                    oldWeapon = attack.weapon
-                    attack.weapon = '🔪' if attack.leftFacing else '🗡️'
-                    await post(attack.status_quo())
-
-                    acts = ['unsheathes', 'pulls out', 'reveals', 'whips out']
-                    knives = ['katana', 'knife', 'kunai', 'dagger']
-                    await post('`*' + choose(acts) + ' ' + choose(knives) + '*`')
-
-                    await post(attack.attacking())
+                    else: # or a 1/3 chance the attacker gives up
+                        await postRandom(
+                            '`h-he\'s not even scratched !!`', 
+                            '`t-this thing ain\'t human!`', 
+                            '`i-it\'s invincible !`'
+                        )
+                        break
+                       
+                elif r < 0.7: # 40% chance they're dead and their corpse is shown
+                    fight.killTarget()
+                    await post(fight.status_quo())
                     
-                    quips = [
-                        '`it was knife to know you.`',
-                        '`now THIS is a knife.`',
-                        '`I hope you got my point.`',
-                    ]
-                    if oldWeapon == '🔫': quips += ['`don\'t bring a gun to a knife fight.`']
+                # 30% chance they're dead and their corpse isn't shown
+                break
 
-                    if chance(0.5):
-                        await post(choose(quips))
-                    break
+            elif self.odds.test('noBullets'):
+                if rollCount == 1 or fight.weapon != '🔫':
+                    continue
+                await post(fight.status_quo())
+                await post('`*click* *click* *click*`')
+                await post('`... out of bullets !!`')
+                # Out of bullets ends the fight
+                break
 
-                elif self.odds.test('tool'):
-                    if attack.leftFacing:
-                        continue
-                    attack.weapon = choose('🔨⛏🪓🪚')
-                    await post(attack.status_quo())
-                    await post(attack.attacking())
-                    
-                    quips = [
-                        '`don\'t underestimate a craftsman.`',
-                    ]
-                    if attack.weapon == '🔨': 
-                        quips += ['`hammer time!`', '`get hammered.`']
-                    elif attack.weapon == '⛏': 
-                        quips += ['`get minecrafted.`', 'get fortnited.', '(fortnite default dance)']
-                    elif attack.weapon == '🪓':
-                        quips += ['get lumberjacked.', 'can I "axe" you a question?', 'hey Paul!']
-                    elif attack.weapon == '🪚':
-                        quips += ['I bet you didn\'t saw that one coming.']
-                    
+            elif self.odds.test('knife'):
+                oldWeapon = fight.weapon
+                fight.weapon = '🔪' if fight.leftFacing else '🗡️'
+                await post(fight.status_quo())
+
+                acts = ['unsheathes', 'pulls out', 'reveals', 'whips out']
+                knives = ['katana', 'knife', 'kunai', 'dagger']
+                await post('`*', choose(acts), ' ', choose(knives), '*`')
+
+                await post(fight.attacking())
+                
+                quips = [
+                    '`it was knife knowing you.`',
+                    '`now THIS is a knife.`',
+                    '`I hope you got my point.`',
+                ]
+                if oldWeapon == '🔫': quips += ['`don\'t bring a gun to a knife fight.`']
+
+                if chance(0.5):
                     await post(choose(quips))
-                    break
+                break
 
-                elif self.odds.test('punch'):
-                    attack.weapon = '🤜' if attack.leftFacing else '🤛'
-                    await post(attack.attacking())
-                    await post('`POW!`')
-                    if chance(0.5):
-                        await post(attack.left + (':point_left:' if attack.leftFacing else ':point_right:') + attack.right)
-                        await post('`you are already dead.`')
-                    attack.target(corpse())
-                    await post(attack.no_weapon())
-                    break
-
-                elif self.odds.test('hero'):
-                    if attack.weapon != '🔫':
-                        continue
-                    await post(attack.left + '   ' + attack.right + ':gun:')
-                    await post('`I\'m fed up with this world.`')
-                    await post(attack.left + '   ' + ':boom::gun:')
-                    break
-
-                elif self.odds.test('love'):
-                    await post(attack.left + ':bouquet:' + attack.right)
-                    await post('`must we fight?`')
-                    await post(attack.left + ':heart:' + attack.right)
-                    await post('`love conquers all.`')
-                    break
-
-                elif self.odds.test('shake'):
-                    await post(attack.no_weapon())
-                    await post('`I\'m sorry. I can\'t do it.`')
-                    await post(attack.left + ':handshake:' + attack.right)
-                    await post('`let\'s put this behind us, pal.`')
-                    break
-
-                elif self.odds.test('time'):
-                    if not attack.leftFacing:
-                        continue
-                    await post(attack.status_quo() + ':cyclone::cyclone:')
-                    await post('`~bzoom~`')
-                    await post(attack.status_quo() + attack.weapon + attack.left)
-                    await post('`w-what?!`')
-                    await post(attack.left + attack.weapon + ':boom:' + attack.weapon + attack.left)
-                    await post(attack.left + attack.weapon + '      ' + attack.left)
-                    await post('`quick, take their weapon and my time machine.`')
-                    await post(':cyclone::cyclone:' + '      ' + attack.left)
-                    await post('`~bzoom~`')
-                    break
-
-                elif self.odds.test('teleport'):
-                    if rolls > 3:
-                        continue
-                    oldWeapon = attack.weapon
-                    kawarimi = chance(0.5)
-                    if kawarimi: await post(attack.attacking())
-
-                    if attack.leftFacing:
-                        await post((':wood:' if kawarimi else ':dash:') + oldWeapon + attack.right)
-                        if kawarimi: await post('`Kawarimi no jutsu!`')
-                        else: await post('`*teleports behind you*`')
-                        (attack.left, attack.right) = (attack.right, attack.left)
-                        attack.weapon = choose(Attack.leftWeapons)
-                        await post(oldWeapon + attack.left + attack.weapon + attack.right)
-                    else:
-                        await post(attack.left + oldWeapon + (':wood:' if kawarimi else ':dash:'))
-                        if kawarimi: await post('`Kawarimi no jutsu!`')
-                        else: await post('`*teleports behind you*`')
-                        (attack.left, attack.right) = (attack.right, attack.left)
-                        attack.weapon = choose(Attack.rightWeapons)
-                        await post(attack.left + attack.weapon + attack.right + oldWeapon)
-
-                    if chance(0.5):
-                        await post('`psh, nothing personnel.`')
-
+            elif self.odds.test('tool'):
+                if fight.leftFacing:
                     continue
+                fight.weapon = choose('🔨⛏🪓🪚')
+                await post(fight.status_quo())
+                await post(fight.attacking())
+                
+                quips = [
+                    '`don\'t underestimate a craftsman.`',
+                ]
+                if fight.weapon == '🔨': 
+                    quips += ['`hammer time!`', '`get hammered.`']
+                elif fight.weapon == '⛏': 
+                    quips += ['`get minecrafted.`', 'get fortnited.', '(fortnite default dance)']
+                elif fight.weapon == '🪓':
+                    quips += ['get lumberjacked.', 'can I "axe" you a question?', 'hey Paul!']
+                elif fight.weapon == '🪚':
+                    quips += ['I bet you didn\'t saw that one coming.']
+                
+                await post(choose(quips))
+                break
 
-                elif self.odds.test('kiss'):
-                    if rolls > 4:
-                        continue
-                    kissing_faces = [':kissing_heart:', ':kissing:', ':kissing_smiling_eyes:', ':kissing_closed_eyes:']
+            elif self.odds.test('punch'):
+                fight.weapon = '🤜' if fight.leftFacing else '🤛'
+                await post(fight.attacking())
+                await post('`POW!`')
+                if chance(0.5):
+                    await post(fight.left, (':point_left:' if fight.leftFacing else ':point_right:'), fight.right)
+                    await post('`you are already dead.`')
+                fight.killTarget()
+                await post(fight.no_weapon())
+                break
 
-                    oldTarget = attack.target()
-                    attack.target(choose(kissing_faces))
-                    await post(attack.left + ':kiss:' + attack.right)
-                    await post('`mwah!`')
-                    attack.target(oldTarget)
-
-                    reaction_faces = [':blush:', ':flushed:', ':wink:', ':relieved:']
-                    oldAttacker = attack.attacker()
-                    attack.attacker(choose(reaction_faces))
-                    await post(attack.status_quo())
-                    if chance(0.5):
-                        attack.attacker(oldAttacker)
+            elif self.odds.test('hero'):
+                if fight.weapon != '🔫':
                     continue
+                await post(fight.left, '   ', fight.right, ':gun:')
+                await postRandom('`I\'m fed up with this world.`', '`I can\'t take it anymore.`', '`goodbye cruel world.`')
+                await post(fight.left, '   ', ':boom::gun:')
+                break
+
+            elif self.odds.test('love'):
+                await post(fight.left, ':bouquet:', fight.right)
+                await postRandom('`must we fight?`', '`why do we fight?`')
+                await post(fight.left, ':heart:', fight.right)
+                await postRandom('`love conquers all.`', '`love trumps hate.`', '`we will hide our feelings no longer.`')
+                break
+
+            elif self.odds.test('shake'):
+                await post(fight.no_weapon())
+                await postRandom('`I\'m sorry. I can\'t do it.`', '`I\'m sorry, I can\'t do this.`', '`no, this is wrong.`')
+                await post(fight.left, ':handshake:', fight.right)
+                await postRandom('`let\'s put this behind us, pal.`', '`I hope you can forgive me.`', '`we can find a peaceful solution to our disagreement.`')
+                break
+
+            elif self.odds.test('time'):
+                if not fight.leftFacing:
+                    continue
+                await post(fight.status_quo(), ':cyclone::cyclone:')
+                await post('`~bzoom~`')
+                await post(fight.status_quo(), fight.weapon, fight.left)
+                await post('`w-what?!`')
+                await post(fight.left, fight.weapon, ':boom:', fight.weapon, fight.left)
+                await post(fight.left, fight.weapon, '      ', fight.left)
+                await post('`quick, take their weapon and my time machine.`')
+                await post(':cyclone::cyclone:', '      ', fight.left)
+                await post('`~bzoom~`')
+                break
+
+            elif self.odds.test('teleport'):
+                if rollCount > 3: continue
+                oldWeapon = fight.weapon
+                kawarimi = chance(0.5)
+                if kawarimi: await post(fight.attacking())
+
+                if fight.leftFacing:
+                    await post((':wood:' if kawarimi else ':dash:'), oldWeapon, fight.right)
+                    if kawarimi: await post('`Kawarimi no jutsu!`')
+                    else: await post('`*teleports behind you*`')
+                    (fight.left, fight.right) = (fight.right, fight.left)
+                    fight.weapon = choose(EmojiFight.leftWeapons)
+                    await post(oldWeapon, fight.left, fight.weapon, fight.right)
+                else:
+                    await post(fight.left, oldWeapon, (':wood:' if kawarimi else ':dash:'))
+                    if kawarimi: await post('`Kawarimi no jutsu!`')
+                    else: await post('`*teleports behind you*`')
+                    (fight.left, fight.right) = (fight.right, fight.left)
+                    fight.weapon = choose(EmojiFight.rightWeapons)
+                    await post(fight.left, fight.weapon, fight.right, oldWeapon)
+
+                if chance(0.5):
+                    await postRandom('`nothing personnel.`', '`nothing personal, kid.`', '`psh, nothing personal.`')
+
+                continue
+
+            elif self.odds.test('kiss'):
+                if rollCount > 4:
+                    continue
+                kissing_faces = [':kissing_heart:', ':kissing:', ':kissing_smiling_eyes:', ':kissing_closed_eyes:']
+
+                oldTarget = fight.target
+                fight.target = choose(kissing_faces)
+                await post(fight.left, ':kiss:', fight.right)
+                await post('`mwah!`')
+                fight.target = oldTarget
+
+                reaction_faces = [':blush:', ':flushed:', ':wink:', ':relieved:']
+                oldAttacker = fight.attacker
+                fight.attacker = choose(reaction_faces)
+                await post(fight.status_quo())
+                if chance(0.5):
+                    fight.attacker = oldAttacker
+                continue
+
+            else:
+                print(f'ERROR: encountered un-implemented branch: "{self.odds.get()}"')
 
 
-    def make_reply(reply):
-        return lambda self, message: self.reply(message, reply)
+    def do_reply(text):
+        return lambda self, message: message.channel.send(text)
 
-    def make_react(emote, fallbackEmote='😊'):
+    def do_react(emote, fallbackEmote='😊'):
         async def try_react(self, message):
             try:
                 await self.react(message, emote)
@@ -352,38 +340,38 @@ class Patterns:
     # Patterns that are always* executed
     generalPatterns = [
         #{ 'pattern' : (':yaranaika:'  , re.I),
-        #  'function' : make_react(':yaranaika:245987292513173505') },
+        #  'function' : do_react(':yaranaika:245987292513173505') },
         #{ 'pattern' : ('\\bxd+\\b'  , re.I),
-        #  'function' : make_react('😫') },
+        #  'function' : do_react('😫') },
         {'pattern': ('(✋|up[-\\s]top|high[-\\s]five)', re.I),
-         'function': make_react('🤚')},
-        {'pattern': ('[^\\s]+\\s*' + weaponRegex + '.*', re.I),
+         'function': do_react('🤚')},
+        {'pattern': (fightRegex.pattern, re.I),
          'function': attack},
         {'pattern': ('current ?year', re.I),
          'function': current_year},
         {'pattern': ('\\byou\'?re? a big bot\\b', re.I),
-         'function': make_reply('for you.')},
+         'function': do_reply('for you.')},
         #{ 'pattern' : (':pe:', re.I),
-        #  'function' : make_reply('`{0}.`'.format(happyDayText)) },
+        #  'function' : do_reply('`{0}.`'.format(happyDayText)) },
         {'pattern': ('^<:pe:245959018210656256>$', re.I),
-         'function': make_react(':pe:245959018210656256')},
+         'function': do_react(':pe:245959018210656256')},
     ]
 
     # Patterns only applied when the bot recognises it's directly or implicitly addressed
     addressedPaterns = [
         {'pattern': ('\\b(hi(ya)?|h[aeu][lw]+o|hey|hoi|henlo)', re.I),
-         'function': make_reply('`hello.`')},
+         'function': do_reply('`hello.`')},
         {'pattern': ('\\bthanks?( (yo)?u)?', re.I),
-         'function': make_react(':yaranaika:245987292513173505', '🙂')},
+         'function': do_react(':rezbot:382292862865244161', '🙂')},
         {'pattern': ('\\b(goo?d|nice|beautiful|amazing)( ?(j[oa]b|work))?', re.I), 
-         'function': make_react(':yaranaika:245987292513173505', '🙂')},
+         'function': do_react(':rezbot:382292862865244161', '🙂')},
         {'pattern': ('\\bi l[ou]ve? ((yo)?u|th(e|is))', re.I),
-         'function': make_react(':yaranaika:245987292513173505', '🙂')},
+         'function': do_react(':rezbot:382292862865244161', '🙂')},
 
         {'pattern': ('\\b(bad|stupid|dumb)', re.I),
-         'function': make_react(':angery:245586525457350667', '😠')},
+         'function': do_react(':angery:382295067299151893', '😠')},
         {'pattern': ('\\bi h(ate?|8) ?((yo)?u|th(e|is))?', re.I),
-         'function': make_react(':angery:245586525457350667', '😠')},
+         'function': do_react(':angery:382295067299151893', '😠')},
         {'pattern': ('\\bf[aou](g|c?k) ?((yu?o)?u|th(e|is)|off?)', re.I),
-         'function': make_react(':angery:245586525457350667', '😠')},
+         'function': do_react(':angery:382295067299151893', '😠')},
     ]

@@ -600,7 +600,7 @@ def translate_pipe(text, to, **argc):
     A list of languages can be browsed at https://cloud.google.com/translate/docs/languages
     '''
     if _translate is None: return text
-    if text.isspace(): return text
+    if not text.strip(): return text
 
     fro = argc['from'] # Can't have a variable named 'from' because it's a keyword
     if fro == 'auto': fro = ''

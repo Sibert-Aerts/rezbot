@@ -1,4 +1,5 @@
 import random
+from typing import List, Tuple
 
 def chance(x, y=1):
     ''' Returns True with a chance x out of y. '''
@@ -42,18 +43,18 @@ def choose_slice(population, n, cyclical=False):
 
 
 
-class Odds:
+class RandomBranch:
     '''
-    A class that takes a list of (identifiers, weight) tuples
+    A class that takes a list of (name, weight) tuples
     and uses them to construct a probability switch.
     '''
 
-    def __init__(self, oddsList):
+    def __init__(self, nameList : List[Tuple[str, float]]):
         self.oddsMap = {}
-        totalChance = sum( b for [a, b] in oddsList )
+        totalChance = sum( b for [a, b] in nameList )
 
         s = 0
-        for (key, weight) in oddsList:
+        for (key, weight) in nameList:
             low = s
             s += weight
             self.oddsMap[key] = (low / totalChance, s / totalChance)
@@ -64,3 +65,7 @@ class Odds:
     def test(self, key):
         (low, high) = self.oddsMap[key]
         return low <= self.r < high
+
+    def get(self):
+        for (key, (low, high)) in self.oddsMap.items():
+            if low <= self.r < high: return key
