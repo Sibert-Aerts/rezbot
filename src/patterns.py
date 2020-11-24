@@ -112,8 +112,8 @@ class Patterns:
             ('teleport', 10),
         ])
 
-    weaponRegex = '([' + Attack.leftWeapons + Attack.rightWeapons + '])'
-    corpses = [':skull_crossbones:', ':skull:', ':ghost:', ':cross:', ':coffin:']
+    weaponRegex = '(' + '|'.join(Attack.leftWeapons) + '|' + '|'.join(Attack.rightWeapons) + ')'
+    corpses = [':skull_crossbones:', ':skull:', ':ghost:', ':bone:', ':headstone:', ':urn:', ':coffin:']
 
     async def attack(self, message):
         '''This function is called when the bot recognises an "emoji fight" in a message.'''
@@ -249,11 +249,9 @@ class Patterns:
                 elif self.odds.test('hero'):
                     if attack.weapon != '🔫':
                         continue
-                    await post(attack.left + '          ' + attack.right + ':gun:')
+                    await post(attack.left + '   ' + attack.right + ':gun:')
                     await post('`I\'m fed up with this world.`')
-                    r = random.random()
-                    if r <= 1.0:
-                        await post(attack.left + '          ' + ':boom::gun:')
+                    await post(attack.left + '   ' + ':boom::gun:')
                     break
 
                 elif self.odds.test('love'):
@@ -278,9 +276,9 @@ class Patterns:
                     await post(attack.status_quo() + attack.weapon + attack.left)
                     await post('`w-what?!`')
                     await post(attack.left + attack.weapon + ':boom:' + attack.weapon + attack.left)
-                    await post(attack.left + attack.weapon + '                    ' + attack.left)
+                    await post(attack.left + attack.weapon + '      ' + attack.left)
                     await post('`quick, take their weapon and my time machine.`')
-                    await post(':cyclone::cyclone:' + '                    ' + attack.left)
+                    await post(':cyclone::cyclone:' + '      ' + attack.left)
                     await post('`~bzoom~`')
                     break
 

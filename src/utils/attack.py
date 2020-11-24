@@ -5,8 +5,8 @@ Helper class for processing/drawing emoji fights.
 '''
 
 class Attack:
-    leftWeapons = '🔨⛏️🪓🪚🗡️🪡🪠🪒📌🔫🤛🏹'
-    rightWeapons = '🔪🤜'
+    leftWeapons = ['🔨', '⛏️', '🪓', '🪚', '🗡️', '🪡', '🪠', '🪒', '📌', '🔫', '🤛', '🏹']
+    rightWeapons = ['🔪', '🤜']
 
     def __init__(self, left, weapon, right):
         self.left = left
@@ -35,7 +35,7 @@ class Attack:
         return self.right if self.leftFacing else self.left
 
     def no_weapon(self):
-        return self.left + '          ' + self.right
+        return self.left + '   ' + self.right
 
     def status_quo(self):
         return self.left + self.weapon + self.right
