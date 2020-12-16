@@ -276,7 +276,9 @@ def setup(bot):
             text = util.strip_command(ctx)
 
             # Parse and process arguments from the command string
-            args, err, text = await pipe.signature.parse_and_determine(text, SourceProcessor(ctx.message), greedy=False)
+            sourceProc = SourceProcessor(ctx.message)
+            args, err, text = await pipe.signature.parse_and_determine(text, sourceProc, greedy=False)
+            text = await sourceProc.evaluate_composite_source(text)
             if err.terminal: await ctx.send(embed=err.embed(f'`{pipe.name}`')); return
 
             try:
@@ -308,7 +310,9 @@ def setup(bot):
             text = util.strip_command(ctx)
 
             # Parse and process arguments from the command string
-            args, err, text = await source.signature.parse_and_determine(text, SourceProcessor(ctx.message), greedy=False)
+            sourceProc = SourceProcessor(ctx.message)
+            args, err, text = await source.signature.parse_and_determine(text, sourceProc, greedy=False)
+            text = await sourceProc.evaluate_composite_source(text)
             if err.terminal: await ctx.send(embed=err.embed(f'`{source.name}`')); return
 
             try:
@@ -340,7 +344,9 @@ def setup(bot):
             text = util.strip_command(ctx)
 
             # Parse and process arguments from the command string
-            args, err, text = await spout.signature.parse_and_determine(text, SourceProcessor(ctx.message), greedy=False)
+            sourceProc = SourceProcessor(ctx.message)
+            args, err, text = await spout.signature.parse_and_determine(text, sourceProc, greedy=False)
+            text = await sourceProc.evaluate_composite_source(text)
             if err.terminal: await ctx.send(embed=err.embed(f'`{spout.name}`')); return
 
             try:
