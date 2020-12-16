@@ -557,7 +557,7 @@ def _wikipedia_page(page, language):
     
 WIKIPEDIA_WHAT = Option('title', 'url', 'summary', 'content', 'images', 'videos', 'audio', 'links')
 _img_re = re.compile(r'(?i)(png|jpe?g|gif|webp)$')
-_banned_imgs = ['https://upload.wikimedia.org/wikipedia/commons/7/74/Red_Pencil_Icon.png']
+_banned_imgs = ['https://upload.wikimedia.org/wikipedia/commons/7/74/Red_Pencil_Icon.png', 'https://upload.wikimedia.org/wikipedia/commons/f/f9/Double-dagger-14-plain.png']
 _vid_re = re.compile(r'(?i)(webm|gif|mp4)$')
 _aud_re = re.compile(r'(?i)(mp3|ogg|ogv|wav)$')
 _svg_re = re.compile(r'(?i)(svg)$')
