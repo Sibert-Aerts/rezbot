@@ -19,8 +19,20 @@ config.read('config.ini')
 command_prefix = config['BOT']['prefix']
 pipe_prefix = config['BOT']['pipe_prefix']
 
-# bot happens here
-bot = commands.Bot(command_prefix=command_prefix)
+# Configure our intents
+intents: discord.Intents = discord.Intents.default()
+# Block out all the stuff we don't care about
+intents.typing = False
+intents.integrations = False
+intents.webhooks = False
+intents.invites = False
+intents.voice_states = False
+# Sign on for these privileged intents
+intents.members = True
+intents.presences = True
+
+# create the bot
+bot = commands.Bot(command_prefix=command_prefix, intents=intents)
 
 # initialise some of my own stuffs
 patterns = patterns.Patterns(bot)
@@ -46,12 +58,12 @@ async def on_message(message):
     if message.author.id == bot.user.id:
         return
 
-    # Do not listen to muted users
-    if permissions.is_muted(message.author.id):
-        return
-
     # Do not listen to bots
     if message.author.bot:
+        return
+
+    # Do not listen to muted users
+    if permissions.is_muted(message.author.id):
         return
 
     # See if it looks like a script, if it does: run the script and don't do anything else
