@@ -38,9 +38,8 @@ class PipeCommands(MyCommands):
         uname = name.upper()
 
         # Info on a specific pipe
-        if name != '' and name in pipes:
-            embed = pipes[name].embed()
-            # bot takes credit for native pipes
+        if name != '' and name in pipes or name in spouts:
+            embed = (pipes if name in pipes else spouts)[name].embed()
             embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
             await ctx.send(embed=embed)
 
@@ -95,7 +94,6 @@ class PipeCommands(MyCommands):
         # Info on a specific source
         if name != '' and name in sources:
             embed = sources[name].embed()
-            # bot takes credit for native sources
             embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
             await ctx.send(embed=embed)
 
@@ -147,8 +145,8 @@ class PipeCommands(MyCommands):
         name = name.lower()
 
         # Info on a specific spout
-        if name != '' and name in spouts:
-            embed = spouts[name].embed()
+        if name != '' and name in spouts or name in pipes:
+            embed = (spouts if name in spouts else pipes)[name].embed()
             # bot takes credit for native spouts
             embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
             await ctx.send(embed=embed)
@@ -168,6 +166,7 @@ class PipeCommands(MyCommands):
 
             text = texttools.block_format('\n'.join(infos))
             await ctx.send(text)
+
 
     ## EVENTS
     ### PUT IN OWN FILE STUPID

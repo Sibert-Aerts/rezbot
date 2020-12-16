@@ -273,7 +273,7 @@ class BotCommands(MyCommands):
 
 
     def trump_embed(text):
-        embed = discord.Embed(description=text, color=0x4f545c)
+        embed = discord.Embed(description=text, color=0x1da1f2)
         embed.set_author(name='Donald J. Trump (@realDonaldTrump)', url='https://twitter.com/realDonaldTrump', icon_url='https://pbs.twimg.com/profile_images/874276197357596672/kUuht00m_bigger.jpg')
         embed.set_footer(text='Twitter', icon_url='https://abs.twimg.com/icons/apple-touch-icon-192x192.png')
         embed.add_field(name='Retweets', value=random.randint(5000, 50000))
@@ -287,8 +287,6 @@ class BotCommands(MyCommands):
         else: tweet = choose(tweets.dril.search(query, 8))
         embed = BotCommands.trump_embed(tweet['text'])
         await ctx.send(embed=embed)
-
-
 
 
     @commands.command()

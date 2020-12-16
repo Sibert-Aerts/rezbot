@@ -37,6 +37,7 @@ class Option:
     '''
 
     class Str:
+        ''' The str-like class representing a specific possible option. '''
         def __init__(self, str): self.str = str
         def __repr__(self): return self.str
         def __str__(self): return self.str

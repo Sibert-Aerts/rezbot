@@ -5,6 +5,7 @@ import random
 import math
 import textwrap
 import re
+import hashlib
 from functools import wraps, lru_cache
 
 from datamuse import datamuse
@@ -736,6 +737,23 @@ def rot_pipe(text, by):
             c = chr( 65 + ( o - 65 + by ) % 26 )
         out.append(c)
     return ''.join(out)
+
+
+HASH_ALG = Option('python', 'blake2b', 'sha224', 'shake_128', 'sha3_384', 'md5', 'sha3_512', 'blake2s', 'sha256', 'sha1', 'sha3_224', 'shake_256', 'sha3_256', 'sha512', 'sha384', name='algorithm')
+
+@make_pipe({
+    'algorithm': Par(HASH_ALG, 'python', 'The hash algorithm to use.')
+})
+@one_to_one
+def hash_pipe(text: str, algorithm: HASH_ALG) -> str:
+    '''Applies a hash function.'''
+    if algorithm == HASH_ALG.python:
+        return str(hash(text))
+    else:
+        algorithm = hashlib.new(str(algorithm), usedforsecurity=False)
+        algorithm.update(text.encode('utf-8'))
+        return algorithm.hexdigest()
+    return 
 
 
 #####################################################
