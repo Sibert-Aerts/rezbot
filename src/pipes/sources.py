@@ -129,8 +129,15 @@ async def that_source(message):
 async def next_message_source(message, n, what):
     '''The next message to be sent in the channel.'''
     messages = []
+
+    def check(msg):
+        # ignore (most) messages that the bot normally ignores
+        return msg.channel == message.channel \
+            and not msg.author.bot \
+            and msg.content[:len(SourceResources.bot.command_prefix)] != SourceResources.bot.command_prefix
+
     while len(messages) < n:
-        messages.append( await SourceResources.bot.wait_for('message', check=lambda m: m.channel == message.channel) )
+        messages.append( await SourceResources.bot.wait_for('message', check=check) )
     return messages_get_what(messages, what)
 
 
