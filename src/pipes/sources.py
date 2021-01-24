@@ -423,6 +423,20 @@ async def dril_source(query, n):
 
 
 @make_source({
+    'query': Par(str, '', 'Search query, empty for random tweets.'),
+    'n' :    Par(int, 1, 'The amount of tweets.')
+}, depletable=True)
+async def trump_source(query, n):
+    '''Random trump tweets.'''
+    out = []
+    if query == '':
+        out = tweets.trump.sample(n)
+    else:
+        out = tweets.trump.search(query, n)
+    return [t['text'] for t in out]
+
+
+@make_source({
     'COMIC' : Par(int, -1, 'EXACT COMIC NUMBER, -1 FOR QUERY COMIC.'),
     'QUERY' : Par(str, '', 'TITLE OR DIALOG TO LOOK FOR (FUZZY!), EMPTY FOR RANDOM COMICS.'),
     'N'     : Par(int, 1, 'NUMBER OF COMICS TO LOAD LINES FROM.', lambda x: x>0),

@@ -19,6 +19,9 @@ class TweetHistory:
         for t in self.data:
             t['search'] = t['text'].lower()
 
+    def __len__(self):
+        return len(self.data)
+
     def random(self):
         return random.choice(self.data)
 
@@ -42,9 +45,16 @@ class TweetHistory:
         else: amount = min( len(results), amount )
         return random.sample(results, min(len(results), amount))
 
-# TODO: Load these in lazily (first time a tweet is actually queried)
+# TODO: Load these in lazily to save memory
+
+print('Loading tweets... ', end='')
 dril = TweetHistory(_HERE('dril.json'))
+print('dril: %d' % len(dril), end='')
 derek = TweetHistory(_HERE('derek.json'))
+print(', derek: %d' % len(derek), end='')
+trump = TweetHistory(_HERE('trump.json'))
+print(', trump: %d' % len(trump), end='')
+print(', done!')
 
 if os.path.isfile(_HERE('dril-model.json')):
     with open(_HERE('dril-model.json'), encoding='utf-8') as f:
