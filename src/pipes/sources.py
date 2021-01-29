@@ -472,11 +472,11 @@ async def JERKCITY_source(COMIC, QUERY, N, LINES, NAMES):
 
     return _LINES
 
-SOULS_GAME = Option('?','1','2','3','b', name='game', stringy=True)
+SOULS_GAME = Option('?','1','2','3','b','s', name='game', stringy=True)
 
 @make_source({
     'n'     : Par(int, 1, 'The number of generated messages.'),
-    'game'  : Par(SOULS_GAME, '?', 'Which game should be used (1/2/3/B/? for random).'),
+    'game'  : Par(SOULS_GAME, '?', 'Which game should be used (1/2/3/B/S/? for random).'),
     'phrase': Par(str, '%phrase%', 'Overrides game argument. Construct a custom phrase using the following categories:\nphrase, {}'.format(', '.join(soapstone.phraseDict)))
 }, command=True)
 @multi_source
@@ -485,7 +485,7 @@ async def soapstone_source(game, phrase):
     if phrase != '%phrase%':
         return soapstone.makePhrase(phrase)
     if game == '?':
-        game = choose(['1','2','3','b'])
+        game = choose(['1','2','3','b', 's'])
     if game == '1':
         return soapstone.DarkSouls1.get()
     if game == '2':
@@ -494,6 +494,8 @@ async def soapstone_source(game, phrase):
         return soapstone.DarkSouls3.get()
     if game == 'b':
         return soapstone.Bloodborne.get()
+    if game == 's':
+        return soapstone.Sekiro.get()
 
 
 

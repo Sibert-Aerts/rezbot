@@ -208,7 +208,7 @@ class DarkSouls3:
 
 class Bloodborne:
     phrases = [
-        'fear %', 'remember %', 'time for %', 'it\'s the scourge of %', 'reeks of %', '% is effective', 'beware of %', 'treat % with care',
+        '%', 'fear %', 'remember %', 'time for %', 'it\'s the scourge of %', 'reeks of %', '% is effective', 'beware of %', 'treat % with care',
         'it is all thanks to %', 'despicable %', 'woeful %', 'wondrous %', 'nothing but % here', '% waits ahead', 'you must accept %',
         'have mercy, %', 'no mercy for %', 'have audience with %', 'reminiscent of %', 'oh, %!'
     ]
@@ -274,6 +274,90 @@ class Bloodborne:
         phrase = this.get_phrase()
         if chance(0.8):
             phrase += choose(this.conjunctions) + this.get_phrase()
+        return phrase
+
+class Sekiro:
+    phrases = [
+        '%', '%...', 'might be %', 'hm. so it\'s a %', 'which means...%', '% you say...', '%...!', 'ought to be %...', 'surely not %...',
+        'what is a %...?', '%...?', 'it\'s not a %', '%... I\'ll think about it', '%? I see...', 'in case of %...', 'perform %',
+        'should try %', 'confront %', 'while %', 'avoid %', 'no need for %', 'the pinnacle of %', 'offer to %', 'for the sake of %',
+        '% is recious...', 'surely, not %', 'code of %'
+    ]
+    conjunctions = [
+        ' and ', ' because ', ' all the more ', ' therefore ', ' but ', ' is ', ' in short ', ' that is to say ', ' or ',
+        ' also ', ' however ', ' if ', ' then ', ' by the way ', ' as it were ', ', '
+    ]
+
+    people = [
+        'divine child', 'divine heir', 'Kuro', 'Lord Kuro', 'sculptor', 'physician', 'memorial mob', 'peddler', 'Wolf',
+        'Sekiro', 'I', 'me', 'you', 'equal', 'superior', 'comrade', 'pious one', 'villain', 'forlorn', 'misfit', 'graceful one',
+        'swift', 'straggler', 'brute', 'mule', 'horror', 'moneybags', 'vagabond', 'deserter', 'cheat', 'fiend', 'youth', 'man',
+        'woman', 'elder', 'geezer', 'hag', 'master', 'friend', 'ally', 'lord', 'parent', 'foster father', 'child'
+    ]
+
+    enemies = [
+        'enemy', 'foe', 'worthy opponent', 'extraordinary foe', 'shinobi', 'bandit', 'villager', 'Ashina clan', 'sniper',
+        'fencer', 'warrior', 'seeker', 'beast', 'hound', 'monkey', 'serpent', 'insect', 'parasite', 'gamefowl', 'monster',
+        'spirit', 'apparition', 'infested', 'undying', 'demon', 'shura'
+    ]
+
+    objects = [
+        'sculptor\'s idol', 'offering box', 'treasure', 'chest', 'mechanism', 'tatami mat', 'under the floor', 'door', 'key',
+        'trap', 'sen', 'katana', 'shinobi prosthetic', 'prosthetic tool', 'item', 'valuable item', 'material', 'gourd', 'sugar',
+        'balloon', 'spirit emblem', 'document', 'blood', 'rice', 'sake', 'prayer bead', 'prayer necklace', 'memory', 'remnant'
+    ]
+
+    tactics = [
+        'swordplay', 'projectile', 'mid-air battle', 'stealth', 'reconnaisance', 'taking them one by one', 'luring out',
+        'ambushing', 'pincer attack', 'taking them all at once', 'fleeing', 'charging', 'jumping off', 'sprinting through',
+        'flanking', 'leaving to fate', 'caution', 'distracting', 'controlling', 'stripping away', 'feigning death'
+    ]
+
+    techniques = [
+        'movement', 'sprinting', 'grappling hook', 'jumping', 'crouching', 'jump kick', 'attacking', 'sweep attack',
+        'grab attack', 'thrust attack', 'counter-slash attack', 'shinobi deathblow', 'backstab deathblow', 'plunging deathblow',
+        'guard', 'deflecting', 'consecutive deflects', 'mikiri counter', 'evasion', 'ledge hang', 'wall hug', 'peeking', 'swimming', 'eavesdropping'
+    ]
+
+    locations = [
+        'castle keep', 'outskirts', 'village', 'rooftop', 'hallway', 'stairs', 'temple', 'valley', 'cliff', 'abyss', 'mountain path', 'forest',
+        'treetop', 'swamp', 'cave', 'tall grass', 'underwater', 'water surface', 'mid-air', 'shortcut', 'detour', 'hidden path', 'escape route',
+        'dead end', 'bright place', 'dark place', 'open place', 'cramped place', 'safe area', 'dangerous area', 'ladder', 'stunning view',
+        'oversight', 'misfortune', 'carelessness', 'encounter', 'enemy group', 'lone enemy', 'enemy patrol', 'training'
+    ]
+
+    orientations = ['front', 'back', 'left', 'right', 'up', 'down', 'below', 'above', 'behind', 'ahead']
+
+    attributes = [
+        'poison', 'burn', 'terror', 'shock', 'enfeeblement', 'forbidden', 'sinister burden', 'slash attacks',
+        'blunt attacks', 'thrust attacks', 'ranged attacks', 'flame', 'apparition', 'posture'
+    ]
+
+    concepts = [
+        'fighting chance', 'escape', 'perilous pass', 'certain death', 'secret', 'gibberish', 'bliss', 'misery',
+        'life', 'death', 'wrath', 'pain', 'sadness', 'loyalty', 'betrayal', 'cowardice', 'hope', 'fear', 'victory',
+        'defeat', 'sacrifice', 'risk one\'s life', 'relief', 'vigor', 'resignation', 'critical moment', 'regret',
+        'futility', 'friendship', 'love', 'abandon', 'composure', 'persistence', 'solace', 'quiet', 'depth', 'stagnation',
+        'strength', 'speed', 'toughness', 'skill', 'hatred', 'revenge', 'repayment', 'auspicious', 'foreboding', 'panic',
+        'hesitation', 'comfort', 'blink', 'short', 'long', 'beautiful', 'hideous'
+    ]
+
+    musings = [
+        'well done', 'I\'ve done it', 'regretful...', 'here...', 'not here...', 'no turning back...', 'enough', 'look carefully',
+        'listen carefully', 'think carefully', 'this place again...', 'this is it', 'is this a trick...?', 'go', 'go back', 'give up',
+        'stay strong', 'impossible...', 'so high up...', 'so deep...', 'keep calm...', 'an illusion...', 'nostalgic...',
+        'prepare yourself...', 'you\'ll know it when you see it', 'as you command', 'face me', 'I don\'t mind', 'yes', 'no',
+        'what...?', 'alright', 'I cannot', 'I cannot say', 'forgive me', 'I don\'t think', 'you have my gratitude',
+        'farewell', 'do what must be done', 'I will lose', '........'
+    ]
+    
+    words = [people, enemies, objects, tactics, techniques, locations, orientations, attributes, concepts, musings]
+
+    def get():
+        this = Sekiro
+        phrase = choose(this.phrases).replace('%', choose(choose(this.words)))
+        if chance(0.9):
+            phrase += choose(this.conjunctions) + choose(this.phrases).replace('%', choose(choose(this.words)))
         return phrase
 
 # Matches: group1%group2%group3
