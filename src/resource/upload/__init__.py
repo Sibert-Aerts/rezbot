@@ -185,9 +185,12 @@ class File:
             self.markov_model = markovify.NewlineText(sentences)
         return self.markov_model
 
-    def get_markov_lines(self, count=1, length=0):
+    def get_markov_lines(self, count=1, length=0, start=None):
         model = self.get_markov_model()
-        if length == 0:
+        # Start overrides (ignores) length
+        if start:
+            return [model.make_sentence_with_start(start, strict=False, tries=20) or model.make_sentence_with_start(start, strict=False, test_output=False) for _ in range(count) ]
+        elif length == 0:
             return [model.make_sentence(tries=20) or model.make_sentence(test_output=False) for _ in range(count)]
         else:
             return [model.make_short_sentence(length, tries=20) or model.make_sentence(length, test_output=False) for _ in range(count)]

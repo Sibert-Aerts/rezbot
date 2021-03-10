@@ -323,12 +323,13 @@ async def txt_source(file, n, sequential, sentences, query, pattern):
 @make_source({
     'file'  : Par(str, None, 'The file name'),
     'n'     : Par(int, 1, 'The amount of lines'),
-    'length': Par(int, 0, 'The maximum length of the generated sentence. (0 for unlimited)'),
+    'length': Par(int, 0, 'The maximum length of the generated sentence (0 for unlimited)'),
+    'start' : Par(str, None, 'One or two starting words to continue a sentence from (NOTE: EXTREMELY FINNICKY)', required=False)
 }, command=True)
-async def markov_source(file, n, length):
+async def markov_source(file, n, length, start):
     '''Randomly generated markov chains based on an uploaded file. Check >files for a list of files.'''
     file = uploads[file]
-    return file.get_markov_lines(n, length)
+    return file.get_markov_lines(n, length, start)
 
 
 @make_source({
