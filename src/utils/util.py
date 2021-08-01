@@ -31,7 +31,7 @@ def strip_command(ctx):
     s = ctx.message.content.split(' ', 1)
     return s[1] if len(s) > 1 else ''
 
-def parse_bool(s):
+def parse_bool(s: str) -> bool:
     s = s.lower()
     if s in ['t', 'true', '1', 'y', 'yes']: return True
     if s in ['f', 'false', '0', 'n', 'no']: return False

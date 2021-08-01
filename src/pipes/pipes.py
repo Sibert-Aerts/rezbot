@@ -205,6 +205,7 @@ def count_pipe(input):
     return [str(len(input))]
 
 
+
 #####################################################
 #                  Pipes : STRING                   #
 #####################################################
@@ -342,6 +343,7 @@ def format_pipe(input, f):
     ## Due to arguments automatically being formatted as described, this pipe does nothing but return `f` as its only output.
     return [f]
 
+
 @make_pipe({
     's' : Par(str, '', 'The separator inserted between two items.')
 })
@@ -349,6 +351,7 @@ def format_pipe(input, f):
 def join_pipe(input, s):
     ''' Joins inputs into a single item, separated by the given separator. '''
     return [s.join(input)]
+
 
 TABLE_ALIGN = Option('l', 'c', 'r', name='alignment')
 
@@ -392,7 +395,53 @@ def table_pipe(input, columns, alignments, sep, code_block):
 
     return [ ('```\n%s\n```' if code_block else '%s') % '\n'.join(rows) ]
 
-    
+
+class MapType:
+    def __init__(self, text: str):
+        self.map = {}
+        self.caseMap = {}
+        self.invMap = {}
+        self.invCaseMap = {}
+        for entry in text.split(','):
+            key, val = entry.split(':', 1)
+            self.map[key] = val
+            self.caseMap[key.lower()] = val
+            self.invMap[val] = key
+            self.invCaseMap[val.lower()] = key
+
+    def __repr__(self): return '<Map with {} entries>'.format(len(self.map))
+
+    def get(self, key):
+        return self.map[key]
+    def caseGet(self, key):
+        return self.caseMap[key.lower()]
+    def invGet(self, key):
+        return self.invMap[key]
+    def invCaseGet(self, key):
+        return self.invCaseMap[key.lower()]
+
+
+@make_pipe({
+    'map': Par(MapType, None, 'A sequence `key:value` entries separated by commas.'),
+    'default': Par(str, None, 'The default fallback value. Leave undefined to cause an error instead.', required=False),
+    'case': Par(parse_bool, False, 'If mapping should be case sensitive.'),
+    'invert': Par(parse_bool, False, 'If the map should map inversely (i.e. values to keys).'),
+})
+@one_to_one
+def map_pipe(item: str, map: MapType, case: bool, invert: bool, default: str):
+    ''' 
+    Map specific items to specific other items via a literal map.
+
+    Warning: Crudely implemented, special characters ',' and ':' cannot be escaped.
+    '''
+    try:
+        return ((map.get if case else map.caseGet) if not invert else (map.invGet if case else map.invCaseGet))(item)
+    except:
+        if default is not None:
+            return default
+        raise KeyError('No map entry for item "{}"'.format(item))
+
+
 
 #####################################################
 #                  Pipes : LETTER                   #
@@ -446,6 +495,7 @@ def convert_pipe(text, to):
     Options: {convs}
     '''
     return converters[to](text)
+
 
 
 #####################################################
@@ -689,6 +739,8 @@ def pos_analyse_pipe(text):
     # Return flattened tuples of (text, tag, whitespace)
     return [ x for t in doc for x in (t.text, t.pos_, t.whitespace_) ]
 
+
+
 #####################################################
 #                  Pipes : ENCODING                 #
 #####################################################
@@ -754,6 +806,7 @@ def hash_pipe(text: str, algorithm: HASH_ALG) -> str:
         algorithm.update(text.encode('utf-8'))
         return algorithm.hexdigest()
     return 
+
 
 
 #####################################################
