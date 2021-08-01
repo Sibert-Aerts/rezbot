@@ -199,37 +199,65 @@ class PipeCommands(MyCommands):
                 return
             await ctx.send(embed=events[name].embed(ctx))
 
-    @commands.command()
+    @commands.command(aliases=['enable_events'])
     @commands.guild_only()
-    async def enable_event(self, ctx, name):
-        if name not in events:
-            await ctx.send('No event "{}" found.'.format(name)); return
-        event = events[name]
-        if ctx.channel.id in event.channels:
-            await ctx.send('Event is already enabled in this channel.'); return
-        event.channels.append(ctx.channel.id)
-        events.write()
-        await ctx.send('Enabled event "{}" in {}'.format(event.name, ctx.channel.mention))
+    async def enable_event(self, ctx, *names):
+        fail = []; meh = []; succ = []
 
-    @commands.command()
+        for name in names:
+            if name not in events:
+                fail.append(name); continue
+            event = events[name]
+            if ctx.channel.id in event.channels:
+                meh.append(name); continue
+            event.channels.append(ctx.channel.id)
+            succ.append(name)
+
+        msg = []
+        fmt = lambda l: '`' + '`, `'.join(l) + '`'
+        if fail:
+            msg.append('Event{} {} do{} not exist.'.format( 's' if len(fail)>1 else '', fmt(fail), '' if len(fail)>1 else 'es'))
+        if meh:
+            msg.append('Event{} {} {} already enabled in this channel.'.format( 's' if len(meh)>1 else '', fmt(meh), 'are' if len(meh)>1 else 'is'))
+        if succ:
+            msg.append('Event{} {} {} been enabled in {}.'.format( 's' if len(succ)>1 else '', fmt(succ), 'have' if len(succ)>1 else 'has', ctx.channel.mention))
+            events.write()
+        
+        await ctx.send('\n'.join(msg))
+
+    @commands.command(aliases=['disable_events'])
     @commands.guild_only()
-    async def disable_event(self, ctx, name):
-        if name == '*':
+    async def disable_event(self, ctx, *names):
+        if names and names[0] == '*':
             ## Disable ALL events in this channel
             for event in events.values():
                 if ctx.channel.id in event.channels:
                     event.channels.remove(ctx.channel.id)
-            await ctx.send('Disabled all events for {}'.format(ctx.channel.mention))
+            await ctx.send('Disabled all events in {}'.format(ctx.channel.mention))
             return
 
-        if name not in events:
-            await ctx.send('No event "{}" found.'.format(name)); return
-        event = events[name]
-        if ctx.channel.id not in event.channels:
-            await ctx.send('Event is already disabled in this channel.'); return
-        event.channels.remove(ctx.channel.id)
-        events.write()
-        await ctx.send('Disabled event "{}" in {}'.format(event.name, ctx.channel.mention))
+        fail = []; meh = []; succ = []
+
+        for name in names:
+            if name not in events:
+                fail.append(name); continue
+            event = events[name]
+            if ctx.channel.id not in event.channels:
+                meh.append(name); continue
+            event.channels.remove(ctx.channel.id)
+            succ.append(name)
+
+        msg = []
+        fmt = lambda l: '`' + '`, `'.join(l) + '`'
+        if fail:
+            msg.append('Event{} {} do{} not exist.'.format( 's' if len(fail)>1 else '', fmt(fail), '' if len(fail)>1 else 'es'))
+        if meh:
+            msg.append('Event{} {} {} already disabled in this channel.'.format( 's' if len(meh)>1 else '', fmt(meh), 'are' if len(meh)>1 else 'is'))
+        if succ:
+            msg.append('Event{} {} {} been disabled in {}.'.format( 's' if len(succ)>1 else '', fmt(succ), 'have' if len(succ)>1 else 'has', ctx.channel.mention))
+            events.write()
+        
+        await ctx.send('\n'.join(msg))
 
     @commands.command(aliases=['del_event'])
     @commands.guild_only()
