@@ -442,6 +442,17 @@ def map_pipe(item: str, map: MapType, case: bool, invert: bool, default: str):
         raise KeyError('No map entry for item "{}"'.format(item))
 
 
+@make_pipe({
+    'file': Par(str, None, 'The name of the file to be matched from. >files for a list of files'),
+    'min':  Par(int, 0, 'Upper limit on minimum distance (e.g. 1 to never get the same word).')
+}, command=True)
+@one_to_one
+def nearest_pipe(text, min, file):
+    ''' Replaces each item with the nearest item (by edit distance) from the given file. '''
+    file = uploads[file]
+    return min_dist(text, min, file.get())
+
+
 
 #####################################################
 #                  Pipes : LETTER                   #
@@ -507,24 +518,6 @@ _CATEGORY = 'DATAMUSE'
 # Wrap the API in a LRU cache
 datamuse_api = datamuse.Datamuse()
 _datamuse = lru_cache()(datamuse_api.words)
-
-@make_pipe({})
-@one_to_many
-def split_sentences_pipe(input):
-    ''' Splits text into individual sentences using the Natural Language Toolkit (NLTK). '''
-    return nltk.sent_tokenize(line)
-
-
-@make_pipe({
-    'file': Par(str, None, 'The name of the file to be matched from. >files for a list of files'),
-    'min':  Par(int, 0, 'Upper limit on minimum distance (e.g. 1 to never get the same word).')
-}, command=True)
-@one_to_one
-def nearest_pipe(text, min, file):
-    ''' Replaces each item with the nearest item (by edit distance) from the given file. '''
-    file = uploads[file]
-    return min_dist(text, min, file.get())
-
 
 @make_pipe({}, command=True)
 @word_to_word
@@ -612,6 +605,7 @@ def comprises_pipe(word):
         return word
 
 
+
 #####################################################
 #                  Pipes : LANGUAGE                 #
 #####################################################
@@ -673,7 +667,14 @@ def detect_language_pipe(text):
     if _translate is None: return 'und'
     if text.strip() == '': return 'und'
     return translate_client.detect_language(text)['language']
-    
+
+
+@make_pipe({})
+@one_to_many
+def split_sentences_pipe(input):
+    ''' Splits text into individual sentences using the Natural Language Toolkit (NLTK). '''
+    return nltk.sent_tokenize(line)
+
 
 @make_pipe({
     'file'   : Par(str, None, 'The file name'),
@@ -789,6 +790,20 @@ def rot_pipe(text, by):
             c = chr( 65 + ( o - 65 + by ) % 26 )
         out.append(c)
     return ''.join(out)
+
+
+@make_pipe({})
+@one_to_many
+def ord_pipe(text):
+    '''Turns each item into a sequence of integers representing each character.'''
+    return [str(ord(s)) for s in text]
+
+
+@make_pipe({})
+@many_to_one
+def chr_pipe(chars):
+    '''Turns a sequence of integers representing characters into a single string.'''
+    return [''.join(chr(int(c)) for c in chars)]
 
 
 HASH_ALG = Option('python', 'blake2b', 'sha224', 'shake_128', 'sha3_384', 'md5', 'sha3_512', 'blake2s', 'sha256', 'sha1', 'sha3_224', 'shake_256', 'sha3_256', 'sha512', 'sha384', name='algorithm')
