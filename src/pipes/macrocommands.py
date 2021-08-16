@@ -37,6 +37,8 @@ typedict_options = ', '.join('"' + t + '"' for t in typedict)
 
 
 class MacroCommands(commands.Cog):
+    FORCE_MACRO_CACHE = None
+
     async def what_complain(self, channel):
         await channel.send('First argument must be one of: {}.'.format(typedict_options))
 
@@ -50,7 +52,7 @@ class MacroCommands(commands.Cog):
     async def define(self, ctx, what, name):
         await self._define(ctx.message, what, name, re.split('\s+', ctx.message.content, 3)[3])
 
-    async def _define(self, message, what, name, code):
+    async def _define(self, message, what, name, code, force=False):
         '''Define a macro.'''
         channel = message.channel
         what = what.lower()
@@ -62,7 +64,10 @@ class MacroCommands(commands.Cog):
             await channel.send('A {0} called `{1}` already exists, try `>redefine {0}` instead.'.format(what, name))
             return
 
-        if not await check(code, channel): return
+        if not force and not await check(code, channel):
+            MacroCommands.FORCE_MACRO_CACHE = ('new', message, what, name, code)
+            await channel.send('Reply `>force_macro` to save it anyway.')
+            return
 
         author = message.author
         macros[name] = Macro(name, code, author.name, author.id, str(author.avatar_url), visible=visible)
@@ -72,7 +77,7 @@ class MacroCommands(commands.Cog):
     async def redefine(self, ctx, what, name):
         await self._redefine(ctx.message, what, name, re.split('\s+', ctx.message.content, 3)[3])
 
-    async def _redefine(self, message, what, name, code):
+    async def _redefine(self, message, what, name, code, force=False):
         '''Redefine an existing macro.'''
         channel = message.channel
         what = what.lower()
@@ -86,7 +91,10 @@ class MacroCommands(commands.Cog):
         if not macros[name].authorised(message.author):
             await self.permission_complain(channel); return
 
-        if not await check(code, channel): return
+        if not force and not await check(code, channel):
+            MacroCommands.FORCE_MACRO_CACHE = ('edit', message, what, name, code)
+            await channel.send('Reply `>force_macro` to save it anyway.')
+            return
 
         macros[name].code = code
         macros.write()
@@ -149,6 +157,21 @@ class MacroCommands(commands.Cog):
         del macros[name]
         await ctx.send('Deleted {} macro `{}`.'.format(what, name))
 
+    @commands.command(hidden=True)
+    async def force_macro(self, ctx):
+        ''' Force the bot to save the most recently rejected macro. '''
+        if MacroCommands.FORCE_MACRO_CACHE is None: return
+        (cmd, message, what, name, code) = MacroCommands.FORCE_MACRO_CACHE
+        if not message.channel == ctx.channel: return
+
+        if cmd == 'new':
+            await self._define(message, what, name, code, force=True)
+        elif cmd == 'edit':
+            await self._redefine(message, what, name, code, force=True)
+
+        MacroCommands.FORCE_MACRO_CACHE = None
+
+
 
     @commands.command(aliases=['set_sig', 'add_sig', 'add_arg'])
     async def set_arg(self, ctx, what, name, signame, sigdefault, sigdesc=None):
@@ -186,6 +209,7 @@ class MacroCommands(commands.Cog):
         del macros[name].signature[signame]
         macros.write()
         await ctx.send('Removed signature "{}" from {} {}'.format(signame, what, name))
+
 
 
     async def _macros(self, ctx, what, name):
@@ -248,8 +272,8 @@ class MacroCommands(commands.Cog):
 command_regex = re.compile(r'\s*(NEW|EDIT|DESC)\s+(hidden)?(pipe|source)\s+([_a-z]\w+)\s*::\s*(.*)', re.S | re.I)
 #                                ^^^command^^^     ^^^^^^^^what^^^^^^^^     ^^name^^^         code
 
-async def parse_macro_command(command, message):
-    mc = MacroCommands()
+async def parse_macro_command(bot, command, message):
+    mc = bot.get_cog('MacroCommands')
 
     m = re.match(command_regex, command)
     if m is None: return False

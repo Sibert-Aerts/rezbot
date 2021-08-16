@@ -604,7 +604,7 @@ class PipelineProcessor:
         if re.match(r'\s*(NEW|EDIT|DESC).*::', script, re.I):
             ##### MACRO DEFINITION:
             # >> (NEW|EDIT|DESC) <type> <name> :: <code>
-            if await parse_macro_command(script, message):
+            if await parse_macro_command(self.bot, script, message):
                 pass
             ##### EVENT DEFINITION:
             # >> (NEW|EDIT) EVENT <name> ON MESSAGE <regex> :: <code>
