@@ -220,6 +220,7 @@ class MacroCommands(commands.Cog):
             await ctx.send(embed=macros[name].embed())
 
         # Info on all of them
+        # TODO: list the ones without descriptions independently
         else:
             if name == 'hidden':
                 what2 = 'hidden ' + what
@@ -242,9 +243,9 @@ class MacroCommands(commands.Cog):
             colW = len(max(filtered_macros, key=len)) + 2
             for name in filtered_macros:
                 macro = macros[name]
-                info = name + ' ' * (colW-len(name))
+                info = name
                 if macro.desc is not None:
-                    info += macro.desc.split('\n')[0][:100]
+                    info += (colW-len(name)) + macro.desc.split('\n')[0][:100]
                 infos.append(info)
 
             blocks = [[]]

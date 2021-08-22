@@ -169,7 +169,7 @@ async def previous_message_source(message, n, i, what, by):
 
 #### MEMBERS ########################################
 
-MEMBER_WHAT = Option('nickname', 'username', 'id', 'avatar')
+MEMBER_WHAT = Option('nickname', 'username', 'id', 'avatar', 'activity')
 @get_which
 def members_get_what(members, what):
     if what == MEMBER_WHAT.nickname:
@@ -180,8 +180,8 @@ def members_get_what(members, what):
         return [str(member.id) for member in members]
     elif what == MEMBER_WHAT.avatar:
         return [str(member.avatar_url) for member in members]
-    # elif what == MEMBER_WHAT.activity:
-    #     return [str(member.activities[0]) if member.activities else '' for member in members]
+    elif what == MEMBER_WHAT.activity:
+        return [str(member.activities[0]) if member.activities else '' for member in members]
 
 @make_source({
     'what': Par(Multi(MEMBER_WHAT), 'nickname', '/'.join(MEMBER_WHAT))
