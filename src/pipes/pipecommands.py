@@ -174,6 +174,7 @@ class PipeCommands(MyCommands):
 
     @commands.command(aliases=['event'])
     async def events(self, ctx, name=''):
+        ''' List all Events, active status and triggers. '''
         if not events:
             await ctx.send('No events registered.')
             return
@@ -203,6 +204,7 @@ class PipeCommands(MyCommands):
     @commands.command(aliases=['enable_events'])
     @commands.guild_only()
     async def enable_event(self, ctx, *names):
+        ''' Enables one or more events in the current channel, given as a list of names separated by spaces. '''
         fail = []; meh = []; succ = []
 
         for name in names:
@@ -229,6 +231,7 @@ class PipeCommands(MyCommands):
     @commands.command(aliases=['disable_events'])
     @commands.guild_only()
     async def disable_event(self, ctx, *names):
+        ''' Disables one or more events in the current channel, given as a list of names separated by spaces, or * to disable all events. '''
         if names and names[0] == '*':
             ## Disable ALL events in this channel
             for event in events.values():
@@ -263,11 +266,18 @@ class PipeCommands(MyCommands):
     @commands.command(aliases=['del_event'])
     @commands.guild_only()
     async def delete_event(self, ctx, name):
+        ''' Deletes the specified event entirely. '''
         if name not in events:
             await ctx.send('No event "{}" found.'.format(name)); return
         e = events[name]
         del events[name]
         await ctx.send('Deleted event "{}"'.format(e.name))
+
+    @commands.command(hidden=True)
+    async def dump_events(self, ctx):
+        ''' Uploads the source file containing all serialised Events, for backup/debug purposes. '''
+        await ctx.send(file=discord.File(events.DIR(events.filename)))
+
 
     ## VARIABLES
     

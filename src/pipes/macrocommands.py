@@ -289,6 +289,20 @@ class MacroCommands(commands.Cog):
         '''A list of all source macros, or details on a specific source macro.'''
         await self._macros(ctx, 'source', name)
 
+
+
+    @commands.command(hidden=True)
+    async def dump_pipe_macros(self, ctx):
+        '''Uploads the raw file containing all pipe macros, for archival/backup/debug purposes.'''
+        await ctx.send(file=discord.File(pipe_macros.DIR(pipe_macros.filename)))
+
+    @commands.command(hidden=True)
+    async def dump_source_macros(self, ctx):
+        '''Uploads the raw file containing all source macros, for archival/backup/debug purposes.'''
+        await ctx.send(file=discord.File(source_macros.DIR(source_macros.filename)))
+
+
+
 command_regex = re.compile(r'\s*(NEW|EDIT|DESC)\s+(hidden)?(pipe|source)\s+([_a-z]\w+)\s*::\s*(.*)', re.S | re.I)
 #                                ^^^command^^^     ^^^^^^^^what^^^^^^^^     ^^name^^^         code
 
