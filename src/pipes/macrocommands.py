@@ -220,41 +220,60 @@ class MacroCommands(commands.Cog):
             await ctx.send(embed=macros[name].embed())
 
         # Info on all of them
-        # TODO: list the ones without descriptions independently
         else:
+            ## Filter based on the given name
             if name == 'hidden':
                 what2 = 'hidden ' + what
                 filtered_macros = macros.hidden()
             elif name == 'mine' or name == 'my':
                 what2 = 'your ' + what
-                filtered_macros = [m for m in macros if macros[m].authorId == ctx.author.id]
+                filtered_macros = [m for m in macros if int(macros[m].authorId) == ctx.author.id]
             else:
                 what2 = what
                 filtered_macros = macros.visible()
 
             if not filtered_macros:
-                await ctx.send('No {0} macros loaded. Try adding one using >define {0}.'.format(what2))
+                await ctx.send('No {0} macros found.'.format(what2))
                 return
 
+            ## Boilerplate
             infos = []
             infos.append('Here\'s a list of all {what2} macros, use >{what}_macros [name] to see more info on a specific one.'.format(what2=what2, what=what))
             infos.append('Use >{what}s for a list of native {what}s.\n'.format(what=what))
 
-            colW = len(max(filtered_macros, key=len)) + 2
-            for name in filtered_macros:
+            ## Separate those with and without descriptions
+            desced_macros = [m for m in filtered_macros if macros[m].desc]
+            undesced_macros = [m for m in filtered_macros if not macros[m].desc]
+
+            ## Format the ones who have a description as a nice two-column block
+            colW = len(max(desced_macros, key=len)) + 2
+            for name in desced_macros:
                 macro = macros[name]
-                info = name
-                if macro.desc is not None:
-                    info += (colW-len(name)) + macro.desc.split('\n')[0][:100]
+                info = name +  ' ' * (colW-len(name))
+                desc = macro.desc.split('\n', 1)[0]
+                info += desc if len(desc) <= 80 else desc[:75] + '(...)'
                 infos.append(info)
 
+            ## Format the other ones as just a list
+            infos.append('\nThese ones have no description:')
+            grab = ''
+            for name in undesced_macros:
+                if not grab: grab = name; continue
+                if len(grab) + 2 + len(name) > 100:
+                    infos.append(grab + ',')
+                    grab = name
+                else:
+                    grab += ', ' + name
+            if grab: infos.append(grab)
+
+            ## Chunk up the lines of output across multiple block-formatted messages if needed
             blocks = [[]]
             l = 0
             for info in infos:
                 if l + len(info) > 1800:
                     blocks.append([])
                     l = 0
-                l += len(info)
+                l += len(info) + 2
                 blocks[-1].append(info)
             
             for block in blocks:
