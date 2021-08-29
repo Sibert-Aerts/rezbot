@@ -29,8 +29,9 @@ class MacroSig:
 
 
 class Macro:
-    def __init__(self, name, code, authorName, authorId, authorAvatarURL, desc=None, visible=True, command=False):
-        self.version = 3
+    def __init__(self, kind, name, code, authorName, authorId, authorAvatarURL, desc=None, visible=True, command=False):
+        self.version = 4
+        self.kind = kind
         self.name = name
         self.code = code
         self.authorName = authorName
@@ -41,15 +42,16 @@ class Macro:
         self.command = command
         self.signature = {}
 
-    def v2_to_v3(m):
-        if m.version != 2: return m
-        m.version = 3
-        m.signature = {}
-        return m
+    def v3_to_v4(self, kind):
+        if self.version != 3: return self
+        self.kind = kind
+        self.authorId = int(self.authorId)
+        self.version = 4
+        return self
 
     def embed(self):
         title = self.name + (' `hidden`' if not self.visible else '')
-        embed = Embed(title='Macro: ' + title, description=(self.desc or ''), color=0x06ff83)
+        embed = Embed(title=self.kind + ' Macro: ' + title, description=(self.desc or ''), color=0x06ff83)
         
         ### Parameters
         if self.signature:
@@ -88,22 +90,23 @@ class Macro:
 
 
 class Macros:
-    def __init__(self, DIR, filename):
+    def __init__(self, DIR, kind, filename):
         self.macros = {}
         self.DIR = DIR
+        self.kind = kind
         self.filename = filename
         self.pipeline_cache = LRU(20)
         try:
             if not os.path.exists(DIR()): os.mkdir(DIR())
             self.macros = pickle.load(open(DIR(filename), 'rb+'))
-            self.convert_v2_to_v3()
+            self.convert_v3_to_v4()
             print('{} macros loaded from "{}"!'.format(len(self.macros), filename))
         except Exception as e:
             print(e)
             print('Failed to load macros from "{}"!'.format(DIR(filename)))
 
-    def convert_v2_to_v3(self):
-        FROM_VERSION = 2
+    def convert_v3_to_v4(self):
+        FROM_VERSION = 3
         if not [name for name in self.macros if self.macros[name].version == FROM_VERSION]: return
         try:
             copyfile(self.DIR(self.filename), self.DIR(self.filename + '.v{}_backup'.format(FROM_VERSION)))
@@ -111,13 +114,14 @@ class Macros:
             for name in self.macros:
                 m = self.macros[name]
                 if m.version == FROM_VERSION:
-                    self.macros[name] = Macro.v2_to_v3(m)
+                    self.macros[name] = m.v3_to_v4(self.kind)
                     count += 1
-            self.write()
-            if count: print('{} macros successfully converted and added from "{}"!'.format(count, self.filename))
         except Exception as e:
             print(e)
             print('Failed to convert macros from "{}"!'.format(self.filename))
+        else:
+            self.write()
+            if count: print('{} macros successfully converted and added from "{}"!'.format(count, self.filename))
 
     def visible(self):
         return [i for i in self.macros if self.macros[i].visible]
@@ -156,5 +160,5 @@ class Macros:
         return len(self.macros)
 
 
-pipe_macros = Macros(DIR, 'pipe_macros.p')
-source_macros = Macros(DIR, 'source_macros.p')
+pipe_macros = Macros(DIR, 'Pipe', 'pipe_macros.p')
+source_macros = Macros(DIR, 'Source', 'source_macros.p')

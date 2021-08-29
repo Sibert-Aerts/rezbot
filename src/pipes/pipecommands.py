@@ -37,17 +37,18 @@ class PipeCommands(MyCommands):
         name = name.lower()
         uname = name.upper()
 
-        # Info on a specific pipe
-        if name != '' and name in pipes or name in spouts:
-            embed = (pipes if name in pipes else spouts)[name].embed()
+        ## Info on a specific pipe, spout or source
+        if name != '' and name in pipes or name in spouts or name in sources:
+            embed = (pipes if name in pipes else spouts if name in spouts else sources)[name].embed()
             embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
             await ctx.send(embed=embed)
 
-        # Info on a macro pipe
-        elif name != '' and name in pipe_macros:
-            await ctx.send(embed=pipe_macros[name].embed())
+        ## Info on a pipe macro or source macro
+        elif name != '' and name in pipe_macros or name in source_macros:
+            embed = (pipe_macros if name in pipe_macros	else source_macros)[name].embed()
+            await ctx.send(embed=embed)
 
-        # Pipes in a specific category
+        ## List pipes in a specific category
         elif uname != '' and uname in pipes.categories:
             infos = []
             infos.append('Pipes in category {}:\n'.format(uname))
@@ -63,7 +64,7 @@ class PipeCommands(MyCommands):
             infos.append('Use >pipe_macros for a list of user-defined pipes.\n')
             await ctx.send(texttools.block_format('\n'.join(infos)))
 
-        # List of categories
+        ## List all categories
         else:
             infos = []
             infos.append('Categories:\n')
