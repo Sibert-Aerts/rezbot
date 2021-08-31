@@ -165,7 +165,9 @@ def ed(x, y):
 
 def min_dist(w, maxMin=0, corpus=None):
     if corpus is None: corpus = allWords
-    return choose(util.mins(corpus, key=lambda x:ed(x, w), maxMin=maxMin))
+    w = w.lower()
+    key = lambda x: editdistance.eval(x.lower(), w)
+    return choose(util.mins(corpus, key=key, maxMin=maxMin))
 
 def avg_dist(w1, w2, p=0.5):
     q = 1-p

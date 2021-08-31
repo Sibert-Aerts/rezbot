@@ -1,12 +1,14 @@
 from discord.ext import commands
 import re
 
-# Gets the entire list of minimum values, rather than just the one
-# With an option to set the maximum infimum
-def mins(it, key=lambda x:x, maxMin=None):
+def mins(items, key=lambda x:x, maxMin=None):
+    '''
+    Returns the list of all items i whose key(i) is equal to the minimum for all items.
+    If maxMin is given, it pretends there are no items with key() less than maxMin.
+    '''
     min_i = []
-    min_k = 1000000000
-    for i in it:
+    min_k = float('inf')
+    for i in items:
         k = key(i)
         if maxMin is not None and k < maxMin:
             continue
