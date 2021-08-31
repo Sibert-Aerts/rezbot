@@ -530,16 +530,25 @@ async def range_source(start, end, step):
 
 @make_source({
     'format': Par(str, '%Y/%m/%d %H:%M:%S', 'The format string, see http://strftime.org/ for syntax.'),
-    'utc'   : Par(int, 0, 'The UTC offset in hours.')
+    'utc'   : Par(float, 0, 'The offset from UTC in hours.'),
+    'timestamp': Par(int, None, 'The UNIX timestamp to format, leave empty to use the current time.', required=False)
 })
-async def datetime_source(format, utc):
-    '''The current date and time, with optional custom formatting.'''
-    return [datetime.now(timezone(timedelta(hours=utc))).strftime(format)]
+async def datetime_source(format, utc, timestamp):
+    '''
+    The current date and time formatted to be human readable.
+    The `utc` parameter determines timezone and daylight savings offsets.
+    '''
+    tz = timezone(timedelta(hours=utc))
+    time = datetime.now(tz) if timestamp is None else datetime.fromtimestamp(timestamp, tz)
+    return [time.strftime(format)]
 
 
 @make_source({})
 async def timestamp_source():
-    '''The current date and time as a UNIX timestamp representing seconds since 1970 UTC.'''
+    '''
+    The current date and time as a UNIX timestamp, representing seconds since 1970 UTC.
+    The UNIX timestamp is independent of timezones.
+    '''
     return [str(int(datetime.now().timestamp()))]
 
 
@@ -580,8 +589,8 @@ def _wikipedia_page(page, language):
 WIKIPEDIA_WHAT = Option('title', 'url', 'summary', 'content', 'images', 'videos', 'audio', 'links')
 _img_re = re.compile(r'(?i)(png|jpe?g|gif|webp)$')
 _banned_imgs = ['https://upload.wikimedia.org/wikipedia/commons/7/74/Red_Pencil_Icon.png', 'https://upload.wikimedia.org/wikipedia/commons/f/f9/Double-dagger-14-plain.png']
-_vid_re = re.compile(r'(?i)(webm|gif|mp4)$')
-_aud_re = re.compile(r'(?i)(mp3|ogg|ogv|wav)$')
+_vid_re = re.compile(r'(?i)(webm|gif|mp4|ogv)$')
+_aud_re = re.compile(r'(?i)(mp3|ogg|wav)$')
 _svg_re = re.compile(r'(?i)(svg)$')
 
 def _wikipedia_get_what(page, what, n):

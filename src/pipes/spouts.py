@@ -1,4 +1,5 @@
 import random
+from datetime import datetime, timezone
 
 from discord import Embed
 from discord.errors import HTTPException
@@ -34,23 +35,39 @@ def url(s):
 
 def hex(h):
     if h and h[0] == '#': h = h[1:]
+    elif h and h[:2] == '0x': h = h[2:]
     return int(h, base=16)
 
 
 @make_spout({
-    'title':    Par(str, None, 'The title.', required=False),
-    'color':    Par(hex, 0x222222, 'The highlight color as a hexadecimal value.'),
-    'footer':   Par(str, '', 'The footer text.'),
-    'link':     Par(url, None, 'A link opened by clicking the title.', required=False),
-    'image':    Par(url, None, 'Link to an embedded image.', required=False)
+    'color':       Par(hex, 0x222222, 'The left-side border color as a hexadecimal value.'),
+    'title':       Par(str, None, 'The title.', required=False),
+    'link':        Par(url, None, 'A link opened by clicking the title.', required=False),
+    'author':      Par(str, None, 'A name presented as the author\'s.', required=False),
+    'author_icon': Par(url, None, 'Link to the author\'s portrait.', required=False),
+    'thumb':       Par(url, None, 'Link to an image shown as a thumbnail.', required=False),
+    'image':       Par(url, None, 'Link to an image shown in big.', required=False),
+    'footer':      Par(str, '',   'The footer text.'),
+    'footer_icon': Par(url, None, 'Link to the footer icon.', required=False),
+    'timestamp':   Par(int, None, 'A timestamp representing the date that shows up in the footer.', required=False),
 })
-async def embed_spout(bot, message, values, title, color, footer, link, image):
-    '''Outputs text as a simple discord embed.'''
+async def embed_spout(bot, message, values, color, title, author, author_icon, link, thumb, image, footer, footer_icon, timestamp):
+    ''' Outputs text as the body of a Discord embed box.'''
     embed = Embed(title=title, description='\n'.join(values), color=color, url=link)
-    if footer:
-        embed.set_footer(text=footer)
-    if image:
+
+    if timestamp is not None:
+        embed.timestamp = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    if image is not None:
         embed.set_image(url=image)
+    if thumb is not None:
+        embed.set_thumbnail(url=thumb)
+    if author or author_icon:
+        # This is not the empty string (↓↓), it's a soft hyphen to force icon to show up even when the name is empty.
+        embed.set_author(name=author or '­', icon_url=author_icon or embed.Empty)
+    if footer or footer_icon:
+        # It's a soft hyphen here also
+        embed.set_footer(text=footer or '­', icon_url=footer_icon or embed.Empty)
+
     await message.channel.send(embed=embed)
 
 
@@ -60,27 +77,33 @@ async def embed_spout(bot, message, values, title, color, footer, link, image):
     'icon':     Par(url, 'https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png', 'URL linking to their profile picture.'),
     'retweets': Par(str, '', 'The number of retweets, hidden if empty.'),
     'likes':    Par(str, '', 'The number of likes, hidden if empty.'),
+    'timestamp':Par(int, None, 'Time the tweet was sent, "now" if empty.', required=False),
 })
-async def tweet_spout(bot, message, values, name, handle, icon, retweets, likes):
-    '''Outputs text as a fake embedded tweet.'''
-    e = Embed(description='\n'.join(values), color=0x1da1f2)
-    e.set_author(name='{} (@{})'.format(name, handle), url='https://twitter.com/'+handle, icon_url=icon)
-    e.set_footer(text='Twitter', icon_url='https://abs.twimg.com/icons/apple-touch-icon-192x192.png')
-    if retweets: e.add_field(name='Retweets', value=retweets)
-    if likes: e.add_field(name='Likes', value=likes)
-    await message.channel.send(embed=e)
+async def tweet_spout(bot, message, values, name, handle, icon, retweets, likes, timestamp):
+    ''' Outputs text as a fake tweet embed. '''
+    embed = Embed(description='\n'.join(values), color=0x1da1f2)
+    embed.set_author(name='{} (@{})'.format(name, handle), url='https://twitter.com/'+handle, icon_url=icon)
+    embed.set_footer(text='Twitter', icon_url='https://abs.twimg.com/icons/apple-touch-icon-192x192.png')
+    embed.timestamp = datetime.now() if timestamp is None else datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    if retweets:
+        embed.add_field(name='Retweets', value=retweets)
+    if likes:
+        embed.add_field(name='Likes', value=likes)
+    await message.channel.send(embed=embed)
 
 
 @make_spout({})
 async def delete_message_spout(bot, message, values):
-    '''Deletes the message that triggered the script's execution.'''
+    ''' Deletes the message which triggered the script's execution. '''
     await message.delete()
 
 
 @make_spout({})
 async def send_message_spout(bot, message, values):
-    '''Sends input as a discord message. (WIP until `print` is integrated fully)
-    If multiple lines of input are given, they're joined with newlines'''
+    '''
+    Sends input as a discord message. (WIP until `print` is integrated fully)
+    If multiple lines of input are given, they're joined with line breaks.
+    '''
     await message.channel.send('\n'.join(values))
 
 
@@ -98,8 +121,10 @@ async def react_spout(bot, message, values, emote):
 
 @make_spout({})
 async def suppress_print_spout(bot, message, values):
-    '''(WIP) Prevents the default behaviour of printing output to a Discord message.
-    Useful for Event scripts that silently modify variables, or that don't do anything in certain circumstances.'''
+    '''
+    (WIP) Prevents the default behaviour of printing output to a Discord message.
+    Useful for Event scripts that silently modify variables, or that don't do anything in certain circumstances.
+    '''
     # NOP, just having *any* spout is enough to prevent the default "print" behaviour
     pass
 
