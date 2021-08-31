@@ -110,7 +110,7 @@ def messages_get_what(messages, what):
     if what == MESSAGE_WHAT.id:
         return [str(msg.id) for msg in messages]
     if what == MESSAGE_WHAT.timestamp:
-        return [str(int(msg.created_at.timestamp())) for msg in messages]
+        return [str(int((msg.created_at.replace(tzinfo=timezone.utc)).timestamp())) for msg in messages]
     if what == MESSAGE_WHAT.author_id:
         return [str(msg.author.id) for msg in messages]
 
@@ -157,7 +157,7 @@ async def message_source(message, what):
 }, pass_message=True)
 async def previous_message_source(message, n, i, what, by):
     '''
-    A generalization of {this} and {message} that allows more messages and going further back.
+    A generalization of {that} and {message} that allows more messages and going further back.
     
     The N messages in this channel, counting backwards from the Ith previous message.
     i.e. N messages, ordered newest to oldest, with the newest being the Ith previous message.
@@ -537,12 +537,10 @@ async def datetime_source(format, utc):
     return [datetime.now(timezone(timedelta(hours=utc))).strftime(format)]
 
 
-@make_source({
-    'utc' : Par(int, 0, 'The UTC offset in hours.')
-})
-async def timestamp_source(utc):
-    '''The current date and time as a UNIX timestamp representing seconds since 1970.'''
-    return [str(int(datetime.now(timezone(timedelta(hours=utc))).timestamp()))]
+@make_source({})
+async def timestamp_source():
+    '''The current date and time as a UNIX timestamp representing seconds since 1970 UTC.'''
+    return [str(int(datetime.now().timestamp()))]
 
 
 @make_source({
@@ -569,7 +567,7 @@ async def emoji_source():
 
 
 #####################################################
-#               Sources : WIKIPEDIA.                #
+#               Sources : WIKIPEDIA                 #
 #####################################################
 _CATEGORY = 'WIKI'
 
