@@ -84,7 +84,7 @@ async def tweet_spout(bot, message, values, name, handle, icon, retweets, likes,
     embed = Embed(description='\n'.join(values), color=0x1da1f2)
     embed.set_author(name='{} (@{})'.format(name, handle), url='https://twitter.com/'+handle, icon_url=icon)
     embed.set_footer(text='Twitter', icon_url='https://abs.twimg.com/icons/apple-touch-icon-192x192.png')
-    embed.timestamp = datetime.now() if timestamp is None else datetime.fromtimestamp(timestamp, tz=timezone.utc)
+    embed.timestamp = datetime.now(tz=timezone.utc) if timestamp is None else datetime.fromtimestamp(timestamp, tz=timezone.utc)
     if retweets:
         embed.add_field(name='Retweets', value=retweets)
     if likes:
