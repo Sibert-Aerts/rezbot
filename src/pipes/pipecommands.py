@@ -53,8 +53,9 @@ class PipeCommands(MyCommands):
             infos = []
             infos.append('Pipes in category {}:\n'.format(uname))
             
-            colW = len(max(pipes, key=len)) + 2
-            for pipe in pipes.categories[uname]:
+            category = pipes.categories[uname]
+            colW = len(max((p.name for p in category), key=len)) + 3
+            for pipe in category:
                 info = pipe.name.ljust(colW)
                 if pipe.doc: info += pipe.small_doc
                 infos.append(info)
@@ -107,8 +108,9 @@ class PipeCommands(MyCommands):
             infos = []
             infos.append('Sources in category {}:\n'.format(uname))
             
-            colW = len(max(sources, key=len)) + 2
-            for source in sources.categories[uname]:
+            category = sources.categories[uname]
+            colW = len(max((s.name for s in category), key=len)) + 3
+            for source in category:
                 info = source.name.ljust(colW)
                 if source.doc: info += source.small_doc
                 infos.append(info)
