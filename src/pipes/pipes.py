@@ -18,6 +18,7 @@ spacy.LOADED_NLP = None
 from .signature import Par, Signature, Option, Multi
 from .pipe import Pipe, Pipes
 from utils.texttools import vowelize, consonize, letterize, letterize2, converters, min_dist, case_pattern
+from utils.choicetree import ChoiceTree
 from utils.rand import choose_slice
 from utils.util import parse_bool
 from resource.upload import uploads
@@ -136,6 +137,12 @@ def sort_pipe(input):
 
 
 @make_pipe({})
+def reverse_pipe(input):
+    '''Reverses the order of input items.'''
+    return input[::-1]
+
+
+@make_pipe({})
 def shuffle_pipe(input):
     '''Randomly shuffles input values.'''
     # IMPORTANT NOTE: `input` is passed BY REFERENCE, so we are NOT supposed to mess with it!
@@ -153,6 +160,16 @@ def choose_pipe(input, number):
 
 
 @make_pipe({
+    'length' : Par(int, None, 'The desired slice length.', lambda x: x>=0),
+    'cyclical': Par(parse_bool, False, 'Whether or not the slice is allowed to "loop back" to cover both some first elements and last elements. ' +
+            'i.e. If False, elements at the start and end of the input have lower chance of being selected, if True all elements have an equal chance.')
+})
+def choose_slice_pipe(input, length, cyclical):
+    '''Chooses a random contiguous sequence of inputs.'''
+    return choose_slice(input, length, cyclical=cyclical)
+
+
+@make_pipe({
     'number' : Par(int, 1, 'The number of values to sample.', lambda x: x>=0) 
 })
 def sample_pipe(input, number):
@@ -161,16 +178,6 @@ def sample_pipe(input, number):
     Never produces more values than the number it receives.
     '''
     return random.sample(input, min(len(input), number))
-
-
-@make_pipe({
-    'length' : Par(int, None, 'The desired slice length.', lambda x: x>=0),
-    'cyclical': Par(parse_bool, False, 'Whether or not the slice is allowed to "loop back" to cover both some first elements and last elements. ' +
-            'i.e. If False, elements at the start and end of the input have lower chance of being selected, if True all elements have an equal chance.')
-})
-def choose_slice_pipe(input, length, cyclical):
-    '''Chooses a random contiguous sequence of inputs.'''
-    return choose_slice(input, length, cyclical=cyclical)
 
 
 @make_pipe({
@@ -193,12 +200,6 @@ def unique_pipe(input, count):
 
 
 @make_pipe({})
-def reverse_pipe(input):
-    '''Reverses the order of input items.'''
-    return input[::-1]
-
-
-@make_pipe({})
 @many_to_one
 def count_pipe(input):
     '''Counts the number of input items.'''
@@ -211,8 +212,26 @@ def count_pipe(input):
 #####################################################
 _CATEGORY = 'STRING'
 
-# So the name correctly shows up as "regex"
+# So the type name shows up as "regex"
 def regex(*args, **kwargs): return re.compile(*args, **kwargs)
+
+
+@make_pipe({
+    'f' : Par(str, None, 'The format string. Items of the form {0}, {1} etc. are replaced with the respective item at that index.')
+})
+@many_to_one
+def format_pipe(input, f):
+    ''' Formats inputs according to a given template. '''
+    ## Due to arguments automatically being formatted as described, this pipe does nothing but return `f` as its only output.
+    return [f]
+
+
+@make_pipe({})
+@one_to_one
+def reverse_text_pipe(text):
+    ''' Reverses each text string individually. '''
+    return text[::-1]
+
 
 @make_pipe({
     'on' : Par(regex, None, 'Pattern to split on'),
@@ -225,13 +244,22 @@ def split_pipe(text, on, lim):
 
 
 @make_pipe({
+    's' : Par(str, '', 'The separator inserted between two items.')
+})
+@many_to_one
+def join_pipe(input, s):
+    ''' Joins inputs into a single item, separated by the given separator. '''
+    return [s.join(input)]
+
+
+@make_pipe({
     'pattern': Par(regex, None, 'The pattern to find')
 })
 @one_to_many
 def find_all_pipe(text, pattern):
     '''
     Extracts all pattern matches from the input.
-    Only groups (parentheses) are returned, if none are given, the entire match is returned instead.
+    Only groups (parentheses) are returned, or the entire matched string if no groups are present.
     '''
     matches = pattern.findall(text)
     # matches is either a List[str] or a List[Tuple[str]] depending on the regex
@@ -285,6 +313,14 @@ def pad_pipe(text, where, width, fill):
     if where == DIRECTION.right:
         return text.ljust(width, fill)
 
+
+@make_pipe({})
+@one_to_one
+def strip_pipe(value):
+    ''' Strips whitespace from the start and end of each input text. '''
+    return value.strip()
+
+
 WRAP_MODE = Option('dumb', 'smart')
 
 @make_pipe({
@@ -301,13 +337,6 @@ def wrap_pipe(text, mode, width):
         return [text[i:i+width] for i in range(0, len(text), width)]
     if mode == WRAP_MODE.smart:
         return textwrap.wrap(text, width)
-
-
-@make_pipe({})
-@one_to_one
-def strip_pipe(value):
-    ''' Strips whitespace from the start and end of each input text. '''
-    return value.strip()
 
 
 @make_pipe({
@@ -334,36 +363,18 @@ def case_pipe(inputs, pattern):
     return case_pattern(pattern, *inputs)
 
 
-@make_pipe({
-    'f' : Par(str, None, 'The format string. Items of the form {0}, {1} etc. are replaced with the respective item at that index.')
-})
-@many_to_one
-def format_pipe(input, f):
-    ''' Formats input text according to a format template. '''
-    ## Due to arguments automatically being formatted as described, this pipe does nothing but return `f` as its only output.
-    return [f]
-
-
-@make_pipe({
-    's' : Par(str, '', 'The separator inserted between two items.')
-})
-@many_to_one
-def join_pipe(input, s):
-    ''' Joins inputs into a single item, separated by the given separator. '''
-    return [s.join(input)]
-
-
 TABLE_ALIGN = Option('l', 'c', 'r', name='alignment')
 
 @make_pipe({
-    'columns': Par(str, None, 'The names of the different columns separated by commas, or an integer giving the number of columns.'),
+    'columns': Par(str, None, 'The names of the different columns separated by commas, OR an integer giving the number of columns.'),
     'alignments': Par(Multi(TABLE_ALIGN), 'l', 'How the columns should be aligned: l/c/r separated by commas.'),
     'sep': Par(str, ' │ ', 'The column separator'),
-    'code_block': Par(parse_bool, True, 'If the table should be wrapped in a Discord code block.')
+    'code_block': Par(parse_bool, True, 'If the table should be wrapped in a Discord code block (triple backticks).')
 })
 @many_to_one
 def table_pipe(input, columns, alignments, sep, code_block):
-    ''' Formats data as a table. '''
+    ''' Formats input as an ASCII-art table. '''
+    ## TODO: handle the situation where rows exceed a reasonable max width
     try:
         colNames = None
         colCount = int(columns)
@@ -389,7 +400,7 @@ def table_pipe(input, columns, alignments, sep, code_block):
         if where == TABLE_ALIGN.c: return text.center(width, what)
         if where == TABLE_ALIGN.r: return text.rjust(width, what)
 
-    rows = [ ' %s ' % sep.join([ pad(row[i], colWidths[i], alignments[i]) for i in range(colCount) ]) for row in rows ]
+    rows = [ ' %s ' % sep.join( pad(row[i], colWidths[i], alignments[i]) for i in range(colCount) ) for row in rows ]
     if colNames:
         rows = [ '_%s_' % sep.replace(' ', '_').join([ pad(colNames[i], colWidths[i], alignments[i], '_') for i in range(colCount) ]) ] + rows
 
@@ -397,6 +408,7 @@ def table_pipe(input, columns, alignments, sep, code_block):
 
 
 class MapType:
+    ''' Type used as argument for the map pipe. '''
     def __init__(self, text: str):
         self.map = {}
         self.caseMap = {}
@@ -451,6 +463,36 @@ def nearest_pipe(text, min, file):
     ''' Replaces each item with the nearest item (by edit distance) from the given file. '''
     file = uploads[file]
     return min_dist(text, min, file.get())
+
+
+@make_pipe({
+    'random': Par(int, None, 'If given, only produces the given number of (possibly repeating) random expansions. ' \
+        'If there are a large number of possible expansions and you only want a few random ones, this option is far more efficient '\
+        'than simply generating all of them before randomly choosing some.', 
+        required=False),
+})
+@one_to_many
+def expand_pipe(text, random):
+    '''
+    Expands [bracket|choice] syntax.
+    
+    e.g.
+    `[Mike|Jay] likes [cat|dog[|go]]s`
+    produces
+    ```
+    Mike likes cats
+    Jay likes cats
+    Mike likes dogs
+    Jay likes dogs
+    Mike likes doggos
+    Jay likes doggos
+    ```
+    '''
+    tree = ChoiceTree(text, add_brackets=True)
+    if random is None:
+        return list(tree)
+    else:
+        return [tree.random() for i in range(random)]
 
 
 
