@@ -45,7 +45,7 @@ class PipeCommands(MyCommands):
 
         ## Info on a pipe macro or source macro
         elif name != '' and name in pipe_macros or name in source_macros:
-            embed = (pipe_macros if name in pipe_macros	else source_macros)[name].embed()
+            embed = (pipe_macros if name in pipe_macros	else source_macros)[name].embed(ctx)
             await ctx.send(embed=embed)
 
         ## List pipes in a specific category
@@ -100,7 +100,7 @@ class PipeCommands(MyCommands):
 
         # Info on a macro source
         elif name != '' and name in source_macros:
-            await ctx.send(embed=source_macros[name].embed())
+            await ctx.send(embed=source_macros[name].embed(ctx))
 
         # Sources in a specific category
         elif uname != '' and uname in sources.categories:

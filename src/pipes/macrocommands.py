@@ -7,6 +7,7 @@ from .pipes import pipes
 from .sources import sources
 from .macros import Macro, MacroSig, pipe_macros, source_macros
 import utils.texttools as texttools
+from mycommands import MyCommands
 
 
 async def check_pipe_macro(code, channel):
@@ -36,7 +37,7 @@ typedict = {
 typedict_options = ', '.join('"' + t + '"' for t in typedict)
 
 
-class MacroCommands(commands.Cog):
+class MacroCommands(MyCommands):
     FORCE_MACRO_CACHE = None
 
     async def what_complain(self, channel):
@@ -70,7 +71,7 @@ class MacroCommands(commands.Cog):
             return
 
         author = message.author
-        macros[name] = Macro(macros.kind, name, code, author.name, author.id, str(author.avatar_url), visible=visible)
+        macros[name] = Macro(macros.kind, name, code, author.name, author.id, visible=visible)
         await channel.send('Defined a new {} macro called `{}` as {}'.format(what, name, texttools.block_format(code)))
 
     @commands.command(aliases=['redef'])
@@ -217,7 +218,7 @@ class MacroCommands(commands.Cog):
 
         # Info on a specific macro
         if name != '' and name in macros:
-            await ctx.send(embed=macros[name].embed())
+            await ctx.send(embed=macros[name].embed(ctx))
 
         # Info on all of them
         else:
@@ -331,4 +332,4 @@ async def parse_macro_command(bot, command, message):
 
 # Load the bot cog
 def setup(bot):
-    bot.add_cog(MacroCommands())
+    bot.add_cog(MacroCommands(bot))

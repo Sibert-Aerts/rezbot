@@ -29,14 +29,13 @@ class MacroSig:
 
 
 class Macro:
-    def __init__(self, kind, name, code, authorName, authorId, authorAvatarURL, desc=None, visible=True, command=False):
+    def __init__(self, kind, name, code, authorName, authorId, desc=None, visible=True, command=False):
         self.version = 4
         self.kind = kind
         self.name = name
         self.code = code
         self.authorName = authorName
         self.authorId = authorId
-        self.authorAvatarURL = authorAvatarURL
         self.desc = desc
         self.visible = visible
         self.command = command
@@ -49,21 +48,30 @@ class Macro:
         self.version = 4
         return self
 
-    def embed(self):
+    def embed(self, ctx=None):
         title = self.name + (' `hidden`' if not self.visible else '')
         embed = Embed(title=self.kind + ' Macro: ' + title, description=(self.desc or ''), color=0x06ff83)
-        
-        ### Parameters
+
+        ### Parameter list
         if self.signature:
             argstr = '\n'.join(str(self.signature[s]) for s in self.signature)
             embed.add_field(name='Parameters', value=argstr, inline=False)
 
-        ### Script
+        ### Script box
         embed.add_field(name='Script', value=texttools.block_format(self.code), inline=False)
 
-        ### Footer
-        embed.set_footer(text=self.authorName, icon_url=self.authorAvatarURL)
+        ### Author credit footer
+        author = None
+        if ctx:
+            # Look for the author in the current Guild first
+            if ctx.guild: author = ctx.guild.get_member(self.authorId)
+            if not author: author = ctx.bot.get_user(self.authorId)        
+
+        if author: embed.set_footer(text=author.display_name, icon_url=author.avatar_url)
+        else: embed.set_footer(text=self.authorName)
+    
         return embed
+
 
     # Regex partially identical to the one in signature.py
     arg_finder = re.compile(r'\b(\w+)=("[^"]*"|\'[^\']*\'|\S+)\s*')
