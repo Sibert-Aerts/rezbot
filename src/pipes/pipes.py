@@ -495,6 +495,8 @@ def expand_pipe(text, random):
         return [tree.random() for i in range(random)]
 
 
+## TODO: evaluate_sources_pipe 
+
 
 #####################################################
 #                  Pipes : LETTER                   #
@@ -683,7 +685,7 @@ LANGUAGE = Option(*translate_languages, name='language', stringy=True)
 @one_to_one
 def translate_pipe(text, to, **argc):
     '''
-    Translates text using the Google Translate.
+    Translates text using Google Translate.
     A list of languages can be browsed at https://cloud.google.com/translate/docs/languages
     '''
     if _translate is None: return text
