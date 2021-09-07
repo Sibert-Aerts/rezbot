@@ -2,6 +2,8 @@ import os
 import re
 import pickle
 import random
+from datetime import datetime
+
 import nltk
 import markovify
 import spacy
@@ -17,17 +19,23 @@ def searchify(text):
 
 class FileInfo:
     '''Metadata class for a File. These are pickled and don't store any of the file's actual contents.'''
-    def __init__(self, name, author_name, author_id, sequential=True, sentences=False, splitter=None):
+    def __init__(self, name, author_name, author_id, editable=False, sequential=True, sentences=False, splitter=None, categories=''):
         # File metadata:
-        self.version = 1
+        self.version = 2
         self.name = name
         self.author_name = author_name
         self.author_id = author_id
 
-        # Content metadata:
-        self.sequential = sequential
+        self.description = None
+        self.upload_date = datetime.now()
+        self.last_modified = datetime.now()
+
+        # Configuration
+        self.editable = editable
         self.sentences = sentences
         self.splitter = splitter or '\n+'
+        self.sequential = sequential
+        self.categories = categories.upper().split(',')
 
         # TODO: Making some assumptions here that these are available filenames
         self.pickle_file = name + '.p'
@@ -50,9 +58,14 @@ class FileInfo:
 
 
 class File:
+    '''
+        Class representing an uploaded File as it is stored in memory.
+        File.info contains all metadata and is loaded on startup.
+        The file's actual contents and derived contents are only read/loaded/generated the first time they're requested.
+    '''
     def __init__(self, info):
         '''Constructor used when a file is loaded at startup.'''
-        self.info = info
+        self.info: FileInfo = info
         # NOTE: None of these should be accessed from outside the class, use File.get_xyz() instead
         self.lines = None
         self.search_lines = None
@@ -63,7 +76,7 @@ class File:
 
     @staticmethod
     def new(name, author_name, author_id, raw, **kwargs):
-        '''Constructor used when a file is uploaded or created via the new_file spout.'''
+        '''Constructor used when a file is first created.'''
         info = FileInfo(name, author_name, author_id, **kwargs)
         info.write()
         file = File(info)
@@ -229,6 +242,9 @@ class File:
         return self.pos_buckets
 
 class Files:
+    '''
+        Dict-like object containing and cataloguing all uploaded files.
+    '''
     def __init__(self):
         self.files = {}
 
@@ -237,10 +253,17 @@ class Files:
             if not filename.endswith('.p'):
                 continue
             file_info = pickle.load(open(DIR(filename), 'rb'))
-            # Upgrade v1's to v2 (DELETE LATER)
-            # if file_info.version == 1:
-            #     file_info.version = 2
-            #     file_info.editable = False
+
+            # Upgrade v1's to v2
+            if file_info.version == 1:
+                file_info.version = 2
+                file_info.description = None
+                file_info.editable = False
+                file_info.upload_date = datetime.fromtimestamp(1577836800)
+                file_info.last_modified = datetime.fromtimestamp(1577836800)
+                file_info.categories = []
+                file_info.write()
+
             self.files[file_info.name] = File(file_info)
 
         print('%d uploaded files found!' % len(self.files))
@@ -248,6 +271,19 @@ class Files:
     @staticmethod
     def clean_name(name):
         return name[:-4] if name[-4:]=='.txt' else name
+
+    def get_categories(self):
+        ''' Get a {category: List[File]} dict. (Files may be in multiple categories!) '''
+        categories = {'NONE': []}
+        for file in self:
+            file = self[file]
+            if not file.info.categories:
+                categories['NONE'].append(file)
+            for cat in file.info.categories:
+                if cat not in categories:
+                    categories[cat] = []
+                categories[cat].append(file)
+        return categories
 
     def add_file(self, filename, content, author_name, author_id, **kwargs):
         name = Files.clean_name(filename)
@@ -268,7 +304,7 @@ class Files:
     def __iter__(self):
         return self.files.__iter__()
 
-    def __getitem__(self, name):
+    def __getitem__(self, name) -> File:
         name = Files.clean_name(name)
         if not name in self.files:
             raise KeyError('No file "%s" loaded! Check >files for a list of files.' % name)

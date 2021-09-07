@@ -259,29 +259,11 @@ class MacroCommands(MyCommands):
 
             ## Format the other ones as just a list
             if undesced_macros:
-                infos.append('\nThese ones have no description:')
-                grab = ''
-                for name in undesced_macros:
-                    if not grab: grab = name; continue
-                    if len(grab) + 2 + len(name) > 100:
-                        infos.append(grab + ',')
-                        grab = name
-                    else:
-                        grab += ', ' + name
-                if grab: infos.append(grab)
-
-            ## Chunk up the lines of output across multiple block-formatted messages if needed
-            blocks = [[]]
-            l = 0
-            for info in infos:
-                if l + len(info) > 1800:
-                    blocks.append([])
-                    l = 0
-                l += len(info) + 2
-                blocks[-1].append(info)
+                infos.append('\nWithout descriptions:')
+                infos += texttools.line_chunk_list(undesced_macros)
             
-            for block in blocks:
-                await ctx.send(texttools.block_format('\n'.join(block)))
+            for block in texttools.block_chunk_lines(infos): await ctx.send(block)
+
 
     @commands.command(aliases=['pipe_macro', 'macro_pipes', 'macro_pipe'])
     async def pipe_macros(self, ctx, name=''):

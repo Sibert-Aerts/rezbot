@@ -301,7 +301,7 @@ def bool_or_none(val):
 
 @make_source({
     'file' : Par(str, None, 'The file name, "random" for a random file'),
-    'n'    : Par(int, 1, 'The amount of lines'),
+    'n'    : Par(int, 1, 'The number of lines'),
     'sequential': Par(bool_or_none, None, 'If the multiple lines should be sequential as opposed to random, "None" for file-dependent.', required=False),
     'sentences' : Par(bool_or_none, None, 'If the file should be split on sentences as opposed to on dividing characters, "None" for file-dependent.', required=False),
     'query'     : Par(str, '', 'Optional search query'),

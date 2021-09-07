@@ -51,22 +51,63 @@ class UploadCommands(MyCommands):
 
 
     @commands.command(aliases=['file', 'uploads'])
-    async def files(self, ctx, file=''):
+    async def files(self, ctx, name:str=None):
         '''List all uploaded txt files, or show the contents of a specific file.'''
 
-        #### Print a list of all files
-        if file == '':
-            text = '**Files:** `' + '`, `'.join(f for f in uploads) + '`\n'
-            text += 'For more details on a specific file, use >file [name]'
-            await ctx.send(text)
+        categories = uploads.get_categories()
+
+        #### Print a list of all categories
+        if not name:
+            lines = ['Categories:\n']
+
+            colW = len(max(categories, key=len)) + 2
+            for category in categories:
+                line = category.ljust(colW)
+                line += ', '.join(file.info.name for file in categories[category])
+                lines.append(line)
+
+            lines.append('')
+            lines.append('Use >file [name] for details on a specific file.')
+            lines.append('Use >file [CATEGORY] for the list of files in that category.')
+            
+            for block in texttools.block_chunk_lines(lines): await ctx.send(block)
             return
 
-        #### Print info on the specific file
-        if file not in uploads:
-            await ctx.send('No file by name `%s` found!' % file); return
-        file = uploads[file]
-        info = file.info
-        lines = file.get()
+
+        #### Print a list of files in a specific category
+        if name.isupper() and name in categories:
+            files = categories[name]
+            lines = [f'Files under category {name}:']
+
+            described = [ file for file in files if file.info.description ]
+            undescribed = [ file for file in files if not file.info.description ]
+
+            if described:
+                lines.append('')
+                colW = len(max(described, key=lambda f: len(f.info.name)).info.name) + 2
+                for file in described:
+                    line = file.info.name.ljust(colW)
+                    desc = file.info.description.split('\n', 1)[0]
+                    line += desc if len(desc) <= 80 else desc[:75] + '(...)'
+                    lines.append(line)
+
+            if undescribed:
+                lines.append('\nWithout descriptions:')
+                lines += texttools.line_chunk_list([file.info.name for file in undescribed])
+
+            lines.append('')
+            lines.append('Use >file [name] for details on a specific file.')
+            
+            for block in texttools.block_chunk_lines(lines): await ctx.send(block)
+            return
+
+
+        #### Print info on a specific file
+        if name not in uploads:
+            await ctx.send(f'No file by name `{name}` found!'); return
+        name = uploads[name]
+        info = name.info
+        lines = name.get()
 
         # TODO: make this a little File.embed() ?
         text = '**File:** ' + info.name
@@ -74,6 +115,8 @@ class UploadCommands(MyCommands):
         text += '**Order:** ' + ('Sequential' if info.sequential else 'Random')
         text += ', **Split on:** ' + (('`' + repr(info.splitter)[1:-1] + '`') if not info.sentences else 'Sentences')
         text += ', **Entries:** ' + str(len(lines)) + '\n'
+        text += '**Categories:** ' + (', '.join(info.categories) if info.categories else "(none)")
+        text += ', **Editable:** ' + str(info.editable) + '\n'
 
         MAXLINES = 8
         MAXCHARS = 600
@@ -98,8 +141,8 @@ class UploadCommands(MyCommands):
 
 
     # List of attributes modifiable by the below command
-    str_attributes = ['name', 'splitter']
-    bool_attributes = ['sequential', 'sentences']
+    str_attributes = ['name', 'splitter', 'categories']
+    bool_attributes = ['sequential', 'sentences', 'editable']
     attributes = str_attributes + bool_attributes
 
     @commands.command(aliases=['set_file'])
@@ -109,11 +152,13 @@ class UploadCommands(MyCommands):
 
         Available attributes:
         name: How the file is addressed.
-        splitter: The regex that determines how the file is split into lines.
-        sequential: Boolean determining whether or not the order of the lines in the file matters.
+        splitter: The regex that determines how the raw file is split into entries.
+        sequential: Boolean determining whether or not the order of the entries in the file matters.
         sentences: Boolean determining whether the file should be split into sentences, rather than split on the regex splitter.
+        categories: Comma-separated list of categories which the file should be filed under.
+        editable: Boolean determining whether the file's contents should be able to be edited.
 
-        e.g. >file_set filename name newname
+        e.g. >file_set oldName name newName
         '''
         if file not in uploads:
             await ctx.send('No file by name `%s` found!' % file); return
@@ -139,6 +184,9 @@ class UploadCommands(MyCommands):
             del uploads[oldVal]
             uploads[value] = file
             file.info.name = value
+        elif attribute == 'categories':
+            file.info.categories = value.split(',')
+            ## TODO: refresh files.categories?
         else:
             setattr(file.info, attribute, value)
 
@@ -148,6 +196,66 @@ class UploadCommands(MyCommands):
 
         file.info.write()
         await ctx.send('Changed {} from `{}` to `{}`!'.format(attribute, str(oldVal), str(value)))
+
+
+    @commands.command(alias=['categorise_files'])
+    async def categorize_files(self, ctx, category: str, *files: str):
+        ''' Add multiple files to a given category '''        
+        category = category.upper()
+        succ = []; neut = []; fail = []
+        
+        for name in files:
+            if name not in uploads:
+                fail.append(name)
+            file = uploads[name]
+
+            if category in file.info.categories:
+                neut.append(name)
+            else:
+                file.info.categories.append(category)
+                file.info.write()
+                succ.append(name)
+
+        msg = []
+        fmt = lambda l: '`' + '`, `'.join(l) + '`'
+        if fail:
+            msg.append('File{} {} do{} not exist.'.format( 's' if len(fail)>1 else '', fmt(fail), '' if len(fail)>1 else 'es'))
+        if neut:
+            msg.append('File{} {} {} already in category {}.'.format( 's' if len(neut)>1 else '', fmt(neut), 'are' if len(neut)>1 else 'is', category))
+        if succ:
+            msg.append('File{} {} {} been added to category {}.'.format( 's' if len(succ)>1 else '', fmt(succ), 'have' if len(succ)>1 else 'has', category))
+
+        await ctx.send('\n'.join(msg))
+
+    @commands.command(alias=['decategorise_files'])
+    async def decategorize_files(self, ctx, category: str, *files: str):       
+        ''' Remove multiple files from a given category. '''         
+        category = category.upper()
+        succ = []; neut = []; fail = []
+        
+        for name in files:
+            if name not in uploads:
+                fail.append(name)
+            file = uploads[name]
+
+            if category not in file.info.categories:
+                neut.append(name)
+            else:
+                file.info.categories.remove(category)
+                file.info.write()
+                succ.append(name)
+
+        msg = []
+        fmt = lambda l: '`' + '`, `'.join(l) + '`'
+        if fail:
+            msg.append('File{} {} do{} not exist.'.format( 's' if len(fail)>1 else '', fmt(fail), '' if len(fail)>1 else 'es'))
+        if neut:
+            msg.append('File{} {} {} not in category {}.'.format( 's' if len(neut)>1 else '', fmt(neut), 'are' if len(neut)>1 else 'is', category))
+        if succ:
+            msg.append('File{} {} {} been removed from category {}.'.format( 's' if len(succ)>1 else '', fmt(succ), 'have' if len(succ)>1 else 'has', category))
+
+        await ctx.send('\n'.join(msg))
+
 
     @commands.command(aliases=['file_delete'])
     async def delete_file(self, ctx, filename):

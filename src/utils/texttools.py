@@ -25,6 +25,36 @@ def block_format(s):
     # put a zero-width space in there to prevent it from breaking our block
     return '```\n{0}```'.format(s.replace('```','`­``'))
 
+    
+def line_chunk_list(list, maxlength=100):
+    ''' Turn a list of strings into a list of lines of ", "-separated strings. '''
+    out = []
+    grab = ''
+    for name in list:
+        if not grab: grab = name; continue
+        if len(grab) + 2 + len(name) > maxlength:
+            out.append(grab + ',')
+            grab = name
+        else:
+            grab += ', ' + name
+    if grab:
+        out.append(grab)
+
+    return out
+
+def block_chunk_lines(lines):
+    ''' Turn a list of lines into a list of <2000 character code blocks safe to send over discord.'''
+    blocks = [[]]
+    l = 0
+    for line in lines:
+        if l + len(line) > 1900:
+            blocks.append([])
+            l = 0
+        l += len(line) + 2
+        blocks[-1].append(line)
+    
+    return [ block_format('\n'.join(block)) for block in blocks ]
+
 def matchCase(char, case):
     return char.upper() if case.isupper() else char.lower()
 

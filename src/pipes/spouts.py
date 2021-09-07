@@ -157,9 +157,11 @@ async def delete_var_spout(bot, message, values, name, strict):
 @make_spout({
     'name' : Par(str, None, 'The new file\'s name'),
     'sequential': Par(parse_bool, True, 'Whether the order of entries matters when retrieving them from the file later.'),
-    'sentences': Par(parse_bool, False, 'Whether the entries should be split based on sentence recognition instead of a splitter regex.')
+    'sentences': Par(parse_bool, False, 'Whether the entries should be split based on sentence recognition instead of a splitter regex.'),
+    'editable': Par(parse_bool, False, 'Whether the file should be able to be modified at a later time.'),
+    'categories': Par(str, '', 'Comma-separated, case insensitive list of categories the file should be filed under.')
 })
-async def new_file_spout(bot, message, values, name, sequential, sentences):
+async def new_file_spout(bot, message, values, name, sequential, sentences, editable, categories):
     '''Writes the input to a new txt file.'''
     # Files are stored as raw txt's, but we want to make sure our list of strings remain distinguishable.
     # So we join the list of strings by a joiner that we determine for sure is NOT a substring of any of the strings,
@@ -172,7 +174,8 @@ async def new_file_spout(bot, message, values, name, sequential, sentences):
     else:
         joiner = '\n'
 
-    uploads.add_file(name, joiner.join(values), message.author.display_name, message.author.id, splitter=joiner, sequential=sequential, sentences=sentences)
+    uploads.add_file(name, joiner.join(values), message.author.display_name, message.author.id,
+        editable=editable, splitter=joiner, sequential=sequential, sentences=sentences, categories=categories)
 
 
 @make_spout({})
