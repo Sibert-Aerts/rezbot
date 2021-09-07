@@ -198,7 +198,7 @@ class UploadCommands(MyCommands):
         await ctx.send('Changed {} from `{}` to `{}`!'.format(attribute, str(oldVal), str(value)))
 
 
-    @commands.command(alias=['categorise_files'])
+    @commands.command(aliases=['categorise_files'])
     async def categorize_files(self, ctx, category: str, *files: str):
         ''' Add multiple files to a given category '''        
         category = category.upper()
@@ -227,7 +227,7 @@ class UploadCommands(MyCommands):
 
         await ctx.send('\n'.join(msg))
 
-    @commands.command(alias=['decategorise_files'])
+    @commands.command(aliases=['decategorise_files'])
     async def decategorize_files(self, ctx, category: str, *files: str):       
         ''' Remove multiple files from a given category. '''         
         category = category.upper()
