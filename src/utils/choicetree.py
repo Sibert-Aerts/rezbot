@@ -5,12 +5,20 @@ import np
 
 class ChoiceTree:
     '''
-    Class that parses strings and returns combinations based on a "choice" system.
+    Class that parses strings representing possible combinations, and returns possible combinations.
     e.g.
         "abc[de|fg]" → ["abcde", "abcfg"]
         "I [eat|like] [|hot]dogs" → ["I eat dogs", "I like dogs", "I eat hotdogs", "I like hotdogs"]
 
-    Couldn't be bothered to look up how to implement the iterator pattern but it works so idc :-D
+    Essentially, consider the noncommutative Semiring of (unordered) lists of strings,
+        so that in python notation: list1+list2 == [*list1, *list2] the concatenation of lists
+        and list1*list2 == [a+b for a in list1 for b in list2] the concatenation of each pair of strings.
+        (This ring has as neutral element the list of the empty string, and as zero element the empty list.)
+    We write addition using the "|" symbol, the product is implicit (i.e. a*b == ab), and use [] as parentheses,
+        so that in python notation e.g. "abc" == ["abc"] and "a|b|c" == ["a", "b", "c"]
+
+    What ChoiceTree does is parse such expressions, and using the distributivity rule ( [a|b]c == ab|ac )
+        it simplifies the expression to a sum of products.
     '''
     class Text:
         def __init__(self, text):

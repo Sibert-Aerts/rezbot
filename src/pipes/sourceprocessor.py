@@ -231,11 +231,20 @@ class SourceProcessor:
         return ''.join(val for pair in zip(slices, values) for val in pair) + source[start:]
 
     async def evaluate(self, source, context=None):
-        '''Takes a raw source string, expands it into multiple strings, applies {sources} in each one and returns the set of values.'''
+        '''Takes a raw source string, expands it if necessary, applies {sources} in each one and returns the list of values.'''
         values = []
-        if len(source) > 1 and source[0] == source[-1] == '"':
+        expand = True
+    
+        ## Get rid of wrapping quotes or triple quotes
+        if len(source) >= 6 and source[:3] == source[-3:] == '"""':
+            source = source[3:-3]
+            expand = False
+        elif len(source) >= 2 and source[0] == source[-1] == '"':
             source = source[1:-1]
-        for source in ChoiceTree(source, parse_flags=True, add_brackets=True):
+    
+        sources = ChoiceTree(source, parse_flags=True, add_brackets=True) if expand else [source]
+
+        for source in sources:
             if self.is_pure_source(source):
                 values.extend(await self.evaluate_pure_source(source, context))
             else:

@@ -715,7 +715,7 @@ def detect_language_pipe(text):
 
 @make_pipe({})
 @one_to_many
-def split_sentences_pipe(input):
+def split_sentences_pipe(line):
     ''' Splits text into individual sentences using the Natural Language Toolkit (NLTK). '''
     return nltk.sent_tokenize(line)
 

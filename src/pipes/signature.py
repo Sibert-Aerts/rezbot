@@ -181,6 +181,7 @@ class Signature(dict):
     #   name=argNoSpaces    name="arg's with spaces"    name='arg with "spaces" even'
     #   name="""arg with spaces and quotation marks and anything"""     name='''same'''
     #   name=/semantically there is nothing signalling this is a regex but it's nice notation/
+
     # It will not work for:
     #   name=arg with spaces                (simply parses as name=arg)
     #   name="quotes "nested" in quotes"    (simply parses as name="quotes ")
@@ -195,6 +196,7 @@ class Signature(dict):
     greedy_re = re.compile( r'^\s*("""(.*)"""|\'\'\'(.*)\'\'\'|"(.*)"|\'(.*)\'|/(.*)/|(.*))\s*$', re.S )
     #                                  ^^            ^^          ^^      ^^      ^^    ^^
     #                                                argument value
+
     # Same as above, but non-greedy: Assumes the smallest bit of quoted or noSpaces at the start of the string is the argument
     implicit_re = re.compile( r'\s*("""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(\S*))\s*', re.S )
     #                                   ^^^            ^^^          ^^^      ^^^      ^^^    ^^^
