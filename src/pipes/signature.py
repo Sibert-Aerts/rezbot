@@ -1,7 +1,6 @@
-from functools import wraps
-from textwrap import dedent
-import re
 from typing import List, Tuple, Dict, Any, Optional, TypeVar, Union, Callable
+import re
+
 from .logger import ErrorLog
 
 class ArgumentError(ValueError):
@@ -14,26 +13,26 @@ class ArgumentError(ValueError):
 
 class Option:
     '''
-    An Option object behaves like a "type" for parsing enums from strings, returning str-like objects.
-    By default it is case insensitive, and will normalise all names to lowercase.
-    Set prefer_upper=True to instead normalise all names to uppercase.
-    If stringy=True it will return regular strings instead of str-like objects.
+        An Option object behaves like a "type" for parsing enums from strings, returning str-like objects.
+        By default it is case insensitive, and will normalise all names to lowercase.
+        Set prefer_upper=True to instead normalise all names to uppercase.
+        If stringy=True it will return regular strings instead of str-like objects.
 
-    >>> Color = Option('red', 'green', 'blue', name='color')
-    >>> Color.red
-    red
-    >>> Color('red') == Color.red
-    True
-    >>> 'red' == Color.red
-    False
-    >>> Color('magenta')
-    ArgumentError: Unknown color: "magenta"
+        >>> Color = Option('red', 'green', 'blue', name='color')
+        >>> Color.red
+        red
+        >>> Color('red') == Color.red
+        True
+        >>> 'red' == Color.red
+        False
+        >>> Color('magenta')
+        ArgumentError: Unknown color: "magenta"
 
-    >>> Color2 = Color + ['cyan', 'magenta', 'yellow']
-    >>> Color2('magenta') == Color2.magenta
-    True
-    >>> Color2.red == Color.red
-    False
+        >>> Color2 = Color + ['cyan', 'magenta', 'yellow']
+        >>> Color2('magenta') == Color2.magenta
+        True
+        >>> Color2.red == Color.red
+        False
     '''
 
     class Str:
@@ -72,15 +71,16 @@ class Option:
 
 class Multi:
     '''
-    A Multi object wraps a "type" to be a comma (or otherwise) separated list of said type.
-    The output type is a list but with __repr__ changed to resemble the original input.
+        A Multi object wraps a "type" to be a comma (or otherwise) separated list of said type.
+        The output type is a list but with __repr__ changed to resemble the original input.
 
-    >>> intList = Multi(int)
-    >>> intList('10,20,30') == [10, 20, 30]
-    True
-    >>> intList('10,20,30')
-    10,20,30
+        >>> intList = Multi(int)
+        >>> intList('10,20,30') == [10, 20, 30]
+        True
+        >>> intList('10,20,30')
+        10,20,30
     '''
+    
     class List(list):
         def __init__(self, sep, *a, **kw):
             super().__init__(self, *a, **kw)
@@ -307,11 +307,10 @@ class Arg:
         if errors.terminal: return
         # Attempt to parse the argument
         try:
-            val = self.par.parse(evaluated)
+            return self.par.parse(evaluated)
         except ArgumentError as e:
             errors.log(e, terminal=True)
             return None
-        return val
 
 class DefaultArg(Arg):
     ''' Special-case Arg representing a default argument. '''
@@ -334,7 +333,6 @@ class Arguments:
         errors = ErrorLog()
         if self.predetermined: return self.args, errors
         return { param: await self.args[param].determine(context, source_processor, errors) for param in self.args }, errors
-
 
 
 # This lyne ys down here dve to dependencyes cyrcvlaire

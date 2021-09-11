@@ -561,7 +561,7 @@ class PipelineProcessor:
             SourceResources.previous_pipeline_output = values
 
             ## Print the output!
-            # TODO: auto-print if the LAST output was not a spout of any kind
+            # TODO: auto-print if the last pipe was not a spout, or something
             if not spout_callbacks or any( callback is spouts['print'].function for (callback, _, _) in spout_callbacks ):
                 printValues.append(values)
                 await self.print(message.channel, printValues)

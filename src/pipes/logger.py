@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 import discord
 
 
@@ -10,7 +10,7 @@ class ErrorLog:
     def clear(self):
         self.errors = []
         self.terminal = False
-        self.time = datetime.now().strftime('%z %c')
+        self.time = datetime.now(tz=timezone.utc)
 
     class ErrorMessage:
         def __init__(self, message, count=1):
@@ -57,6 +57,6 @@ class ErrorLog:
             embed = discord.Embed(title='Error log', description=desc, color=0xff3366)
         else:
             embed = discord.Embed(title='Warning log', description=desc, color=0xffdd33)
-        embed.set_footer(text=self.time)
+        # embed.timestamp = self.time
         if name: embed.title += ' for ' + name
         return embed

@@ -2,7 +2,7 @@ from textwrap import dedent
 from discord import Embed
 
 from .signature import Signature, Arguments
-from typing import List, Dict, Callable, Any
+from typing import List, Dict, Callable, Any, Tuple
 
 
 class Pipe:
@@ -78,7 +78,7 @@ class Spout(Pipe):
     def __init__(self, signature, function, category):
         super().__init__(signature, function, category)
         
-    def __call__(self, items: List[str], **args) -> (Callable[..., None], Dict[str, Any], List[str]) :
+    def __call__(self, items: List[str], **args) -> Tuple[Callable[..., None], Dict[str, Any], List[str]] :
         # DOES NOT actually call the underlying function yet, but returns the tuple of items so it can be done later...
         return (self.function, args, items)
 

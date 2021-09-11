@@ -55,25 +55,26 @@ class Context:
 
         return Context.empty_item_regex.sub(f, string)
 
-    def get_item(self, carrots, index, exclamation):
+    def get_item(self, carrots: str, index: str, exclamation: str):
+        return self.get_parsed_item(len(carrots), int(index), exclamation == '!')
+
+    def get_parsed_item(self, carrots: int, index: int, bang: bool):
         ctx = self
         # For each ^ go up a context
-        for i in range(len(carrots)):
+        for index in range(carrots):
             if ctx.parent is None: raise ContextError('Out of scope: References a parent context beyond scope!')
             ctx = ctx.parent
 
         count = len(ctx.items)
         # Make sure the index fits in the context's range of items
-        i = int(index)
-        if i >= count: raise ContextError('Out of range: References item {} out of only {} items.'.format(i, count))
-        if i < 0: i += count
-        if i < 0: raise ContextError('Out of range: Negative index {} for only {} items.'.format(i-count, count))
+        if index >= count: raise ContextError('Out of range: References item {} out of only {} items.'.format(index, count))
+        if index < 0: index += count
+        if index < 0: raise ContextError('Out of range: Negative index {} for only {} items.'.format(index-count, count))
 
         # Only flag items to be ignored if we're in the current context (idk how it would work with higher contexts)
         if ctx is self:
-            ignore = (exclamation == '!')
-            (self.to_be_ignored if ignore else self.to_be_removed).add(i)
-        return ctx.items[i]
+            (self.to_be_ignored if bang else self.to_be_removed).add(index)
+        return ctx.items[index]
 
     def extract_ignored(self):
         ### Merge the sets into a clear view:
