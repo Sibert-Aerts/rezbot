@@ -1,7 +1,7 @@
 import discord
 import re
 import asyncio
-from typing import List, Tuple, Optional, Any, TypeVar
+from typing import List, Tuple, Optional, Any, TypeVar, Union
 from lru import LRU
 
 # More import statements at the bottom of the file, due to circular dependencies.
@@ -42,25 +42,25 @@ class ParsedPipe:
 
         self.errors = ErrorLog()
         self.needs_dumb_arg_eval = False
-        self.arguments = None   # type: Optional[Arguments]
+        self.arguments: Optional[ParsedArguments] = None
         
-        # Attempt to determine what kind of pipe it is ahead of time
+        ## Attempt to determine what kind of pipe it is ahead of time
         if self.name in ['', 'nop', 'print']:
             self.type = ParsedPipe.SPECIAL
         elif self.name in pipes:
             self.type = ParsedPipe.NATIVEPIPE
             self.pipe = pipes[self.name]
-            self.arguments, errors, _ = self.pipe.signature.parse_args(self.argstr)
+            self.arguments, errors = ParsedArguments.from_string(self.argstr, self.pipe.signature)
             self.errors.extend(errors, self.name)
         elif self.name in spouts:
             self.type = ParsedPipe.SPOUT
             self.pipe = spouts[self.name]
-            self.arguments, errors, _ = self.pipe.signature.parse_args(self.argstr)
+            self.arguments, errors = ParsedArguments.from_string(self.argstr, self.pipe.signature)
             self.errors.extend(errors, self.name)
         elif self.name in sources:
             self.type = ParsedPipe.NATIVESOURCE
             self.pipe = sources[self.name]
-            self.arguments, errors, _ = self.pipe.signature.parse_args(self.argstr)
+            self.arguments, errors = ParsedArguments.from_string(self.argstr, self.pipe.signature)
             self.errors.extend(errors, self.name)
         elif self.name in pipe_macros:
             self.type = ParsedPipe.PIPEMACRO
@@ -82,14 +82,14 @@ class Pipeline:
             An internal representation of the script using e.g. ParsedPipes, GroupModes, Pipelines, etc.
             An ErrorLog containing warnings and errors encountered during parsing.
     '''
-    def __init__(self, string):
+    def __init__(self, string: str):
         self.parser_errors = ErrorLog()
 
         ### Split the pipeline into segments (segment > segment > segment)
         segments = self.split_into_segments(string)
 
         ### For each segment, parse the group mode, expand the parallel pipes and parse each parallel pipe.
-        self.parsed_segments = []
+        self.parsed_segments: List[Tuple[ groupmodes.GroupMode, List[Union[ParsedPipe, Pipeline]] ]] = []
         for segment in segments:
             try:
                 segment, groupMode = groupmodes.parse(segment)
@@ -99,12 +99,6 @@ class Pipeline:
                 continue 
             parallel = self.parse_segment(segment)
             self.parsed_segments.append((groupMode, parallel))
-
-        ### That's as far as I'm willing to parse/pre-compile a pipeline before execution right now, but there is absolutely room for improvement.
-
-        # NOTE: The only errors that are logged in this entire function are in groupmodes.parse, and parse_segment
-        # which may raise terminal errors or warnings, but we keep parsing the entire time hoping to scoop them all up at once.
-        # split_into_segments on the other hand never admits any errors, and will bravely parse anything no matter how poorly formed.
 
     def split_into_segments(self, string):
         '''
@@ -230,7 +224,7 @@ class Pipeline:
         bereft = self.rq_regex.sub(lambda m: stolen[int(m[1])], bereft)
         return bereft.replace('!§!', '§')
 
-    def parse_segment(self, segment):
+    def parse_segment(self, segment) -> List[ Union[ParsedPipe, 'Pipeline'] ]:
         '''Turn a single string describing one or more parallel pipes into a list of ParsedPipes or Pipelines.'''
         #### True and utter hack: Steal triple-quoted strings and parentheses wrapped strings out of the segment string.
         # This way these types of substrings are not affected by ChoiceTree expansion, because we only put them back afterwards.
@@ -256,7 +250,7 @@ class Pipeline:
                 pipeline = m[2] or m[3]
                 # Immediately attempt to parse the inline pipeline (recursion call!)
                 parsed = Pipeline(pipeline)
-                self.parser_errors.steal(parsed.parser_errors, context='braces')
+                self.parser_errors.steal(parsed.parser_errors, context='parens')
                 parsedPipes.append(parsed)
 
             ## Normal pipe: foo [bar=baz]*
@@ -292,7 +286,6 @@ class Pipeline:
 
         # Set up some objects we'll likely need
         context = Context(parent_context)
-        source_processor = SourceProcessor(message)
         printed_items = []
         spout_callbacks = []
         loose_items = items
@@ -337,14 +330,14 @@ class Pipeline:
 
                 #### Determine the arguments (if needed)
                 if parsed_pipe.arguments:
-                    args, arg_errors = await parsed_pipe.arguments.determine(group_context, source_processor)
+                    args, arg_errors = await parsed_pipe.arguments.determine(message, group_context)
                     errors.extend(arg_errors, context=name)
 
                 elif parsed_pipe.needs_dumb_arg_eval:
                     # Evaluate sources and insert context directly into the argument string (flawed!)
                     # This is used for macros, who don't necessarily have nice Signatures that we can be smart about
-                    argstr = await source_processor.evaluate_composite_source(parsed_pipe.argstr, group_context)
-                    errors.steal(source_processor.errors, context=f'args for `{name}`')
+                    argstr, argerrs = await TemplatedString.from_string(parsed_pipe.argstr).evaluate(group_context)
+                    errors.steal(argerrs, context=f'args for `{name}`')
 
                 # Check if something went wrong while determining arguments
                 if errors.terminal: return NOTHING_BUT_ERRORS                
@@ -423,8 +416,13 @@ class Pipeline:
                     if items and not (len(items) == 1 and items[0] == ''):
                         errors(f'Macro-source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
 
-                    newVals = await source_processor.evaluate_parsed_source(name, argstr)
-                    errors.steal(source_processor.errors, context='source-as-pipe')
+                    # TODO do this earlier...?
+                    # TODO solve the macro argument thing entirely
+                    parsedSource = ParsedSource(name, None, 1)
+                    parsedSource.FLAT_ARGS = argstr
+                    newVals, srcErrs = await parsedSource.evaluate(message, group_context)
+                    errors.steal(srcErrs, context='source-as-pipe')
+
                     if newVals is None or errors.terminal:
                         errors.terminal = True
                         return NOTHING_BUT_ERRORS
@@ -537,18 +535,18 @@ class PipelineProcessor:
         ## Check if we have executed this exact script recently
         if script in self.script_cache:
             # Fetch the previous pre-processing results from cache
-            source, pipeline = self.script_cache[script]
+            origin, pipeline = self.script_cache[script]
         else:
             # Perform very safe, basic pre-processing (parsing) and cache it
-            source, pipeline = PipelineProcessor.split(script)
+            origin, pipeline = PipelineProcessor.split(script)
             pipeline = Pipeline(pipeline)
-            self.script_cache[script] = (source, pipeline)
+            self.script_cache[script] = (origin, pipeline)
 
         try:
             ### STEP 1: GET STARTING VALUES
-            source_processor = SourceProcessor(message)
-            values = await source_processor.evaluate(source, context)
-            errors.extend(source_processor.errors)
+            values, origin_errors = await TemplatedString.evaluate_origin(origin, message, context)
+            errors.extend(origin_errors)
+            if errors.terminal: raise TerminalError()
 
             ### STEP 2: APPLY PIPELINE TO STARTING VALUES
             values, printValues, pl_errors, spout_callbacks = await pipeline.apply(values, message, context)
@@ -631,4 +629,5 @@ from .macros import pipe_macros, source_macros
 from .events import events, OnMessage, OnReaction
 from .signature import Arguments
 from .sourceprocessor import Context, SourceProcessor
+from .sourceparser import ParsedSource, TemplatedString, ParsedArguments
 from .macrocommands import parse_macro_command
