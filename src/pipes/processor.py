@@ -41,12 +41,12 @@ class ParsedPipe:
         self.argstr = args[0] if args else ''
 
         self.errors = ErrorLog()
-        self.needs_dumb_arg_eval = False
         self.arguments: Optional[ParsedArguments] = None
         
         ## Attempt to determine what kind of pipe it is ahead of time
         if self.name in ['', 'nop', 'print']:
             self.type = ParsedPipe.SPECIAL
+            # Special pipes don't have arguments
         elif self.name in pipes:
             self.type = ParsedPipe.NATIVEPIPE
             self.pipe = pipes[self.name]
@@ -64,14 +64,17 @@ class ParsedPipe:
             self.errors.extend(errors, self.name)
         elif self.name in pipe_macros:
             self.type = ParsedPipe.PIPEMACRO
-            self.needs_dumb_arg_eval = True
+            self.arguments, errors = ParsedArguments.from_string(self.argstr)
+            self.errors.extend(errors, self.name)
         elif self.name in source_macros:
             self.type = ParsedPipe.SOURCEMACRO
-            self.needs_dumb_arg_eval = True
+            self.arguments, errors = ParsedArguments.from_string(self.argstr)
+            self.errors.extend(errors, self.name)
         else:
             self.type = ParsedPipe.UNKNOWN
-            self.needs_dumb_arg_eval = True
-            # This one will keep being posted repeatedly even if the name eventually is defined, so don't do it
+            self.arguments, errors = ParsedArguments.from_string(self.argstr)
+            self.errors.extend(errors, self.name)
+            # This one will keep being posted repeatedly even if the name eventually is defined, so don't uncomment it
             # self.errors.warn(f'`{self.name}` is no known pipe, source, spout or macro at the time of parsing.')
 
 class Pipeline:
@@ -325,19 +328,13 @@ class Pipeline:
                     spout_callbacks += pl_spout_callbacks
                     continue
 
-                ## CASE: The pipe is a ParsedPipe: something of the form "name [param=arg ...]"
+                ## CASE: The pipe is a ParsedPipe: something of the form "name [argumentList]"
                 name = parsed_pipe.name
 
                 #### Determine the arguments (if needed)
-                if parsed_pipe.arguments:
+                if parsed_pipe.arguments is not None:
                     args, arg_errors = await parsed_pipe.arguments.determine(message, group_context)
                     errors.extend(arg_errors, context=name)
-
-                elif parsed_pipe.needs_dumb_arg_eval:
-                    # Evaluate sources and insert context directly into the argument string (flawed!)
-                    # This is used for macros, who don't necessarily have nice Signatures that we can be smart about
-                    argstr, argerrs = await TemplatedString.from_string(parsed_pipe.argstr).evaluate(group_context)
-                    errors.steal(argerrs, context=f'args for `{name}`')
 
                 # Check if something went wrong while determining arguments
                 if errors.terminal: return NOTHING_BUT_ERRORS                
@@ -384,7 +381,7 @@ class Pipeline:
                 elif parsed_pipe.type == ParsedPipe.NATIVESOURCE:
                     # Sources don't accept input values: Discard them but warn about it if nontrivial input is being discarded.
                     # This is just a style warning, if it turns out this is annoying then it should be removed.
-                    if items and not (len(items) == 1 and items[0] == ''):
+                    if items and not (len(items) == 1 and not items[0]):
                         errors(f'Source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
 
                     try:
@@ -396,7 +393,8 @@ class Pipeline:
 
                 ## A PIPE MACRO
                 elif name in pipe_macros:
-                    code = pipe_macros[name].apply_args(argstr)
+                    code = pipe_macros[name].apply_args(args)
+
                     ## Load the cached pipeline if we already parsed this code once before
                     if code in pipe_macros.pipeline_cache:
                         macro = pipe_macros.pipeline_cache[code]
@@ -406,22 +404,19 @@ class Pipeline:
 
                     newvals, macro_printValues, macro_errors, macro_spout_callbacks = await macro.apply(items, message)
                     errors.extend(macro_errors, name)
-                    if errors.terminal:
-                        return NOTHING_BUT_ERRORS
+                    if errors.terminal: return NOTHING_BUT_ERRORS
+
                     next_items.extend(newvals)
                     spout_callbacks += macro_spout_callbacks
 
                 ## A SOURCE MACRO
                 elif name in source_macros:
-                    if items and not (len(items) == 1 and items[0] == ''):
+                    if items and not (len(items) == 1 and not items[0]):
                         errors(f'Macro-source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
 
-                    # TODO do this earlier...?
-                    # TODO solve the macro argument thing entirely
-                    parsedSource = ParsedSource(name, None, 1)
-                    parsedSource.FLAT_ARGS = argstr
-                    newVals, srcErrs = await parsedSource.evaluate(message, group_context)
-                    errors.steal(srcErrs, context='source-as-pipe')
+                    sourceMacro = ParsedSource(name, None, None)
+                    newVals, src_errs = await sourceMacro.evaluate(message, group_context, args)
+                    errors.steal(src_errs, context='source-as-pipe')
 
                     if newVals is None or errors.terminal:
                         errors.terminal = True

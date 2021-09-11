@@ -42,25 +42,19 @@ class ParsedSource:
     SOURCEMACRO  = object()
     UNKNOWN      = object()
 
-    def __init__(self, name: str, args: ParseResults, amount: Union[str, int]):
+    def __init__(self, name: str, args: 'ParsedArguments', amount: Union[str, int, None]):
         self.name = name.lower()
         self.amount = amount
+        self.args = args
+        self.pre_errors = ErrorLog()
         
         if self.name in sources:
             self.type = ParsedSource.NATIVESOURCE
+            self.source = sources[self.name]
         elif self.name in source_macros:
             self.type = ParsedSource.SOURCEMACRO
         else:
-            self.type = ParsedSource.UNKNOWN
-            
-        self.args = None
-        self.pre_errors = None
-        if self.type == ParsedSource.NATIVESOURCE:
-            self.source = sources[self.name]
-            self.normalName = self.source.name
-            self.args, self.pre_errors = parse_parsed_args(args, self.source.signature)
-        else:
-            self.FLAT_ARGS = FLATTEN_ARGS(args) if args else ''
+            self.type = ParsedSource.UNKNOWN            
 
     @staticmethod
     def from_parsed(parsed: ParseResults):
@@ -72,7 +66,16 @@ class ParsedSource:
             else: amount = int(amt)
         else: amount = None
 
-        return ParsedSource(name, parsed.get('args'), amount)
+        # TODO: this is maybe dumb. Simplify ParsedArguments.from_parsed to just the naive version, and ParsedArgs.adapt_to_signature(Signature), or something?
+        if name in sources:
+            source = sources[name]
+            args, pre_errors = ParsedArguments.from_parsed(parsed.get('args'), source.signature)
+        else:
+            args, pre_errors = ParsedArguments.from_parsed(parsed.get('args'))
+
+        parsedSource = ParsedSource(name, args, amount)
+        parsedSource.pre_errors.extend(pre_errors)
+        return parsedSource
 
     def __str__(self):
         return '{%s %s %s}' %( self.amount or '', self.name, self.args.__repr__() if self.args else '' )
@@ -80,54 +83,58 @@ class ParsedSource:
         return 'Source' + str(self)
 
 
-    async def evaluate(self, message=None, context=None) -> Tuple[ List[str], ErrorLog ]:
+    async def evaluate(self, message=None, context=None, args=None) -> Tuple[ List[str], ErrorLog ]:
         ''' Find some values for the damn Source that we are. '''
         errors = ErrorLog()
         if self.pre_errors: errors.extend(self.pre_errors)
         NOTHING_BUT_ERRORS = (None, errors)
+        if errors.terminal: return NOTHING_BUT_ERRORS
 
-        if self.type == ParsedSource.NATIVESOURCE:
-            source = sources[self.name]
-            
+        if not (self.name in sources or self.name in source_macros):
+            errors(f'Unknown source `{self.name}`.')
+            return NOTHING_BUT_ERRORS
+
+        if args is None:
             ## Determine the arguments
             args, argErrors = await self.args.determine(message, context)
             errors.extend(argErrors, self.name)
             if errors.terminal: return NOTHING_BUT_ERRORS
 
+        ### CASE: Native Source
+        if self.type == ParsedSource.NATIVESOURCE:
             try:
-                return await source(message, args, n=self.amount), errors
-    
+                return await self.source(message, args, n=self.amount), errors
+
             except Exception as e:
                 argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
                 errors(f'Failed to evaluate source `{self.name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
                 return NOTHING_BUT_ERRORS
 
+        ### CASE: Macro Source
         elif self.name in source_macros:
-            # TODO: "apply_parsed_args" method for Macros
-            code = source_macros[self.name].apply_args(self.FLAT_ARGS)
+            code = source_macros[self.name].apply_args(args)
 
-            # Dressed-down version of PipelineProcessor.execute_script:
+            #### Fast-tracked version of PipelineProcessor.execute_script:
             origin, code = PipelineProcessor.split(code)
-            ## STEP 1: TODO source -> TemplatedString -> Values
-            
+
+            ## STEP 1: Get the values from the Macro's origin            
             values, origin_errors = await TemplatedString.evaluate_origin(origin, message, context)
             errors.extend(origin_errors, self.name)
-            
+            if errors.terminal: return NOTHING_BUT_ERRORS
+
             ## STEP 2: parse the Pipeline (but check the cache first)
             if code in source_macros.pipeline_cache:
                 pipeline = source_macros.pipeline_cache[code]
             else:
                 pipeline = Pipeline(code)
                 source_macros.pipeline_cache[code] = pipeline
+
             ## STEP 3: apply
-            # TODO: Ability to reuse a script N amount of times easily?
-            # Right now we just ignore the N argument....
+            # TODO: Actually use the "amount"
             values, _, pl_errors, _ = await pipeline.apply(values, None)
             errors.extend(pl_errors, self.name)
             return values, errors
 
-        errors(f'Unknown source `{self.name}`.')
-        return NOTHING_BUT_ERRORS
 
 
 
@@ -198,7 +205,7 @@ class TemplatedString:
         if self.isString:
             return self.string, errors
 
-        # TODO: pull that `await` outside the loop
+        # TODO: pull that `await` outside the loop!!!!!!!!!
         evaluated = []
 
         for piece in self.pieces:
@@ -249,29 +256,30 @@ class TemplatedString:
 
 ##### Replaces Arg
 class ParsedArg:
-    def __init__(self, par: Par, str: TemplatedString):
-        self.par = par
-        self.str = str
-        self.val = None
+    def __init__(self, string: TemplatedString, param: Union[Par, str]):
+        self.param = param if isinstance(param, Par) else None
+        self.name = param.name if isinstance(param, Par) else param
+        self.string = string
+        self.value = None
         self.predetermined = False
 
     def predetermine(self, errors):
-        if self.str.isString:
+        if self.string.isString:
             try:
-                self.val = self.par.parse(self.str.string)
+                self.value = self.param.parse(self.string.string) if self.param else self.string.string
                 self.predetermined = True
             except ArgumentError as e:
                 errors.log(e, True)
 
     async def determine(self, message, context, errors: ErrorLog) -> Any:
-        if self.predetermined: return self.val
+        if self.predetermined: return self.value
 
-        value, arg_errs = await self.str.evaluate(message, context)
-        errors.steal(arg_errs, context='parameter `{}`'.format(self.par.name))
+        value, arg_errs = await self.string.evaluate(message, context)
+        errors.steal(arg_errs, context='parameter `{}`'.format(self.name))
         if errors.terminal: return
         
         try:
-            return self.par.parse(value)
+            return self.param.parse(value) if self.param else value
         except ArgumentError as e:
             errors.log(e, True)
             return None
@@ -280,9 +288,9 @@ class ParsedArg:
 ##### Replaces DefaultArg
 class ParsedDefaultArg(ParsedArg):
     ''' Special-case Arg representing a default argument. '''
-    def __init__(self, val):
+    def __init__(self, value):
         self.predetermined = True
-        self.val = val
+        self.value = value
 
 
 ##### Replaces Arguments
@@ -291,14 +299,92 @@ class ParsedArguments:
         self.args = args
         self.predetermined = all(args[p].predetermined for p in args)
         if self.predetermined:
-            self.args = { param: args[param].val for param in args }
-
-    @staticmethod
-    def from_string(string: str, sig: Signature) -> Tuple['ParsedArguments', ErrorLog]:
-        return parse_parsed_args( argumentList.parseString(string, parseAll=True) , sig)
+            self.args = { param: args[param].value for param in args }
 
     def __repr__(self):
         return 'Args(' + ' '.join(self.args.keys()) + ')'
+
+    @staticmethod
+    def from_string(string: str, sig: Signature=None) -> Tuple['ParsedArguments', ErrorLog]:
+        # TODO: oops this gets NASTY
+        return ParsedArguments.from_parsed(argumentList.parseString(string, parseAll=True), sig)
+
+    ###### this will replace Signature.parse_args
+    @staticmethod
+    def from_parsed(argList: ParseResults, signature: Signature=None) -> Tuple['ParsedArguments', ErrorLog]:
+        '''
+            Compiles an argList ParseResult into a ParsedArguments object.
+            If Signature is not given, will create a "naive" ParsedArguments object that Macros use.
+        '''
+        errors = ErrorLog()
+
+        ## Step 1: Collect explicitly and implicitly assigned parameters
+        implicit = []
+        args = {}
+        for arg in argList or []:
+            if 'paramName' in arg:
+                param = arg['paramName'].lower()
+                if param in args:
+                    errors.warn(f'Repeated assignment of parameter `{param}`')
+                else:
+                    value = TemplatedString(arg['value'])
+                    args[param] = value
+            else:
+                implicit += list(arg['implicitArg'])
+
+        implicit = TemplatedString(implicit)
+        
+        ## Step 2: Turn into Arg objects
+        for param in list(args):
+            if not signature:
+                args[param] = ParsedArg(args[param], param)
+                args[param].predetermine(errors)
+            elif param in signature:
+                args[param] = ParsedArg(args[param], signature[param])
+                args[param].predetermine(errors)
+            else:
+                errors.warn(f'Unknown parameter `{param}`')
+                del args[param]
+
+        if not signature:
+            return ParsedArguments(args), errors
+
+        ## Step 3: Check if required arguments are missing
+        missing = [param for param in signature if param not in args and signature[param].required]
+        if missing:
+            if not implicit or len(missing) > 1:
+                # There's no implicit argument left to use for a missing argument
+                # OR: There's more than 1 missing argument, which we can't handle in any case
+                errors('Missing required parameter{} {}'.format('s' if len(missing) > 1 else '', ' '.join('`%s`'%p for p in missing)), True)
+
+            elif len(missing) == 1:
+                ## Only one required parameter is missing; use the implicit parameter
+                [param] = missing
+                args[param] = ParsedArg(implicit, signature[param])
+                implicit = None
+
+
+        ## Step 4: Check if the Signature simply has one parameter, and it hasn't been assigned yet (i.e. it's non-required)
+        elif len(signature) == 1 and implicit:
+            [param] = list(signature.keys())
+            if param not in args:
+                # Try using the implicit parameter, but if it causes errors, pretend we didn't see anything!
+                maybe_errors = ErrorLog()
+                arg = ParsedArg(implicit, signature[param])
+                arg.predetermine(maybe_errors)
+
+                # If it causes no trouble: use it!
+                if not maybe_errors.terminal:
+                    args[param] = arg
+                    remainder = None
+
+
+        ## Last step: Fill out default values of unassigned non-required parameters
+        for param in signature:
+            if param not in args and not signature[param].required:
+                args[param] = ParsedDefaultArg(signature[param].default)
+
+        return ParsedArguments(args), errors
 
     async def determine(self, message, context) -> Tuple[Dict[str, Any], ErrorLog]:
         ''' Returns a parsed {parameter: argument} dict ready for use. '''
@@ -306,85 +392,3 @@ class ParsedArguments:
         if self.predetermined: return self.args, errors
         # TODO: async those awaits
         return { param: await self.args[param].determine(message, context, errors) for param in self.args }, errors
-
-
-
-
-
-
-
-###### this will replace Signature.parse_args
-def parse_parsed_args(argList: ParseResults, signature: Signature) -> Tuple[ParsedArguments, ErrorLog]:
-    errors = ErrorLog()
-
-    ## Step 1: Collect explicitly and implicitly assigned parameters
-    implicit = []
-    args = {}
-    for arg in argList or []:
-        if 'paramName' in arg:
-            param = arg['paramName'].lower()
-            if param in args:
-                errors.warn(f'Repeated assignment of parameter `{param}`')
-            else:
-                value = TemplatedString(arg['value'])
-                args[param] = value
-        else:
-            implicit += list(arg['implicitArg'])
-
-    implicit = TemplatedString(implicit)
-    
-    ## Step 2: Turn into Arg objects
-    for param in list(args):
-        if param not in signature:
-            errors.warn(f'Unknown parameter `{param}`')
-            del args[param]
-        else:
-            args[param] = ParsedArg(signature[param], args[param])
-
-
-    ## Step 3: Check if required arguments are missing
-    missing = [param for param in signature if param not in args and signature[param].required]
-    if missing:
-        if not implicit or len(missing) > 1:
-            # There's no implicit argument left to use for a missing argument
-            # OR: There's more than 1 missing argument, which we can't handle in any case
-            errors('Missing required parameter{} {}'.format('s' if len(missing) > 1 else '', ' '.join('`%s`'%p for p in missing)), True)
-
-        elif len(missing) == 1:
-            ## Only one required parameter is missing; use the implicit parameter
-            [param] = missing
-            args[param] = ParsedArg(signature[param], implicit)
-            implicit = None
-
-
-    ## Step 4: Check if the Signature simply has one parameter, and it hasn't been assigned yet (i.e. it's non-required)
-    elif len(signature) == 1 and implicit:
-        [param] = list(signature.keys())
-        if param not in args:
-            # Try using the implicit parameter, but if it causes errors, pretend we didn't see anything!
-            maybe_errors = ErrorLog()
-            arg = ParsedArg(signature[param], implicit)
-            arg.predetermine(maybe_errors)
-
-            # If it causes no trouble: use it!
-            if not maybe_errors.terminal:
-                args[param] = arg
-                remainder = None
-
-
-    ## Last step: Fill out default values of unassigned non-required parameters
-    for param in signature:
-        if param not in args and not signature[param].required:
-            args[param] = ParsedDefaultArg(signature[param].default)
-
-    return ParsedArguments(args), errors
-
-
-# TODO: destroy this guy completely
-def FLATTEN_ARGS(argList: ParseResults) -> str:
-    out = []
-    for arg in argList:
-        if 'paramName' in arg:
-            out += [ arg['paramName'], '="', arg['value'][0]['stringBit'], '" ' ]
-    
-    return ''.join(out)

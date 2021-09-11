@@ -135,7 +135,7 @@ class SourceProcessor:
                 return None
 
         elif name in source_macros:
-            code = source_macros[name].apply_args(argstr)
+            code = source_macros[name].apply_args_dumb(argstr)
             # Dressed-down version of PipelineProcessor.execute_script:
             source, code = PipelineProcessor.split(code)
             ## STEP 1: create a new SourceP. so we can contextualise errors
