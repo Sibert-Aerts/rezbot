@@ -540,7 +540,7 @@ class PipelineProcessor:
         try:
             ### STEP 1: GET STARTING VALUES
             values, origin_errors = await TemplatedString.evaluate_origin(origin, message, context)
-            errors.extend(origin_errors)
+            errors.extend(origin_errors, 'script origin')
             if errors.terminal: raise TerminalError()
 
             ### STEP 2: APPLY PIPELINE TO STARTING VALUES

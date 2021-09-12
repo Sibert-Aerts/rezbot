@@ -1,4 +1,4 @@
-from pyparsing import ParseResults
+from pyparsing import ParseException, ParseResults, StringEnd
 from typing import Any, List, Dict, Optional, Tuple, Union
 
 # Here to make sure circular dependencies get loaded in the right order...
@@ -156,10 +156,13 @@ class TemplatedString:
                     self.pieces[-1] += piece['stringBit']
 
             elif 'source' in piece:
-                self.pieces.append(ParsedSource.from_parsed(piece['source']))
-                # TODO: absorb the source's pre-errors...?
+                source = ParsedSource.from_parsed(piece['source'])
+                self.pieces.append(source)
+                self.pre_errors.extend(source.pre_errors, source.name)
 
             elif 'item' in piece:
+                # TODO: this currently does not work as intuitive due to nesting:
+                # "{} {roll max={}} {}" == "{0} {roll max={0}} {1}"
                 item = ParsedItem(piece['item'])
                 if item.explicitlyIndexed:
                     explicitItem = True
@@ -169,7 +172,7 @@ class TemplatedString:
                     itemIndex += 1
                 self.pieces.append(item)
 
-        # TODO: only make this show up if Items are actually going to be added?
+        # TODO: only make this show up if Items are actually intended to be added at some point(?)
         if explicitItem and implicitItem:
             self.pre_errors('Do not mix empty {}\'s with numbered {}\'s"!', True)
         
@@ -240,16 +243,32 @@ class TemplatedString:
     
         sources = ChoiceTree(originStr, parse_flags=True, add_brackets=True) if expand else [originStr]
 
+        ## Evaluate each string as a TemplatedString, collecting errors along the way
         for originStr in sources:
-            origin = TemplatedString.from_string(originStr)
-            if origin.isSource:
-                vals, errs = await origin.source.evaluate(message, context)
-                errors.extend(errs)
-                if not errors.terminal: values.extend(vals)
+            try:
+                origin = TemplatedString.from_string(originStr)
+
+            except ParseException as e:
+                # Identical to the except clause in ParsedArguments.from_string
+                if isinstance(e.parserElement, StringEnd):
+                    error = f'ParseException: Likely unclosed brace at position {e.loc}:\n­\t'
+                    error += e.line[:e.col-1] + '[**' + e.line[e.col-1] + '**](http://0)' + e.line[e.col:]
+                    errors(error, True)
+                else:
+                    errors('An unexpected ParseException occurred!')
+                    errors(e, True)
+
+            ## If the origin parsed properly:
             else:
-                val, errs = await origin.evaluate(message, context)
-                errors.extend(errs)
-                if not errors.terminal: values.append(val)
+                if origin.isSource:
+                    vals, errs = await origin.source.evaluate(message, context)
+                    errors.extend(errs)
+                    if not errors.terminal: values.extend(vals)
+                else:
+                    val, errs = await origin.evaluate(message, context)
+                    errors.extend(errs)
+                    if not errors.terminal: values.append(val)
+
         return values, errors
 
 
@@ -306,8 +325,21 @@ class ParsedArguments:
 
     @staticmethod
     def from_string(string: str, sig: Signature=None) -> Tuple['ParsedArguments', ErrorLog]:
-        # TODO: oops this gets NASTY
-        return ParsedArguments.from_parsed(argumentList.parseString(string, parseAll=True), sig)
+        try:
+            parsed = argumentList.parseString(string, parseAll=True)
+        except ParseException as e:
+            errors = ErrorLog()
+            if isinstance(e.parserElement, StringEnd):
+                error = f'ParseException: Likely unclosed brace at position {e.loc}:\n­\t'
+                error += e.line[:e.col-1] + '[**' + e.line[e.col-1] + '**](http://0)' + e.line[e.col:]
+                errors(error, True)
+            else:
+                errors('An unexpected ParseException occurred!')
+                errors(e, True)
+            return None, errors
+        else:
+            return ParsedArguments.from_parsed(parsed, sig)
+
 
     ###### this will replace Signature.parse_args
     @staticmethod
