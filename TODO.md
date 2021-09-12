@@ -11,17 +11,22 @@
 
     * **Script analysis:**
         * Warn if certain parallel pipes are unreachable for the given groupmode
-        * Same, but with even more 
 
     * **Parameters:**
         * Option-parameters can be smarter (e.g. "nick" counts as "nickname" if it's the unique option starting with "nick")
         * Possibly warn about unused pieces of argstring (e.g. `{txt file=heck hell}` warns about `hell` being there for no reason)
 
     * **Sources:**
-        * Recursively parse sources (e.g. `{source1 arg={source2}}` should work)
+        * (Nothing)
 
     * **Pipes:**
-        * Nothing
+        * (Nothing)
+
+    * **TemplatedString:**
+        * All sources in a TemplatedString currently wait one for the other to evaluate, instead of the old way which turned them into Futures first.
+
+        * Implicit item indexing doesn't work exactly as expected with nested sources
+            * `{} {word pattern={}} {}` gives `{0} {word pattern={0}} {1}` instead of `{0} {word pattern={1}} {2}`
 
     * **Uploaded files:**
         * "Append to file" spout (which creates a new file if it doesn't exist yet)
@@ -65,7 +70,6 @@
     * **PARSING BUGS:**
         * `>> foo > bar x=( > baz` doesn't understand the ( should be a character and not a parenthesis (circumventable by writing `x="("`)
         * `>> foo > bar x='"' > baz` similarly, the " is interpreted as opening a string that is never closed, circumvented by adding a closing " afterwards but that's stupid
-        * `>> """choice-escaped source"""` is not possible right now
 
     * **SPECULATIVE:**
         * Option to hide warnings log
