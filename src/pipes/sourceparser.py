@@ -215,7 +215,7 @@ class TemplatedString:
             if pieces[0][:3] == pieces[-1][-3:] == '"""' and not (self.isString and len(pieces[0]) < 6):
                 pieces[0] = pieces[0][3:]
                 pieces[-1] = pieces[-1][:-3]
-            elif pieces[0][:0] == pieces[-1][-1:] in ('"', "'", '/') and not (self.isString and len(pieces[0]) < 2):
+            elif pieces[0][:1] == pieces[-1][-1:] in ('"', "'", '/') and not (self.isString and len(pieces[0]) < 2):
                 pieces[0] = pieces[0][1:]
                 pieces[-1] = pieces[-1][:-1]
             if self.isString: self.string: str = self.pieces[0]
