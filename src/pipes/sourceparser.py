@@ -134,11 +134,11 @@ class ParsedSource:
 
 class TemplatedString:
     ''' Class representing a string that may contain Sources or Items. '''
-    def __init__(self, pieces: List[Union[str, ParsedSource, ParsedItem]]):
+    def __init__(self, pieces: List[Union[str, ParsedSource, ParsedItem]], startIndex: int=0):
         self.pieces = pieces
         self.pre_errors = ErrorLog()
-
-        itemIndex = 0; explicitItem = False; implicitItem = False
+        
+        itemIndex = startIndex; explicitItem = False; implicitItem = False
         # TODO: this currently does not work as intended due to nesting:
         # "{} {roll max={}} {}" == "{0} {roll max={0}} {1}"
         for piece in pieces:
@@ -151,6 +151,8 @@ class TemplatedString:
                     implicitItem = True
                     piece.index = itemIndex
                     itemIndex += 1
+
+        self.endIndex = itemIndex
 
         # TODO: only make this show up if Items are actually intended to be added at some point(?)
         if explicitItem and implicitItem:
@@ -170,7 +172,7 @@ class TemplatedString:
         if self.isItem: self.item: ParsedItem = self.pieces[0]
 
     @staticmethod
-    def from_parsed(parsed: ParseResults=[]):
+    def from_parsed(parsed: ParseResults=[], minIndex=0):
         pre_errors = ErrorLog()
         pieces = []
 
@@ -190,7 +192,7 @@ class TemplatedString:
                 item = ParsedItem(piece['item'])
                 pieces.append(item)
 
-        string = TemplatedString(pieces)
+        string = TemplatedString(pieces, minIndex)
         string.pre_errors.extend(pre_errors)
         return string
     

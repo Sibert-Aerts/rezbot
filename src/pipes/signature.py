@@ -255,13 +255,17 @@ class Arguments:
         ## Step 1: Collect explicitly and implicitly assigned parameters
         remainder = []
         args = {}
+        startIndex = 0
+
+        ## TODO: the running startIndex doesn't track the remainder/implicit string! yikes!!
         for arg in argList or []:
             if 'paramName' in arg:
                 param = arg['paramName'].lower()
                 if param in args:
                     errors.warn(f'Repeated assignment of parameter `{param}`')
                 else:
-                    value = TemplatedString.from_parsed(arg['value'])
+                    value = TemplatedString.from_parsed(arg['value'], startIndex)
+                    startIndex = value.endIndex
                     args[param] = value
             else:
                 remainder += list(arg['implicitArg'])
