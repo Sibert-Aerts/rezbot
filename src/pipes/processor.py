@@ -1,6 +1,4 @@
-import discord
 import re
-import asyncio
 from typing import List, Tuple, Optional, Any, TypeVar, Union
 from lru import LRU
 
@@ -11,7 +9,6 @@ from utils.choicetree import ChoiceTree
 
 import permissions
 import utils.texttools as texttools
-import utils.util as util
 
 #################################################################
 #              The classes that put it all to work              #
@@ -623,5 +620,6 @@ from .spouts import spouts
 from .macros import pipe_macros, source_macros
 from .events import events, OnMessage, OnReaction
 from .sourceprocessor import Context
-from .sourceparser import ParsedSource, TemplatedString, ParsedArguments
+from .signature import ParsedArguments
+from .sourceparser import ParsedSource, TemplatedString
 from .macrocommands import parse_macro_command

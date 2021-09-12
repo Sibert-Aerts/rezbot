@@ -6,7 +6,7 @@ from .pipes import pipes
 from .sources import sources, SourceResources
 from .spouts import spouts
 from .macros import pipe_macros, source_macros
-from .sourceparser import ParsedArguments
+from .signature import ParsedArguments
 from .events import events
 from .logger import ErrorLog
 from mycommands import MyCommands
