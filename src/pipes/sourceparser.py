@@ -270,7 +270,7 @@ class TemplatedString:
                 errors.extend(src_errors)
                 evaluated.append(items[0] if items else '')
 
-        return ''.join(evaluated), errors
+        return ''.join(evaluated) if not errors.terminal else None, errors
 
     @staticmethod
     async def evaluate_origin(originStr: str, message, context=None) -> Tuple[List[str], ErrorLog]:
