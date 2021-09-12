@@ -200,6 +200,22 @@ class TemplatedString:
     def __bool__(self):
         return not (self.isString and not self.pieces[0])
 
+    def unquote(self) -> 'TemplatedString':
+        ''' Modifies the TemplatedString to remove wrapping string delimiters, if present. '''
+        pieces = self.pieces
+
+        if isinstance(pieces[0], str) and isinstance(pieces[-1], str):
+            if pieces[0][:3] == pieces[-1][-3:] == '"""' and not (self.isString and len(pieces[0]) < 6):
+                pieces[0] = pieces[0][3:]
+                pieces[-1] = pieces[-1][:-3]
+            elif pieces[0][0] == pieces[-1][-1] in ('"', "'", '/') and not (self.isString and len(pieces[0]) < 2):
+                pieces[0] = pieces[0][1:]
+                pieces[-1] = pieces[-1][:-1]
+            if self.isString: self.string: str = self.pieces[0]
+
+        return self
+
+
     async def evaluate(self, message, context=None) -> Tuple[str, ErrorLog]:
         ''' Evaluate the TemplatedString into a string '''
         errors = ErrorLog()
@@ -378,6 +394,7 @@ class ParsedArguments:
                 errors.warn(f'Unknown parameter `{param}`')
                 del args[param]
 
+        ## If there's no signature to check against: we're done already.
         if not signature:
             return ParsedArguments(args), errors
 
@@ -392,7 +409,7 @@ class ParsedArguments:
             elif len(missing) == 1:
                 ## Only one required parameter is missing; use the implicit parameter
                 [param] = missing
-                args[param] = ParsedArg(implicit, signature[param])
+                args[param] = ParsedArg(implicit.unquote(), signature[param])
                 implicit = None
 
 
@@ -402,13 +419,13 @@ class ParsedArguments:
             if param not in args:
                 # Try using the implicit parameter, but if it causes errors, pretend we didn't see anything!
                 maybe_errors = ErrorLog()
-                arg = ParsedArg(implicit, signature[param])
+                arg = ParsedArg(implicit.unquote(), signature[param])
                 arg.predetermine(maybe_errors)
 
                 # If it causes no trouble: use it!
                 if not maybe_errors.terminal:
                     args[param] = arg
-                    remainder = None
+                    implicit = None
 
 
         ## Last step: Fill out default values of unassigned non-required parameters
