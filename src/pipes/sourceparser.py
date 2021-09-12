@@ -127,7 +127,7 @@ class ParsedSource:
 
             ## STEP 3: apply
             # TODO: Actually use the "amount"
-            values, _, pl_errors, _ = await pipeline.apply(values, None)
+            values, _, pl_errors, _ = await pipeline.apply(values, message)
             errors.extend(pl_errors, self.name)
             return values, errors
 
@@ -245,7 +245,7 @@ class TemplatedString:
             return TemplatedString(implicit).unquote(), TemplatedString(remainder)
 
 
-    async def evaluate(self, message, context=None) -> Tuple[str, ErrorLog]:
+    async def evaluate(self, message, context: Context=None) -> Tuple[str, ErrorLog]:
         ''' Evaluate the TemplatedString into a string '''
         errors = ErrorLog()
         errors.extend(self.pre_errors)

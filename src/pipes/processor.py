@@ -448,7 +448,11 @@ class PipelineProcessor:
             m = event.test(message)
             if m:
                 # If m is not just a bool, but a regex match object, fill the context up with the match groups, otherwise with the entire message.
-                context = Context(items=(list(m.groups()) or [message.content]) if m is not True else [message.content])
+                if m is not True:
+                    items = [group or '' for group in m.groups()] or [message.content]
+                else:
+                    items = [message.content]
+                context = Context(items=items)
                 await self.execute_script(event.script, message, context, name='Event: ' + event.name)
 
     async def on_reaction(self, channel, emoji, user_id, msg_id):
