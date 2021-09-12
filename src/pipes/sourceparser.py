@@ -68,10 +68,9 @@ class ParsedSource:
 
         # TODO: this is maybe dumb. Simplify ParsedArguments.from_parsed to just the naive version, and ParsedArgs.adapt_to_signature(Signature), or something?
         if name in sources:
-            source = sources[name]
-            args, pre_errors = ParsedArguments.from_parsed(parsed.get('args'), source.signature)
+            args, _, pre_errors = ParsedArguments.from_parsed(parsed.get('args'), sources[name].signature)
         else:
-            args, pre_errors = ParsedArguments.from_parsed(parsed.get('args'))
+            args, _, pre_errors = ParsedArguments.from_parsed(parsed.get('args'))
 
         parsedSource = ParsedSource(name, args, amount)
         parsedSource.pre_errors.extend(pre_errors)
@@ -141,45 +140,32 @@ class ParsedSource:
 ##### Replaces previous implicit usages of str
 class TemplatedString:
     ''' Class representing a string that may contain Sources or Items. '''
-    def __init__(self, parsed: ParseResults=[]):
-        self.pieces: List[Union[str, ParsedSource, ParsedItem]] = []
+    def __init__(self, pieces: List[Union[str, ParsedSource, ParsedItem]]):
+        self.pieces = pieces
         self.pre_errors = ErrorLog()
 
         itemIndex = 0; explicitItem = False; implicitItem = False
-
-        for piece in parsed:
-            # A string piece
-            if 'stringBit' in piece:
-                if not self.pieces or not isinstance(self.pieces[-1], str):
-                    self.pieces.append(piece['stringBit'])
-                else:
-                    self.pieces[-1] += piece['stringBit']
-
-            elif 'source' in piece:
-                source = ParsedSource.from_parsed(piece['source'])
-                self.pieces.append(source)
-                self.pre_errors.extend(source.pre_errors, source.name)
-
-            elif 'item' in piece:
-                # TODO: this currently does not work as intuitive due to nesting:
-                # "{} {roll max={}} {}" == "{0} {roll max={0}} {1}"
-                item = ParsedItem(piece['item'])
-                if item.explicitlyIndexed:
+        # TODO: this currently does not work as intended due to nesting:
+        # "{} {roll max={}} {}" == "{0} {roll max={0}} {1}"
+        for piece in pieces:
+            if isinstance(piece, ParsedSource):
+                pass
+            elif isinstance(piece, ParsedItem):
+                if piece.explicitlyIndexed:
                     explicitItem = True
                 else:
                     implicitItem = True
-                    item.index = itemIndex
+                    piece.index = itemIndex
                     itemIndex += 1
-                self.pieces.append(item)
 
         # TODO: only make this show up if Items are actually intended to be added at some point(?)
         if explicitItem and implicitItem:
             self.pre_errors('Do not mix empty {}\'s with numbered {}\'s"!', True)
-        
-        # For simplicity later, an empty List is replaced with an empty string
+
+        # For simplicity, an empty List is normalised to an empty string
         self.pieces = self.pieces or ['']
         
-        # Determine if we're a very simple kind of TemplatedString
+        ## Determine if we're a very simple kind of TemplatedString
         self.isString = len(self.pieces)==1 and isinstance(self.pieces[0], str)
         if self.isString: self.string: str = self.pieces[0]
 
@@ -188,10 +174,35 @@ class TemplatedString:
         
         self.isItem = len(self.pieces)==1 and isinstance(self.pieces[0], ParsedItem)
         if self.isItem: self.item: ParsedItem = self.pieces[0]
+
+    @staticmethod
+    def from_parsed(parsed: ParseResults=[]):
+        pre_errors = ErrorLog()
+        pieces = []
+
+        for piece in parsed:
+            if 'stringBit' in piece:
+                if not pieces or not isinstance(pieces[-1], str):
+                    pieces.append(piece['stringBit'])
+                else:
+                    pieces[-1] += piece['stringBit']
+
+            elif 'source' in piece:
+                source = ParsedSource.from_parsed(piece['source'])
+                pieces.append(source)
+                pre_errors.extend(source.pre_errors, source.name)
+
+            elif 'item' in piece:
+                item = ParsedItem(piece['item'])
+                pieces.append(item)
+
+        string = TemplatedString(pieces)
+        string.pre_errors.extend(pre_errors)
+        return string
     
     @staticmethod
     def from_string(string: str):
-        return TemplatedString( templatedString.parseString(string, parseAll=True) )
+        return TemplatedString.from_parsed( templatedString.parseString(string, parseAll=True) )
 
     def __str__(self):
         return ''.join(str(x) for x in self.pieces)
@@ -208,12 +219,36 @@ class TemplatedString:
             if pieces[0][:3] == pieces[-1][-3:] == '"""' and not (self.isString and len(pieces[0]) < 6):
                 pieces[0] = pieces[0][3:]
                 pieces[-1] = pieces[-1][:-3]
-            elif pieces[0][0] == pieces[-1][-1] in ('"', "'", '/') and not (self.isString and len(pieces[0]) < 2):
+            elif pieces[0][:0] == pieces[-1][-1:] in ('"', "'", '/') and not (self.isString and len(pieces[0]) < 2):
                 pieces[0] = pieces[0][1:]
                 pieces[-1] = pieces[-1][:-1]
             if self.isString: self.string: str = self.pieces[0]
 
         return self
+
+    def split_implicit_arg(self, greedy: bool) -> Tuple['TemplatedString', 'TemplatedString']:
+        ''' Splits the TemplatedString into an implicit arg and a "remainder" TemplatedString. '''
+        if greedy:
+            return self.unquote(), None
+        else:
+            # This is stupid since it just applies the TemplatedString version of .split(' ', 1)
+            # But we probably don't need more than this...
+            implicit = []
+            remainder = []
+            for i in range(len(self.pieces)):
+                piece = self.pieces[i]
+                if isinstance(piece, str):
+                    if ' ' in piece:
+                        piece1, piece2 = piece.split(' ', 1)
+                        implicit.append(piece1)
+                        remainder = [piece2, self.pieces[i+1:]]
+                        break
+                    else:
+                        implicit.append(piece)
+                else:
+                    implicit.append(piece)
+
+            return TemplatedString(implicit).unquote(), TemplatedString(remainder)
 
 
     async def evaluate(self, message, context=None) -> Tuple[str, ErrorLog]:
@@ -254,7 +289,7 @@ class TemplatedString:
         if len(originStr) >= 6 and originStr[:3] == originStr[-3:] == '"""':
             originStr = originStr[3:-3]
             expand = False
-        elif len(originStr) >= 2 and originStr[0] == originStr[-1] == '"':
+        elif len(originStr) >= 2 and originStr[0] == originStr[-1] in ('"', "'", '/'):
             originStr = originStr[1:-1]
     
         sources = ChoiceTree(originStr, parse_flags=True, add_brackets=True) if expand else [originStr]
@@ -340,7 +375,7 @@ class ParsedArguments:
         return 'Args(' + ' '.join(self.args.keys()) + ')'
 
     @staticmethod
-    def from_string(string: str, sig: Signature=None) -> Tuple['ParsedArguments', ErrorLog]:
+    def from_string(string: str, sig: Signature=None, greedy=True) -> Tuple['ParsedArguments', TemplatedString, ErrorLog]:
         try:
             parsed = argumentList.parseString(string, parseAll=True)
         except ParseException as e:
@@ -352,14 +387,15 @@ class ParsedArguments:
             else:
                 errors('An unexpected ParseException occurred!')
                 errors(e, True)
-            return None, errors
+            return None, None, errors
         else:
-            return ParsedArguments.from_parsed(parsed, sig)
+            return ParsedArguments.from_parsed(parsed, sig, greedy=greedy)
 
 
     ###### this will replace Signature.parse_args
+    # TODO: un-greedy parsing that returns a remainder TemplatedString I guess
     @staticmethod
-    def from_parsed(argList: ParseResults, signature: Signature=None) -> Tuple['ParsedArguments', ErrorLog]:
+    def from_parsed(argList: ParseResults, signature: Signature=None, greedy: bool=True) -> Tuple['ParsedArguments', TemplatedString, ErrorLog]:
         '''
             Compiles an argList ParseResult into a ParsedArguments object.
             If Signature is not given, will create a "naive" ParsedArguments object that Macros use.
@@ -367,7 +403,7 @@ class ParsedArguments:
         errors = ErrorLog()
 
         ## Step 1: Collect explicitly and implicitly assigned parameters
-        implicit = []
+        remainder = []
         args = {}
         for arg in argList or []:
             if 'paramName' in arg:
@@ -375,12 +411,12 @@ class ParsedArguments:
                 if param in args:
                     errors.warn(f'Repeated assignment of parameter `{param}`')
                 else:
-                    value = TemplatedString(arg['value'])
+                    value = TemplatedString.from_parsed(arg['value'])
                     args[param] = value
             else:
-                implicit += list(arg['implicitArg'])
+                remainder += list(arg['implicitArg'])
 
-        implicit = TemplatedString(implicit)
+        remainder = TemplatedString.from_parsed(remainder)
         
         ## Step 2: Turn into Arg objects
         for param in list(args):
@@ -396,12 +432,12 @@ class ParsedArguments:
 
         ## If there's no signature to check against: we're done already.
         if not signature:
-            return ParsedArguments(args), errors
+            return ParsedArguments(args), remainder, errors
 
         ## Step 3: Check if required arguments are missing
         missing = [param for param in signature if param not in args and signature[param].required]
         if missing:
-            if not implicit or len(missing) > 1:
+            if not remainder or len(missing) > 1:
                 # There's no implicit argument left to use for a missing argument
                 # OR: There's more than 1 missing argument, which we can't handle in any case
                 errors('Missing required parameter{} {}'.format('s' if len(missing) > 1 else '', ' '.join('`%s`'%p for p in missing)), True)
@@ -409,23 +445,24 @@ class ParsedArguments:
             elif len(missing) == 1:
                 ## Only one required parameter is missing; use the implicit parameter
                 [param] = missing
-                args[param] = ParsedArg(implicit.unquote(), signature[param])
-                implicit = None
+                implicit, remainder = remainder.split_implicit_arg(greedy)
+                args[param] = ParsedArg(implicit, signature[param])
 
 
         ## Step 4: Check if the Signature simply has one parameter, and it hasn't been assigned yet (i.e. it's non-required)
-        elif len(signature) == 1 and implicit:
+        elif len(signature) == 1 and remainder:
             [param] = list(signature.keys())
             if param not in args:
                 # Try using the implicit parameter, but if it causes errors, pretend we didn't see anything!
                 maybe_errors = ErrorLog()
-                arg = ParsedArg(implicit.unquote(), signature[param])
+                implicit, remainder = remainder.split_implicit_arg(greedy)
+                arg = ParsedArg(implicit, signature[param])
                 arg.predetermine(maybe_errors)
 
                 # If it causes no trouble: use it!
                 if not maybe_errors.terminal:
                     args[param] = arg
-                    implicit = None
+                    remainder = None
 
 
         ## Last step: Fill out default values of unassigned non-required parameters
@@ -433,9 +470,9 @@ class ParsedArguments:
             if param not in args and not signature[param].required:
                 args[param] = ParsedDefaultArg(signature[param].default)
 
-        return ParsedArguments(args), errors
+        return ParsedArguments(args), remainder, errors
 
-    async def determine(self, message, context) -> Tuple[Dict[str, Any], ErrorLog]:
+    async def determine(self, message, context=None) -> Tuple[Dict[str, Any], ErrorLog]:
         ''' Returns a parsed {parameter: argument} dict ready for use. '''
         errors = ErrorLog()
         if self.predetermined: return self.args, errors

@@ -50,7 +50,7 @@ def hex(h):
     'footer':      Par(str, '',   'The footer text.'),
     'footer_icon': Par(url, None, 'Link to the footer icon.', required=False),
     'timestamp':   Par(int, None, 'A timestamp representing the date that shows up in the footer.', required=False),
-})
+}, command=True)
 async def embed_spout(bot, message, values, color, title, author, author_icon, link, thumb, image, footer, footer_icon, timestamp):
     ''' Outputs text as the body of a Discord embed box.'''
     embed = Embed(title=title, description='\n'.join(values), color=color, url=link)
@@ -78,7 +78,7 @@ async def embed_spout(bot, message, values, color, title, author, author_icon, l
     'retweets': Par(str, '', 'The number of retweets, hidden if empty.'),
     'likes':    Par(str, '', 'The number of likes, hidden if empty.'),
     'timestamp':Par(int, None, 'Time the tweet was sent, "now" if empty.', required=False),
-})
+}, command=True)
 async def tweet_spout(bot, message, values, name, handle, icon, retweets, likes, timestamp):
     ''' Outputs text as a fake tweet embed. '''
     embed = Embed(description='\n'.join(values), color=0x1da1f2)

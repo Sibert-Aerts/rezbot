@@ -1,17 +1,12 @@
-from functools import wraps
-import pickle
-import re
-
 import discord
 from discord.ext import commands
-from http.client import HTTPException
 
 from .pipe import Pipe, Source, Spout
 from .pipes import pipes
 from .sources import sources, SourceResources
 from .spouts import spouts
 from .macros import pipe_macros, source_macros
-from .processor import PipelineProcessor, SourceProcessor
+from .sourceparser import ParsedArguments
 from .events import events
 from .logger import ErrorLog
 from mycommands import MyCommands
@@ -317,9 +312,11 @@ def setup(bot):
             text = util.strip_command(ctx)
 
             # Parse and process arguments from the command string
-            sourceProc = SourceProcessor(ctx.message)
-            args, err, text = await pipe.signature.parse_and_determine(text, sourceProc, greedy=False)
-            text = await sourceProc.evaluate_composite_source(text)
+            args, text, err = ParsedArguments.from_string(text, pipe.signature, greedy=False)
+            if err.terminal: await ctx.send(embed=err.embed(f'`{pipe.name}`')); return
+            args, err2 = await args.determine(ctx.message)
+            text, err3 = await text.evaluate(ctx.message)
+            err.extend(err2, 'arguments'); err.extend(err3, 'input string')
             if err.terminal: await ctx.send(embed=err.embed(f'`{pipe.name}`')); return
 
             try:
@@ -351,9 +348,10 @@ def setup(bot):
             text = util.strip_command(ctx)
 
             # Parse and process arguments from the command string
-            sourceProc = SourceProcessor(ctx.message)
-            args, err, text = await source.signature.parse_and_determine(text, sourceProc, greedy=False)
-            text = await sourceProc.evaluate_composite_source(text)
+            args, _, err = ParsedArguments.from_string(text, source.signature, greedy=True)
+            if err.terminal: await ctx.send(embed=err.embed(f'`{source.name}`')); return
+            args, err2 = await args.determine(ctx.message)
+            err.extend(err2, 'arguments')
             if err.terminal: await ctx.send(embed=err.embed(f'`{source.name}`')); return
 
             try:
@@ -380,14 +378,16 @@ def setup(bot):
     #                  Turn spouts into commands!                 #
     ###############################################################
 
-    def spout_to_func(spout):
+    def spout_to_func(spout: Spout):
         async def func(self, ctx):
             text = util.strip_command(ctx)
 
             # Parse and process arguments from the command string
-            sourceProc = SourceProcessor(ctx.message)
-            args, err, text = await spout.signature.parse_and_determine(text, sourceProc, greedy=False)
-            text = await sourceProc.evaluate_composite_source(text)
+            args, text, err = ParsedArguments.from_string(text, spout.signature, greedy=False)
+            if err.terminal: await ctx.send(embed=err.embed(f'`{spout.name}`')); return
+            args, err2 = await args.determine(ctx.message)
+            text, err3 = await text.evaluate(ctx.message)
+            err.extend(err2, 'arguments'); err.extend(err3, 'input string')
             if err.terminal: await ctx.send(embed=err.embed(f'`{spout.name}`')); return
 
             try:

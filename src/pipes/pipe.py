@@ -1,7 +1,7 @@
 from textwrap import dedent
 from discord import Embed
 
-from .signature import Signature, Arguments
+from .signature import Signature
 from typing import List, Dict, Callable, Any, Tuple
 
 
@@ -59,11 +59,6 @@ class Source(Pipe):
             return self.function(message, **args)
         else:
             return self.function(**args)
-
-    def apply(self, message, args):
-        ''' Get the source's output using a dict of arguments. '''
-        print('SOURCE.APPLY!!!!!!!!!!!!!!!!!')
-        raise Exception()
 
     def embed(self):
         embed = super().embed()
