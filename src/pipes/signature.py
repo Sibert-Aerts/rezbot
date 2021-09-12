@@ -185,7 +185,7 @@ class Signature(dict):
 #                     Arguments                     #
 #####################################################
 
-class ParsedArg:
+class Arg:
     def __init__(self, string: 'TemplatedString', param: Union[Par, str]):
         self.param = param if isinstance(param, Par) else None
         self.name = param.name if isinstance(param, Par) else param
@@ -214,24 +214,21 @@ class ParsedArg:
             errors.log(e, True)
             return None
 
-class ParsedDefaultArg(ParsedArg):
+class DefaultArg(Arg):
     ''' Special-case Arg representing a default argument. '''
     def __init__(self, value):
         self.predetermined = True
         self.value = value
 
-class ParsedArguments:
-    def __init__(self, args: Dict[str, ParsedArg]):
+class Arguments:
+    def __init__(self, args: Dict[str, Arg]):
         self.args = args
         self.predetermined = all(args[p].predetermined for p in args)
         if self.predetermined:
             self.args = { param: args[param].value for param in args }
 
-    def __repr__(self):
-        return 'Args(' + ' '.join(self.args.keys()) + ')'
-
     @staticmethod
-    def from_string(string: str, sig: Signature=None, greedy=True) -> Tuple['ParsedArguments', 'TemplatedString', ErrorLog]:
+    def from_string(string: str, sig: Signature=None, greedy=True) -> Tuple['Arguments', 'TemplatedString', ErrorLog]:
         try:
             parsed = argumentList.parseString(string, parseAll=True)
         except ParseException as e:
@@ -245,13 +242,10 @@ class ParsedArguments:
                 errors(e, True)
             return None, None, errors
         else:
-            return ParsedArguments.from_parsed(parsed, sig, greedy=greedy)
+            return Arguments.from_parsed(parsed, sig, greedy=greedy)
 
-
-    ###### this will replace Signature.parse_args
-    # TODO: un-greedy parsing that returns a remainder TemplatedString I guess
     @staticmethod
-    def from_parsed(argList: ParseResults, signature: Signature=None, greedy: bool=True) -> Tuple['ParsedArguments', 'TemplatedString', ErrorLog]:
+    def from_parsed(argList: ParseResults, signature: Signature=None, greedy: bool=True) -> Tuple['Arguments', 'TemplatedString', ErrorLog]:
         '''
             Compiles an argList ParseResult into a ParsedArguments object.
             If Signature is not given, will create a "naive" ParsedArguments object that Macros use.
@@ -277,10 +271,10 @@ class ParsedArguments:
         ## Step 2: Turn into Arg objects
         for param in list(args):
             if not signature:
-                args[param] = ParsedArg(args[param], param)
+                args[param] = Arg(args[param], param)
                 args[param].predetermine(errors)
             elif param in signature:
-                args[param] = ParsedArg(args[param], signature[param])
+                args[param] = Arg(args[param], signature[param])
                 args[param].predetermine(errors)
             else:
                 errors.warn(f'Unknown parameter `{param}`')
@@ -288,7 +282,7 @@ class ParsedArguments:
 
         ## If there's no signature to check against: we're done already.
         if not signature:
-            return ParsedArguments(args), remainder, errors
+            return Arguments(args), remainder, errors
 
         ## Step 3: Check if required arguments are missing
         missing = [param for param in signature if param not in args and signature[param].required]
@@ -302,7 +296,7 @@ class ParsedArguments:
                 ## Only one required parameter is missing; use the implicit parameter
                 [param] = missing
                 implicit, remainder = remainder.split_implicit_arg(greedy)
-                args[param] = ParsedArg(implicit, signature[param])
+                args[param] = Arg(implicit, signature[param])
 
 
         ## Step 4: Check if the Signature simply has one parameter, and it hasn't been assigned yet (i.e. it's non-required)
@@ -312,7 +306,7 @@ class ParsedArguments:
                 # Try using the implicit parameter, but if it causes errors, pretend we didn't see anything!
                 maybe_errors = ErrorLog()
                 implicit, remainder = remainder.split_implicit_arg(greedy)
-                arg = ParsedArg(implicit, signature[param])
+                arg = Arg(implicit, signature[param])
                 arg.predetermine(maybe_errors)
 
                 # If it causes no trouble: use it!
@@ -324,9 +318,12 @@ class ParsedArguments:
         ## Last step: Fill out default values of unassigned non-required parameters
         for param in signature:
             if param not in args and not signature[param].required:
-                args[param] = ParsedDefaultArg(signature[param].default)
+                args[param] = DefaultArg(signature[param].default)
 
-        return ParsedArguments(args), remainder, errors
+        return Arguments(args), remainder, errors
+
+    def __repr__(self):
+        return 'Args(' + ' '.join(self.args.keys()) + ')'
 
     async def determine(self, message, context=None) -> Tuple[Dict[str, Any], ErrorLog]:
         ''' Returns a parsed {parameter: argument} dict ready for use. '''

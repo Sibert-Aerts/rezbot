@@ -6,7 +6,7 @@ from .pipes import pipes
 from .sources import sources, SourceResources
 from .spouts import spouts
 from .macros import pipe_macros, source_macros
-from .signature import ParsedArguments
+from .signature import Arguments
 from .events import events
 from .logger import ErrorLog
 from mycommands import MyCommands
@@ -312,7 +312,7 @@ def setup(bot):
             text = util.strip_command(ctx)
 
             # Parse and process arguments from the command string
-            args, text, err = ParsedArguments.from_string(text, pipe.signature, greedy=False)
+            args, text, err = Arguments.from_string(text, pipe.signature, greedy=False)
             if err.terminal: await ctx.send(embed=err.embed(f'`{pipe.name}`')); return
             args, err2 = await args.determine(ctx.message)
             text, err3 = await text.evaluate(ctx.message)
@@ -348,7 +348,7 @@ def setup(bot):
             text = util.strip_command(ctx)
 
             # Parse and process arguments from the command string
-            args, _, err = ParsedArguments.from_string(text, source.signature, greedy=True)
+            args, _, err = Arguments.from_string(text, source.signature, greedy=True)
             if err.terminal: await ctx.send(embed=err.embed(f'`{source.name}`')); return
             args, err2 = await args.determine(ctx.message)
             err.extend(err2, 'arguments')
@@ -383,7 +383,7 @@ def setup(bot):
             text = util.strip_command(ctx)
 
             # Parse and process arguments from the command string
-            args, text, err = ParsedArguments.from_string(text, spout.signature, greedy=False)
+            args, text, err = Arguments.from_string(text, spout.signature, greedy=False)
             if err.terminal: await ctx.send(embed=err.embed(f'`{spout.name}`')); return
             args, err2 = await args.determine(ctx.message)
             text, err3 = await text.evaluate(ctx.message)

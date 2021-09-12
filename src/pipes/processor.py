@@ -38,7 +38,7 @@ class ParsedPipe:
         self.argstr = args[0] if args else ''
 
         self.errors = ErrorLog()
-        self.arguments: Optional[ParsedArguments] = None
+        self.arguments: Optional[Arguments] = None
         
         ## Attempt to determine what kind of pipe it is ahead of time
         if self.name in ['', 'nop', 'print']:
@@ -47,29 +47,29 @@ class ParsedPipe:
         elif self.name in pipes:
             self.type = ParsedPipe.NATIVEPIPE
             self.pipe = pipes[self.name]
-            self.arguments, _, errors = ParsedArguments.from_string(self.argstr, self.pipe.signature)
+            self.arguments, _, errors = Arguments.from_string(self.argstr, self.pipe.signature)
             self.errors.extend(errors, self.name)
         elif self.name in spouts:
             self.type = ParsedPipe.SPOUT
             self.pipe = spouts[self.name]
-            self.arguments, _, errors = ParsedArguments.from_string(self.argstr, self.pipe.signature)
+            self.arguments, _, errors = Arguments.from_string(self.argstr, self.pipe.signature)
             self.errors.extend(errors, self.name)
         elif self.name in sources:
             self.type = ParsedPipe.NATIVESOURCE
             self.pipe = sources[self.name]
-            self.arguments, _, errors = ParsedArguments.from_string(self.argstr, self.pipe.signature)
+            self.arguments, _, errors = Arguments.from_string(self.argstr, self.pipe.signature)
             self.errors.extend(errors, self.name)
         elif self.name in pipe_macros:
             self.type = ParsedPipe.PIPEMACRO
-            self.arguments, _, errors = ParsedArguments.from_string(self.argstr)
+            self.arguments, _, errors = Arguments.from_string(self.argstr)
             self.errors.extend(errors, self.name)
         elif self.name in source_macros:
             self.type = ParsedPipe.SOURCEMACRO
-            self.arguments, _, errors = ParsedArguments.from_string(self.argstr)
+            self.arguments, _, errors = Arguments.from_string(self.argstr)
             self.errors.extend(errors, self.name)
         else:
             self.type = ParsedPipe.UNKNOWN
-            self.arguments, _, errors = ParsedArguments.from_string(self.argstr)
+            self.arguments, _, errors = Arguments.from_string(self.argstr)
             self.errors.extend(errors, self.name)
             # This one will keep being posted repeatedly even if the name eventually is defined, so don't uncomment it
             # self.errors.warn(f'`{self.name}` is no known pipe, source, spout or macro at the time of parsing.')
@@ -620,6 +620,6 @@ from .spouts import spouts
 from .macros import pipe_macros, source_macros
 from .events import events, OnMessage, OnReaction
 from .sourceprocessor import Context
-from .signature import ParsedArguments
+from .signature import Arguments
 from .sourceparser import ParsedSource, TemplatedString
 from .macrocommands import parse_macro_command

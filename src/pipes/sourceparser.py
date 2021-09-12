@@ -6,7 +6,7 @@ from pipes.processor import PipelineProcessor, Pipeline
 
 from .grammar import templatedString, argumentList
 from .sourceprocessor import Context, ContextError
-from .signature import ParsedArguments
+from .signature import Arguments
 from .sources import sources
 from .macros import source_macros
 from .logger import ErrorLog
@@ -39,7 +39,7 @@ class ParsedSource:
     SOURCEMACRO  = object()
     UNKNOWN      = object()
 
-    def __init__(self, name: str, args: ParsedArguments, amount: Union[str, int, None]):
+    def __init__(self, name: str, args: Arguments, amount: Union[str, int, None]):
         self.name = name.lower()
         self.amount = amount
         self.args = args
@@ -65,9 +65,9 @@ class ParsedSource:
 
         # TODO: this is maybe dumb. Simplify ParsedArguments.from_parsed to just the naive version, and ParsedArgs.adapt_to_signature(Signature), or something?
         if name in sources:
-            args, _, pre_errors = ParsedArguments.from_parsed(parsed.get('args'), sources[name].signature)
+            args, _, pre_errors = Arguments.from_parsed(parsed.get('args'), sources[name].signature)
         else:
-            args, _, pre_errors = ParsedArguments.from_parsed(parsed.get('args'))
+            args, _, pre_errors = Arguments.from_parsed(parsed.get('args'))
 
         parsedSource = ParsedSource(name, args, amount)
         parsedSource.pre_errors.extend(pre_errors)
