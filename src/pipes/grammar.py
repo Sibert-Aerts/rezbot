@@ -38,14 +38,14 @@ explicitArg = Group(identifier('paramName') + eq.leaveWhitespace() + argValue.le
 implicitStringBit = Combine(ZeroOrMore(White()) + OneOrMore(escapedSymbol | Regex('[^{}\s]', re.S)) | OneOrMore(White()))('stringBit').leaveWhitespace()
 implicitArg = Group( OneOrMore( ~explicitArg + Group(item.leaveWhitespace() | source.leaveWhitespace() | implicitStringBit) )('implicitArg') )
 
-argumentList = White().suppress() + ZeroOrMore(explicitArg | implicitArg)
+argumentList = Optional(White().suppress()) + OneOrMore(explicitArg | implicitArg)
 
 #### ITEM
 item <<= Group( lBrace + Optional(Word('^'))('carrots') + Optional( Regex('-?\d+') )('index') + Optional('!')('bang') + rBrace )('item')
 
 #### SOURCE
 amount = Word(nums) | CaselessKeyword('ALL')
-source <<= Group( lBrace +  Optional(amount)('amount') + identifier('sourceName') + argumentList('args') + rBrace )('source')
+source <<= Group( lBrace +  Optional(amount)('amount') + identifier('sourceName') + Optional(argumentList('args')) + rBrace )('source')
 
 #### PIPE
 pipe = Group( identifier('sourceName') + argumentList('args') )('pipe')
