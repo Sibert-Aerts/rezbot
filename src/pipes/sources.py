@@ -657,7 +657,7 @@ async def wikipedia_random_source(what, language, lines, n):
 
 
 @make_source({
-    'page': Par(str, None, 'The page you want information from. (For a random page, use wikipedia_random.)'),
+    'page': Par(str, None, 'The page you want information from. (For a random page, use wikipedia_random.)', lambda s: s),
     'language': Par(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
     'what': Par(Multi(WIKIPEDIA_WHAT), 'summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
     'n'   : Par(int, 1, 'The number of (what) you want, for summary/content this means number of sentences.')

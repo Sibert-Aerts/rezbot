@@ -38,7 +38,7 @@ explicitArg = Group(identifier('paramName') + eq.leaveWhitespace() + argValue.le
 implicitStringBit = Combine(ZeroOrMore(White()) + OneOrMore(escapedSymbol | Regex('[^{}\s]', re.S)) | OneOrMore(White()))('stringBit').leaveWhitespace()
 implicitArg = Group( OneOrMore( ~explicitArg + Group(item.leaveWhitespace() | source.leaveWhitespace() | implicitStringBit) )('implicitArg') )
 
-argumentList = ZeroOrMore(explicitArg | implicitArg)
+argumentList = White().suppress() + ZeroOrMore(explicitArg | implicitArg)
 
 #### ITEM
 item <<= Group( lBrace + Optional(Word('^'))('carrots') + Optional( Regex('-?\d+') )('index') + Optional('!')('bang') + rBrace )('item')

@@ -23,7 +23,7 @@ class Context:
     def get_parsed_item(self, carrots: int, index: int, bang: bool):
         ctx = self
         # For each ^ go up a context
-        for index in range(carrots):
+        for _ in range(carrots):
             if ctx.parent is None: raise ContextError('Out of scope: References a parent context beyond scope!')
             ctx = ctx.parent
 
