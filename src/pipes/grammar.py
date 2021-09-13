@@ -22,7 +22,7 @@ item: ParserElement = Forward()
 def Quote(q):
     q = Literal(q).suppress()
     quotedStringBit = Combine(OneOrMore( escapedSymbol | (~q + Regex('[^{}]', re.S)) ))('stringBit').leaveWhitespace()
-    quotedString = q + OneOrMore( Group(item.leaveWhitespace() | source.leaveWhitespace() | quotedStringBit) )('value') + q
+    quotedString = q + ( OneOrMore( Group(item.leaveWhitespace() | source.leaveWhitespace() | quotedStringBit) ) | Empty() )('value') + q
     return quotedString
 
 argValueQuotes = (Quote('"""') | Quote('"') | Quote("'") | Quote('/'))
