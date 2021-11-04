@@ -25,6 +25,8 @@
     * **TemplatedString:**
         * All sources in a TemplatedString currently wait one for the other to evaluate, instead of the old way which turned them into Futures first.
 
+        *  ⚠⚠⚠ Implicit item indexing doesn't work for combination implicit and explicit args!!!!!!! ⚠⚠⚠
+
         * Implicit item indexing doesn't work exactly as expected with nested sources
             * `{} {word pattern={}} {}` gives `{0} {word pattern={0}} {1}` instead of `{0} {word pattern={1}} {2}`
 

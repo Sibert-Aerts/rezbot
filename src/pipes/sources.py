@@ -239,7 +239,7 @@ async def channel_source(message, what):
 
 #### SERVER ########################################
 
-SERVER_WHAT = Option('name', 'description', 'icon', 'member_count')
+SERVER_WHAT = Option('name', 'description', 'icon', 'member_count', 'id')
 
 @make_source({
     'what': Par(SERVER_WHAT, SERVER_WHAT.name, '/'.join(SERVER_WHAT)),
@@ -255,6 +255,8 @@ async def server_source(message, what):
         return [str(server.icon_url or '')]
     if what == SERVER_WHAT.member_count:
         return [str(server.member_count)]
+    if what == SERVER_WHAT.id:
+        return [str(server.id)]
 
 
 @make_source({

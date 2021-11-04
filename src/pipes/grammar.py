@@ -7,7 +7,6 @@ import re
 
 ## TERMINALS
 identifier = Word(alphas + '_', alphanums + '_')
-
 lBrace = Literal('{').suppress()
 rBrace = Literal('}').suppress()
 eq = Literal('=').suppress()
