@@ -95,6 +95,58 @@ class BotCommands(MyCommands):
                 elif i >= lowerBound:
                     await log.delete()
                 i += 1
+                
+
+    colourRoles = [
+        403542818456600577, # red
+        911917474025447434, # orange
+        403543018612981781, # yellow
+        403543056181231626, # green
+        403543084010569739, # cyan
+        403543156760772618, # blue
+        403543179699290112, # purple
+        911920677148303422, # magenta
+    ]
+    colourExempt = [
+        430477870180204545, # Rezbot 2 (kick)
+        274202462884331520  # Rezbot (mine)
+    ]
+
+    @commands.command(hidden=True, aliases=['update_color_roles'])
+    @permissions.check(permissions.owner)
+    async def update_colour_roles(self, ctx):
+        '''Automatically (un)assign colour roles to members of the rezbot server.'''
+        if ctx.guild.id != 382291692864274432: return
+
+        ## Filter and sort members
+        members: List[discord.Member] = [m for m in ctx.guild.members if m.id not in BotCommands.colourExempt]
+        members.sort( key=lambda m: m.display_name.lower() )
+
+        ## Get colour roles
+        colours: List[discord.Role] = [ discord.utils.get(ctx.guild.roles, id=id) for id in self.colourRoles ]
+
+        ## Assign colour roles
+        n = len(members) / len(colours) # Need not be an integer!
+        updates = 0
+        for i in range(len(members)):
+            member = members[i]
+            intendedColour = colours[ int(i//n) ]
+            otherColours = colours[:int(i//n)] + colours[int(i//n)+1:]
+            intersect = set(otherColours) & set(member.roles)
+            updated = False
+            if intersect:
+                updated = True
+                await member.remove_roles(*intersect)
+            if intendedColour not in member.roles:
+                updated = True
+                await member.add_roles(intendedColour)
+
+            if updated:
+                updates += 1
+
+        await ctx.send('Updated the colours of %d members :rainbow:' % updates)
+
+
 
     ###################################
     ##          TOY COMMANDS         ##
