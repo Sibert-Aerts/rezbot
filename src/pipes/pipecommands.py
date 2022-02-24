@@ -314,8 +314,10 @@ def setup(bot):
             args, text, err = Arguments.from_string(text, pipe.signature, greedy=False)
             if err.terminal: await ctx.send(embed=err.embed(f'`{pipe.name}`')); return
             args, err2 = await args.determine(ctx.message)
-            text, err3 = await text.evaluate(ctx.message)
-            err.extend(err2, 'arguments'); err.extend(err3, 'input string')
+            err.extend(err2, 'arguments'); 
+            if text is not None:
+                text, err3 = await text.evaluate(ctx.message)
+                err.extend(err3, 'input string')
             if err.terminal: await ctx.send(embed=err.embed(f'`{pipe.name}`')); return
 
             try:

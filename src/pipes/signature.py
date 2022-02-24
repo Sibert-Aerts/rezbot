@@ -228,7 +228,7 @@ class Arguments:
             self.args = { param: args[param].value for param in args }
 
     @staticmethod
-    def from_string(string: str, sig: Signature=None, greedy=True) -> Tuple['Arguments', 'TemplatedString', ErrorLog]:
+    def from_string(string: str, sig: Signature=None, greedy=True) -> Tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
         try:
             parsed = argumentList.parseString(string, parseAll=True)
         except ParseException as e:
@@ -245,7 +245,7 @@ class Arguments:
             return Arguments.from_parsed(parsed, sig, greedy=greedy)
 
     @staticmethod
-    def from_parsed(argList: ParseResults, signature: Signature=None, greedy: bool=True) -> Tuple['Arguments', 'TemplatedString', ErrorLog]:
+    def from_parsed(argList: ParseResults, signature: Signature=None, greedy: bool=True) -> Tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
         '''
             Compiles an argList ParseResult into a ParsedArguments object.
             If Signature is not given, will create a "naive" ParsedArguments object that Macros use.
@@ -274,7 +274,9 @@ class Arguments:
         
         ## Step 2: Turn into Arg objects
         for param in list(args):
-            if not signature:
+            if signature is None:
+                # TODO: I switched this from "if not signature" (i.e. signature is empty OR None)
+                # ...but what use case is "signature is None" anyway?
                 args[param] = Arg(args[param], param)
                 args[param].predetermine(errors)
             elif param in signature:
@@ -303,8 +305,8 @@ class Arguments:
                 args[param] = Arg(implicit, signature[param])
 
 
-        ## Step 4: Check if the Signature simply has one parameter, and it hasn't been assigned yet (i.e. it's non-required)
-        elif len(signature) == 1 and remainder:
+        ## Step 4: Check if the Signature simply has one parameter, and it hasn't been assigned yet (⇒ it's non-required)
+        elif len(signature) == 1 and remainder and greedy:
             [param] = list(signature.keys())
             if param not in args:
                 # Try using the implicit parameter, but if it causes errors, pretend we didn't see anything!
