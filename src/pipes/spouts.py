@@ -1,6 +1,6 @@
-import random
 from datetime import datetime, timezone
 
+import discord
 from discord import Embed
 from discord.errors import HTTPException
 
@@ -38,6 +38,9 @@ def hex(h):
     elif h and h[:2] == '0x': h = h[2:]
     return int(h, base=16)
 
+#####################################################
+#                  Spouts : EMBEDS                  #
+#####################################################
 
 @make_spout({
     'color':       Par(hex, 0x222222, 'The left-side border color as a hexadecimal value.'),
@@ -92,6 +95,10 @@ async def tweet_spout(bot, message, values, name, handle, icon, retweets, likes,
     await message.channel.send(embed=embed)
 
 
+#####################################################
+#                 Spouts : MESSAGES                 #
+#####################################################
+
 @make_spout({})
 async def delete_message_spout(bot, message, values):
     ''' Deletes the message which triggered the script's execution. '''
@@ -107,7 +114,22 @@ async def send_message_spout(bot, message, values):
     await message.channel.send('\n'.join(values))
 
 
-@make_spout({'emote': Par(str, None, 'The emote that you\'d like to use to react. (Emoji or custom emote)'),})
+@make_spout({
+    'id': Par(int, -1, 'The message ID to reply to, -1 for the original message.'),
+})
+async def reply_spout(bot, message: discord.Message, values, id):
+    '''
+    Sends input as a discord message replying to another message.
+    If multiple lines of input are given, they're joined with line breaks.
+    '''
+    if id > 0:
+        message = await message.channel.fetch_message(id)
+    await message.reply('\n'.join(values))
+
+
+@make_spout({
+    'emote': Par(str, None, 'The emote that you\'d like to use to react. (Emoji or custom emote)'),
+})
 async def react_spout(bot, message, values, emote):
     ''' Reacts to the message using the specified emote. '''
     try:
@@ -119,15 +141,9 @@ async def react_spout(bot, message, values, emote):
             raise e
 
 
-@make_spout({})
-async def suppress_print_spout(bot, message, values):
-    '''
-    (WIP) Prevents the default behaviour of printing output to a Discord message.
-    Useful for Event scripts that silently modify variables, or that don't do anything in certain circumstances.
-    '''
-    # NOP, just having *any* spout is enough to prevent the default "print" behaviour
-    pass
-
+#####################################################
+#                   Spouts : STATE                  #
+#####################################################
 
 @make_spout({
     'name' :   Par(str, None, 'The variable name'),
@@ -154,6 +170,7 @@ async def delete_var_spout(bot, message, values, name, strict):
         if strict:
             raise KeyError(f'No variable "{name}" found.')
 
+
 @make_spout({
     'name' : Par(str, None, 'The new file\'s name'),
     'sequential': Par(parse_bool, True, 'Whether the order of entries matters when retrieving them from the file later.'),
@@ -176,6 +193,20 @@ async def new_file_spout(bot, message, values, name, sequential, sentences, edit
 
     uploads.add_file(name, joiner.join(values), message.author.display_name, message.author.id,
         editable=editable, splitter=joiner, sequential=sequential, sentences=sentences, categories=categories)
+
+
+#####################################################
+#                  Spouts : SPECIAL                 #
+#####################################################
+
+@make_spout({})
+async def suppress_print_spout(bot, message, values):
+    '''
+    (WIP) Prevents the default behaviour of printing output to a Discord message.
+    Useful for Event scripts that silently modify variables, or that don't do anything in certain circumstances.
+    '''
+    # NOP, just having *any* spout is enough to prevent the default "print" behaviour
+    pass
 
 
 @make_spout({})
