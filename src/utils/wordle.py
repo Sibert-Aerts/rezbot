@@ -1,7 +1,7 @@
 import re
 
 class WordleInfo:
-    SPLITTER = re.compile(r'[a-zA-Z][?!]?')
+    SPLITTER = re.compile(r'[?!]?(?:~~|~!|~\?|.)')
 
     def __init__(self, line: str):
         letters = WordleInfo.SPLITTER.findall(line)
@@ -18,14 +18,14 @@ class WordleInfo:
 
         for i in range(n):
             letter = letters[i]
-            if letter[-1] == '!':
-                self.green[i] = letter[0]
+            if letter[0] == '!':
+                self.green[i] = letter[-1]
                 self.emoji += '🟩'
-            elif letter[-1] == '?':
-                self.yellow[i] = letter[0]
+            elif letter[0] == '?':
+                self.yellow[i] = letter[-1]
                 self.emoji += '🟨'
             else:
-                pseudogrey.append(letter[0])
+                pseudogrey.append(letter[-1])
                 self.emoji += '⬛'
 
         ## Special case: Letters grayed out for already being sufficiently present in green/yellow
@@ -55,6 +55,19 @@ class WordleInfo:
         return True
 
 
+escapeMap = {'~': '~~', '!': '~!', '?': '~?'}
+
+def escapeChar(c: str):
+    return escapeMap[c] if c in escapeMap else c
+def unescapeChar(c: str):
+    return c[1] if len(c) > 1 else c
+
+# These are never used, and never need be used, I think...
+def escapeStr(s: str):
+    return ''.join( escapeMap[c] if c in escapeMap else c for c in s )
+def unescapeStr(s: str):
+    return re.sub(r'~([~!?])', '\1', s) 
+
 def create_info(word: str, guess: str):
     n = len(word)
     if n != len(guess): raise ValueError('Bad guess length!')
@@ -72,12 +85,12 @@ def create_info(word: str, guess: str):
 
     for i in range(n):
         if word[i] == guess[i]:
-            infostr += guess[i] + '!'
+            infostr += '!' + escapeChar(guess[i])
         elif guess[i] in word and freq[guess[i]] > 0:
-            infostr += guess[i] + '?'
+            infostr += '?' + escapeChar(guess[i])
             freq[guess[i]] -= 1
         else:
-            infostr += guess[i]
+            infostr += escapeChar(guess[i])
 
     return WordleInfo(infostr)
 
@@ -86,17 +99,25 @@ def create_info(word: str, guess: str):
 
 
 if __name__ == '__main__':
-    info = WordleInfo('a?b!cde?')
-    print(info.emoji)
+    info = WordleInfo('?a!bcd?e')
+    print(info.raw)
     print(info.test('abcde'))
     print(info.test('xbaxe'))
     print(info.test('xbaex'))
 
     print()
-    create_info('apple', 'banan')
+    print(create_info('apple', 'banan').raw)
     print()
-    create_info('apple', 'ample')
+    print(create_info('apple', 'ample').raw)
     print()
-    create_info('apple', 'apppe')
+    print(create_info('apple', 'apppe').raw)
     print()
-    create_info('apple', 'rocks')
+    print(create_info('apple', 'rocks').raw)
+    print()
+    info = create_info('boo!', '!ya?')
+    print(info.raw)
+    print(info.green)
+    print(info.yellow)
+    print(info.grey)
+    print()
+    print(create_info('let\'s', 'li\'ll').raw)

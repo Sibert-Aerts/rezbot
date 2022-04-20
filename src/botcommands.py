@@ -353,7 +353,7 @@ class BotCommands(MyCommands):
             file = uploads[file]
         except Exception as e:
             await ctx.send(e); return
-        corpus = [word.lower() for word in file.get_lines() if len(word) == n]
+        corpus = [word.lower() for word in file.get() if len(word) == n]
         if theWord not in corpus: corpus.append(theWord)
 
         output = []
@@ -364,10 +364,13 @@ class BotCommands(MyCommands):
 
         ## Simulate solving the wordle
         for i in range(6):
+            if len(corpus) == 0:
+                print('RAN OUT OF WORDS?????')
+                break
             guess = random.choice(corpus)
             print('CORPUS SIZE:', len(corpus))
             info = wordle.create_info(theWord, guess)
-            output.append( info.emoji + '   ||' + guess + '||' )
+            output.append( info.emoji + '   ||`' + guess + '`||' )
             if info.solved:
                 break
             corpus = [word for word in corpus if info.test(word)]
