@@ -187,7 +187,7 @@ class PipeCommands(MyCommands):
                 infos = ['**__Enabled:__**'] + [ '• ' + str(e) for e in enabled ]
                 await ctx.send('\n'.join(infos))
             if disabled and name != 'enabled':
-                infos = ['**__Disabled:__**'] + [ ', '.join( '**'+e.name+'**' for e in disabled ) ]
+                infos = ['**__Disabled:__**'] + [ ', '.join(e.name for e in disabled) ]
                 await ctx.send('\n'.join(infos))
         
         else:
