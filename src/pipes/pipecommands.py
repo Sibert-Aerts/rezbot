@@ -176,17 +176,17 @@ class PipeCommands(MyCommands):
             await ctx.send('No events registered.')
             return
 
-        if not name:
+        if not name or name in ['enabled', 'disabled']:
             ## Print all events
             enabled = []; disabled = []
             for event in events.values():
                 if ctx.channel.id in event.channels: enabled.append(event)
                 else: disabled.append(event)
 
-            if enabled:
+            if enabled and name != 'disabled':
                 infos = ['**__Enabled:__**'] + [ '• ' + str(e) for e in enabled ]
                 await ctx.send('\n'.join(infos))
-            if disabled:
+            if disabled and name != 'enabled':
                 infos = ['**__Disabled:__**'] + [ ', '.join( '**'+e.name+'**' for e in disabled ) ]
                 await ctx.send('\n'.join(infos))
         

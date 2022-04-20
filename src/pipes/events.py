@@ -1,6 +1,7 @@
 import re
 import os
 import pickle
+from typing import Dict
 from discord import Embed
 from utils.texttools import block_format
 from .processor import Pipeline, PipelineProcessor
@@ -162,7 +163,7 @@ class Events:
     def __iter__(self):
         return (i for i in self.events)
 
-    def values(self):
+    def values(self) -> Dict[str, Event]:
         return self.events.values()
 
     def __getitem__(self, name):
