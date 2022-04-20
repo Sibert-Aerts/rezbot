@@ -74,6 +74,7 @@ class ParsedPipe:
             # This one will keep being posted repeatedly even if the name eventually is defined, so don't uncomment it
             # self.errors.warn(f'`{self.name}` is no known pipe, source, spout or macro at the time of parsing.')
 
+
 class Pipeline:
     ''' 
         The Pipeline class parses a pipeline script into a reusable, applicable Pipeline object.
@@ -433,7 +434,9 @@ class Pipeline:
 
         return loose_items, printed_items, errors, spout_callbacks
 
+
 class PipelineProcessor:
+    ''' Singleton class providing some global state and methods essential to the bot's scripting integration. '''
     def __init__(self, bot, prefix):
         self.bot = bot
         self.prefix = prefix
@@ -623,7 +626,7 @@ from .sources import sources, SourceResources
 from .spouts import spouts
 from .macros import pipe_macros, source_macros
 from .events import events, OnMessage, OnReaction
-from .sourceprocessor import Context
+from .context import Context
 from .signature import Arguments
-from .sourceparser import ParsedSource, TemplatedString
+from .templatedstring import ParsedSource, TemplatedString
 from .macrocommands import parse_macro_command

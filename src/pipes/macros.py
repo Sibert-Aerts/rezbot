@@ -71,26 +71,6 @@ class Macro:
         else: embed.set_footer(text=self.authorName)
     
         return embed
-
-
-    # Regex partially identical to the one in signature.py
-    arg_finder = re.compile(r'\b(\w+)=("[^"]*"|\'[^\']*\'|\S+)\s*')
-
-    def apply_args_dumb(self, argstr: str):
-        # TODO: required args?
-        # Load the defaults
-        args = {s: self.signature[s].default for s in self.signature}
-
-        if argstr is not None:
-            # Interpret the argstring:
-            for name, value in re.findall(Macro.arg_finder, argstr):
-                if value[0] == value[-1] and value[0] in ['"', "'"]: value = value[1:-1]
-                args[name] = value
-
-        code = self.code
-        for arg in args:
-            code = code.replace('$' + arg + '$', args[arg])
-        return code
         
     def apply_args(self, args: dict):
         # Load the defaults

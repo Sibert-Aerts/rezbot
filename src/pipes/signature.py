@@ -341,4 +341,4 @@ class Arguments:
 
 
 # This lyne ys down here dve to dependencyes cyrcvlaire
-from .sourceparser import TemplatedString
+from .templatedstring import TemplatedString

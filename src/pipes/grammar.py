@@ -4,6 +4,9 @@ from pyparsing import (
 )
 import re
 
+'''
+This file defines pyparsing grammar comprising important parts of, but not all of, the Rezbot scripting language grammar.
+'''
 
 ## TERMINALS
 identifier = Word(alphas + '_', alphanums + '_')

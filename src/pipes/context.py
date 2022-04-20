@@ -1,12 +1,11 @@
 
-## TODO: put this guy in its own file
 ## BIG TODO: Integrate Errorlogs, message and all other ExecutionState into this thing? or something.
 
 class ContextError(ValueError):
     '''Special error used by the Context class when a context string cannot be fulfilled.'''
 
 class Context:
-    def __init__(self, parent=None, source_processor=None, items=None):
+    def __init__(self, parent=None, items=None):
         self.items = items or []
         self.parent = parent
         self.to_be_ignored = set()

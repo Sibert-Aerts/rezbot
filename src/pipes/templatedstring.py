@@ -1,11 +1,11 @@
 from pyparsing import ParseException, ParseResults, StringEnd
-from typing import Any, List, Dict, Optional, Tuple, Union
+from typing import List, Tuple, Union
 
 # Here to make sure circular dependencies get loaded in the right order...
 from pipes.processor import PipelineProcessor, Pipeline
 
-from .grammar import templatedString, argumentList
-from .sourceprocessor import Context, ContextError
+from .grammar import templatedString
+from .context import Context, ContextError
 from .signature import Arguments
 from .sources import sources
 from .macros import source_macros
