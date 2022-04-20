@@ -65,10 +65,14 @@ def create_info(word: str, guess: str):
         else: freq[c] += 1
 
     infostr = ''
+    # Green letters take precedence on depleting the letter frequency
+    for i in range(n):
+        if word[i] == guess[i]:
+            freq[guess[i]] -= 1
+
     for i in range(n):
         if word[i] == guess[i]:
             infostr += guess[i] + '!'
-            freq[guess[i]] -= 1
         elif guess[i] in word and freq[guess[i]] > 0:
             infostr += guess[i] + '?'
             freq[guess[i]] -= 1
