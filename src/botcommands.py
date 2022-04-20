@@ -1,8 +1,4 @@
-import asyncio
-import io
-import re
 import random
-import time
 import requests
 import html
 
@@ -12,16 +8,16 @@ from discord.ext import commands
 import permissions
 import utils.util as util
 import utils.texttools as texttools
-import utils.benedict as benedict
 from utils.frinkiac import simpsons, futurama
 import resource.tweets as tweets
-from resource.youtubecaps import youtubeCaps
 from resource.jerkcity import JERKCITY
+from resource.upload import uploads
 import utils.biogenerator
 from utils.rand import *
 from utils.meal import Meal
 from utils.emojifight import EmojiFight
 from mycommands import MyCommands
+import utils.wordle as wordle
 
 '''
 Main command module, contains a bunch of random functionality.
@@ -340,6 +336,49 @@ class BotCommands(MyCommands):
         embed = BotCommands.trump_embed(tweet['text'])
         await ctx.send(embed=embed)
 
+    @commands.command()
+    async def solve_wordle(self, ctx, theWord, file='wordle_guesses'):
+        '''
+        Make the bot try to solve a wordle, semi-naively.
+        
+        First argument is the word to solve for, may be wrapped in ||'s to hide it from other members. 
+        Second argument is optionally a file name (see `>files`) to use as its corpus of possible guesses.
+        '''
+        if theWord[:2] == theWord[-2:] == '||':
+            theWord = theWord[2:-2]
+        theWord = theWord.lower()
+        n = len(theWord)
+
+        try:
+            file = uploads[file]
+        except Exception as e:
+            await ctx.send(e); return
+        corpus = [word.lower() for word in file.get_lines() if len(word) == n]
+        if theWord not in corpus: corpus.append(theWord)
+
+        output = []
+
+        if len(corpus) == 1:
+            await ctx.send('Corpus contains no entries of the same length as the target word.')
+            return
+
+        ## Simulate solving the wordle
+        for i in range(6):
+            guess = random.choice(corpus)
+            print('CORPUS SIZE:', len(corpus))
+            info = wordle.create_info(theWord, guess)
+            output.append( info.emoji + '   ||' + guess + '||' )
+            if info.solved:
+                break
+            corpus = [word for word in corpus if info.test(word)]
+        print()
+
+        ## Formatting
+        turns = str(i+1) if info.solved else 'X'
+        output = ['Rezbot Wordle {}/6*'.format(turns), ''] + output
+        smiley = {'1': '🤯', '2': '🤩', '3': '😃', '4': '🙂', '5': '😐', '6': '😟', 'X': '😢'}[turns] or '🤔'
+
+        await (await ctx.send('\n'.join(output))).add_reaction(smiley)
 
     @commands.command()
     async def lunch(self, ctx, kind='regular'):
