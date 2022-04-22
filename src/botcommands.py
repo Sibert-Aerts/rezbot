@@ -23,13 +23,6 @@ import utils.wordle as wordle
 Main command module, contains a bunch of random functionality.
 '''
 
-triviaCategories = {
-    'general' : 9 , 'books' : 10, 'film' : 11, 'music' : 12, 'musicals' : 13, 'tv' : 14, 'videogames' : 15,
-    'board games' : 16, 'science' : 17, 'computers' : 18, 'maths' : 19, 'mythology' : 20, 'sports' : 21,
-    'geography' : 22, 'history' : 23, 'politics' : 24, 'art' : 25, 'celebrities' : 26, 'animals' : 27,
-    'vehicles' : 28, 'comics' : 29, 'gadgets' : 30, 'anime' : 31, 'cartoon' : 32,
-}
-
 class BotCommands(MyCommands):
     def __init__(self, bot):
         super().__init__(bot)
@@ -176,6 +169,14 @@ class BotCommands(MyCommands):
         await ctx.send(r.headers['Location'])
 
 
+
+    triviaCategories = {
+        'general' : 9 , 'books' : 10, 'film' : 11, 'music' : 12, 'musicals' : 13, 'tv' : 14, 'videogames' : 15,
+        'board games' : 16, 'science' : 17, 'computers' : 18, 'maths' : 19, 'mythology' : 20, 'sports' : 21,
+        'geography' : 22, 'history' : 23, 'politics' : 24, 'art' : 25, 'celebrities' : 26, 'animals' : 27,
+        'vehicles' : 28, 'comics' : 29, 'gadgets' : 30, 'anime' : 31, 'cartoon' : 32,
+    }
+
     @commands.command()
     @util.format_doc(categories=', '.join([c for c in triviaCategories]))
     async def trivia(self, ctx, category:str=None):
@@ -187,7 +188,7 @@ class BotCommands(MyCommands):
         amount = 2
         params = {'amount': amount + 1}
         if category is not None:
-            params['category'] = triviaCategories[category.lower()]
+            params['category'] = BotCommands.triviaCategories[category.lower()]
         r = requests.get('https://opentdb.com/api.php', params=params)
         results = r.json()['results']
 

@@ -366,15 +366,20 @@ def case_pipe(inputs, pattern):
 TABLE_ALIGN = Option('l', 'c', 'r', name='alignment')
 
 @make_pipe({
-    'columns': Par(str, None, 'The names of the different columns separated by commas, OR an integer giving the number of columns.'),
+    'columns':    Par(str, None, 'The names of the different columns separated by commas, OR an integer giving the number of columns.'),
     'alignments': Par(Multi(TABLE_ALIGN), 'l', 'How the columns should be aligned: l/c/r separated by commas.'),
-    'sep': Par(str, ' │ ', 'The column separator'),
-    'code_block': Par(parse_bool, True, 'If the table should be wrapped in a Discord code block (triple backticks).')
+    'sep':        Par(str, ' │ ', 'The column separator'),
+    'max_width':  Par(int, 100, 'The maximum desired width the output table should have, -1 for no limit.'),
+    'code_block': Par(parse_bool, True, 'If the table should be wrapped in a Discord code block (triple backticks).'),
 })
 @many_to_one
-def table_pipe(input, columns, alignments, sep, code_block):
-    ''' Formats input as an ASCII-art table. '''
-    ## TODO: handle the situation where rows exceed a reasonable max width
+def table_pipe(input, columns, alignments, sep, code_block, max_width):
+    '''
+    Formats input as an ASCII-art table.
+    
+    If max_width is exceeded, the table will change layout to attempt to remain legible,
+    at the cost of no longer strictly adhering to a proper table layout, or in extreme cases, a table layout whatsoever.
+    '''
     try:
         colNames = None
         colCount = int(columns)
@@ -387,22 +392,73 @@ def table_pipe(input, columns, alignments, sep, code_block):
     # Pad out the list of alignments with itself
     alignments = alignments * math.ceil( colCount/len(alignments) )
 
-    rows = [ input[i:i+colCount] for i in range(0, len(input), colCount) ]
+    # `table` is a list of lists of strings: `entry = table[row][column]`
+    table = [ input[i:i+colCount] for i in range(0, len(input), colCount) ]
     # Pad out the last row with empty strings
-    rows[-1] += [''] * (colCount - len(rows[-1]))
+    table[-1] += [''] * (colCount - len(table[-1]))
 
-    colWidths = [ max(len(row[i]) for row in rows) for i in range(colCount) ]
+    ## Calculate the desired width of each column
+    colWidths = [ max(len(row[i]) for row in table) for i in range(colCount) ]
     if colNames:
         colWidths = [ max(w, len(name)) for (w, name) in zip(colWidths, colNames) ]
 
+    formatWidth = len(sep)*(colCount-1) + 2
+    tableWidth = sum(colWidths) + formatWidth
+    
     def pad(text, width, where, what=' '):
-        if where == TABLE_ALIGN.l: return text.ljust(width, what)
-        if where == TABLE_ALIGN.c: return text.center(width, what)
-        if where == TABLE_ALIGN.r: return text.rjust(width, what)
+        if where is TABLE_ALIGN.l: return text.ljust(width, what)
+        if where is TABLE_ALIGN.c: return text.center(width, what)
+        if where is TABLE_ALIGN.r: return text.rjust(width, what)
 
-    rows = [ ' %s ' % sep.join( pad(row[i], colWidths[i], alignments[i]) for i in range(colCount) ) for row in rows ]
-    if colNames:
-        rows = [ '_%s_' % sep.replace(' ', '_').join([ pad(colNames[i], colWidths[i], alignments[i], '_') for i in range(colCount) ]) ] + rows
+    if tableWidth <= max_width:
+        ### BEST CASE: The ideal table lay-out fits within the max_width.
+        rows = [ ' %s ' % sep.join( pad(row[i], colWidths[i], alignments[i]) for i in range(colCount) ) for row in table ]
+        if colNames:
+            rows = [ '_%s_' % sep.replace(' ', '_').join([ pad(colNames[i], colWidths[i], alignments[i], '_') for i in range(colCount) ]) ] + rows
+
+    else:
+        minRowWidths = [ sum(len(cell) for cell in row) + formatWidth for row in table ]
+        minNamesWidth = 0 if not colNames else sum(len(name) for name in colNames) + formatWidth
+        altTableWidth = max(minNamesWidth, max(minRowWidths))
+
+        if max_width < 0 or altTableWidth <= max_width:
+            ### OK CASE: Each row individually does fit within the max_width.
+            # So we'll lay out each row 'individually', ruining the table alignment,
+            #   but we do pad the cells so that the rows are at least equal in length.
+            # "TODO": Is there some smarter way to pad those cells to try and preserve bits of grid-like structure?
+
+            def w(n, m, i):
+                ''' w equally distributes the spare width `n` over `m` different cells indexed `i` '''
+                return n//m if i >= (n%m) else math.ceil(n/m)
+                
+            def pad2(text, extra, where, what=' '):
+                if where is TABLE_ALIGN.l: return text.ljust(len(text) + extra, what)
+                if where is TABLE_ALIGN.c: return text.center(len(text) + extra, what)
+                if where is TABLE_ALIGN.r: return text.rjust(len(text) + extra, what)
+
+            rows = []
+            if colNames:
+                room = altTableWidth-minNamesWidth
+                s = [ pad2(colNames[i], w(room, colCount, i), alignments[i], '_') for i in range(colCount) ]
+                rows.append('_%s_' % sep.replace(' ', '_').join(s))
+
+            for r in range(len(table)):
+                room = altTableWidth-minRowWidths[r]
+                s = [ pad2(table[r][i], w(room, colCount, i), alignments[i], ' ') for i in range(colCount) ]
+                rows.append(' %s ' % sep.join(s))
+
+        else:
+            ### BAD CASE: There are rows which even individually are simply too wide to fit the max_width.
+            # So we simply lay out each row's entries one after the other, with different rows separated with a horizontal line
+            if colNames: namesWidth = max(len(name) for name in colNames)
+            rows = []
+            for row in table:
+                if colNames:
+                    rows += [ pad(colNames[i], namesWidth, TABLE_ALIGN.r) + ': ' + row[i] for i in range(len(colNames)) ]
+                else:
+                    rows += row
+                rows.append('─' * max_width)
+            del rows[-1]
 
     return [ ('```\n%s\n```' if code_block else '%s') % '\n'.join(rows) ]
 

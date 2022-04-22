@@ -17,26 +17,35 @@ class ArgumentError(ValueError):
 
 class Option:
     '''
-        An Option object behaves like a "type" for parsing enums from strings, returning str-like objects.
-        By default it is case insensitive, and will normalise all names to lowercase.
-        Set prefer_upper=True to instead normalise all names to uppercase.
-        If stringy=True it will return regular strings instead of str-like objects.
+    An Option object behaves like a "type" for parsing enums from strings, returning enum-like objects.
+    By default it is case insensitive, and will normalise all names to lowercase.
+    Set prefer_upper=True to instead normalise all names to uppercase.
+    Set case_sensitive=True to instead be case sensitive.
+    Set stringy=True it will return regular strings instead of enum-like objects. True
 
+    Examples:
         >>> Color = Option('red', 'green', 'blue', name='color')
         >>> Color.red
         red
-        >>> Color('red') == Color.red
+        >>> Color('red') is Color.red
         True
         >>> 'red' == Color.red
         False
         >>> Color('magenta')
         ArgumentError: Unknown color: "magenta"
 
+
         >>> Color2 = Color + ['cyan', 'magenta', 'yellow']
         >>> Color2('magenta') == Color2.magenta
         True
         >>> Color2.red == Color.red
         False
+        
+
+    With `stringy=True`, it essentially acts as a filter/normaliser for a set of strings.
+        >>> Color = Option('red', 'green', 'blue', stringy=True)
+        >>> Color('red') == Color.red == 'red'
+        True
     '''
 
     class Str:
