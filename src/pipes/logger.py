@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from pyparsing import ParseException, StringEnd
 import discord
 
 
@@ -19,7 +20,11 @@ class ErrorLog:
         def __str__(self):
             return ('**(%d)** ' % self.count if self.count > 1 else '') + self.message
 
-    def __call__(self, message, terminal=False):
+    #############################################
+    ## Error logging methods
+    #############################################
+
+    def log(self, message, terminal=False):
         ''' The error-logging method '''
         message = str(message)
         if self.errors and self.errors[-1].message == message:
@@ -29,9 +34,25 @@ class ErrorLog:
             self.errors.append(ErrorLog.ErrorMessage(message))
         self.terminal |= terminal
 
-    log = __call__
+    def __call__(self, message, terminal=False):
+        self.log(message, terminal=terminal)
+
     def warn(self, message):
         self.log(message, terminal=False)
+
+    def parseException(self, e: ParseException):
+        ''' Bespoke formatting for a not-uncommon terminal exception. '''
+        if isinstance(e.parserElement, StringEnd):
+            message = f'ParseException: Likely unclosed brace at position {e.loc}:\n­\t'
+            message += e.line[:e.col-1] + '**[' + e.line[e.col-1] + '](http://0)**' + e.line[e.col:]
+            self.log(message, True)
+        else:
+            self.log('An unexpected ParseException occurred!')
+            self.log(e, True)
+
+    #############################################
+    ## Log transfering methods
+    #############################################
 
     def extend(self, other, context=None):
         '''extend another error log, prepending the given 'context' for each error.'''
@@ -47,6 +68,10 @@ class ErrorLog:
     def steal(self, other, *args, **kwargs):
         self.extend(other, *args, **kwargs)
         other.clear()
+
+    #############################################
+    ## Log viewing and presenting methods
+    #############################################
 
     def __bool__(self): return len(self.errors) > 0
     def __len__(self): return len(self.errors)

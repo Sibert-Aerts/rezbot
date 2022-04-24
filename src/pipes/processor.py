@@ -356,7 +356,7 @@ class Pipeline:
                 ## A NATIVE PIPE
                 elif parsed_pipe.type == ParsedPipe.NATIVEPIPE:
                     try:
-                        next_items.extend( parsed_pipe.pipe(items, **args) )
+                        next_items.extend( parsed_pipe.pipe(items, **args) if not parsed_pipe.pipe.isCoroutine else await parsed_pipe.pipe(items, **args) )
                     except Exception as e:
                         # This mentions *all* arguments, even default ones, not all of which is very useful for error output...
                         argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )

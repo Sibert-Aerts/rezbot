@@ -1,25 +1,33 @@
 
 ## BIG TODO: Integrate Errorlogs, message and all other ExecutionState into this thing? or something.
 
+from typing import List, Optional, Set, Tuple
+
+
 class ContextError(ValueError):
     '''Special error used by the Context class when a context string cannot be fulfilled.'''
 
 class Context:
-    def __init__(self, parent=None, items=None):
+    items: List[str]
+    parent: Optional['Context']
+    to_be_ignored: Set[str]
+    to_be_removed: Set[str]
+
+    def __init__(self, parent: 'Context'=None, items: List[str]=None):
         self.items = items or []
         self.parent = parent
         self.to_be_ignored = set()
         self.to_be_removed = set()
 
-    def set(self, items):
+    def set(self, items: List[str]):
         self.items = items
         self.to_be_ignored = set()
         self.to_be_removed = set()
 
-    def get_item(self, carrots: str, index: str, exclamation: str):
+    def get_item(self, carrots: str, index: str, exclamation: str) -> str:
         return self.get_parsed_item(len(carrots), int(index), exclamation == '!')
 
-    def get_parsed_item(self, carrots: int, index: int, bang: bool):
+    def get_parsed_item(self, carrots: int, index: int, bang: bool) -> str:
         ctx = self
         # For each ^ go up a context
         for _ in range(carrots):
@@ -37,7 +45,7 @@ class Context:
             (self.to_be_ignored if bang else self.to_be_removed).add(index)
         return ctx.items[index]
 
-    def extract_ignored(self):
+    def extract_ignored(self) -> Tuple[Set[str], List[str]]:
         ### Merge the sets into a clear view:
         # If "conflicting" instances occur (i.e. both {0} and {0!}) give precedence to the {0!}
         # Since the ! is an intentional indicator of what they want to happen; Do not remove the item

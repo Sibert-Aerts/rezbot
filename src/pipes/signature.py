@@ -242,13 +242,7 @@ class Arguments:
             parsed = argumentList.parseString(string, parseAll=True)
         except ParseException as e:
             errors = ErrorLog()
-            if isinstance(e.parserElement, StringEnd):
-                error = f'ParseException: Likely unclosed brace at position {e.loc}:\n­\t'
-                error += e.line[:e.col-1] + '**[' + e.line[e.col-1] + '](http://0)**' + e.line[e.col:]
-                errors(error, True)
-            else:
-                errors('An unexpected ParseException occurred!')
-                errors(e, True)
+            errors.parseException(e)
             return None, None, errors
         else:
             return Arguments.from_parsed(parsed, sig, greedy=greedy)

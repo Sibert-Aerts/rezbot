@@ -1,5 +1,5 @@
 from pyparsing import ParseException, ParseResults, StringEnd
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 # Here to make sure circular dependencies get loaded in the right order...
 from pipes.processor import PipelineProcessor, Pipeline
@@ -14,6 +14,10 @@ from .logger import ErrorLog
 from utils.choicetree import ChoiceTree
 
 
+## Useful types
+Product = Tuple[ List[str], ErrorLog ]
+PossibleProduct = Tuple[ Optional[List[str]], ErrorLog ]
+
 class ParsedItem:
     ''' Class representing an Item inside a TemplatedString. '''
     def __init__(self, item: ParseResults):
@@ -27,7 +31,7 @@ class ParsedItem:
     def __repr__(self):
         return 'Item' + str(self)
 
-    def evaluate(self, context: Context=None):
+    def evaluate(self, context: Context=None) -> str:
         if context:
             return context.get_parsed_item(self.carrots, self.index, self.bang)
         return str(self)
@@ -79,7 +83,7 @@ class ParsedSource:
         return 'Source' + str(self)
 
 
-    async def evaluate(self, message=None, context=None, args=None) -> Tuple[ List[str], ErrorLog ]:
+    async def evaluate(self, message=None, context=None, args=None) -> Tuple[ Optional[List[str]], ErrorLog ]:
         ''' Find some values for the damn Source that we are. '''
         errors = ErrorLog()
         if self.pre_errors: errors.extend(self.pre_errors)
@@ -87,7 +91,7 @@ class ParsedSource:
         if errors.terminal: return NOTHING_BUT_ERRORS
 
         if not (self.name in sources or self.name in source_macros):
-            errors(f'Unknown source `{self.name}`.')
+            errors(f'Unknown source `{self.name}`.', True)
             return NOTHING_BUT_ERRORS
 
         if args is None:
@@ -246,7 +250,6 @@ class TemplatedString:
 
             return TemplatedString(implicit).unquote(), TemplatedString(remainder)
 
-
     async def evaluate(self, message, context: Context=None) -> Tuple[str, ErrorLog]:
         ''' Evaluate the TemplatedString into a string '''
         errors = ErrorLog()
@@ -272,11 +275,34 @@ class TemplatedString:
                 errors.extend(src_errors)
                 evaluated.append(items[0] if items else '')
 
-        return ''.join(evaluated) if not errors.terminal else None, errors
+        return (''.join(evaluated) if not errors.terminal else None), errors
+
 
     @staticmethod
-    async def evaluate_origin(originStr: str, message, context=None) -> Tuple[List[str], ErrorLog]:
-        '''Takes a raw source string, expands it if necessary, applies {sources} in each one and returns the list of values.'''
+    async def evaluate_string(string: str, message=None, context=None, forceSingle=False) -> Tuple[Optional[List[str]], ErrorLog]:
+        '''
+        Takes a raw source string, evaluates {sources} and returns the list of values.
+        
+        If forceSingle=False, a pure "{source}" string may generate more (or less!) than 1 value.
+        '''
+        try:
+            templatedString = TemplatedString.from_string(string)
+
+        except ParseException as e:
+            errors = ErrorLog()
+            errors.parseException(e)
+            return None, errors
+
+        if not forceSingle and templatedString.isSource:
+            vals, errs = await templatedString.source.evaluate(message, context)
+            return vals, errs
+        else:
+            val, errs = await templatedString.evaluate(message, context)
+            return [val], errs
+
+    @staticmethod
+    async def evaluate_origin(originStr: str, message=None, context=None) -> Tuple[Optional[List[str]], ErrorLog]:
+        '''Takes a raw source string, expands it if necessary, evaluates {sources} in each one and returns the list of values.'''
         values = []
         expand = True
         errors = ErrorLog()
@@ -291,21 +317,14 @@ class TemplatedString:
         sources = ChoiceTree(originStr, parse_flags=True, add_brackets=True) if expand else [originStr]
 
         ## Evaluate each string as a TemplatedString, collecting errors along the way
+        ## This part is basically TemplatedString.evaluate_string inlined
         for originStr in sources:
             try:
                 origin = TemplatedString.from_string(originStr)
 
             except ParseException as e:
-                # Identical to the except clause in ParsedArguments.from_string
-                if isinstance(e.parserElement, StringEnd):
-                    error = f'ParseException: Likely unclosed brace at position {e.loc}:\n­\t'
-                    error += e.line[:e.col-1] + '**[' + e.line[e.col-1] + '](http://0)**' + e.line[e.col:]
-                    errors(error, True)
-                else:
-                    errors('An unexpected ParseException occurred!')
-                    errors(e, True)
+                errors.parseException(e)
 
-            ## If the origin parsed properly:
             else:
                 if origin.isSource:
                     vals, errs = await origin.source.evaluate(message, context)
