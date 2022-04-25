@@ -1,4 +1,3 @@
-import asyncio
 import unicodedata2
 import emoji
 import utils.util as util

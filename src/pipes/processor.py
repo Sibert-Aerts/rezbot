@@ -360,7 +360,7 @@ class Pipeline:
                     except Exception as e:
                         # This mentions *all* arguments, even default ones, not all of which is very useful for error output...
                         argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
-                        errors(f'Failed to process pipe `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
+                        errors.log(f'Failed to process pipe `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
 
                 ## A SPOUT
@@ -372,7 +372,7 @@ class Pipeline:
                         spout_callbacks.append( parsed_pipe.pipe(items, **args) )
                     except Exception as e:
                         argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
-                        errors(f'Failed to process spout `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
+                        errors.log(f'Failed to process spout `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
                     
                 ## A NATIVE SOURCE
@@ -380,13 +380,13 @@ class Pipeline:
                     # Sources don't accept input values: Discard them but warn about it if nontrivial input is being discarded.
                     # This is just a style warning, if it turns out this is annoying then it should be removed.
                     if items and not (len(items) == 1 and not items[0]):
-                        errors(f'Source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
+                        errors.log(f'Source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
 
                     try:
                        next_items.extend( await parsed_pipe.pipe(message, args) )
                     except Exception as e:
                         argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
-                        errors(f'Failed to process source-as-pipe `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
+                        errors.log(f'Failed to process source-as-pipe `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
 
                 ## A PIPE MACRO
@@ -410,7 +410,7 @@ class Pipeline:
                 ## A SOURCE MACRO
                 elif name in source_macros:
                     if items and not (len(items) == 1 and not items[0]):
-                        errors(f'Macro-source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
+                        errors.log(f'Macro-source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
 
                     sourceMacro = ParsedSource(name, None, None)
                     newVals, src_errs = await sourceMacro.evaluate(message, group_context, args)
@@ -423,7 +423,7 @@ class Pipeline:
 
                 ## UNKNOWN NAME
                 else:
-                    errors(f'Unknown pipe `{name}`.', True)
+                    errors.log(f'Unknown pipe `{name}`.', True)
                     return NOTHING_BUT_ERRORS
 
             loose_items = next_items
@@ -568,7 +568,8 @@ class PipelineProcessor:
                 try:
                     await callback(self.bot, message, values, **args)
                 except Exception as e:
-                    errors(f'Failed to execute spout `{callback.__name__}`:\n\t{e}')
+                    errors(f'Failed to execute spout `{callback.__name__}`:\n\t{e.__class__.__name__}: {e}', True)
+                    break
 
             ## Post warning output to the channel if any
             if errors:
@@ -584,7 +585,7 @@ class PipelineProcessor:
             ## An actual error has occurred in executing the script that we did not catch.
             # No script, no matter how poorly formed or thought-out, should be able to trigger this; if this occurs it's a Rezbot bug.
             print('Script execution halted unexpectedly!')
-            errors.log('**Unexpected pipeline error:**\n' + e.__class__.__name__ + ': ' + str(e), terminal=True)
+            errors.log('🛑 **Unexpected pipeline error:**\n' + e.__class__.__name__ + ': ' + str(e), terminal=True)
             await message.channel.send(embed=errors.embed(name=name))
             raise e
 

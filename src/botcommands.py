@@ -52,7 +52,7 @@ class BotCommands(MyCommands):
 
 
     @commands.command(hidden=True)
-    async def play(self, ctx):
+    async def play(self, ctx: commands.Context):
         '''Set the currently played game.'''
         game = util.strip_command(ctx)
         if game == '':
@@ -72,12 +72,12 @@ class BotCommands(MyCommands):
     # to self-moderate bot spam, or to fix your own slip-ups
     @commands.command(hidden=True)
     @permissions.check(permissions.owner)
-    async def delet(self, ctx, upperBound = 1, lowerBound = 0):
+    async def delet(self, ctx: commands.Context, upperBound = 1, lowerBound = 0):
         '''delet (owner only)'''
         name = 'this DM' if isinstance(ctx.channel, discord.abc.PrivateChannel) else ctx.author.name
         print('Deleting messages in #{0} between {1} and {2}'.format(name, lowerBound, upperBound))
         i = 0
-        async for log in ctx.channel.history(limit = 100):
+        async for log in ctx.channel.history(limit=upperBound+100):
             if log.author == self.bot.user:
                 if i == upperBound:
                     return
@@ -101,7 +101,7 @@ class BotCommands(MyCommands):
         274202462884331520  # Rezbot (mine)
     ]
 
-    @commands.command(hidden=True, aliases=['update_color_roles'])
+    @commands.command(hidden=True, aliases=['update_color_roles', 'update_colours', 'update_colors'])
     @permissions.check(permissions.owner)
     async def update_colour_roles(self, ctx):
         '''Automatically (un)assign colour roles to members of the rezbot server.'''
@@ -329,6 +329,7 @@ class BotCommands(MyCommands):
         embed.add_field(name='Likes', value=random.randint(25000, 150000))
         return embed
 
+
     @commands.command(hidden=True)
     async def drump(self, ctx):
         query = util.strip_command(ctx)
@@ -337,15 +338,18 @@ class BotCommands(MyCommands):
         embed = BotCommands.trump_embed(tweet['text'])
         await ctx.send(embed=embed)
 
+
     @commands.command()
     async def solve_wordle(self, ctx, theWord, file='wordle_guesses'):
         '''
         Make the bot try to solve a wordle, semi-naively.
         
-        First argument is the word to solve for, may be wrapped in ||'s to hide it from other members. 
-        Second argument is optionally a file name (see `>files`) to use as its corpus of possible guesses.
+        First argument is the word to solve for, wrap it in ||'s to make the bot treat the word as secret. 
+        Second, optional argument is a file name (see `>files`) to use as its corpus of allowed guesses.
         '''
+        spoilers = False
         if theWord[:2] == theWord[-2:] == '||':
+            spoilers = True
             theWord = theWord[2:-2]
         theWord = theWord.lower()
         n = len(theWord)
@@ -371,7 +375,7 @@ class BotCommands(MyCommands):
             guess = random.choice(corpus)
             print('CORPUS SIZE:', len(corpus))
             info = wordle.create_info(theWord, guess)
-            output.append( info.emoji + '   ||`' + guess + '`||' )
+            output.append( info.emoji + '   ' + (f'||`{guess}`||' if spoilers else f'`{guess}`'))
             if info.solved:
                 break
             corpus = [word for word in corpus if info.test(word)]
@@ -383,6 +387,7 @@ class BotCommands(MyCommands):
         smiley = {'1': '🤯', '2': '🤩', '3': '😃', '4': '🙂', '5': '😐', '6': '😟', 'X': '😢'}[turns] or '🤔'
 
         await (await ctx.send('\n'.join(output))).add_reaction(smiley)
+
 
     @commands.command()
     async def lunch(self, ctx, kind='regular'):

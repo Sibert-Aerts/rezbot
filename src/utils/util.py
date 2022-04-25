@@ -1,10 +1,11 @@
-from discord.ext import commands
-import re
+from typing import List, Tuple, TypeVar
 
-def mins(items, key=lambda x:x, maxMin=None):
+T = TypeVar('T')
+
+def mins(items: List[T], key=lambda x:x, maxMin: float=None) -> List[T]:
     '''
     Returns the list of all items i whose key(i) is equal to the minimum for all items.
-    If maxMin is given, it pretends there are no items with key() less than maxMin.
+    If maxMin is given, it pretends there are no items with key(i) less than maxMin.
     '''
     min_i = []
     min_k = float('inf')

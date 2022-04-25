@@ -7,7 +7,7 @@ Helper class for processing/drawing emoji fights.
 
 class EmojiFight:
     leftWeapons = ['🔨', '⛏️', '🪓', '🪚', '🗡️', '🪡', '🪠', '🪒', '📌', '🔫', '🤛', '🏹']
-    rightWeapons = ['🔪', '🤜']
+    rightWeapons = ['🔪', '🤜' '💉']
     dualWeapons = ['⚔️', '⚒️', '🛠️']
 
     weaponRegex = re.compile('(' + '|'.join(leftWeapons + rightWeapons + dualWeapons) + ')')
