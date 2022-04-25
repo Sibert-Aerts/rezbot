@@ -294,22 +294,28 @@ class Pipeline:
         self.check_items(loose_items, message)
 
         ### This loop iterates over the pipeline's segments as they are applied in sequence. (first > second > third)
-        for groupmode, parsed_pipes in self.parsed_segments:
+        for groupMode, parsed_pipes in self.parsed_segments:
             next_items = []
             new_printed_items = []
 
             # Non-trivial groupmodes add a new context layer
-            if groupmode.splits_trivially():
+            if groupMode.splits_trivially():
                 group_context = context
             else:
                 context.set(loose_items)
                 group_context = Context(context)
 
+            try:
+                appliedGroupMode = groupMode.apply(loose_items, parsed_pipes)
+            except groupmodes.GroupModeError as e:
+                errors.log('GroupModeError: ' + str(e), True)
+                return NOTHING_BUT_ERRORS
+
             ### The group mode turns the List[item], List[pipe] into  List[Tuple[ List[item], Optional[Pipe] ]]
             # i.e. it splits the list of items into smaller lists, and assigns each one a pipe to be applied to (if any).
             # The implemenation of this arcane flowchart magicke is detailed in `./groupmodes.py`
             # In the absolute simplest (and most common) case, all values are simply sent to a single pipe, and this loop iterates exactly once.
-            for items, parsed_pipe in groupmode.apply(loose_items, parsed_pipes):
+            for items, parsed_pipe in appliedGroupMode:
                 group_context.set(items)
 
                 ## CASE: `None` is how the groupmode assigns values to remain unaffected

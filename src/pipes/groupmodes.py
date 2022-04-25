@@ -515,12 +515,12 @@ class DefaultAssign(AssignMode):
 class Conditional(AssignMode):
     '''Assign mode that assigns groups to pipes based on logical conditions that each group meets.'''
 
-    class Condition():
+    class RootCondition():
         type1 = re.compile(r'(-?\d+)\s*(!)?=\s*(-?\d+)')                # <index> = <index>
         type2 = re.compile(r'(-?\d+)\s*(!)?=\s*"([^"]*)"')              # <index> = "<literal>"
         type3 = re.compile(r'(-?\d+)\s+(NOT )?LIKE\s+/([^/]*)/', re.I)  # <index> [NOT] LIKE /<regex>/
         type4 = re.compile(r'((NO|SOME|ANY)THING)', re.I)               # NOTHING or SOMETHING or ANYTHING
-        def __init__(self, cond):
+        def __init__(self, cond: str):
             m = re.match(self.type1, cond)
             if m is not None:
                 self.type = 1
@@ -561,7 +561,7 @@ class Conditional(AssignMode):
             if self.type == 3: return '{} {}LIKE /{}/'.format(self.left, 'NOT ' if self.inverse else '', self.re_str)
             if self.type == 4: return '{}THING'.format('NO' if self.inverse else 'ANY')
 
-        def check(self, values):
+        def check(self, values: List[str]) -> bool:
             try:
                 if self.type == 1:
                     return self.inverse ^ (values[self.left] == values[self.right])
@@ -574,11 +574,23 @@ class Conditional(AssignMode):
             except IndexError:
                 raise GroupModeError('Index out of range in condition `{}`'.format(self))
 
+    class Condition():
+        def __init__(self, cond):
+            # This is bad, bad parsing, which is limited in complexity and totally ignores quotation marks and such
+            disj = cond.split(' OR ')
+            conjs = [conj.split(' AND ') for conj in disj]
+            self.conds = [[Conditional.RootCondition(cond) for cond in conj] for conj in conjs]
+            
+        def __str__(self):
+            return ' OR '.join(' AND '.join(str(cond) for cond in conj) for conj in self.conds)
+
+        def check(self, values):
+            return any(all(cond.check(values) for cond in conj) for conj in self.conds)
 
     def __init__(self, multiply, strictness, conditions):
         self.multiply = multiply
         self.strictness = strictness
-        # TODO: Parse these more smartly ahead of time
+        # TODO: Parse these more smartly
         self.conditions = [self.Condition(c.strip()) for c in conditions.split('|')]
 
     def __str__(self):
@@ -661,13 +673,13 @@ class GroupMode:
     def splits_trivially(self):
         return not self.splitModes
 
-    def apply(self, all_items: List[T], pipes: List[P]) -> List[Tuple[List[T], Optional[P]]]:
+    def apply(self, all_items: List[T], pipes: List[P]) -> List[ Tuple[List[T], Optional[P]] ]:
         groups: List[Tuple[List[T], bool]] = [(all_items, False)]
         ## Apply all the SplitModes
         for groupmode in self.splitModes:
             newGroups = []
             for items, ignore in groups:
-                if ignore: newGroups.append( (items, True) )
+                if ignore: newGroups.append( (items, True, None) )
                 else: newGroups.extend( groupmode.apply(items) )
             groups = newGroups
         ## Apply the AssignMode
