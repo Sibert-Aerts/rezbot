@@ -195,6 +195,8 @@ class GroupModeError(ValueError):
 T = TypeVar('T')
 P = TypeVar('P')
 
+################ SPLITMODES ################
+
 class SplitMode:
     '''An object representing a function that turns a list of item into smaller lists.'''
     def __init__(self, strictness: int):
@@ -472,6 +474,7 @@ class Interval(SplitMode):
         ## Strict: Throw away the items outside of the selected range.
         return [(items[lval: rval], False)]
 
+################ ASSIGNMODES ################
 
 class AssignMode:
     '''An object representing a function that takes lists of items and assigns them to pipes picked from a list.'''
@@ -659,10 +662,71 @@ class Random(AssignMode):
     def apply(self, tuples: List[Tuple[T, bool]], pipes: List[P]) -> List[Tuple[T, Optional[P]]]:
         return [ (items, None if ignore else choice(pipes)) for (items, ignore) in tuples ]
 
+
+################ PROTOMODES ################
+
+class GroupBy:
+    # Stringy enum
+    GROUP = 'GROUP'
+    COLLECT = 'COLLECT'
+    EXTRACT = 'EXTRACT'
+
+    def __init__(self, mode: str, keys: str):
+        self.mode = GroupBy.GROUP if mode == 'GROUP' else GroupBy.COLLECT if mode == 'COLLECT' else GroupBy.EXTRACT
+
+        # The set of indices
+        self.keys = [ int(i) for i in re.split(r'\s*,\s*', keys) ]
+        # The highest referenced index
+        self.maxIndex = max(self.keys)
+        # isKey[i] == True  ⇐⇒ i in indices
+        self.isKey = [ (i in self.keys) for i in range(self.maxIndex+1) ]
+
+    def __str__(self):
+        return self.mode + ' BY ' + ', '.join( (str(i)+'!' if self.hasBang[i] else str(i)) for i in self.keys )
+
+    def apply(self, tuples: List[Tuple[T, bool]]) -> List[Tuple[T, bool]]:
+        out = []
+        known = {}
+
+        for (items, ignore) in tuples:
+            if ignore:
+                out.append((items, True))
+                continue
+
+            n = len(items)
+            if self.maxIndex >= n:
+                raise GroupModeError('GROUP BY index out of range.')
+            keys = tuple( items[i] for i in self.keys )
+
+            if keys not in known:
+                ## COLLECT mode tells us to float the keys to the front
+                ## EXTRACT mode tells us to get rid of the keys entirely
+                if self.mode == GroupBy.GROUP:
+                    values = items
+                elif self.mode == GroupBy.COLLECT:
+                    values = list(keys) + [ items[i] for i in range(n) if i > self.maxIndex or not self.isKey[i] ]
+                else:
+                    values = [ items[i] for i in range(n) if i > self.maxIndex or not self.isKey[i] ]
+                known[keys] = values
+                out.append((values, False))
+
+            else:
+                ## COLLECT and EXTRACT modes tell us to filter out the keys on repeat items
+                if self.mode == GroupBy.GROUP:
+                    values = items
+                else:
+                    values = [ items[i] for i in range(n) if i > self.maxIndex or not self.isKey[i] ]
+                known[keys].extend(values)
+
+        return out
+
+################ GROUPMODE ################
+
 class GroupMode:
     '''A class that combines multiple SplitModes and an AssignMode'''
-    def __init__(self, splitModes: List[SplitMode], assignMode: AssignMode):
+    def __init__(self, splitModes: List[SplitMode], groupBy: GroupBy, assignMode: AssignMode):
         self.splitModes: List[SplitMode] = splitModes
+        self.groupBy: GroupBy = groupBy
         self.assignMode: AssignMode = assignMode
 
     def __str__(self):
@@ -675,6 +739,7 @@ class GroupMode:
 
     def apply(self, all_items: List[T], pipes: List[P]) -> List[ Tuple[List[T], Optional[P]] ]:
         groups: List[Tuple[List[T], bool]] = [(all_items, False)]
+
         ## Apply all the SplitModes
         for groupmode in self.splitModes:
             newGroups = []
@@ -682,6 +747,11 @@ class GroupMode:
                 if ignore: newGroups.append( (items, True, None) )
                 else: newGroups.extend( groupmode.apply(items) )
             groups = newGroups
+
+        ## Apply the GroupBy (if any)
+        if self.groupBy:
+            groups = self.groupBy.apply(groups)
+
         ## Apply the AssignMode
         return self.assignMode.apply( groups, pipes )
 
@@ -691,6 +761,10 @@ class GroupMode:
 # then 0 or more instances of SplitModes:
 #   (N)  |  %N  |  \N  |  /N  |  #N  |  #N:M
 # each optionally followed by a Strictness flag: ! | !!
+
+# optionally followed by a GroupBy mode:
+#   (GROUP|COLLECT|EXTRACT) BY I, J, K, ...
+
 # optionally followed by a Multiply flag: *
 # optionally followed by an AssignMode:
 #   { COND1 | COND2 | COND3 | ... }  |  ?
@@ -705,6 +779,9 @@ op_pattern = re.compile(r'(/|%|\\)\s*(\d+)?')
 #                          ^^^^^^     ^^^
 int_pattern = re.compile(r'#(-?\d*)(?:(?::|\.\.+)(-?\d*))?')
 #                            ^^^^^                ^^^^^
+
+group_by_pattern = re.compile(r'\s*(GROUP|COLLECT|EXTRACT) BY\s*(\d+(?:\s*,\s*\d+)*)\s*')
+#                                   ^^^^^^^^^^^^^^^^^^^^^        ^^^^^^^^^^^^^^^^^^
 
 cond_pattern = re.compile(r'{(.*?)}\s*(!?!?)\s*', re.S)
 #                             ^^^      ^^^^
@@ -769,6 +846,13 @@ def parse(bigPipe):
 
         splitModes.append(splitMode)
 
+    ### GROUPBY MODE (optional)
+    groupBy = None
+    m = group_by_pattern.match(cropped)
+    if m is not None:
+        groupBy = GroupBy(m[1], m[2])
+        cropped = cropped[m.end():]
+
     ### ASSIGNMODE MULTIPLY FLAG (preferred syntax)
     m = mul_pattern.match(cropped)
     multiply |= (m[1] == '*')
@@ -788,7 +872,7 @@ def parse(bigPipe):
             assignMode = DefaultAssign(multiply)
 
     ### GROUPMODE
-    groupMode = GroupMode(splitModes, assignMode)
+    groupMode = GroupMode(splitModes, groupBy, assignMode)
     return cropped, groupMode
 
 
