@@ -1,6 +1,5 @@
 import re
-import math
-from typing import List, Tuple, Optional, Any, TypeVar
+from typing import List, Tuple, Optional, TypeVar
 from random import choice
 
 # Pipe grouping syntax!
@@ -515,14 +514,14 @@ class DefaultAssign(AssignMode):
                 i += 1
         return out
 
-class Conditional(AssignMode):
+class Switch(AssignMode):
     '''Assign mode that assigns groups to pipes based on logical conditions that each group meets.'''
 
     class RootCondition():
-        type1 = re.compile(r'(-?\d+)\s*(!)?=\s*(-?\d+)')                # <index> = <index>
-        type2 = re.compile(r'(-?\d+)\s*(!)?=\s*"([^"]*)"')              # <index> = "<literal>"
-        type3 = re.compile(r'(-?\d+)\s+(NOT )?LIKE\s+/([^/]*)/', re.I)  # <index> [NOT] LIKE /<regex>/
-        type4 = re.compile(r'((NO|SOME|ANY)THING)', re.I)               # NOTHING or SOMETHING or ANYTHING
+        type1 = re.compile(r'^(-?\d+)\s*(!)?=\s*(-?\d+)$')                # <index> = <index>
+        type2 = re.compile(r'^(-?\d+)\s*(!)?=\s*"([^"]*)"$')              # <index> = "<literal>"
+        type3 = re.compile(r'^(-?\d+)\s+(NOT )?LIKE\s+/([^/]*)/$', re.I)  # <index> [NOT] LIKE /<regex>/
+        type4 = re.compile(r'^((NO|SOME|ANY)THING)$', re.I)               # NOTHING or SOMETHING or ANYTHING
         def __init__(self, cond: str):
             m = re.match(self.type1, cond)
             if m is not None:
@@ -582,7 +581,7 @@ class Conditional(AssignMode):
             # This is bad, bad parsing, which is limited in complexity and totally ignores quotation marks and such
             disj = cond.split(' OR ')
             conjs = [conj.split(' AND ') for conj in disj]
-            self.conds = [[Conditional.RootCondition(cond) for cond in conj] for conj in conjs]
+            self.conds = [[Switch.RootCondition(cond.strip()) for cond in conj] for conj in conjs]
             
         def __str__(self):
             return ' OR '.join(' AND '.join(str(cond) for cond in conj) for conj in self.conds)
@@ -665,6 +664,29 @@ class Random(AssignMode):
 
 ################ PROTOMODES ################
 
+class IfMode:
+    def __init__(self, cond: str, bangs: str):
+        self.strict = bool(bangs)
+        self.cond = Switch.Condition(cond.strip())
+
+    def __str__(self):
+        return 'IF ((' + str(self.cond) + '))' + ('!' if self.strict else '')
+
+    def apply(self, tuples: List[Tuple[T, bool]]) -> List[Tuple[T, bool]]:
+        out = []
+        for (items, ignore) in tuples:
+            if ignore:
+                out.append((items, True))
+
+            elif self.cond.check(items):
+                out.append((items, False))
+            
+            elif not self.strict:
+                out.append((items, True))
+
+        return out
+
+
 class GroupBy:
     # Stringy enum
     GROUP = 'GROUP'
@@ -724,15 +746,20 @@ class GroupBy:
 
 class GroupMode:
     '''A class that combines multiple SplitModes and an AssignMode'''
-    def __init__(self, splitModes: List[SplitMode], groupBy: GroupBy, assignMode: AssignMode):
+    def __init__(self, splitModes: List[SplitMode], ifMode: IfMode, groupBy: GroupBy, assignMode: AssignMode):
         self.splitModes: List[SplitMode] = splitModes
+        self.ifMode = ifMode
         self.groupBy: GroupBy = groupBy
         self.assignMode: AssignMode = assignMode
 
     def __str__(self):
         if self.splits_trivially() and self.assignMode.is_trivial():
             return 'TRIVIAL'
-        return ' > '.join(str(s) for s in self.splitModes) + ' × ' + str(self.assignMode)
+        splitmodes = ' > '.join(str(s) for s in self.splitModes)
+        ifMode = (' × ' + str(self.ifMode)) if self.ifMode else ''
+        groupBy = (' × ' + str(self.groupBy)) if self.groupBy else ''
+        assignMode= ' × ' + str(self.assignMode)
+        return splitmodes + ifMode + groupBy + assignMode
 
     def splits_trivially(self):
         return not self.splitModes
@@ -748,6 +775,10 @@ class GroupMode:
                 else: newGroups.extend( groupmode.apply(items) )
             groups = newGroups
 
+        ## Apply the IfMode (if any)
+        if self.ifMode:
+            groups = self.ifMode.apply(groups)
+
         ## Apply the GroupBy (if any)
         if self.groupBy:
             groups = self.groupBy.apply(groups)
@@ -762,12 +793,16 @@ class GroupMode:
 #   (N)  |  %N  |  \N  |  /N  |  #N  |  #N:M
 # each optionally followed by a Strictness flag: ! | !!
 
-# optionally followed by a GroupBy mode:
+# optionally followed by an IfMode:
+#   IF (( COND ))
+# optionally followed by a strictness flag: !
+
+# optionally followed by a GroupBy:
 #   (GROUP|COLLECT|EXTRACT) BY I, J, K, ...
 
 # optionally followed by a Multiply flag: *
 # optionally followed by an AssignMode:
-#   { COND1 | COND2 | COND3 | ... }  |  ?
+#   SWITCH(( COND1 | COND2 | COND3 | ... ))  |  ?
 # each optionally followed by a Strictness flag: ! | !!
 
 mul_pattern = re.compile(r'\s*(\*?)\s*')
@@ -780,11 +815,16 @@ op_pattern = re.compile(r'(/|%|\\)\s*(\d+)?')
 int_pattern = re.compile(r'#(-?\d*)(?:(?::|\.\.+)(-?\d*))?')
 #                            ^^^^^                ^^^^^
 
+if_pattern = re.compile(r'IF\s*\(\((.*?)\)\)\s*(!?)\s*', re.S)
+#                                   ^^^        ^^
+
 group_by_pattern = re.compile(r'\s*(GROUP|COLLECT|EXTRACT) BY\s*(\d+(?:\s*,\s*\d+)*)\s*')
 #                                   ^^^^^^^^^^^^^^^^^^^^^        ^^^^^^^^^^^^^^^^^^
 
-cond_pattern = re.compile(r'{(.*?)}\s*(!?!?)\s*', re.S)
-#                             ^^^      ^^^^
+switch_pattern_DEPREC = re.compile(r'{(.*?)}\s*(!?!?)\s*', re.S)
+#                                      ^^^      ^^^^
+switch_pattern = re.compile(r'SWITCH\s*\(\((.*?)\)\)\s*(!?!?)\s*', re.S)
+#                                           ^^^         ^^^^
 rand_pattern = re.compile(r'\?')
 
 strict_pattern = re.compile(r'\s*(!?!?)\s*')
@@ -846,6 +886,13 @@ def parse(bigPipe):
 
         splitModes.append(splitMode)
 
+    ### IFMODE (optional)
+    ifMode = None
+    m = if_pattern.match(cropped)
+    if m is not None:
+        ifMode = IfMode(m[1], m[2])
+        cropped = cropped[m.end():]
+
     ### GROUPBY MODE (optional)
     groupBy = None
     m = group_by_pattern.match(cropped)
@@ -859,9 +906,9 @@ def parse(bigPipe):
     cropped = cropped[m.end():]
 
     ### ASSIGNMODE
-    m = cond_pattern.match(cropped)
+    m = switch_pattern.match(cropped) or switch_pattern_DEPREC.match(cropped)
     if m is not None:
-        assignMode = Conditional(multiply, len(m[2]), m[1])
+        assignMode = Switch(multiply, len(m[2]), m[1])
         cropped = cropped[m.end():]
     else:
         m = rand_pattern.match(cropped)
@@ -872,7 +919,7 @@ def parse(bigPipe):
             assignMode = DefaultAssign(multiply)
 
     ### GROUPMODE
-    groupMode = GroupMode(splitModes, groupBy, assignMode)
+    groupMode = GroupMode(splitModes, ifMode, groupBy, assignMode)
     return cropped, groupMode
 
 
