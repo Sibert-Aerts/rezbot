@@ -575,7 +575,7 @@ async def word_source(pattern, n):
 @multi_source
 async def emoji_source():
     '''Random emoji.'''
-    return choose(list(emoji.UNICODE_EMOJI.keys())).replace(' ', '')
+    return choose(list(emoji.UNICODE_EMOJI['en'].keys())).replace(' ', '')
 
 
 
