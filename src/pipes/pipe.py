@@ -20,7 +20,7 @@ class Pipe:
             # doc is the full docstring
             self.doc = dedent(self.doc).lstrip()
             # small_doc is only the first line of the docstring
-            self.small_doc = self.doc.split('\n')[0]
+            self.small_doc = self.doc.split('\n', 1)[0]
 
     def __call__(self, items: List[str], **args) -> List[str]:
         ''' Apply the pipe to a list of items. '''

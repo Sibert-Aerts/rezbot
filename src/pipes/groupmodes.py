@@ -1,5 +1,5 @@
 import re
-from typing import List, Tuple, Optional, TypeVar
+from typing import List, Tuple, Optional, TypeVar, Union
 from random import choice
 
 # Pipe grouping syntax!
@@ -662,7 +662,7 @@ class Random(AssignMode):
         return [ (items, None if ignore else choice(pipes)) for (items, ignore) in tuples ]
 
 
-################ PROTOMODES ################
+################ MIDMODES ################
 
 class IfMode:
     def __init__(self, cond: str, bangs: str):
@@ -686,7 +686,6 @@ class IfMode:
 
         return out
 
-
 class GroupBy:
     # Stringy enum
     GROUP = 'GROUP'
@@ -704,7 +703,7 @@ class GroupBy:
         self.isKey = [ (i in self.keys) for i in range(self.maxIndex+1) ]
 
     def __str__(self):
-        return self.mode + ' BY ' + ', '.join( (str(i)+'!' if self.hasBang[i] else str(i)) for i in self.keys )
+        return self.mode + ' BY ' + ', '.join(str(i) for i in self.keys)
 
     def apply(self, tuples: List[Tuple[T, bool]]) -> List[Tuple[T, bool]]:
         out = []
@@ -742,14 +741,50 @@ class GroupBy:
 
         return out
 
+class SortBy:
+    def __init__(self, keys: str):
+        # The set of indices
+        self.keys = []
+        nums = []
+        for key in re.split(r'\s*,\s*', keys):
+            if key[0] == '+':
+                i = int(key[1:])
+                self.keys.append(i)
+                nums.append(i)
+            else:
+                self.keys.append(int(key))
+
+        self.maxKey = max(self.keys)
+        self.isNum = [(i in nums) for i in range(self.maxKey+1)]
+
+
+    def __str__(self):
+        return 'SORT BY ' + ', '.join( ('+'+str(i) if self.isNum[i] else str(i)) for i in self.keys)
+
+    def apply(self, tuples: List[Tuple[T, bool]]) -> List[Tuple[T, bool]]:
+        head = []
+        toSort = []
+        tail = []
+
+        for (items, ignore) in tuples:
+            if ignore: (head if not toSort else tail).append((items, True))
+            else: toSort.append(items)
+
+        keys = self.keys
+        def keyMaker(items):
+            return tuple( items[i] if (i>self.maxKey or not self.isNum[i]) else float(items[i]) for i in keys )
+        toSort.sort(key=keyMaker)
+
+        return head + [(items, False) for items in toSort] + tail
+
+
 ################ GROUPMODE ################
 
 class GroupMode:
     '''A class that combines multiple SplitModes and an AssignMode'''
-    def __init__(self, splitModes: List[SplitMode], ifMode: IfMode, groupBy: GroupBy, assignMode: AssignMode):
+    def __init__(self, splitModes: List[SplitMode], midModes: List[Union[IfMode, SortBy, GroupBy]], assignMode: AssignMode):
         self.splitModes: List[SplitMode] = splitModes
-        self.ifMode = ifMode
-        self.groupBy: GroupBy = groupBy
+        self.midModes = midModes
         self.assignMode: AssignMode = assignMode
 
     def __str__(self):
@@ -767,7 +802,7 @@ class GroupMode:
     def apply(self, all_items: List[T], pipes: List[P]) -> List[ Tuple[List[T], Optional[P]] ]:
         groups: List[Tuple[List[T], bool]] = [(all_items, False)]
 
-        ## Apply all the SplitModes
+        ## Apply the SplitModes
         for groupmode in self.splitModes:
             newGroups = []
             for items, ignore in groups:
@@ -775,16 +810,12 @@ class GroupMode:
                 else: newGroups.extend( groupmode.apply(items) )
             groups = newGroups
 
-        ## Apply the IfMode (if any)
-        if self.ifMode:
-            groups = self.ifMode.apply(groups)
-
-        ## Apply the GroupBy (if any)
-        if self.groupBy:
-            groups = self.groupBy.apply(groups)
+        ## Apply the MidModes
+        for midMode in self.midModes:
+            groups = midMode.apply(groups)
 
         ## Apply the AssignMode
-        return self.assignMode.apply( groups, pipes )
+        return self.assignMode.apply(groups, pipes)
 
 
 # pattern:
@@ -796,6 +827,9 @@ class GroupMode:
 # optionally followed by an IfMode:
 #   IF (( COND ))
 # optionally followed by a strictness flag: !
+
+# optionally followed by a SortBy:
+#   SORT BY I, J, K, ...
 
 # optionally followed by a GroupBy:
 #   (GROUP|COLLECT|EXTRACT) BY I, J, K, ...
@@ -820,6 +854,8 @@ if_pattern = re.compile(r'IF\s*\(\((.*?)\)\)\s*(!?)\s*', re.S)
 
 group_by_pattern = re.compile(r'\s*(GROUP|COLLECT|EXTRACT) BY\s*(\d+(?:\s*,\s*\d+)*)\s*')
 #                                   ^^^^^^^^^^^^^^^^^^^^^        ^^^^^^^^^^^^^^^^^^
+sort_by_pattern = re.compile(r'\s*SORT BY\s*(\+?\d+(?:\s*,\s*\+?\d+)*)\s*')
+#                                            ^^^^^^^^^^^^^^^^^^^^^^^^
 
 switch_pattern_DEPREC = re.compile(r'{(.*?)}\s*(!?!?)\s*', re.S)
 #                                      ^^^      ^^^^
@@ -886,18 +922,24 @@ def parse(bigPipe):
 
         splitModes.append(splitMode)
 
+    midModes = []
+
     ### IFMODE (optional)
-    ifMode = None
     m = if_pattern.match(cropped)
     if m is not None:
-        ifMode = IfMode(m[1], m[2])
+        midModes.append(IfMode(m[1], m[2]))
+        cropped = cropped[m.end():]
+
+    ### SORTBY MODE (optional)
+    m = sort_by_pattern.match(cropped)
+    if m is not None:
+        midModes.append(SortBy(m[1]))
         cropped = cropped[m.end():]
 
     ### GROUPBY MODE (optional)
-    groupBy = None
     m = group_by_pattern.match(cropped)
     if m is not None:
-        groupBy = GroupBy(m[1], m[2])
+        midModes.append(GroupBy(m[1], m[2]))
         cropped = cropped[m.end():]
 
     ### ASSIGNMODE MULTIPLY FLAG (preferred syntax)
@@ -919,7 +961,7 @@ def parse(bigPipe):
             assignMode = DefaultAssign(multiply)
 
     ### GROUPMODE
-    groupMode = GroupMode(splitModes, ifMode, groupBy, assignMode)
+    groupMode = GroupMode(splitModes, midModes, assignMode)
     return cropped, groupMode
 
 

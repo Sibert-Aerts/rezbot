@@ -443,6 +443,7 @@ class Pipeline:
 
 class PipelineProcessor:
     ''' Singleton class providing some global state and methods essential to the bot's scripting integration. '''
+
     def __init__(self, bot, prefix):
         self.bot = bot
         self.prefix = prefix
