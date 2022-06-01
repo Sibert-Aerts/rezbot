@@ -236,10 +236,10 @@ def reverse_text_pipe(text):
 
 
 @make_pipe({})
-@one_to_one
-def length_pipe(text):
-    ''' Gives the length in characters of each item. '''
-    return str(len(text))
+@many_to_one
+def length_pipe(input):
+    ''' Gives the total length in characters of all items. '''
+    return [str(sum( len(text) for text in input ))]
 
 
 @make_pipe({
