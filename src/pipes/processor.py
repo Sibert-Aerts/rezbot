@@ -351,6 +351,11 @@ class Pipeline:
                     if errors.terminal: return NOTHING_BUT_ERRORS
                     next_items.extend(items)
                     spout_callbacks += pl_spout_callbacks
+
+                    # Special case where we can safely absorb print items into the whole
+                    if groupMode.is_singular():
+                        printed_items.extend(pl_printValues)
+
                     continue
 
                 ## CASE: The pipe is a ParsedPipe: something of the form "name [argumentList]"
@@ -433,6 +438,10 @@ class Pipeline:
 
                     next_items.extend(newvals)
                     spout_callbacks += macro_spout_callbacks
+
+                    # Special case where we can safely absorb print items into the whole
+                    if groupMode.is_singular():
+                        printed_items.extend(macro_printValues)
 
                 ## A SOURCE MACRO
                 elif name in source_macros:

@@ -799,6 +799,9 @@ class GroupMode:
     def splits_trivially(self):
         return not self.splitModes
 
+    def is_singular(self):
+        return not self.splitModes and not self.assignMode.multiply
+
     def apply(self, all_items: List[T], pipes: List[P]) -> List[ Tuple[List[T], Optional[P]] ]:
         groups: List[Tuple[List[T], bool]] = [(all_items, False)]
 
