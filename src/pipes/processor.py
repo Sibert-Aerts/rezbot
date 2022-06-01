@@ -285,15 +285,13 @@ class Pipeline:
         spoutCallbacks = []
         for _ in range(self.iterations):
             iterItems, iterPrintValues, iterErrors, iterSpoutCallbacks = await self.apply_iteration(items, message, parent_context)
+            errors.extend(iterErrors)
+            if errors.terminal: return (None, None, errors, None)
             items = iterItems
             printValues.extend(iterPrintValues)
-            errors.extend(iterErrors)
             spoutCallbacks.extend(iterSpoutCallbacks)
-            if errors.terminal:
-                return (None, None, errors, None)
 
         return items, printValues, errors, spoutCallbacks
-
 
     async def apply_iteration(self, items: List[str], message, parent_context=None) -> Tuple[ List[str], List[List[str]], ErrorLog, List[Any] ]:
         '''Apply the pipeline to a list of items a single time.'''
