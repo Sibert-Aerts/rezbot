@@ -235,6 +235,13 @@ def reverse_text_pipe(text):
     return text[::-1]
 
 
+@make_pipe({})
+@one_to_one
+def length_pipe(text):
+    ''' Gives the length in characters of each item. '''
+    return str(len(text))
+
+
 @make_pipe({
     'on' : Par(regex, None, 'Pattern to split on'),
     'lim': Par(int, 0, 'Maximum number of splits. (0 for no limit)')
