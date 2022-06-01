@@ -78,6 +78,10 @@ class ErrorLog:
 
     def embed(self, name=None):
         desc = '\n'.join(str(m) for m in self.errors) if self.errors else 'No warnings!'
+
+        if len(desc) > 4000:
+            raise Exception('Too many errors to be of reasonable use!')
+
         if self.terminal:
             embed = discord.Embed(title='Error log', description=desc, color=0xff3366)
         else:

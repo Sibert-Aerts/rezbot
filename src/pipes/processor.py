@@ -580,21 +580,33 @@ class PipelineProcessor:
 
             ## Post warning output to the channel if any
             if errors:
-                await message.channel.send(embed=errors.embed(name=name))
+                await self.send_error_log(message, errors, name)
 
         except TerminalError:
             ## A TerminalError indicates that whatever problem we encountered was caught, logged, and we halted voluntarily.
             # Nothing more to be done than posting log contents to the channel.
             print('Script execution halted due to error.')
-            await message.channel.send(embed=errors.embed(name=name))
+            await self.send_error_log(message, errors, name)
             
         except Exception as e:
             ## An actual error has occurred in executing the script that we did not catch.
             # No script, no matter how poorly formed or thought-out, should be able to trigger this; if this occurs it's a Rezbot bug.
             print('Script execution halted unexpectedly!')
             errors.log('🛑 **Unexpected pipeline error:**\n' + e.__class__.__name__ + ': ' + str(e), terminal=True)
-            await message.channel.send(embed=errors.embed(name=name))
+            await self.send_error_log(message, errors, name)
             raise e
+
+    async def send_error_log(self, message, errors: ErrorLog, name):
+        try:
+            await message.channel.send(embed=errors.embed(name=name))
+        except:
+            newErrors = ErrorLog()
+            newErrors.terminal = errors.terminal
+            newErrors.log(
+                f'🙈 {"Error" if errors.terminal else "Warning"} log too big to reasonably display...' + 
+                '\nDoes your script perhaps contain an infinite recursion?'
+            )
+            await message.channel.send(embed=newErrors.embed(name=name))
 
     async def process_script(self, message):
         '''This is the starting point for all script execution.'''
