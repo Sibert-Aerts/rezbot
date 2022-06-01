@@ -83,8 +83,12 @@ class Pipeline:
             An internal representation of the script using e.g. ParsedPipes, GroupModes, Pipelines, etc.
             An ErrorLog containing warnings and errors encountered during parsing.
     '''
-    def __init__(self, string: str):
+    def __init__(self, string: str, iterations: str=None):
         self.parser_errors = ErrorLog()
+
+        self.iterations = int(iterations) if iterations else 1
+        if self.iterations < 0:
+            self.parser_errors.log('Negative iteration counts are not allowed.', True)
 
         ### Split the pipeline into segments (segment > segment > segment)
         segments = self.split_into_segments(string)
@@ -95,7 +99,7 @@ class Pipeline:
             try:
                 segment, groupMode = groupmodes.parse(segment)
             except groupmodes.GroupModeError as e:
-                self.parser_errors(e, True)
+                self.parser_errors.log(e, True)
                 # Don't attempt to parse the rest of this segment, since we aren't sure where the groupmode ends
                 continue 
             parallel = self.parse_segment(segment)
@@ -150,7 +154,8 @@ class Pipeline:
 
     # Matches the first (, until either the last ) or if there are no ), the end of the string
     # Use of this regex relies on the knowledge/assumption that the nested parentheses in the string are matched
-    wrapping_parens_regex = re.compile(r'\(((.*)\)|(.*))', re.S)
+    wrapping_parens_regex = re.compile(r'\(((.*)\)(?:\^(-?\d+))?|(.*))', re.S)
+    #                                        ^^         ^^^^^     ^^
 
     def steal_parentheses(self, segment):
         '''Steals all (intelligently-parsed) parentheses-wrapped parts from a string and puts them in a list so we can put them back later.'''
@@ -246,11 +251,11 @@ class Pipeline:
 
             ## Inline pipeline: (foo > bar > baz)
             if pipe and pipe[0] == '(':
-                # TODO: This regex is dumb as tits. Somehow use the knowledge from the parentheses parsing earlier instead.
+                # TODO: This shouldn't happen via regex.
                 m = re.match(Pipeline.wrapping_parens_regex, pipe)
-                pipeline = m[2] or m[3]
+                pipeline = m[2] or m[4]
                 # Immediately attempt to parse the inline pipeline (recursion call!)
-                parsed = Pipeline(pipeline)
+                parsed = Pipeline(pipeline, m[3])
                 self.parser_errors.steal(parsed.parser_errors, context='parens')
                 parsedPipes.append(parsed)
 
@@ -272,11 +277,29 @@ class Pipeline:
             raise PipelineError(f'Attempted to process a flow of {chars} total characters at once, try staying under {MAXCHARS}.')
 
     async def apply(self, items: List[str], message, parent_context=None) -> Tuple[ List[str], List[List[str]], ErrorLog, List[Any] ]:
-        '''Apply the pipeline to a list of items.'''
+        '''Apply the pipeline to a list of items the denoted amount of times.'''
+        errors = ErrorLog()
+        errors.extend(self.parser_errors)
+
+        printValues = []
+        spoutCallbacks = []
+        for _ in range(self.iterations):
+            iterItems, iterPrintValues, iterErrors, iterSpoutCallbacks = await self.apply_iteration(items, message, parent_context)
+            items = iterItems
+            printValues.extend(iterPrintValues)
+            errors.extend(iterErrors)
+            spoutCallbacks.extend(iterSpoutCallbacks)
+            if errors.terminal:
+                return (None, None, errors, None)
+
+        return items, printValues, errors, spoutCallbacks
+
+
+    async def apply_iteration(self, items: List[str], message, parent_context=None) -> Tuple[ List[str], List[List[str]], ErrorLog, List[Any] ]:
+        '''Apply the pipeline to a list of items a single time.'''
         ## This is the big method where everything happens.
 
         errors = ErrorLog()
-        errors.extend(self.parser_errors)
         # When a terminal error is encountered, cut script execution short and only return the error log
         # This suggestively named tuple is for such cases.
         NOTHING_BUT_ERRORS = (None, None, errors, None)
