@@ -14,9 +14,6 @@ from .logger import ErrorLog
 from utils.choicetree import ChoiceTree
 
 
-## Useful types
-Product = Tuple[ List[str], ErrorLog ]
-PossibleProduct = Tuple[ Optional[List[str]], ErrorLog ]
 
 class ParsedItem:
     ''' Class representing an Item inside a TemplatedString. '''
@@ -137,7 +134,13 @@ class ParsedSource:
 
 
 class TemplatedString:
-    ''' Class representing a string that may contain Sources or Items. '''
+    ''' 
+    Class representing a string that may contain Sources or Items, which may be evaluated to yield strings.
+
+    Preferably instantiated via the `from_string` or `from_parsed` static methods.
+
+    If there is no need to hold on to the parsed TemplatedString, the static methods `evaluate_string` and `evaluate_origin` can be used instead.
+    '''
     def __init__(self, pieces: List[Union[str, ParsedSource, ParsedItem]], startIndex: int=0):
         self.pieces = pieces
         self.pre_errors = ErrorLog()
@@ -207,7 +210,7 @@ class TemplatedString:
     def __str__(self):
         return ''.join(str(x) for x in self.pieces)
     def __repr__(self):
-        return 'Template"' + ''.join(x if isinstance(x, str) else x.__repr__() for x in self.pieces) + '"'
+        return 'TString"' + ''.join(x if isinstance(x, str) else x.__repr__() for x in self.pieces) + '"'
     def __bool__(self):
         return not (self.isString and not self.pieces[0])
 
@@ -266,7 +269,8 @@ class TemplatedString:
                 evaluated.append(piece)
 
             elif isinstance(piece, ParsedItem):
-                try: evaluated.append(piece.evaluate(context))
+                try:
+                    evaluated.append(piece.evaluate(context))
                 except ContextError as e:
                     errors(str(e), True)
 

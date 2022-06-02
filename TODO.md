@@ -36,6 +36,13 @@
         * Allow structured files (json)
 
     * **Macros:**
+        * Instead of working as macros using the nasty `$paramName$` syntax, make a source `{arg paramName}`
+            * More efficiency: "macros" now get to be actually parsed and cached at time of definition
+            * Less inconsistency: string macros allowed for ugly parsing nonsense, e.g. `p=$param$` and then `param="one two"` doesn't work due to the space!
+            * Generalises to Events; `ON MESSAGE ^!praise (.*)` would allow acces to capture group `(.*)` by using `{arg 1}`
+                * `ON MESSAGE ^!praise (?P<name>.*)` would allow acces to capture group `name` by using `{arg name}`
+                * `ON COMMAND !praise name` would allow acces to argument `name` by using `{arg name}`
+
         * Way of easily turning macros into commands
         * Custom namespaces for macros and events
             * Decreases clutter of the global macros/events lists
@@ -64,7 +71,7 @@
         * (same for others???)
 
     * **CONDITIONS:**
-        * Different syntax, curly braces are already associated with sources/items!
+        * Phase out usage of the old syntax `{ }` vs. new `IF(( ))` and `SWITCH(( ))`
         * Furthermore, don't reference items as 0 or 1, but as {0} or {1} for uniformity, and maybe just full-on obey Context ignore/remove logic
         * Allow logical operations and clauses
         * Evaluating sources or even pipes inside condition expressions? e.g. instead of `*[count|] > {0="1"} [...]` something like `{count="1"} [...]`
@@ -74,6 +81,9 @@
         * `>> foo > bar x='"' > baz` similarly, the " is interpreted as opening a string that is never closed, circumvented by adding a closing " afterwards but that's stupid
 
     * **SPECULATIVE:**
+        * Allow pipe(line)s as arguments, somehow
+            * e.g. `sub_func from=\b(\w) to=( convert fraktur )`
+
         * Option to hide warnings log
         * Command to show most recent warnings log
         * Special mode to analyse how a pipeline is parsed for debugging or learning purposes
@@ -83,6 +93,3 @@
         * in pipe/source arguments, replace `\n` to newlines
         * conditional `return` pipes so loops are easier?
         * pipes have an associated "complexity" cost function based on args/input values that makes sure a user doesn't request absurdly much work...?
-
-    * **??????**
-        * Actually execute parallel pipes "in parallel" using asyncio????
