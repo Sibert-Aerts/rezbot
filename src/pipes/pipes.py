@@ -1,4 +1,5 @@
 import unicodedata2
+import urllib.parse
 import emoji
 import utils.util as util
 import random
@@ -961,6 +962,20 @@ def ord_pipe(text):
 def chr_pipe(chars):
     '''Turns a sequence of integers representing characters into a single string.'''
     return [''.join(chr(int(c)) for c in chars)]
+
+
+@make_pipe({})
+@one_to_one
+def url_encode_pipe(text):
+    '''Turns a string into a URL (%) encoded string.'''
+    return urllib.parse.quote(text)
+
+
+@make_pipe({})
+@one_to_one
+def url_decode_pipe(text):
+    '''Turns a URL (%) encoded string into its original string.'''
+    return urllib.parse.unquote(text)
 
 
 HASH_ALG = Option('python', 'blake2b', 'sha224', 'shake_128', 'sha3_384', 'md5', 'sha3_512', 'blake2s', 'sha256', 'sha1', 'sha3_224', 'shake_256', 'sha3_256', 'sha512', 'sha384', name='algorithm')
