@@ -1,6 +1,7 @@
 import random
 import requests
 import html
+import imgkit
 
 import discord
 from discord.ext import commands
@@ -388,8 +389,15 @@ class BotCommands(MyCommands):
 
         await (await ctx.send('\n'.join(output))).add_reaction(smiley)
 
+    @commands.command(hidden=True)
+    @permissions.check(permissions.owner)
+    async def render(self, ctx, url):
+        '''(WIP)render webpage'''
+        img = imgkit.from_url(url, False)
+        await ctx.send(file=discord.File(io.BytesIO(img), 'test.png'))
 
-    @commands.command()
+
+    @commands.command(hidden=True)
     async def lunch(self, ctx, kind='regular'):
         '''Generate a fake lunch menu in Dutch. If the first argument is "weird" it will produce a weirder menu.'''
         await ctx.send(Meal.generateMenu(kind))
