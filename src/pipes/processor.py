@@ -40,7 +40,7 @@ class ParsedPipe:
         self.errors = ErrorLog()
         self.arguments: Optional[Arguments] = None
         
-        ## Attempt to determine what kind of pipe it is ahead of time
+        ## (Attempt to) determine what kind of pipe it is ahead of time
         if self.name in ['', 'nop', 'print']:
             self.type = ParsedPipe.SPECIAL
             # Special pipes don't have arguments
@@ -73,6 +73,7 @@ class ParsedPipe:
             self.errors.extend(errors, self.name)
             # This one will keep being posted repeatedly even if the name eventually is defined, so don't uncomment it
             # self.errors.warn(f'`{self.name}` is no known pipe, source, spout or macro at the time of parsing.')
+        return
 
 
 class Pipeline:

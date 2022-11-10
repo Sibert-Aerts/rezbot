@@ -1053,7 +1053,7 @@ def math_pipe(values, expr):
     Available functions: {funcs}
     Available constants: True, False, e, pi and inf
     
-    Note: For finding the min, max, sum or avg of an arbitrary number of arguments, use the respective min, max, sum and avg pipes
+    Note: For finding the min, max, sum or avg of an arbitrary number of arguments, use the respective min, max, sum and avg pipes.
     '''
     return [ smart_format(SIMPLE_EVAL.eval(expr)) ]
 
