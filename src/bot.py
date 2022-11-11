@@ -1,7 +1,7 @@
 
-from datetime import datetime
 import sys
 import asyncio
+from datetime import datetime
 from configparser import ConfigParser
 
 import discord
@@ -33,25 +33,23 @@ intents.bans = False
 # Configure logging
 discord.utils.setup_logging()
 
-# create the bot
+# Create the bot
 bot = commands.Bot(command_prefix=command_prefix, case_insensitive=True, intents=intents)
 
-
-# initialise some of my own stuffs
+# Initialise own managers
 patternProcessor = patterns.Patterns(bot)
 scriptProcessor = PipelineProcessor(bot, pipe_prefix)
-
 
 @bot.event
 async def on_ready():
     print()
-    print('---------------- BOT READY ----------------')
+    print('====================================== BOT READY =====================================')
     print(' Username:', bot.user.name)
     print(' ID:', bot.user.id)
-    print(' Servers:', ', '.join(g.name for g in bot.guilds) )
+    print(' Servers:', ', '.join(guild.name for guild in bot.guilds) )
     print(' Running discord.py %s' % discord.__version__)
     print(' Time: ' + datetime.now().strftime('%c') )
-    print('-------------------------------------------')
+    print('======================================================================================')
     print()
 
 

@@ -6,7 +6,7 @@ def chance(x, y=1):
     return random.random() * y <= x
 
 def choose(population, n=None):
-    ''' Uniformly choose n items from the population, allowing repeats. n = None for 1 item not in a list. '''
+    ''' Uniformly choose n items from the population, allowing repeats. n=None for 1 item, not wrapped in a list. '''
     if n is None: 
         return random.choice( population )
     if n < 0: 

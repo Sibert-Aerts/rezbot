@@ -35,7 +35,7 @@ class PipeCommands(MyCommands):
         ## Info on a specific pipe, spout or source
         if name != '' and name in pipes or name in spouts or name in sources:
             embed = (pipes if name in pipes else spouts if name in spouts else sources)[name].embed()
-            embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
+            embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar)
             await ctx.send(embed=embed)
 
         ## Info on a pipe macro or source macro
@@ -91,7 +91,7 @@ class PipeCommands(MyCommands):
         # Info on a specific source
         if name != '' and name in sources:
             embed = sources[name].embed()
-            embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
+            embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar)
             await ctx.send(embed=embed)
 
         # Info on a macro source
@@ -146,7 +146,7 @@ class PipeCommands(MyCommands):
         if name != '' and name in spouts or name in pipes:
             embed = (spouts if name in spouts else pipes)[name].embed()
             # bot takes credit for native spouts
-            embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar_url)
+            embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar)
             await ctx.send(embed=embed)
 
         # Info on all spouts
@@ -307,7 +307,7 @@ async def setup(bot):
     newCommands = []
 
     def pipe_to_func(pipe: Pipe):
-        async def func(self, ctx):
+        async def func(self, ctx, *args):
             text = util.strip_command(ctx)
 
             # Parse and process arguments from the command string
@@ -345,7 +345,7 @@ async def setup(bot):
     ###############################################################
 
     def source_to_func(source: Source):
-        async def func(self, ctx):
+        async def func(self, ctx, *args):
             text = util.strip_command(ctx)
 
             # Parse and process arguments from the command string
@@ -380,7 +380,7 @@ async def setup(bot):
     ###############################################################
 
     def spout_to_func(spout: Spout):
-        async def func(self, ctx):
+        async def func(self, ctx, *args):
             text = util.strip_command(ctx)
 
             # Parse and process arguments from the command string

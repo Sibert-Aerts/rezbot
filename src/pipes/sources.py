@@ -5,8 +5,11 @@ import asyncio
 from datetime import datetime, timezone, timedelta
 from functools import wraps, lru_cache
 
+from discord.ext.commands import Bot
+
 from .signature import Par, Signature, Option, Multi
 from .pipe import Source, Sources
+from utils.util import parse_bool
 
 import utils.util as util
 import utils.soapstone as soapstone
@@ -84,7 +87,7 @@ def make_source(signature, *, command=False, **kwargs):
 
 # Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.
 class SourceResources:
-    bot = None
+    bot: Bot = None
     previous_pipeline_output = []
     variables = VariableStore('variables.json')
 
@@ -179,7 +182,7 @@ def members_get_what(members, what):
     elif what == MEMBER_WHAT.id:
         return [str(member.id) for member in members]
     elif what == MEMBER_WHAT.avatar:
-        return [str(member.avatar_url) for member in members]
+        return [str(member.avatar) for member in members]
     elif what == MEMBER_WHAT.activity:
         return [str(member.activities[0]) if member.activities else '' for member in members]
     elif what == MEMBER_WHAT.color:
@@ -252,7 +255,7 @@ async def server_source(message, what):
     if what == SERVER_WHAT.description:
         return [server.description or '']
     if what == SERVER_WHAT.icon:
-        return [str(server.icon_url or '')]
+        return [str(server.icon or '')]
     if what == SERVER_WHAT.member_count:
         return [str(server.member_count)]
     if what == SERVER_WHAT.id:
@@ -578,13 +581,29 @@ async def word_source(pattern, n):
     return sample(items, n)
 
 
+EMOJI_LIST = list(emoji.EMOJI_DATA)
+
 @make_source({
-    'n' : Par(int, 1, 'The amount of emoji.')
+    'n' : Par(int, 1, 'The amount of emoji.'),
+    'oldest' : Par(float, 0.6, 'How old the emoji can be, inclusive.'),
+    'newest' : Par(float, 15, 'How new the emoji can be, inclusive.'),
 }, command=True)
-@multi_source
-async def emoji_source():
-    '''Random emoji.'''
-    return choose(list(emoji.UNICODE_EMOJI['en'].keys())).replace(' ', '')
+async def emoji_source(n, oldest, newest):
+    '''
+    Random emoji.
+    
+    For oldest/newest, float values represent "Emoji versions" as defined by the Unicode Consortium.
+    '''
+    emoji_list = EMOJI_LIST
+
+    # Only filter if it's even needed
+    if oldest > 0.6 or newest < 15:
+        def condition(e):
+            age = emoji.EMOJI_DATA[e]["E"]
+            return (age >= oldest and age <= newest) 
+        emoji_list = list(filter(condition, emoji_list))
+
+    return choose(emoji_list, n)
 
 
 

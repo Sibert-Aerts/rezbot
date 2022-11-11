@@ -4,6 +4,8 @@ from discord.ext import commands
 
 class MyCommands(commands.Cog):
     '''Class holding useful methods for bot commands.'''
+    bot: commands.Bot
+
     def __init__(self, bot):
         self.bot = bot
 
@@ -15,7 +17,6 @@ class MyCommands(commands.Cog):
 
     async def _die(self):
         '''Kill the bot.'''
-        await self.bot.logout()
         await self.bot.close()
         print('Bot killed.')
         sys.exit()

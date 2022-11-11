@@ -67,7 +67,7 @@ class Macro:
             if ctx.guild: author = ctx.guild.get_member(self.authorId)
             if not author: author = ctx.bot.get_user(self.authorId)        
 
-        if author: embed.set_footer(text=author.display_name, icon_url=author.avatar_url)
+        if author: embed.set_footer(text=author.display_name, icon_url=author.avatar)
         else: embed.set_footer(text=self.authorName)
     
         return embed

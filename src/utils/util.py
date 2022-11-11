@@ -2,22 +2,23 @@ from typing import List, Tuple, TypeVar
 
 T = TypeVar('T')
 
-def mins(items: List[T], key=lambda x:x, maxMin: float=None) -> List[T]:
+def mins(items: List[T], key=None, min_min: float=None) -> List[T]:
     '''
     Returns the list of all items i whose key(i) is equal to the minimum for all items.
-    If maxMin is given, it pretends there are no items with key(i) less than maxMin.
+    If min_min is given, it completely ignores items whose key() are less than min_min.
     '''
     min_i = []
-    min_k = float('inf')
+    min_k = None
     for i in items:
-        k = key(i)
-        if maxMin is not None and k < maxMin:
+        k = i if key is None else key(i)
+        if min_min is not None and k < min_min:
             continue
-        elif k == min_k:
-            min_i.append(i)
-        elif k < min_k:
+        elif min_k is None or k < min_k:
             min_k = k
             min_i = [i]
+        elif k == min_k:
+            min_i.append(i)
+    
     return min_i
 
 

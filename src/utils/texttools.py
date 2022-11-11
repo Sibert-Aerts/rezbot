@@ -1,4 +1,4 @@
-# import editdistance
+from Levenshtein import distance
 import re
 import utils.util as util
 from .rand import *
@@ -25,7 +25,7 @@ def block_format(s):
     # put a zero-width space in there to prevent it from breaking our block
     return '```\n{0}```'.format(s.replace('```','`­``'))
 
-    
+
 def line_chunk_list(list, maxlength=100):
     ''' Turn a list of strings into a list of lines of ", "-separated strings. '''
     out = []
@@ -191,13 +191,13 @@ converters = {
 
 # Edit distance
 def ed(x, y):
-    return editdistance.eval(x.lower(), y.lower())
+    return distance(x.lower(), y.lower())
 
-def min_dist(w, maxMin=0, corpus=None):
+def min_dist(w, min_min=0, corpus=None):
     if corpus is None: corpus = allWords
     w = w.lower()
-    key = lambda x: editdistance.eval(x.lower(), w)
-    return choose(util.mins(corpus, key=key, maxMin=maxMin))
+    key = lambda x: distance(x.lower(), w)
+    return choose(util.mins(corpus, key=key, min_min=min_min))
 
 def avg_dist(w1, w2, p=0.5):
     q = 1-p
