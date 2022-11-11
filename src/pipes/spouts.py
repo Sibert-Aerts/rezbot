@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import discord
 from discord import Embed
 from discord.errors import HTTPException
+from discord.ext.commands import Bot
 
 from .signature import Par, Signature
 from .pipe import Spout, Pipes
@@ -139,6 +140,23 @@ async def react_spout(bot, message, values, emote):
             raise ValueError('Unknown Emote: `{}`'.format(emote))
         else:
             raise e
+
+
+@make_spout({
+    'sticker': Par(str, None, 'Name or ID of the sticker.'),
+})
+async def sticker_spout(bot: Bot, message: discord.Message, values: list[str], sticker: str):
+    ''' Sends a message with a sticker attached. '''
+    guild_stickers = list(message.guild.stickers)
+    name_or_id = sticker
+    sticker = None
+    try:
+        sticker = bot.get_sticker(int(name_or_id))
+    except:
+        sticker = next((s for s in guild_stickers if s.name == name_or_id), None)
+    if sticker is None:
+        raise ValueError(f'Unknown sticker "{name_or_id}".')
+    await message.channel.send(stickers=[sticker])
 
 
 #####################################################
