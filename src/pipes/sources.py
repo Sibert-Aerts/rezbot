@@ -118,7 +118,7 @@ def messages_get_what(messages, what):
 @make_source({}, pass_message=True, plural='those')
 async def that_source(message):
     '''The previous message in the channel.'''
-    msg = ( await message.channel.history(limit=2).flatten() )[1]
+    msg = [ msg async for msg in message.channel.history(limit=2) ][1]
     return [msg.content]
 
 
@@ -162,7 +162,7 @@ async def previous_message_source(message, n, i, what, by):
     The N messages in this channel, counting backwards from the Ith previous message.
     i.e. N messages, ordered newest to oldest, with the newest being the Ith previous message.
     '''
-    messages = ( await message.channel.history(limit=n+i).flatten() )[i:i+n]
+    messages = [ msg async for msg in message.channel.history(limit=n+i) ][i:i+n]
     if by: messages = [m for m in messages if m.author.id == by]
 
     return messages_get_what(messages, what)
@@ -533,17 +533,26 @@ async def range_source(start, end, step):
 
 
 @make_source({
-    'format': Par(str, '%Y/%m/%d %H:%M:%S', 'The format string, see http://strftime.org/ for syntax.'),
+    'format': Par(str, '%Y/%m/%d %H:%M:%S', 'The format, see http://strftime.org/ for syntax.'),
     'utc'   : Par(float, 0, 'The offset from UTC in hours.'),
-    'timestamp': Par(int, None, 'The UNIX timestamp to format, leave empty to use the current time.', required=False)
+    'timestamp': Par(int, None, 'The UNIX UTC timestamp to format, leave empty to use the current time.', required=False),
+    'parse': Par(str, None, 'A datetime string to parse and reformat, leave empty to use the current time.', required=False),
+    'pformat': Par(str, '%Y/%m/%d %H:%M:%S', 'The format according to which to parse `parse`.'),
 })
-async def datetime_source(format, utc, timestamp):
+async def datetime_source(format, utc, timestamp, parse, pformat):
     '''
     The current date and time formatted to be human readable.
     The `utc` parameter determines timezone and daylight savings offsets.
     '''
     tz = timezone(timedelta(hours=utc))
-    time = datetime.now(tz) if timestamp is None else datetime.fromtimestamp(timestamp, tz)
+    if timestamp and parse:
+        raise ValueError("Values given for both `timestamp` and `parse` arguments.")
+    if timestamp:
+        time = datetime.fromtimestamp(timestamp, tz)
+    elif parse:
+        time = datetime.strptime(parse, pformat).replace(tzinfo=timezone.utc).astimezone(tz)
+    else:
+        time = datetime.now(tz) 
     return [time.strftime(format)]
 
 

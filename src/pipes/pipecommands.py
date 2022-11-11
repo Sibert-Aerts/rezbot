@@ -291,7 +291,7 @@ class PipeCommands(MyCommands):
 
 
 # Load the bot cog
-def setup(bot):
+async def setup(bot):
     # This part is icky but basically, take the pipes/sources/spouts from this library and
     # shoe-horn them into Discord.py's command module thingamajig
     # This may break some kind of weird use case for command modules but I don't care...
@@ -412,4 +412,5 @@ def setup(bot):
 
     cog = PipeCommands(bot)
     cog.__cog_commands__ = (*newCommands, *cog.__cog_commands__)
-    bot.add_cog(cog)
+    
+    await bot.add_cog(cog)

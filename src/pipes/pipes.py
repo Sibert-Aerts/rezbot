@@ -10,7 +10,7 @@ import hashlib
 from functools import wraps, lru_cache
 
 from datamuse import datamuse
-from google.cloud import translate
+from google.cloud import translate_v2 as translate
 import nltk
 from simpleeval import SimpleEval
 import spacy
@@ -768,16 +768,18 @@ def comprises_pipe(word):
 #                  Pipes : LANGUAGE                 #
 #####################################################
 _CATEGORY = 'LANGUAGE'
+translate_client = None
 
 try:
     translate_client = translate.Client()
-    # Wrap the API call in a LRU cache!
-    _translate = lambda *a, **k : translate_client.translate(*a, **k, format_='text')
-    _translate = lru_cache()(_translate)
 except Exception as e:
     print(e)
-    print('Failed to load google cloud translate services, translate will be unavailable!')
-    _translate = None
+    print('[WARNING] Failed to initialise Google Cloud Translate client, translate features will be unavailable!')
+
+@lru_cache(maxsize=100)
+def translate_func(text, fro, to):
+    response = translate_client.translate(text, source_language=fro, target_language=to, format_="text")
+    return response['translatedText']
 
 # Retreived once using translate_client.get_languages()
 translate_languages = ['af', 'sq', 'am', 'ar', 'hy', 'az', 'eu', 'be', 'bn', 'bs', 'bg',
@@ -802,16 +804,14 @@ def translate_pipe(text, to, **argc):
     Translates text using Google Translate.
     A list of languages can be browsed at https://cloud.google.com/translate/docs/languages
     '''
-    if _translate is None: return text
+    if translate_client is None: return text
     if not text.strip(): return text
 
     fro = argc['from'] # Can't have a variable named 'from' because it's a keyword
     if fro == 'auto': fro = ''
     if to == 'random': to = random.choice(translate_languages)
 
-    result = _translate(text, source_language=fro, target_language=to)
-
-    return result['translatedText']
+    return translate_func(text, fro, to)
 
 
 @make_pipe({})
@@ -822,7 +822,7 @@ def detect_language_pipe(text):
     Returns "und" if it cannot be determined.
     The list of languages can be browsed at https://cloud.google.com/translate/docs/languages
     '''
-    if _translate is None: return 'und'
+    if translate_client is None: return 'und'
     if text.strip() == '': return 'und'
     return translate_client.detect_language(text)['language']
 

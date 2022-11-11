@@ -145,5 +145,5 @@ class YoutubeCommands(MyCommands):
             # TODO
 
 # Commands cog
-def setup(bot):
-    bot.add_cog(YoutubeCommands(bot))
+async def setup(bot):
+    await bot.add_cog(YoutubeCommands(bot))

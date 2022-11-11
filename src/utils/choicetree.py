@@ -1,7 +1,6 @@
 from pyparsing import Char, Literal, Regex, Group as pGroup, Forward, Empty, ZeroOrMore, OneOrMore
 import functools
-import random
-import np
+import numpy as np
 
 class ChoiceTree:
     '''

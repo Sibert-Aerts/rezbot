@@ -403,5 +403,5 @@ class BotCommands(MyCommands):
         await ctx.send(Meal.generateMenu(kind))
 
 
-def setup(bot):
-    bot.add_cog(BotCommands(bot))
+async def setup(bot):
+    await bot.add_cog(BotCommands(bot))

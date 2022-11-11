@@ -10,9 +10,8 @@ from discord.ext import commands
 import permissions
 import patterns
 from pipes.processor import PipelineProcessor
-import utils.util as util
 
-# Open the config so we can read the bot token from it, later
+# Open the config so we can read info from it
 config = ConfigParser()
 config.read('config.ini')
 
@@ -20,22 +19,26 @@ command_prefix = config['BOT']['prefix']
 pipe_prefix = config['BOT']['pipe_prefix']
 
 # Configure our intents
-intents: discord.Intents = discord.Intents.default()
+intents = discord.Intents.all()
+
 # Block out all the stuff we don't care about
-intents.typing = False
+intents.dm_typing = False
+intents.guild_typing = False
 intents.integrations = False
 intents.webhooks = False
 intents.invites = False
 intents.voice_states = False
-# Sign on for these privileged intents
-intents.members = True
-intents.presences = True
+intents.bans = False
+
+# Configure logging
+discord.utils.setup_logging()
 
 # create the bot
-bot = commands.Bot(command_prefix=command_prefix, intents=intents)
+bot = commands.Bot(command_prefix=command_prefix, case_insensitive=True, intents=intents)
+
 
 # initialise some of my own stuffs
-patterns = patterns.Patterns(bot)
+patternProcessor = patterns.Patterns(bot)
 scriptProcessor = PipelineProcessor(bot, pipe_prefix)
 
 
@@ -53,7 +56,7 @@ async def on_ready():
 
 
 @bot.event
-async def on_message(message):
+async def on_message(message: discord.Message):
     # Do not listen to self.
     if message.author.id == bot.user.id:
         return
@@ -73,7 +76,7 @@ async def on_message(message):
     # Try for patterns and custom Events if it doesn't look like a command
     if message.content[:len(command_prefix)] != command_prefix:
         await scriptProcessor.on_message(message)
-        await patterns.process_patterns(message)
+        await patternProcessor.process_patterns(message)
 
     # Try for commands
     await bot.process_commands(message)
@@ -89,7 +92,7 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
 
 @bot.event
 async def on_command_error(ctx, error):
-    print('')
+    print()
     if isinstance(error, commands.NoPrivateMessage):
         await ctx.author.send('This command cannot be used in private messages.')
     elif isinstance(error, commands.DisabledCommand):
@@ -102,11 +105,15 @@ async def on_command_error(ctx, error):
         print('Command Error:', error)
 
 
+async def main():
+    async with bot:
+        token = config['BOT']['token']
+        await bot.load_extension('botcommands')
+        await bot.load_extension('pipes.pipecommands')
+        await bot.load_extension('pipes.macrocommands')
+        await bot.load_extension('resource.youtubecaps.commands')
+        await bot.load_extension('resource.upload.commands')
+        await bot.start(token)
+
 if __name__ == '__main__':
-    token = config['BOT']['token']
-    bot.load_extension('botcommands')
-    bot.load_extension('pipes.pipecommands')
-    bot.load_extension('pipes.macrocommands')
-    bot.load_extension('resource.youtubecaps.commands')
-    bot.load_extension('resource.upload.commands')
-    bot.run(token)
+    asyncio.run(main())

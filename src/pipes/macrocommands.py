@@ -313,5 +313,5 @@ async def parse_macro_command(bot, command, message):
 
 
 # Load the bot cog
-def setup(bot):
-    bot.add_cog(MacroCommands(bot))
+async def setup(bot):
+    await bot.add_cog(MacroCommands(bot))

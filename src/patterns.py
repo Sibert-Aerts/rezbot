@@ -1,14 +1,9 @@
-import sys
-import asyncio
 import datetime
 import random
 import re
 
 import discord
-from discord.ext import commands
 
-import utils.util as util
-import utils.texttools as texttools
 from utils.rand import chance, choose, RandomBranch
 from utils.emojifight import EmojiFight
 
