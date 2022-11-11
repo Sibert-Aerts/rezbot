@@ -264,13 +264,25 @@ async def server_source(message, what):
 
 @make_source({
     'n': Par(int, 1, 'The number of emojis'),
-    'name': Par(str, None, 'The name of the emoji if you want a specific one.', required=False),
+    'id': Par(int, None, 'An exact emoji ID to match.', required=False),
+    'name': Par(str, None, 'An exact name to match.', required=False),
+    'search': Par(str, None, 'A string to search for in the name.', required=False),
+    'here': Par(parse_bool, True, 'Whether to restrict to this server\'s emoji.'),
 }, pass_message=True, depletable=True)
-async def custom_emoji_source(message, n, name):
+async def custom_emoji_source(message, n, name, search, id, here):
     '''The server's custom emojis.'''
-    emojis = message.guild.emojis
-    if name:
+    if here:
+        emojis = message.guild.emojis
+    else:
+        emojis = [e for guild in SourceResources.bot.guilds for e in guild.emojis]
+
+    if name is not None:
         emojis = [e for e in emojis if e.name == name]
+    elif id is not None:
+        emojis = [e for e in emojis if e.id == id]
+    elif search is not None:
+        emojis = [e for e in emojis if search.lower() in e.name.lower()]
+
     return [ str(emoji) for emoji in sample(emojis, n) ]
 
 #####################################################
