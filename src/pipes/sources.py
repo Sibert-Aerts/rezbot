@@ -565,19 +565,32 @@ async def datetime_source(format, utc, timestamp, parse, pformat):
     if timestamp:
         time = datetime.fromtimestamp(timestamp, tz)
     elif parse:
-        time = datetime.strptime(parse, pformat).replace(tzinfo=timezone.utc).astimezone(tz)
+        time = datetime.strptime(parse, pformat)
+        # Date is assumed UTC unless it (somehow) specifies
+        if time.tzinfo is None:
+            time.replace(tzinfo=timezone.utc)
+        time.astimezone(tz)
     else:
         time = datetime.now(tz) 
     return [time.strftime(format)]
 
 
-@make_source({})
-async def timestamp_source():
+@make_source({
+    'utc'   : Par(float, 0, 'The offset from UTC in hours to interpret the date as being.'),
+    'parse': Par(str, None, 'A datetime string to parse and reformat, leave empty to use the current time.', required=False),
+    'pformat': Par(str, '%Y/%m/%d %H:%M:%S', 'The format according to which to parse `parse`.'),
+    })
+async def timestamp_source(utc, parse, pformat):
     '''
-    The current date and time as a UNIX timestamp, representing seconds since 1970 UTC.
+    A date and time as a UNIX timestamp, representing seconds since 1970/01/01 00:00:00 UTC.
     The UNIX timestamp is independent of timezones.
     '''
-    return [str(int(datetime.now().timestamp()))]
+    tz = timezone(timedelta(hours=utc))
+    if parse is not None:
+        time = datetime.strptime(parse, pformat).replace(tzinfo=tz)
+    else:
+        time = datetime.now(tz) 
+    return [str(int(time.timestamp()))]
 
 
 @make_source({
