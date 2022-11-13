@@ -87,6 +87,8 @@ class Macro:
 
 
 class Macros:
+    macros: dict[str, Macro]
+
     def __init__(self, DIR, kind, filename):
         self.macros = {}
         self.DIR = DIR
@@ -135,6 +137,9 @@ class Macros:
 
     def __iter__(self):
         return (i for i in self.macros)
+
+    def values(self):
+        return (v for v in self.macros.values())
 
     def __getitem__(self, name) -> Macro:
         return self.macros[name]

@@ -1,40 +1,59 @@
-import discord
+import itertools
 import re
+from typing import Any, Callable, Literal
+
+import discord
+from discord import app_commands, Interaction
+from discord.app_commands import Choice
 from discord.ext import commands
 
+
+from .pipe import Pipes
 from .processor import Pipeline, PipelineProcessor
 from .pipes import pipes
 from .sources import sources
-from .macros import Macro, MacroSig, pipe_macros, source_macros
+from .macros import Macro, MacroSig, Macros, pipe_macros, source_macros
 import utils.texttools as texttools
 from mycommands import MyCommands
 
 
-async def check_pipe_macro(code, channel):
+async def check_pipe_macro(code, reply):
     ''' Statically analyses pipe macro code for errors or warnings. '''
     errors = Pipeline(code).parser_errors
     if not errors: 
         return True
     if errors.terminal:
-        await channel.send('Failed to save macro due to parsing errors:', embed=errors.embed())
+        await reply('Failed to save macro due to parsing errors:', embeds=[errors.embed()])
         return False
     else:
-        await channel.send('Encountered warnings while parsing macro:', embed=errors.embed())
+        await reply('Encountered warnings while parsing macro:', embeds=[errors.embed()])
         return True
 
-async def check_source_macro(code, channel):
+async def check_source_macro(code, reply):
     ''' Statically analyses source macro code for errors or warnings. '''
     _, code = PipelineProcessor.split(code)
-    return await check_pipe_macro(code, channel)
+    return await check_pipe_macro(code, reply)
     
 
-typedict = {
+typedict: dict[str, tuple[Macros, bool, Pipes, Callable]] = {
     'pipe':         (pipe_macros, True,  pipes, check_pipe_macro),
     'hiddenpipe':   (pipe_macros, False, pipes, check_pipe_macro),
     'source':       (source_macros, True,  sources, check_source_macro),
     'hiddensource': (source_macros, False, sources, check_source_macro),
 }
 typedict_options = ', '.join('"' + t + '"' for t in typedict)
+
+async def autocomplete_macro(interaction: Interaction, name: str):
+    name = name.lower()
+    results = []
+    for macro in itertools.chain(pipe_macros.values(), source_macros.values()):
+        if name in macro.name:
+            choice_name = f"{macro.name} ({macro.kind})"
+            value = macro.name + " " + macro.kind.lower()
+            results.append(Choice(name=choice_name, value=value))
+            if len(results) >= 25:
+                break
+    return results
 
 
 class MacroCommands(MyCommands):
@@ -49,11 +68,13 @@ class MacroCommands(MyCommands):
     async def permission_complain(self, channel):
         await channel.send('You are not authorised to modify that macro. Try defining a new one instead.')
 
+    # ========================== Macro Management (message-commands) ==========================
+
     @commands.command(aliases=['def'])
     async def define(self, ctx, what, name):
         await self._define(ctx.message, what, name, re.split('\s+', ctx.message.content, 3)[3])
 
-    async def _define(self, message, what, name, code, force=False):
+    async def _define(self, message: discord.Message, what, name, code, force=False):
         '''Define a macro.'''
         channel = message.channel
         what = what.lower()
@@ -65,7 +86,7 @@ class MacroCommands(MyCommands):
             await channel.send('A {0} called `{1}` already exists, try `>redefine {0}` instead.'.format(what, name))
             return
 
-        if not force and not await check(code, channel):
+        if not force and not await check(code, channel.send):
             MacroCommands.FORCE_MACRO_CACHE = ('new', message, what, name, code)
             await channel.send('Reply `>force_macro` to save it anyway.')
             return
@@ -78,7 +99,7 @@ class MacroCommands(MyCommands):
     async def redefine(self, ctx, what, name):
         await self._redefine(ctx.message, what, name, re.split('\s+', ctx.message.content, 3)[3])
 
-    async def _redefine(self, message, what, name, code, force=False):
+    async def _redefine(self, message: discord.Message, what, name, code, force=False):
         '''Redefine an existing macro.'''
         channel = message.channel
         what = what.lower()
@@ -92,7 +113,7 @@ class MacroCommands(MyCommands):
         if not macros[name].authorised(message.author):
             await self.permission_complain(channel); return
 
-        if not force and not await check(code, channel):
+        if not force and not await check(code, channel.send):
             MacroCommands.FORCE_MACRO_CACHE = ('edit', message, what, name, code)
             await channel.send('Reply `>force_macro` to save it anyway.')
             return
@@ -173,7 +194,6 @@ class MacroCommands(MyCommands):
         MacroCommands.FORCE_MACRO_CACHE = None
 
 
-
     @commands.command(aliases=['set_sig', 'add_sig', 'add_arg'])
     async def set_arg(self, ctx, what, name, signame, sigdefault, sigdesc=None):
         '''Add or change an argument to a macro.'''
@@ -212,6 +232,164 @@ class MacroCommands(MyCommands):
         await ctx.send('Removed signature "{}" from {} {}'.format(signame, what, name))
 
 
+    # ========================== Macro Management (app-commands) ==========================
+
+    macro_group = app_commands.Group(name='macro', description='Define, redefine, describe or delete a macro')
+    ''' The `/macro <action>` command group'''
+
+    @macro_group.command(name='define')
+    @app_commands.describe(
+        macro_type="The type of macro",
+        name="The name of the macro",
+        code="The code to define the macro as",
+        description="The macro's description",
+        hidden="Whether the macro should show up in the general macro list",
+        force="Force the macro to save even if there are errors"
+    )
+    @app_commands.rename(macro_type="type")
+    async def macro_define(self, interaction: Interaction,
+        macro_type: Literal['pipe', 'source'],
+        name: str,
+        code: str,
+        description: str=None,
+        hidden: bool=False,
+        force: bool=False
+    ):
+        ''' Define a new macro. '''
+        author = interaction.user
+        macros, _, natives, check = typedict[macro_type]
+        
+        def reply(text: str, **kwargs):
+            return interaction.response.send_message(text, **kwargs)
+
+        name = name.split(' ')[0].lower()
+        if name in natives or name in macros:
+            await reply(f'A {macro_type} called `{name}` already exists, try the `/redefine` command.')
+            return
+
+        if not force and not await check(code, reply):
+            await interaction.channel.send('Run the command again with `force: True` to save it anyway.')
+            return
+
+        macro = Macro(macros.kind, name, code, author.name, author.id, desc=description, visible=not hidden)
+        macros[name] = macro
+        await reply(f'Successfully defined a new {macro_type} macro.', embed=macro.embed(interaction))
+
+    @macro_group.command(name='edit')
+    @app_commands.describe(
+        macro="The macro to edit",
+        code="If given, the macro's new code",
+        description="If given, the macro's new description",
+        hidden="If given, the macro's new visibility",
+        force="Force the macro to save even if there are errors"
+    )
+    @app_commands.autocomplete(macro=autocomplete_macro)
+    async def macro_edit(self, interaction: Interaction,
+        macro: str,
+        code: str=None,
+        description: str=None,
+        hidden: bool=None,
+        force: bool=None
+    ):
+        ''' Redefine one or more fields on an existing macro. '''
+        author = interaction.user
+        name, macro_type = macro.split(' ')
+        macros, _, natives, check = typedict[macro_type]
+
+        def reply(text: str, **kwargs):
+            return interaction.response.send_message(text, **kwargs)
+
+        name = name.split(' ')[0].lower()
+        if name not in macros:
+            await reply(f'A {macro_type} macro by that name was not found.')
+            return
+        macro = macros[name]
+
+        if not macro.authorised(author):
+            await reply('You are not authorised to modify that macro. Try defining a new one instead.')
+            return
+
+        if not force and code and not await check(code, reply):
+            await interaction.channel.send('Run the command again with `force: True` to save it anyway.')
+            return
+
+        if code is not None:
+            macro.code = code
+        if description is not None:
+            macro.desc = description
+        if hidden is not None:
+            macro.visible = not hidden
+
+        macros.write()
+        await reply(f'Successfully edited the {macro_type} macro.', embed=macro.embed(interaction))
+
+    @macro_group.command(name='delete')
+    @app_commands.describe(macro="The macro to delete")
+    @app_commands.autocomplete(macro=autocomplete_macro)
+    async def macro_delete(self, interaction: Interaction, macro: str):
+        ''' Delete a macro. '''
+        author = interaction.user
+        name, macro_type = macro.split(' ')
+        macros, *_ = typedict[macro_type]
+
+        def reply(text: str, **kwargs):
+            return interaction.response.send_message(text, **kwargs)
+
+        name = name.split(' ')[0].lower()
+        if name not in macros:
+            await reply(f'A {macro_type} macro by that name was not found.')
+            return
+        macro = macros[name]
+
+        if not macro.authorised(author):
+            await reply('You are not authorised to modify that macro.')
+            return
+
+        del macros[name]
+        await reply(f'Successfully deleted {macro_type} macro `{name}`.')
+
+    @macro_group.command(name='set_param')
+    @app_commands.describe(
+        macro="The macro",
+        param="The name of the parameter to assign",
+        description="The parameter's description to assign",
+        default="The parameter's default value to assign",
+    )
+    @app_commands.autocomplete(macro=autocomplete_macro)
+    async def macro_edit(self, interaction: Interaction,
+        macro: str,
+        param: str,
+        description: str=None,
+        default: str=None,
+    ):
+        ''' Add or overwrite a parameter on a macro. '''
+        author = interaction.user
+        name, macro_type = macro.split(' ')
+        macros, *_ = typedict[macro_type]
+
+        def reply(text: str, **kwargs):
+            return interaction.response.send_message(text, **kwargs)
+
+        name = name.split(' ')[0].lower()
+        if name not in macros:
+            await reply(f'A {macro_type} macro by that name was not found.')
+            return
+        macro = macros[name]
+
+        if not macro.authorised(author):
+            await reply('You are not authorised to modify that macro.')
+            return
+
+        is_overwrite = (param in macro.signature)
+        par = MacroSig(param, default, description)
+        macro.signature[param] = par
+        macros.write()
+
+        verbed = "overwrote" if is_overwrite else "added"
+        await reply(f'Successfully {verbed} parameter `{param}`.', embed=macro.embed(interaction))
+
+
+    # ========================== Macro listing ==========================
 
     async def _macros(self, ctx, what, name):
         macros, *_ = typedict[what]
@@ -274,7 +452,6 @@ class MacroCommands(MyCommands):
     async def source_macros(self, ctx, name=''):
         '''A list of all source macros, or details on a specific source macro.'''
         await self._macros(ctx, 'source', name)
-
 
 
     @commands.command(hidden=True)

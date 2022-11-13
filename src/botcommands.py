@@ -135,6 +135,27 @@ class BotCommands(MyCommands):
 
         await ctx.send('Updated the colours of %d members :rainbow:' % updates)
 
+    @commands.command(hidden=True)
+    @permissions.check(permissions.owner)
+    async def sync(self, ctx: commands.Context):
+        print('Publishing commands:', ' '.join(c.name for c in self.bot.tree.get_commands()))
+        await self.bot.tree.sync()
+        await ctx.message.add_reaction('✅')
+        
+    @commands.command(hidden=True)
+    @permissions.check(permissions.owner)
+    async def unsync(self, ctx: commands.Context):
+        print('Unpublishing all commands.')
+        self.bot.tree.clear_commands(guild=None)
+        await self.bot.tree.sync()
+        await ctx.message.add_reaction('✅')
+        
+    @commands.command(hidden=True)
+    @permissions.check(permissions.owner)
+    async def sync_guild(self, ctx: commands.Context):
+        print('Syncing guild commands:', ' '.join(c.name for c in self.bot.tree.get_commands(guild=ctx.guild)))
+        await self.bot.tree.sync(guild=ctx.guild)
+        await ctx.message.add_reaction('✅')
 
 
     ###################################

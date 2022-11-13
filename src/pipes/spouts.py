@@ -107,7 +107,7 @@ async def delete_message_spout(bot, message, values):
 
 
 @make_spout({})
-async def send_message_spout(bot, message, values):
+async def send_message_spout(bot, message: discord.Message, values):
     '''
     Sends input as a discord message. (WIP until `print` is integrated fully)
     If multiple lines of input are given, they're joined with line breaks.
