@@ -67,10 +67,10 @@ async def embed_spout(bot, message, values, color, title, author, author_icon, l
         embed.set_thumbnail(url=thumb)
     if author or author_icon:
         # This is not the empty string (↓↓), it's a soft hyphen to force icon to show up even when the name is empty.
-        embed.set_author(name=author or '­', icon_url=author_icon or embed.Empty)
+        embed.set_author(name=author or '­', icon_url=author_icon)
     if footer or footer_icon:
         # It's a soft hyphen here also
-        embed.set_footer(text=footer or '­', icon_url=footer_icon or embed.Empty)
+        embed.set_footer(text=footer or '­', icon_url=footer_icon)
 
     await message.channel.send(embed=embed)
 

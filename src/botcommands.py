@@ -1,7 +1,6 @@
 import random
 import requests
 import html
-import imgkit
 
 import discord
 from discord.ext import commands
@@ -388,13 +387,6 @@ class BotCommands(MyCommands):
         smiley = {'1': '🤯', '2': '🤩', '3': '😃', '4': '🙂', '5': '😐', '6': '😟', 'X': '😢'}[turns] or '🤔'
 
         await (await ctx.send('\n'.join(output))).add_reaction(smiley)
-
-    @commands.command(hidden=True)
-    @permissions.check(permissions.owner)
-    async def render(self, ctx, url):
-        '''(WIP)render webpage'''
-        img = imgkit.from_url(url, False)
-        await ctx.send(file=discord.File(io.BytesIO(img), 'test.png'))
 
 
     @commands.command(hidden=True)
