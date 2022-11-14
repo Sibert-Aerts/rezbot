@@ -55,6 +55,18 @@ async def autocomplete_macro(interaction: Interaction, name: str):
                 break
     return results
 
+def autocomplete_bound_macro(macros):
+    async def _autocomplete_bound_macro(interaction: Interaction, name: str):
+        name = name.lower()
+        results = []
+        for macro in macros.values():
+            if name in macro.name:
+                results.append(Choice(name=macro.name, value=macro.name))
+                if len(results) >= 25:
+                    break
+        return results
+    return _autocomplete_bound_macro
+
 
 class MacroCommands(MyCommands):
     FORCE_MACRO_CACHE = None
@@ -443,16 +455,94 @@ class MacroCommands(MyCommands):
             for block in texttools.block_chunk_lines(infos): await ctx.send(block)
 
 
-    @commands.command(aliases=['pipe_macro', 'macro_pipes', 'macro_pipe'])
-    async def pipe_macros(self, ctx, name=''):
+    @commands.command(name='pipe_macros', aliases=['pipe_macro', 'macro_pipes', 'macro_pipe'])
+    async def pipe_macros_command(self, ctx, name=''):
         '''A list of all pipe macros, or details on a specific pipe macro.'''
         await self._macros(ctx, 'pipe', name)
 
-    @commands.command(aliases=['source_macro', 'macro_sources', 'macro_source'])
-    async def source_macros(self, ctx, name=''):
+    @commands.command(name='source_macros', aliases=['source_macro', 'macro_sources', 'macro_source'])
+    async def source_macros_command(self, ctx, name=''):
         '''A list of all source macros, or details on a specific source macro.'''
         await self._macros(ctx, 'source', name)
 
+
+    # ========================== Macro listing (app-commands) ==========================
+
+    @macro_group.command(name='info')
+    @app_commands.describe(macro="The macro to look up")
+    @app_commands.autocomplete(macro=autocomplete_macro)
+    async def source_macro(self, interaction: Interaction, macro: str):
+        ''' Show the details of a specific macro. '''
+        name, macro_type = macro.split(' ')
+        macros, *_  = typedict[macro_type]
+        await interaction.response.send_message(embed=macros[name].embed(interaction))
+
+    async def _macros_app_command(self, interaction: Interaction, macros: Macros, hidden: bool, mine: bool):
+        '''Reply with a list of macros.'''
+        what = macros.kind.lower()
+        qualified_what = what
+
+        ## Filter based on the given name
+        filtered_macros = macros.hidden() if hidden else macros.visible()
+        if hidden:
+            qualified_what = 'hidden ' + what
+        if mine:
+            author = interaction.user
+            filtered_macros = [m for m in filtered_macros if int(macros[m].authorId) == author.id]
+            qualified_what = 'your ' + what
+
+        if not filtered_macros:
+            await interaction.response.send_message(f'No {qualified_what} macros found.')
+            return
+
+        ## Boilerplate
+        infos = []
+        infos.append(f'Here\'s a list of all {qualified_what} macros, use /{what}_macro [name] to see more info on a specific one.')
+        infos.append(f'Use /{what} for a list of native {qualified_what}s.')
+
+        ## Separate those with and without descriptions
+        desced_macros = [m for m in filtered_macros if macros[m].desc]
+        undesced_macros = [m for m in filtered_macros if not macros[m].desc]
+
+        ## Format the ones who have a description as a nice two-column block
+        if desced_macros:
+            infos.append('')
+            colW = len(max(desced_macros, key=len)) + 2
+            for name in desced_macros:
+                macro = macros[name]
+                info = name +  ' ' * (colW-len(name))
+                desc = macro.desc.split('\n', 1)[0]
+                info += desc if len(desc) <= 80 else desc[:75] + '(...)'
+                infos.append(info)
+
+        ## Format the other ones as just a list
+        if undesced_macros:
+            infos.append('\nWithout descriptions:')
+            infos += texttools.line_chunk_list(undesced_macros)
+        
+        first = True
+        for block in texttools.block_chunk_lines(infos):
+            if first:
+                await interaction.response.send_message(block)
+                first = False
+            else:
+                await interaction.channel.send(block)
+
+    @app_commands.command(name='pipe_macro')
+    @app_commands.describe(hidden="If true, shows (only) hidden macros", mine="If true, only shows your authored macros")
+    @app_commands.autocomplete(macro=autocomplete_bound_macro(pipe_macros))
+    async def pipe_macro(self, interaction: Interaction, macro: str=None, hidden: bool=False, mine: bool=False):
+        ''' List pipe macros. '''
+        await self._macros_app_command(interaction, macro, pipe_macros, hidden, mine)
+
+    @app_commands.command(name='source_macro')
+    @app_commands.describe(hidden="If true, shows (only) hidden macros", mine="If true, only shows your authored macros")
+    @app_commands.autocomplete(macro=autocomplete_bound_macro(source_macros))
+    async def source_macro(self, interaction: Interaction, macro: str=None, hidden: bool=False, mine: bool=False):
+        ''' List source macros. '''
+        await self._macros_app_command(interaction, macro, source_macros, hidden, mine)
+
+    # ========================== Dumping macros ==========================
 
     @commands.command(hidden=True)
     async def dump_pipe_macros(self, ctx):
