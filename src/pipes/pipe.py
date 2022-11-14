@@ -82,6 +82,8 @@ class Spout(Pipe):
 
 class Pipes:
     ''' A class for storing multiple Pipe instances. '''
+    pipes: dict[str, Pipe]
+
     def __init__(self):
         self.pipes = {}
         self.categories = {}
@@ -107,8 +109,13 @@ class Pipes:
     def __iter__(self):
         return (i for i in self.pipes)
 
+    def values(self):
+        return self.pipes.values()
+
 class Sources(Pipes):
     ''' Pipes except sources can be addressed as either singular or plural. '''
+    pipes: dict[str, Source]
+
     def __init__(self):
         super().__init__()
         self.plurals = {}

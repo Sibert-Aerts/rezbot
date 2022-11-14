@@ -468,15 +468,6 @@ class MacroCommands(MyCommands):
 
     # ========================== Macro listing (app-commands) ==========================
 
-    @macro_group.command(name='info')
-    @app_commands.describe(macro="The macro to look up")
-    @app_commands.autocomplete(macro=autocomplete_macro)
-    async def source_macro(self, interaction: Interaction, macro: str):
-        ''' Show the details of a specific macro. '''
-        name, macro_type = macro.split(' ')
-        macros, *_  = typedict[macro_type]
-        await interaction.response.send_message(embed=macros[name].embed(interaction))
-
     async def _macros_app_command(self, interaction: Interaction, macros: Macros, hidden: bool, mine: bool):
         '''Reply with a list of macros.'''
         what = macros.kind.lower()
@@ -529,14 +520,14 @@ class MacroCommands(MyCommands):
                 await interaction.channel.send(block)
 
     @app_commands.command(name='pipe_macro')
-    @app_commands.describe(hidden="If true, shows (only) hidden macros", mine="If true, only shows your authored macros")
+    @app_commands.describe(hidden='If true, shows (only) hidden macros', mine='If true, only shows your authored macros')
     @app_commands.autocomplete(macro=autocomplete_bound_macro(pipe_macros))
     async def pipe_macro(self, interaction: Interaction, macro: str=None, hidden: bool=False, mine: bool=False):
         ''' List pipe macros. '''
         await self._macros_app_command(interaction, macro, pipe_macros, hidden, mine)
 
     @app_commands.command(name='source_macro')
-    @app_commands.describe(hidden="If true, shows (only) hidden macros", mine="If true, only shows your authored macros")
+    @app_commands.describe(hidden='If true, shows (only) hidden macros', mine='If true, only shows your authored macros')
     @app_commands.autocomplete(macro=autocomplete_bound_macro(source_macros))
     async def source_macro(self, interaction: Interaction, macro: str=None, hidden: bool=False, mine: bool=False):
         ''' List source macros. '''
