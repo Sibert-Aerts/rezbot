@@ -1,5 +1,5 @@
 # Rezbot
-A python-based discord bot using `discord.py` for python 3.6.
+A python-based discord bot using `discord.py` for python 3.11.
 
 ## I want to run this bot
 * Clone the github repository
@@ -8,7 +8,7 @@ A python-based discord bot using `discord.py` for python 3.6.
 * Install python modules: `webvtt-py`, `youtube_dl`, `imgkit`, `python-Levenshtein`, `bs4`, `fuzzywuzzy`, `markovify`, `emoji`, `unicodedata2`, `numpy`, `lru-dict`, `nltk`, `simpleeval`, `spacy`, `python-datamuse`, `google-cloud-translate`, `discord.py`
 * Install python module `spacy` and then its English language model via `py -3.6 -m spacy download en_core_web_sm`
 * (Optional) Get a Google Cloud Translation API key [here](https://cloud.google.com/translate/docs/quickstart) and set it as an environment variable as described.
-* Go to `src/` and run `py -3.6 ./bot.py`
+* Go to `src/` and run `py -3.11 ./bot.py`
 
 ## Contains
 * Simple toy commands (`src/botcommands.py`)
