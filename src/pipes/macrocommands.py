@@ -521,17 +521,15 @@ class MacroCommands(MyCommands):
 
     @app_commands.command(name='pipe_macro')
     @app_commands.describe(hidden='If true, shows (only) hidden macros', mine='If true, only shows your authored macros')
-    @app_commands.autocomplete(macro=autocomplete_bound_macro(pipe_macros))
-    async def pipe_macro(self, interaction: Interaction, macro: str=None, hidden: bool=False, mine: bool=False):
+    async def pipe_macros(self, interaction: Interaction, hidden: bool=False, mine: bool=False):
         ''' List pipe macros. '''
-        await self._macros_app_command(interaction, macro, pipe_macros, hidden, mine)
+        await self._macros_app_command(interaction, pipe_macros, hidden, mine)
 
     @app_commands.command(name='source_macro')
     @app_commands.describe(hidden='If true, shows (only) hidden macros', mine='If true, only shows your authored macros')
-    @app_commands.autocomplete(macro=autocomplete_bound_macro(source_macros))
-    async def source_macro(self, interaction: Interaction, macro: str=None, hidden: bool=False, mine: bool=False):
+    async def source_macros(self, interaction: Interaction, hidden: bool=False, mine: bool=False):
         ''' List source macros. '''
-        await self._macros_app_command(interaction, macro, source_macros, hidden, mine)
+        await self._macros_app_command(interaction, source_macros, hidden, mine)
 
     # ========================== Dumping macros ==========================
 

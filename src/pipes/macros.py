@@ -139,7 +139,7 @@ class Macros:
         return (i for i in self.macros)
 
     def values(self):
-        return (v for v in self.macros.values())
+        return self.macros.values()
 
     def __getitem__(self, name) -> Macro:
         return self.macros[name]

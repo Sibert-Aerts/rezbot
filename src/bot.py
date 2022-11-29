@@ -108,6 +108,7 @@ async def main():
         token = config['BOT']['token']
         await bot.load_extension('botcommands')
         await bot.load_extension('pipes.pipecommands')
+        await bot.load_extension('pipes.pipe_slash_commands')
         await bot.load_extension('pipes.macrocommands')
         await bot.load_extension('resource.youtubecaps.commands')
         await bot.load_extension('resource.upload.commands')

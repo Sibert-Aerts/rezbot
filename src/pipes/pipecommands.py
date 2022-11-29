@@ -1,5 +1,3 @@
-import itertools
-
 import discord
 from discord.ext import commands
 from discord import app_commands, Interaction
@@ -21,35 +19,7 @@ import utils.util as util
 #            A module providing commands for pipes            #
 ###############################################################
 
-pipeoid_type_map = {
-    "Source": sources,
-    "Pipe": pipes,
-    "Spout": spouts,
-    "Source_macro": source_macros,
-    "Pipe_macro": pipe_macros,
-}
-
-async def autocomplete_pipeoid(interaction: Interaction, name: str):
-    name = name.lower()
-    results = []
-    for pipeoid in itertools.chain(pipes.values(), sources.values(), spouts.values(), pipe_macros.values(), source_macros.values()):
-        if name in pipeoid.name:
-            if type(pipeoid) in (Source, Pipe, Spout):
-                choice_name = f"{pipeoid.name} ({type(pipeoid).__name__})"
-                value = pipeoid.name + " " + type(pipeoid).__name__
-            else:
-                choice_name = f"{pipeoid.name} ({pipeoid.kind} Macro)"
-                value = f"{pipeoid.name} {pipeoid.kind}_macro"
-
-            results.append(Choice(name=choice_name, value=value))
-            if len(results) >= 25:
-                break
-    return results
-
-
 class PipeCommands(MyCommands):
-    def __init__(self, bot):
-        super().__init__(bot)
 
     @commands.command(aliases=['pipe_help', 'pipes_info', 'pipe_info', 'pipes_guide', 'pipe_guide'])
     async def pipes_help(self, ctx):
@@ -197,29 +167,6 @@ class PipeCommands(MyCommands):
 
             text = texttools.block_format('\n'.join(infos))
             await ctx.send(text)
-
-
-    # ========================== Pipeoid lookup (app-commands) ==========================
-
-    @app_commands.command(name='lookup')
-    @app_commands.describe(pipeoid='The pipe to look up')
-    @app_commands.autocomplete(pipeoid=autocomplete_pipeoid)
-    async def pipe_info(self, interaction: Interaction, pipeoid: str):
-        '''Look up info on a specific pipe, source or spout (including macros).'''
-        try:
-            name, pipeoid_type = pipeoid.strip().split(' ')
-            pipeoids = pipeoid_type_map[pipeoid_type]
-            pipeoid = pipeoids[name]
-        except:
-            await interaction.response.send_message(f'Command failed, likely due to nonexistent lookup.', ephemeral=True)
-            return
-
-        embed = pipeoid.embed()
-        # Take credit for native pipeoids
-        if pipeoids in (pipes, sources, spouts):
-            embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar)
-
-        await interaction.response.send_message(embed=embed)
 
 
     # ========================== Events management (message-commands) ==========================

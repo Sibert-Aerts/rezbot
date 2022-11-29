@@ -89,6 +89,8 @@ class OnReaction(Event):
 
 class Events:
     '''Dict-like wrapper for loading/holding/saving Events, mostly copy-pasted from the one in macros.py'''
+    events: dict[str, Event]
+
     def __init__(self, DIR, filename):
         self.events = {}
         self.DIR = DIR
@@ -163,7 +165,7 @@ class Events:
     def __iter__(self):
         return (i for i in self.events)
 
-    def values(self) -> Dict[str, Event]:
+    def values(self):
         return self.events.values()
 
     def __getitem__(self, name):
