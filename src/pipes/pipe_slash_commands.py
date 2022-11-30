@@ -1,5 +1,5 @@
 import itertools
-from typing import Literal
+from typing import Literal, Type
 
 import discord
 from discord.ext import commands
@@ -11,7 +11,7 @@ from .pipes import pipes
 from .sources import sources, SourceResources
 from .spouts import spouts
 from .macros import Macros, Macro, MacroSig, pipe_macros, source_macros
-from .events import Event, Events, events
+from .events import Event, Events, OnMessage, OnReaction, events
 from .macrocommands import typedict
 from mycommands import MyCommands
 import utils.texttools as texttools
@@ -28,6 +28,11 @@ pipeoid_type_map: dict[str, Pipes|Macros|Events]  = {
     "Source_macro": source_macros,
     "Pipe_macro": pipe_macros,
     "Event": events,
+}
+
+event_type_map: dict[str, Type[OnMessage|OnReaction]] = {
+    'On Message': OnMessage,
+    'On Reaction': OnReaction
 }
 
 async def autocomplete_pipeoid(interaction: Interaction, name: str):
@@ -49,7 +54,6 @@ async def autocomplete_pipeoid(interaction: Interaction, name: str):
             results.append(Choice(name=choice_name, value=value))
             if len(results) >= 25:
                 break
-
     return results
 
 async def autocomplete_macro(interaction: Interaction, name: str):
@@ -63,6 +67,16 @@ async def autocomplete_macro(interaction: Interaction, name: str):
             if len(results) >= 25:
                 break
     return results
+    
+async def autocomplete_event(interaction: Interaction, name: str):
+    name = name.lower()
+    results = []
+    for event in events.values():
+        if name in event.name:
+            results.append(Choice(name=f"{event.name} (Event)", value=event.name))
+            if len(results) >= 25:
+                break
+    return results
 
 class PipeSlashCommands(MyCommands):
 
@@ -72,13 +86,14 @@ class PipeSlashCommands(MyCommands):
     @app_commands.describe(pipeoid='The pipeoid to look up')
     @app_commands.autocomplete(pipeoid=autocomplete_pipeoid)
     async def lookup(self, interaction: Interaction, pipeoid: str):
-        ''' Look up info on a specific pipe, source, spout, macro or event. '''
+        ''' Look up info on a specific Pipe, Source, Spout, Macro or Event. '''        
+        reply = interaction.response.send_message
         try:
             name, pipeoid_type = pipeoid.strip().split(' ')
             pipeoids = pipeoid_type_map[pipeoid_type]
             pipeoid = pipeoids[name]
         except:
-            await interaction.response.send_message(f'Command failed, likely due to nonexistent lookup.', ephemeral=True)
+            await reply(f'Command failed, likely due to nonexistent lookup.', ephemeral=True)
             return
 
         # Get embed
@@ -91,7 +106,7 @@ class PipeSlashCommands(MyCommands):
         if isinstance(pipeoid, Pipe):
             embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar)
 
-        await interaction.response.send_message(embed=embed)
+        await reply(embed=embed)
 
 
     # ================================================= Macro Listing =================================================
@@ -150,19 +165,19 @@ class PipeSlashCommands(MyCommands):
     @app_commands.command()
     @app_commands.describe(hidden='If true, shows (only) hidden macros', mine='If true, only shows your authored macros')
     async def pipe_macros(self, interaction: Interaction, hidden: bool=False, mine: bool=False):
-        ''' Display a list of pipe macros. '''
+        ''' Display a list of Pipe Macros. '''
         await self._list_macros(interaction, pipe_macros, hidden, mine)
 
     @app_commands.command()
     @app_commands.describe(hidden='If true, shows (only) hidden macros', mine='If true, only shows your authored macros')
     async def source_macros(self, interaction: Interaction, hidden: bool=False, mine: bool=False):
-        ''' Display a list of source macros. '''
+        ''' Display a list of Source Macros. '''
         await self._list_macros(interaction, source_macros, hidden, mine)
 
 
     # ================================================ Macro Management ===============================================
 
-    macro_group = app_commands.Group(name='macro', description='Define, redefine, describe or delete a macro')
+    macro_group = app_commands.Group(name='macro', description='Define, redefine, describe or delete Macros.')
     ''' The `/macro <action>` command group'''
 
     @macro_group.command(name='define')
@@ -183,16 +198,14 @@ class PipeSlashCommands(MyCommands):
         hidden: bool=False,
         force: bool=False
     ):
-        ''' Define a new macro. '''
+        ''' Define a new Macro. '''
+        reply = interaction.response.send_message
         author = interaction.user
         macros, _, natives, check = typedict[macro_type]
         
-        def reply(text: str, **kwargs):
-            return interaction.response.send_message(text, **kwargs)
-
         name = name.split(' ')[0].lower()
         if name in natives or name in macros:
-            await reply(f'A {macro_type} called `{name}` already exists, try the `/redefine` command.')
+            await reply(f'A {macro_type} called `{name}` already exists, try the `/macro edit` command.')
             return
 
         if not force and not await check(code, reply):
@@ -219,13 +232,11 @@ class PipeSlashCommands(MyCommands):
         hidden: bool=None,
         force: bool=None
     ):
-        ''' Redefine one or more fields on an existing macro. '''
+        ''' Redefine one or more fields on an existing Macro. '''
+        reply = interaction.response.send_message
         author = interaction.user
         name, macro_type = macro.split(' ')
         macros, _, natives, check = typedict[macro_type]
-
-        def reply(text: str, **kwargs):
-            return interaction.response.send_message(text, **kwargs)
 
         name = name.split(' ')[0].lower()
         if name not in macros:
@@ -255,13 +266,11 @@ class PipeSlashCommands(MyCommands):
     @app_commands.describe(macro="The macro to delete")
     @app_commands.autocomplete(macro=autocomplete_macro)
     async def macro_delete(self, interaction: Interaction, macro: str):
-        ''' Delete a macro. '''
+        ''' Delete a Macro. '''
+        reply = interaction.response.send_message
         author = interaction.user
         name, macro_type = macro.split(' ')
         macros, *_ = typedict[macro_type]
-
-        def reply(text: str, **kwargs):
-            return interaction.response.send_message(text, **kwargs)
 
         name = name.split(' ')[0].lower()
         if name not in macros:
@@ -284,13 +293,13 @@ class PipeSlashCommands(MyCommands):
         default="The parameter's default value to assign",
     )
     @app_commands.autocomplete(macro=autocomplete_macro)
-    async def macro_edit(self, interaction: Interaction,
+    async def macro_set_param(self, interaction: Interaction,
         macro: str,
         param: str,
         description: str=None,
         default: str=None,
     ):
-        ''' Add or overwrite a parameter on a macro. '''
+        ''' Add or overwrite a parameter on a Macro. '''
         author = interaction.user
         name, macro_type = macro.split(' ')
         macros, *_ = typedict[macro_type]
@@ -315,6 +324,167 @@ class PipeSlashCommands(MyCommands):
 
         verbed = "overwrote" if is_overwrite else "added"
         await reply(f'Successfully {verbed} parameter `{param}`.', embed=macro.embed(interaction))
+
+
+    # ================================================= Event Listing =================================================
+
+    @app_commands.command()
+    @app_commands.describe(enabled='If given, only list Events enabled (disabled) in this channel')
+    async def events(self, interaction: Interaction, enabled: bool=None):
+        ''' Display a list of Events. '''
+        def reply(*a, **kw):
+            if not interaction.response.is_done():
+                return interaction.response.send_message(*a, **kw)
+            return interaction.channel.send(*a, **kw)
+
+        if not events:
+            await reply('No events registered.')
+            return
+
+        enabled_events, disabled_events = [], []
+        for event in events.values():
+            if interaction.channel.id in event.channels: enabled_events.append(event)
+            else: disabled_events.append(event)
+
+        if enabled_events and enabled is not False:
+            infos = ['**__Enabled:__**'] + ['• ' + str(e) for e in enabled_events]
+            await reply('\n'.join(infos))
+
+        if disabled_events and enabled is not True:
+            infos = ['**__Disabled:__**'] + [', '.join(e.name for e in disabled_events)]
+            await reply('\n'.join(infos))
+
+
+    # ================================================ Event Management ===============================================
+
+    event_group = app_commands.Group(name='event', description='Define, redefine, describe or delete Events')
+    ''' The `/event <action>` command group'''
+
+    @event_group.command(name='define')
+    @app_commands.describe(
+        name='The name of the new Event',
+        event_type='The type of Event',
+        trigger='The type-dependent trigger',
+        code='The code which is triggered'
+    )
+    @app_commands.rename(event_type='type')
+    async def event_define(self, interaction: Interaction,
+        name: str,
+        event_type: Literal['On Message', 'On Reaction'],
+        trigger: str,
+        code: str,
+    ):
+        ''' Define a new Event and enable it in this channel. '''
+        reply = interaction.response.send_message
+        EventType = event_type_map[event_type]
+
+        name = name.split(' ')[0].lower()
+        if name in events:
+            await reply(f'An Event called `{name}` already exists, try the `/event edit` command.')
+            return
+            
+        # TODO: Check event script code before saving
+
+        event = EventType(name, interaction.channel, code, trigger)
+        events[name] = event
+        await reply(f'Successfully defined a new Event.', embed=event.embed(interaction))
+
+    @event_group.command(name='edit')
+    @app_commands.describe(
+        name='The Event to edit',
+        event_type='If given, the Event\'s new type',
+        trigger='If given, the Event\'s new type-dependent trigger',
+        code='If given, the Event\'s new code',
+    )
+    @app_commands.rename(name='event')
+    @app_commands.autocomplete(name=autocomplete_event)
+    async def event_edit(self, interaction: Interaction,
+        name: str,
+        event_type: Literal['On Message', 'On Reaction']=None,
+        trigger: str=None,
+        code: str=None,
+    ):
+        ''' Redefine one or more fields on an existing Macro. '''
+        reply = interaction.response.send_message
+
+        name = name.split(' ')[0].lower()
+        if name not in events:
+            await reply(f'An Event by that name was not found.')
+            return
+        event = events[name]
+
+        # TODO: Check event script code before saving
+
+        if event_type is not None:
+            EventType = event_type_map[event_type]
+            if trigger is None:
+                await reply(f'When changing Event Type, the trigger must be given as well.')
+                return
+            new_event = EventType(event.name, interaction.channel, event.script, trigger)
+            new_event.channels = event.channels
+            event = new_event
+            events[event.name] = event
+        elif trigger is not None:
+            event.set_trigger(trigger)
+        if code is not None:
+            event.script = code
+
+        events.write()
+        await reply(f'Successfully edited the Event.', embed=event.embed(interaction))
+
+    @event_group.command(name='delete')
+    @app_commands.describe(name='The Event to delete')
+    @app_commands.rename(name='event')
+    @app_commands.autocomplete(name=autocomplete_event)
+    async def event_delete(self, interaction: Interaction, name: str):
+        ''' Delete a Macro. '''
+        reply = interaction.response.send_message
+
+        name = name.split(' ')[0].lower()
+        if name not in events:
+            await reply(f'An Event by that name was not found.')
+            return
+
+        del events[name]
+        await reply(f'Successfully deleted Event `{name}`.')
+        
+    async def _event_set_enabled(self, interaction: Interaction, name: str, enable: bool):
+        reply = interaction.response.send_message
+
+        name = name.split(' ')[0].lower()
+        if name not in events:
+            await reply(f'An Event by that name was not found.')
+            return
+        event = events[name]
+
+        if enable:
+            if interaction.channel.id in event.channels:
+                await reply(f'Event {name} is already enabled in {interaction.channel.mention}.')
+            else:                
+                event.channels.append(interaction.channel.id)
+                await reply(f'Event {name} has been enabled in {interaction.channel.mention}.')
+        else:
+            if interaction.channel.id not in event.channels:
+                await reply(f'Event {name} is already disabled in {interaction.channel.mention}.')
+            else:                
+                event.channels.remove(interaction.channel.id)
+                await reply(f'Event {name} has been disabled in {interaction.channel.mention}.')
+
+    @event_group.command(name='enable')
+    @app_commands.describe(name='The Event to enable')
+    @app_commands.rename(name='event')
+    @app_commands.autocomplete(name=autocomplete_event)
+    async def event_enable(self, interaction: Interaction, name: str):
+        ''' Delete a Macro. '''
+        await self._event_set_enabled(interaction, name, enable=True)
+
+    @event_group.command(name='disable')
+    @app_commands.describe(name='The Event to disable')
+    @app_commands.rename(name='event')
+    @app_commands.autocomplete(name=autocomplete_event)
+    async def event_disnable(self, interaction: Interaction, name: str):
+        ''' Delete a Macro. '''
+        await self._event_set_enabled(interaction, name, enable=False)
 
 
 

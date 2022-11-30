@@ -41,13 +41,17 @@ class Event:
         return embed
 
 class OnMessage(Event):
+    pattern: re.Pattern
+
     def __init__(self, name, channel, script, pattern):
         super().__init__(name, channel, script)
-        self.patternstr = pattern
-        self.pattern = re.compile(pattern)
+        self.set_trigger(pattern)
 
     def update(self, script, pattern):
         super().update(script)
+        self.set_trigger(pattern)
+
+    def set_trigger(self, pattern: str):
         self.patternstr = pattern
         self.pattern = re.compile(pattern)
 
@@ -64,12 +68,17 @@ class OnMessage(Event):
         
 
 class OnReaction(Event):
-    def __init__(self, name, channel, script, emotes):
-        super().__init__(name, channel, script)
-        self.emotes = re.split('\s*,\s*', emotes)
+    emotes: list[str]
 
-    def update(self, script, emotes):
+    def __init__(self, name, channel, script: str, emotes: str):
+        super().__init__(name, channel, script)
+        self.set_trigger(emotes)
+
+    def update(self, script: str, emotes: str):
         super().update(script)
+        self.set_trigger(emotes)
+
+    def set_trigger(self, emotes: str):
         self.emotes = re.split('\s*,\s*', emotes)
 
     def test(self, channel, emoji):

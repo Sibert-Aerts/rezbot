@@ -1,12 +1,8 @@
-import itertools
 import re
-from typing import Any, Callable, Literal
+from typing import Callable
 
 import discord
-from discord import app_commands, Interaction
-from discord.app_commands import Choice
 from discord.ext import commands
-
 
 from .pipe import Pipes
 from .processor import Pipeline, PipelineProcessor
