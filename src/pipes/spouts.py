@@ -28,7 +28,7 @@ def make_spout(signature, command=False):
         return func
     return _make_spout
 
-_CATEGORY = 'WIP'
+_CATEGORY = None
 
 def url(s):
     if len(s)>2 and s[0]=='<' and s[-1]=='>': return s[1:-1]

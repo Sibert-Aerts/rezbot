@@ -109,6 +109,84 @@ class PipeSlashCommands(MyCommands):
         await reply(embed=embed)
 
 
+    # ============================================= Native Pipeoid Listing ============================================
+
+    async def _list_pipeoids(self, interaction: Interaction, pipeoids: Pipes, what: str, category_name: str):
+        ## List pipes in a specific category
+        reply = interaction.response.send_message
+        
+        if category_name or not pipeoids.categories:
+            if category_name:
+                category_name = category_name.upper()
+                if category_name not in pipeoids.categories:
+                    await reply(f'Unknown category "{category_name}".', ephemeral=True)
+                    return
+                pipeoids_to_display = pipeoids.categories[category_name]
+            else:
+                pipeoids_to_display = pipeoids.values()
+
+            infos = []
+            if category_name:
+                infos.append(f'{what.capitalize()}s in category {category_name}:\n')
+            else:
+                infos.append(f'{what.capitalize()}s:\n')
+
+
+            col_width = len(max((p.name for p in pipeoids_to_display), key=len)) + 3
+            for pipe in pipeoids_to_display:
+                info = pipe.name
+                if pipe.doc:
+                    info = info.ljust(col_width) + pipe.small_doc
+                infos.append(info)
+
+            infos.append('')
+            infos.append(f'Use /lookup [{what} name] to see detailed info on a specific {what}.')
+            if what != 'spout':
+                infos.append(f'Use /{what}_macros for a list of user-defined {what}s.\n')
+            await reply(texttools.block_format('\n'.join(infos)))
+
+        ## List all categories
+        else:
+            infos = []
+            infos.append(f'{what.capitalize()} categories:\n')
+            
+            col_width = len(max(pipeoids.categories, key=len)) + 2
+            for category_name in pipeoids.categories:
+                info = category_name.ljust(col_width)
+                category = pipeoids.categories[category_name]
+                MAX_PRINT = 8
+                if len(category) > MAX_PRINT:
+                    info += ', '.join(p.name for p in category[:MAX_PRINT-1]) + '... (%d more)' % (len(category)-MAX_PRINT+1)
+                else:
+                    info += ', '.join(p.name for p in category)
+                infos.append(info)
+
+            infos.append('')
+            infos.append(f'Use /lookup [{what} name] to see more info on a specific {what}.')
+            if what != 'spout':
+                infos.append(f'Use /{what}_macros for a list of user-defined {what}s.\n')
+            await reply(texttools.block_format('\n'.join(infos)))
+
+    @app_commands.command()
+    @app_commands.describe(category="The specific category whose Pipes to list")
+    @app_commands.choices(category=[Choice(name=cat, value=cat) for cat in pipes.categories])
+    async def pipes(self, interaction: Interaction, category: str=None):
+        ''' Display a list of native Pipes, which can be used in scripts. '''
+        await self._list_pipeoids(interaction, pipes, 'pipe', category)
+
+    @app_commands.command()
+    @app_commands.describe(category="The specific category whose Sources to list")
+    @app_commands.choices(category=[Choice(name=cat, value=cat) for cat in sources.categories])
+    async def sources(self, interaction: Interaction, category: str=None):
+        ''' Display a list of native Sources, which can be used in scripts. '''
+        await self._list_pipeoids(interaction, sources, 'source', category)
+
+    @app_commands.command()
+    async def spouts(self, interaction: Interaction):
+        ''' Display a list of native Spouts, which can be used in scripts. '''
+        await self._list_pipeoids(interaction, spouts, 'spout', None)
+
+
     # ================================================= Macro Listing =================================================
 
     async def _list_macros(self, interaction: Interaction, macros: Macros, hidden: bool, mine: bool):

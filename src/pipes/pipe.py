@@ -83,6 +83,7 @@ class Spout(Pipe):
 class Pipes:
     ''' A class for storing multiple Pipe instances. '''
     pipes: dict[str, Pipe]
+    categories: dict[str, list[Pipe]]
 
     def __init__(self):
         self.pipes = {}
@@ -93,9 +94,10 @@ class Pipes:
 
     def add(self, pipe: Pipe) -> None:
         self.pipes[pipe.name] = pipe
-        if pipe.category not in self.categories:
-            self.categories[pipe.category] = []
-        self.categories[pipe.category].append(pipe)
+        if pipe.category:
+            if pipe.category not in self.categories:
+                self.categories[pipe.category] = []
+            self.categories[pipe.category].append(pipe)
 
     def __contains__(self, name: str) -> bool:
         return (name in self.pipes)
@@ -115,6 +117,8 @@ class Pipes:
 class Sources(Pipes):
     ''' Pipes except sources can be addressed as either singular or plural. '''
     pipes: dict[str, Source]
+    plurals: dict[str, Source]
+    categories: dict[str, list[Source]]
 
     def __init__(self):
         super().__init__()
