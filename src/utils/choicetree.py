@@ -70,7 +70,8 @@ class ChoiceTree:
         def reset(self):
             self.i = 0
             self.done = False
-            [c.reset() for c in self.vals]
+            for c in self.vals:
+                c.reset()
 
         def current(self):
             return self.vals[self.i].current()
@@ -81,13 +82,13 @@ class ChoiceTree:
             self.count = functools.reduce(lambda x,y: x*y, (c.count for c in self.vals), 1)
             self.reset()
 
-        __str__ = __repr__ = lambda s: ''.join([str(v) for v in s.vals])
+        __str__ = __repr__ = lambda s: ''.join(str(v) for v in s.vals)
 
         def next(self):
             i = 0
-            out = ''
+            out = []
             while True:
-                out += self.vals[i].next()
+                out.append(self.vals[i].next())
                 if self.vals[i].done:
                     if i == len(self.vals)-1:
                         self.done = True
@@ -100,20 +101,21 @@ class ChoiceTree:
             i += 1
 
             while i < len(self.vals):
-                out += self.vals[i].current()
+                out.append(self.vals[i].current())
                 i += 1
 
-            return out
+            return ''.join(out)
 
         def random(self):
             return ''.join(v.random() for v in self.vals)
 
         def reset(self):
             self.done = False
-            [c.reset() for c in self.vals]
+            for c in self.vals:
+                c.reset()
 
         def current(self):
-            return ''.join([c.current() for c in self.vals])
+            return ''.join(c.current() for c in self.vals)
 
     escapedSymbol = Char('~').suppress() + Char('[|]')
     escapedEsc = Literal('~~')
@@ -164,6 +166,7 @@ if __name__ == '__main__':
         '~A~~B~~[C]',
         'A~[B~|C~]',
         'A~[B|C~]',
+        '[AAAA|BBBB[CCCCCCC|DDDDD]E[FFFF[GGGG|HHHH|]|JJJJ|]KKKKKK|LLLLL[MMMM|NNN]][OOOOOOOO|PPP[QQQQ|RRRRRR[SSSSSS|TTTTT[UUUU|VVVVV]]]',
     ]
     for test in tests:
         print(repr(test).ljust(20), ' → ', repr(list(ChoiceTree(test)))[1:-1])
