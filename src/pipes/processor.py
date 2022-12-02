@@ -1,6 +1,8 @@
 import re
 from typing import List, Tuple, Optional, Any, TypeVar, Union
+
 from lru import LRU
+import discord
 
 # More import statements at the bottom of the file, due to circular dependencies.
 from .logger import ErrorLog
@@ -565,7 +567,7 @@ class PipelineProcessor:
             p = c
         return script.strip(), ''
 
-    async def execute_script(self, script, message, context=None, name=None):
+    async def execute_script(self, script: str, message: discord.Message, context=None, name=None):
         errors = ErrorLog()
 
         ### STEP 0: PRE-PROCESSING
@@ -593,7 +595,7 @@ class PipelineProcessor:
             ### STEP 3: JOB'S DONE, PERFORM SIDE-EFFECTS!
 
             ## Put the thing there
-            SourceResources.previous_pipeline_output = values
+            SourceResources.previous_pipeline_output[message.channel] = values
 
             ## Print the output!
             # TODO: auto-print if the last pipe was not a spout, or something

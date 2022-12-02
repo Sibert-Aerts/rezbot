@@ -1,3 +1,4 @@
+from collections import defaultdict
 import emoji
 import re
 import random
@@ -33,7 +34,7 @@ import nltk
 
 def multi_source(func):
     '''
-    Decorates a function to take an argument 'n' that simply calls the function multiple times.
+    Decorates a function to take an argument 'n' that simply asynchronously calls the function multiple times.
 
     f: (*args) -> y      becomes     f': (*args, n=1) -> [y]
     e.g.
@@ -41,7 +42,7 @@ def multi_source(func):
     '''
     @wraps(func)
     async def _multi_source(*args, n, **kwargs):
-        return await asyncio.gather(*[func(*args, **kwargs) for i in range(n)])
+        return await asyncio.gather(*(func(*args, **kwargs) for i in range(n)))
     return _multi_source
 
 def get_which(get_what):
@@ -88,7 +89,7 @@ def make_source(signature, *, command=False, **kwargs):
 # Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.
 class SourceResources:
     bot: Bot = None
-    previous_pipeline_output = []
+    previous_pipeline_output = defaultdict(list)
     variables = VariableStore('variables.json')
 
 # So the typename correctly shows up as "regex"
@@ -290,11 +291,10 @@ async def custom_emoji_source(message, n, name, search, id, here):
 #####################################################
 _CATEGORY = 'BOT'
 
-@make_source({})
-async def output_source():
+@make_source({}, pass_message=True)
+async def output_source(message):
     '''The entire set of output from the previous script that ran.'''
-    # TODO: make this work PER CHANNEL
-    return SourceResources.previous_pipeline_output
+    return SourceResources.previous_pipeline_output[message.channel]
 
 
 @make_source({
