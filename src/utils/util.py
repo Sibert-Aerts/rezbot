@@ -1,6 +1,8 @@
-from typing import List, Tuple, TypeVar
+import asyncio
+from typing import Any, Coroutine, List, Tuple, TypeVar
 
 T = TypeVar('T')
+U = TypeVar('U')
 
 def mins(items: List[T], key=None, min_min: float=None) -> List[T]:
     '''
@@ -48,6 +50,11 @@ def format_doc(**kwargs):
         except: pass
         return func
     return _format_doc
+
+async def gather_dict(d: dict):
+    '''Asyncronously turns a dict of coroutines into a dict of awaited values.'''
+    values = await asyncio.gather(*d.values())
+    return {k: v for (k, v) in zip(d, values)}
 
 class FormatDict(dict):
     '''A dict that returns "{key}" if it does not contain an entry for "key".'''

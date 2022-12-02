@@ -560,7 +560,7 @@ class PipeSlashCommands(MyCommands):
     @app_commands.describe(name='The Event to disable')
     @app_commands.rename(name='event')
     @app_commands.autocomplete(name=autocomplete_event)
-    async def event_disnable(self, interaction: Interaction, name: str):
+    async def event_disable(self, interaction: Interaction, name: str):
         ''' Delete a Macro. '''
         await self._event_set_enabled(interaction, name, enable=False)
 

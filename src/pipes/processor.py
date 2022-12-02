@@ -625,7 +625,7 @@ class PipelineProcessor:
             ## An actual error has occurred in executing the script that we did not catch.
             # No script, no matter how poorly formed or thought-out, should be able to trigger this; if this occurs it's a Rezbot bug.
             print('Script execution halted unexpectedly!')
-            errors.log('🛑 **Unexpected pipeline error:**\n' + e.__class__.__name__ + ': ' + str(e), terminal=True)
+            errors.log(f'🛑 **Unexpected pipeline error:**\n {e.__class__.__name__}: {e}', terminal=True)
             await self.send_error_log(message, errors, name)
             raise e
 

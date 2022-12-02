@@ -1,8 +1,9 @@
-from pyparsing import ParseException, ParseResults, StringEnd
+import asyncio
+from pyparsing import ParseException, ParseResults
 from typing import List, Optional, Tuple, Union
 
 # Here to make sure circular dependencies get loaded in the right order...
-from pipes.processor import PipelineProcessor, Pipeline
+from .processor import PipelineProcessor, Pipeline
 
 from .grammar import templatedString
 from .context import Context, ContextError
@@ -12,7 +13,6 @@ from .macros import source_macros
 from .logger import ErrorLog
 
 from utils.choicetree import ChoiceTree
-
 
 
 class ParsedItem:
@@ -40,7 +40,7 @@ class ParsedSource:
     SOURCEMACRO  = object()
     UNKNOWN      = object()
 
-    def __init__(self, name: str, args: Arguments, amount: Union[str, int, None]):
+    def __init__(self, name: str, args: Arguments, amount: str | int | None):
         self.name = name.lower()
         self.amount = amount
         self.args = args
@@ -64,11 +64,8 @@ class ParsedSource:
             else: amount = int(amt)
         else: amount = None
 
-        # TODO: this is maybe dumb. Simplify ParsedArguments.from_parsed to just the naive version, and ParsedArgs.adapt_to_signature(Signature), or something?
-        if name in sources:
-            args, _, pre_errors = Arguments.from_parsed(parsed.get('args'), sources[name].signature)
-        else:
-            args, _, pre_errors = Arguments.from_parsed(parsed.get('args'))
+        signature = sources[name].signature if name in sources else None
+        args, _, pre_errors = Arguments.from_parsed(parsed.get('args'), signature)
 
         parsedSource = ParsedSource(name, args, amount)
         parsedSource.pre_errors.extend(pre_errors)
@@ -127,7 +124,7 @@ class ParsedSource:
                 source_macros.pipeline_cache[code] = pipeline
 
             ## STEP 3: apply
-            # TODO: Actually use the "amount"
+            # TODO: Actually use the "amount" somehow
             values, _, pl_errors, _ = await pipeline.apply(values, message)
             errors.extend(pl_errors, self.name)
             return values, errors
@@ -261,25 +258,42 @@ class TemplatedString:
         if self.isString:
             return self.string, errors
 
-        # TODO: pull that `await` outside the loop!!!!!!!!!
-        evaluated = []
+        FUTURE = object()
+        results = []
+        futures = []
 
         for piece in self.pieces:
             if isinstance(piece, str):
-                evaluated.append(piece)
+                results.append(piece)
 
             elif isinstance(piece, ParsedItem):
                 try:
-                    evaluated.append(piece.evaluate(context))
+                    results.append(piece.evaluate(context))
                 except ContextError as e:
-                    errors(str(e), True)
+                    errors.log(str(e), True)
 
             elif isinstance(piece, ParsedSource) and not errors.terminal:
-                items, src_errors = await piece.evaluate(message, context)
-                errors.extend(src_errors)
-                evaluated.append(items[0] if items else '')
+                results.append(FUTURE)
+                futures.append(piece.evaluate(message, context))
 
-        return (''.join(evaluated) if not errors.terminal else None), errors
+        source_results = await asyncio.gather(*futures)
+
+        out = None
+        if not errors.terminal:
+            strings = []
+            source_index = 0
+            for result in results:
+                if result is FUTURE:
+                    items, src_errors = source_results[source_index]
+                    errors.extend(src_errors)
+                    if not errors.terminal:
+                        strings.append(items[0])
+                    source_index += 1
+                else:
+                    strings.append(result)            
+            out = ''.join(strings)
+
+        return out, errors
 
 
     @staticmethod

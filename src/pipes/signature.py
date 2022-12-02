@@ -1,3 +1,4 @@
+import asyncio
 from typing import List, Tuple, Dict, Any, Optional, TypeVar, Union, Callable
 from pyparsing import ParseException, ParseResults, StringEnd
 import re
@@ -5,6 +6,7 @@ import re
 from .grammar import argumentList
 from .logger import ErrorLog
 
+from utils import util
 
 
 class ArgumentError(ValueError):
@@ -124,7 +126,10 @@ class Multi:
 T = TypeVar('T')
 
 class Par:
-    ''' Represents a single parameter in a signature. '''
+    ''' Represents a single declared parameter in a signature. '''
+    name: str
+    default: T
+
     def __init__(self, type: Callable[[str], T], default: Union[str, T]=None, desc: str=None, check: Callable[[T], bool]=None, required: bool=None):
         '''
         Arguments:
@@ -140,33 +145,18 @@ class Par:
         self.desc = desc
         self.checkfun = check
         self.required = required if required is not None else (default is None)
-        self._re = None
-        self._str = None
         
     def __str__(self):
-        if not self._str:
-            s = ''
-            if self.desc:
-                s += ' ' + self.desc
-            s += ' (' + self.type.__name__
-            if self.required:
-                s += ', REQUIRED'
-            elif self.default is not None:
-                s +=', default: ' + repr(self.default)
-            s += ')'
-            self._str = s
-        return self._str
-
-    def re(self):
-        # This regex matches the following formats:
-        #   name=valueWithoutSpaces
-        #   name="value with spaces"            name='likewise'
-        #   name="""just "about" anything"""    name='''likewise'''
-        #   name=/use this one for regexes/     (functionally identical to " or ')
-        if self._re is None:
-            self._re = re.compile(r'\b' + self.name + r'=(?:"""(.*?)"""|\'\'\'(.*?)\'\'\'|"(.*?)"|\'(.*?)\'|/(.*?)/|(\S+))\s*', re.S)
-            #                                                   [1]            [2]          [3]      [4]      [5]    [6]        
-        return self._re
+        out = []
+        if self.desc:
+            out.append(' ' + self.desc)
+        out.append(' (' + self.type.__name__)
+        if self.required:
+            out.append(', REQUIRED')
+        elif self.default is not None:
+            out.append(f', default: `{repr(self.default)}`')
+        out.append(')')
+        return ''.join(out)
 
     def parse(self, raw):
         ''' Attempt to parse and check the given string as an argument for this parameter, raises ArgumentError if it fails. '''
@@ -195,12 +185,17 @@ class Signature(dict):
 #####################################################
 
 class Arg:
+    ''' Object representing a TemplatedString assigned to a specific parameter. '''
+    param: Optional[Par]
+    name: str
+    string: 'TemplatedString'
+    value: Any = None
+    predetermined: bool = False
+
     def __init__(self, string: 'TemplatedString', param: Union[Par, str]):
         self.param = param if isinstance(param, Par) else None
         self.name = param.name if isinstance(param, Par) else param
         self.string = string
-        self.value = None
-        self.predetermined = False
 
     def predetermine(self, errors):
         if self.string.isString:
@@ -338,8 +333,10 @@ class Arguments:
         ''' Returns a parsed {parameter: argument} dict ready for use. '''
         errors = ErrorLog()
         if self.predetermined: return self.args, errors
-        # TODO: async those awaits
-        return { param: await self.args[param].determine(message, context, errors) for param in self.args }, errors
+        
+        futures = {param: self.args[param].determine(message, context, errors) for param in self.args}
+        values = await util.gather_dict(futures)
+        return values, errors
 
 
 
