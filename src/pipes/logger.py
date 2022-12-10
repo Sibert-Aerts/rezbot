@@ -5,7 +5,8 @@ import discord
 
 class ErrorLog:
     '''Class for logging warnings & error messages from a pipeline's execution.'''
-    def __init__(self):
+    def __init__(self, name=None):
+        self.name = name
         self.clear()
 
     def clear(self):
@@ -88,5 +89,6 @@ class ErrorLog:
         else:
             embed = discord.Embed(title='Warning log', description=desc, color=0xffdd33)
         # embed.timestamp = self.time
+        name = name or self.name
         if name: embed.title += ' for ' + name
         return embed

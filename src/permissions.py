@@ -7,8 +7,11 @@ from discord.ext import commands
 # I prefer having these as variables instead of strings
 # I think this is the python approach to enums anyway
 owner = object()
+"""People designated as the bot's owner, are allowed everything."""
 default = object()
+"""Regular users, certain features are restricted from them."""
 muted = object()
+"""Muted users, bot ignores most ."""
 
 hierarchy = [muted, default, owner]
 
@@ -16,23 +19,20 @@ hierarchy = [muted, default, owner]
 # need to change this to an ini file someday
 # and maybe add commands to change them
 # PUT YOUR CUSTOM USER PERMISSIONS HERE:
-userPermissions = {
+user_permissions = {
     154597714619793408: owner,   # Rezuaq
     147011940558831616: default, # Goat (note: default entries aren't needed)
     155029762404777984: muted,   # Ellen
 }
 
 # Get the user's permission level, or the default permission level if the user is not found.
-def get(id):
-    try:
-        return userPermissions[id]
-    except KeyError:
-        return default
+def get(user_id):
+    return user_permissions.get(user_id, default)
 
 
 # key function, checks if the user has at least the specified permission
-def has(id, permission):
-    return hierarchy.index(get(id)) >= hierarchy.index(permission)
+def has(user_id, permission):
+    return hierarchy.index(get(user_id)) >= hierarchy.index(permission)
 
 
 # key function, checks if the user has at most the specified permission.

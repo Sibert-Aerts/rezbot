@@ -299,7 +299,7 @@ class Pipeline:
 
         return items, printValues, errors, spoutCallbacks
 
-    async def apply_iteration(self, items: List[str], message, parent_context=None) -> Tuple[ List[str], List[List[str]], ErrorLog, List[Any] ]:
+    async def apply_iteration(self, items: List[str], message: discord.Message, parent_context: 'Context'=None) -> Tuple[ List[str], List[List[str]], ErrorLog, List[Any] ]:
         '''Apply the pipeline to a list of items a single time.'''
         ## This is the big method where everything happens.
 
@@ -393,12 +393,19 @@ class Pipeline:
 
                 ## A NATIVE PIPE
                 elif parsed_pipe.type == ParsedPipe.NATIVEPIPE:
+                    pipe: Pipe = parsed_pipe.pipe
+                    if not pipe.may_use(message.author):
+                        errors.log(f'User lacks permission to use Pipe `{pipe.name}`.', True)
+                        return NOTHING_BUT_ERRORS
                     try:
-                        next_items.extend( parsed_pipe.pipe(items, **args) if not parsed_pipe.pipe.isCoroutine else await parsed_pipe.pipe(items, **args) )
+                        if pipe.is_coroutine:
+                            next_items.extend(await pipe.apply(items, **args))
+                        else:
+                            next_items.extend(pipe.apply(items, **args))
                     except Exception as e:
                         # This mentions *all* arguments, even default ones, not all of which is very useful for error output...
                         argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
-                        errors.log(f'Failed to process pipe `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
+                        errors.log(f'Failed to process pipe `{pipe.name}` with args {argfmt}:\n\t{type(e).__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
 
                 ## A SPOUT
@@ -410,7 +417,7 @@ class Pipeline:
                         spout_callbacks.append( parsed_pipe.pipe(items, **args) )
                     except Exception as e:
                         argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
-                        errors.log(f'Failed to process spout `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
+                        errors.log(f'Failed to process spout `{name}` with args {argfmt}:\n\t{type(e).__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
                     
                 ## A NATIVE SOURCE
@@ -424,7 +431,7 @@ class Pipeline:
                        next_items.extend( await parsed_pipe.pipe(message, args) )
                     except Exception as e:
                         argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
-                        errors.log(f'Failed to process source-as-pipe `{name}` with args {argfmt}:\n\t{e.__class__.__name__}: {e}', True)
+                        errors.log(f'Failed to process source-as-pipe `{name}` with args {argfmt}:\n\t{type(e).__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
 
                 ## A PIPE MACRO
@@ -615,7 +622,7 @@ class PipelineProcessor:
                 try:
                     await callback(self.bot, message, values, **args)
                 except Exception as e:
-                    errors(f'Failed to execute spout `{callback.__name__}`:\n\t{e.__class__.__name__}: {e}', True)
+                    errors(f'Failed to execute spout `{callback.__name__}`:\n\t{type(e).__name__}: {e}', True)
                     break
 
             ## Post warning output to the channel if any
@@ -632,7 +639,7 @@ class PipelineProcessor:
             ## An actual error has occurred in executing the script that we did not catch.
             # No script, no matter how poorly formed or thought-out, should be able to trigger this; if this occurs it's a Rezbot bug.
             print('Script execution halted unexpectedly!')
-            errors.log(f'🛑 **Unexpected pipeline error:**\n {e.__class__.__name__}: {e}', terminal=True)
+            errors.log(f'🛑 **Unexpected pipeline error:**\n {type(e).__name__}: {e}', terminal=True)
             await self.send_error_log(message, errors, name)
             raise e
 
@@ -690,3 +697,4 @@ from .context import Context
 from .signature import ArgumentError, Arguments
 from .templatedstring import ParsedSource, TemplatedString
 from .macrocommands import parse_macro_command
+from .pipe import Pipe, Source, Spout

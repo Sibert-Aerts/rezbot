@@ -25,6 +25,7 @@ from utils.choicetree import ChoiceTree
 from utils.rand import choose_slice
 from utils.util import parse_bool
 from resource.upload import uploads
+import permissions
 
 #######################################################
 #                      Decorators                     #
@@ -76,11 +77,11 @@ pipes = Pipes()
 pipes.command_pipes = []
 _CATEGORY = 'NONE'
 
-def make_pipe(signature, command=False):
+def make_pipe(signature, command=False, may_use=None):
     '''Makes a Pipe out of a function.'''
     def _make_pipe(func):
         global pipes, _CATEGORY
-        pipe = Pipe(Signature(signature), func, _CATEGORY)
+        pipe = Pipe(Signature(signature), func, category=_CATEGORY, may_use=may_use)
         pipes.add(pipe)
         if command:
             pipes.command_pipes.append(pipe)
@@ -108,6 +109,7 @@ def repeat_pipe(input, times, max):
     else:
         times = min(times, math.ceil(max/len(input))) # Limit how many unnecessary items the [:max] in the next line shaves off
         return (input*times)[:max]
+
 
 REMOVE_WHAT = Option('all', 'empty', 'whitespace')
 
@@ -898,6 +900,11 @@ def pos_analyse_pipe(text):
     # Return flattened tuples of (text, tag, whitespace)
     return [ x for t in doc for x in (t.text, t.pos_, t.whitespace_) ]
 
+
+@make_pipe({}, may_use=lambda user: permissions.has(user.id, permissions.owner), command=True)
+@one_to_many
+def gpt_pipe(text):
+    return [text + ", and that's how it really happened"]
 
 
 #####################################################

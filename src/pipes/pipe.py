@@ -1,5 +1,6 @@
 import inspect
 from textwrap import dedent
+import discord
 from discord import Embed
 
 from .signature import Signature
@@ -7,11 +8,22 @@ from typing import List, Dict, Callable, Any, Tuple
 
 
 class Pipe:
-    def __init__(self, signature: Signature, function: Callable[..., List[str]], category: str):
+    '''
+    Represents a functional function that can be used in a script.
+    
+    '''
+    def __init__(
+        self,
+        signature: Signature,
+        function: Callable[..., List[str]],
+        category: str=None,
+        may_use: Callable[[discord.User], bool]=None,
+    ):
         self.signature = signature
         self.function = function
         self.category = category
-        self.isCoroutine = inspect.iscoroutinefunction(function)
+        self._may_use = may_use
+        self.is_coroutine = inspect.iscoroutinefunction(function)
         # remove _pipe or _source or _spout from the function's name
         self.name = function.__name__.rsplit('_', 1)[0].lower()
         self.doc = function.__doc__
@@ -23,9 +35,17 @@ class Pipe:
             self.small_doc = self.doc.split('\n', 1)[0]
 
     def __call__(self, items: List[str], **args) -> List[str]:
+        raise DeprecationWarning("PIPE.__CALL__")
+
+    def apply(self, items: List[str], **args) -> List[str]:
         ''' Apply the pipe to a list of items. '''
         return self.function(items, **args)
-        
+
+    def may_use(self, user):
+        if self._may_use:
+            return self._may_use(user)
+        return True
+
     def command_doc(self):
         out = self.doc or ''
         if self.signature:
