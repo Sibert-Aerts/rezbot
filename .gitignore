@@ -71,3 +71,4 @@ src/pipes/macros/events.p
 src/resource/variables/variables.json
 src/resource/tweets/trump.json
 *.v3_backup
+src/permissions.ini

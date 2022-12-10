@@ -1,29 +1,36 @@
-from functools import wraps
-
-import discord
+from configparser import ConfigParser
 from discord.ext import commands
 
-# Allowed permission values:
-# I prefer having these as variables instead of strings
-# I think this is the python approach to enums anyway
+# Rank objects:
 owner = object()
-"""People designated as the bot's owner, are allowed everything."""
+"RANK: People designated as the bot's owner, are allowed everything."
+trusted = object()
+"RANK: People designated as trusted, are allowed more things than regular users, but not everything."
 default = object()
-"""Regular users, certain features are restricted from them."""
+"RANK: Regular users, certain features are restricted from them."
 muted = object()
-"""Muted users, bot ignores most ."""
+"RANK: Muted users, bot is generally supposed to ignore these."
 
-hierarchy = [muted, default, owner]
-
-# hard coded lol
-# need to change this to an ini file someday
-# and maybe add commands to change them
-# PUT YOUR CUSTOM USER PERMISSIONS HERE:
-user_permissions = {
-    154597714619793408: owner,   # Rezuaq
-    147011940558831616: default, # Goat (note: default entries aren't needed)
-    155029762404777984: muted,   # Ellen
+hierarchy = [muted, trusted, default, owner]
+mapping = {
+    'owner': owner,
+    'trusted': trusted,
+    'default': default,
+    'muted': muted,
 }
+
+user_permissions = {}
+"Dict mapping user IDs to their rank."
+
+# ============================= Read out user permissions from config =============================
+
+config = ConfigParser()
+config.read('permissions.ini')
+
+for rank in config:
+    for user in config[rank]:
+        user_permissions[int(config[rank][user])] = mapping[rank.lower()]
+
 
 # Get the user's permission level, or the default permission level if the user is not found.
 def get(user_id):
