@@ -29,7 +29,7 @@ class PipeCommands(MyCommands):
     
     # ========================== Pipeoid lookup (message-commands) ==========================
 
-    @commands.command(aliases=['pipe'])
+    @commands.command(aliases=['pipe'], hidden=True)
     async def pipes(self, ctx, name=''):
         '''Print a list of all pipes and their descriptions, or details on a specific pipe.'''
         name = name.lower()
@@ -85,7 +85,7 @@ class PipeCommands(MyCommands):
             infos.append('Use >pipe_macros for a list of user-defined pipes.\n')
             await ctx.send(texttools.block_format('\n'.join(infos)))
 
-    @commands.command(aliases=['source'])
+    @commands.command(aliases=['source'], hidden=True)
     async def sources(self, ctx, name=''):
         '''Print a list of all sources and their descriptions, or details on a specific source.'''
         name = name.lower()
@@ -140,7 +140,7 @@ class PipeCommands(MyCommands):
             infos.append('Use >source_macros for a list of user-defined sources.\n')
             await ctx.send(texttools.block_format('\n'.join(infos)))
 
-    @commands.command(aliases=['spout'])
+    @commands.command(aliases=['spout'], hidden=True)
     async def spouts(self, ctx, name=''):
         '''Print a list of all spouts and their descriptions, or details on a specific source.'''
         name = name.lower()
@@ -172,7 +172,7 @@ class PipeCommands(MyCommands):
     # ========================== Events management (message-commands) ==========================
     ### PUT IN OWN FILE STUPID
 
-    @commands.command(aliases=['event'])
+    @commands.command(aliases=['event'], hidden=True)
     async def events(self, ctx, name=''):
         ''' List all Events, active status and triggers. '''
         if not events:
@@ -200,7 +200,7 @@ class PipeCommands(MyCommands):
                 return
             await ctx.send(embed=events[name].embed(ctx))
 
-    @commands.command(aliases=['enable_events'])
+    @commands.command(aliases=['enable_events'], hidden=True)
     @commands.guild_only()
     async def enable_event(self, ctx, *names):
         ''' Enables one or more events in the current channel, given as a list of names separated by spaces. '''
@@ -227,7 +227,7 @@ class PipeCommands(MyCommands):
         
         await ctx.send('\n'.join(msg))
 
-    @commands.command(aliases=['disable_events'])
+    @commands.command(aliases=['disable_events'], hidden=True)
     @commands.guild_only()
     async def disable_event(self, ctx, *names):
         ''' Disables one or more events in the current channel, given as a list of names separated by spaces, or * to disable all events. '''
@@ -262,7 +262,7 @@ class PipeCommands(MyCommands):
         
         await ctx.send('\n'.join(msg))
 
-    @commands.command(aliases=['del_event'])
+    @commands.command(aliases=['del_event'], hidden=True)
     @commands.guild_only()
     async def delete_event(self, ctx, name):
         ''' Deletes the specified event entirely. '''

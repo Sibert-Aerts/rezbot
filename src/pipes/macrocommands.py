@@ -55,7 +55,7 @@ class MacroCommands(MyCommands):
 
     # ========================== Macro Management (message-commands) ==========================
 
-    @commands.command(aliases=['def'])
+    @commands.command(aliases=['def'], hidden=True)
     async def define(self, ctx, what, name):
         await self._define(ctx.message, what, name, re.split('\s+', ctx.message.content, 3)[3])
 
@@ -80,7 +80,7 @@ class MacroCommands(MyCommands):
         macros[name] = Macro(macros.kind, name, code, author.name, author.id, visible=visible)
         await channel.send('Defined a new {} macro called `{}` as {}'.format(what, name, texttools.block_format(code)))
 
-    @commands.command(aliases=['redef'])
+    @commands.command(aliases=['redef'], hidden=True)
     async def redefine(self, ctx, what, name):
         await self._redefine(ctx.message, what, name, re.split('\s+', ctx.message.content, 3)[3])
 
@@ -107,7 +107,7 @@ class MacroCommands(MyCommands):
         macros.write()
         await channel.send('Redefined {} `{}` as {}'.format(what, name, texttools.block_format(code)))
 
-    @commands.command(aliases=['desc'])
+    @commands.command(aliases=['desc'], hidden=True)
     async def describe(self, ctx, what, name):
         await self._describe(ctx.message, what, name, re.split('\s+', ctx.message.content, 3)[3])
 
@@ -129,7 +129,7 @@ class MacroCommands(MyCommands):
         macros.write()
         await channel.send('Described {} `{}` as `{}`'.format(what, name, desc))
 
-    @commands.command(aliases=['unhide'])
+    @commands.command(aliases=['unhide'], hidden=True)
     async def hide(self, ctx, what, name):
         '''Toggle whether the given macro is hidden.'''
         what = what.lower()
@@ -147,7 +147,7 @@ class MacroCommands(MyCommands):
         macros.write()
         await ctx.send('{} {} `{}`'.format('Unhid' if macros[name].visible else 'Hid', what, name))
 
-    @commands.command(aliases=['del'])
+    @commands.command(aliases=['del'], hidden=True)
     async def delete(self, ctx, what, name):
         '''Delete a macro by name.'''
         what = what.lower()
@@ -179,7 +179,7 @@ class MacroCommands(MyCommands):
         MacroCommands.FORCE_MACRO_CACHE = None
 
 
-    @commands.command(aliases=['set_sig', 'add_sig', 'add_arg'])
+    @commands.command(aliases=['set_sig', 'add_sig', 'add_arg'], hidden=True)
     async def set_arg(self, ctx, what, name, signame, sigdefault, sigdesc=None):
         '''Add or change an argument to a macro.'''
         what = what.lower()
@@ -198,7 +198,7 @@ class MacroCommands(MyCommands):
         macros.write()
         await ctx.send('Added argument ({}) to {} {}'.format(sig, what, name))
 
-    @commands.command(aliases=['delete_sig', 'del_sig', 'del_arg'])
+    @commands.command(aliases=['delete_sig', 'del_sig', 'del_arg'], hidden=True)
     async def delete_arg(self, ctx, what, name, signame):
         '''Remove an argument from a macro.'''
         what = what.lower()
@@ -270,12 +270,12 @@ class MacroCommands(MyCommands):
             
             for block in texttools.block_chunk_lines(infos): await ctx.send(block)
 
-    @commands.command(name='pipe_macros', aliases=['pipe_macro', 'macro_pipes', 'macro_pipe'])
+    @commands.command(name='pipe_macros', aliases=['pipe_macro', 'macro_pipes', 'macro_pipe'], hidden=True)
     async def pipe_macros_command(self, ctx, name=''):
         '''A list of all pipe macros, or details on a specific pipe macro.'''
         await self._macros(ctx, 'pipe', name)
 
-    @commands.command(name='source_macros', aliases=['source_macro', 'macro_sources', 'macro_source'])
+    @commands.command(name='source_macros', aliases=['source_macro', 'macro_sources', 'macro_source'], hidden=True)
     async def source_macros_command(self, ctx, name=''):
         '''A list of all source macros, or details on a specific source macro.'''
         await self._macros(ctx, 'source', name)
