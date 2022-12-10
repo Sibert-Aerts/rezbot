@@ -84,7 +84,7 @@ async def on_message(message: discord.Message):
 async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     guild = bot.get_guild(payload.guild_id)
     if not guild: return
-    channel = guild.get_channel(payload.channel_id)
+    channel = guild.get_channel_or_thread(payload.channel_id)
     await scriptProcessor.on_reaction(channel, str(payload.emoji), payload.user_id, payload.message_id)
 
 
