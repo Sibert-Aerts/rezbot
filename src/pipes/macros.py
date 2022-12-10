@@ -5,6 +5,7 @@ from lru import LRU
 
 from shutil import copyfile
 from discord import Embed
+from .signature import ArgumentError
 import utils.texttools as texttools
 import permissions
 
@@ -76,6 +77,13 @@ class Macro:
         # Load the defaults
         defaults = {s: self.signature[s].default for s in self.signature}
         args = {**defaults, **args}
+
+        # Ensure no required arguments are missing
+        missing = [s for s in args if args[s] is None]
+        if missing:
+            raise ArgumentError(f'Missing required parameter{"s" if len(missing)>1 else ""}: {" ".join("`%s`"%p for p in missing)}')
+
+        # Insert arguments into macro code
         code = self.code
         for arg in args:
             code = code.replace('$'+arg+'$', args[arg])

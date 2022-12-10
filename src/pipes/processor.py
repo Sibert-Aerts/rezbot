@@ -282,14 +282,17 @@ class Pipeline:
     async def apply(self, items: List[str], message, parent_context=None) -> Tuple[ List[str], List[List[str]], ErrorLog, List[Any] ]:
         '''Apply the pipeline to a list of items the denoted amount of times.'''
         errors = ErrorLog()
+        NOTHING_BUT_ERRORS = (None, None, errors, None)
+    
         errors.extend(self.parser_errors)
+        if errors.terminal: return NOTHING_BUT_ERRORS
 
         printValues = []
         spoutCallbacks = []
         for _ in range(self.iterations):
             iterItems, iterPrintValues, iterErrors, iterSpoutCallbacks = await self.apply_iteration(items, message, parent_context)
             errors.extend(iterErrors)
-            if errors.terminal: return (None, None, errors, None)
+            if errors.terminal: return NOTHING_BUT_ERRORS
             items = iterItems
             printValues.extend(iterPrintValues)
             spoutCallbacks.extend(iterSpoutCallbacks)
@@ -426,7 +429,11 @@ class Pipeline:
 
                 ## A PIPE MACRO
                 elif name in pipe_macros:
-                    code = pipe_macros[name].apply_args(args)
+                    try:
+                        code = pipe_macros[name].apply_args(args)
+                    except ArgumentError as e:
+                        errors.log(e, True, context=name)
+                        return NOTHING_BUT_ERRORS
 
                     ## Load the cached pipeline if we already parsed this code once before
                     if code in pipe_macros.pipeline_cache:
@@ -680,6 +687,6 @@ from .spouts import spouts
 from .macros import pipe_macros, source_macros
 from .events import events, OnMessage, OnReaction
 from .context import Context
-from .signature import Arguments
+from .signature import ArgumentError, Arguments
 from .templatedstring import ParsedSource, TemplatedString
 from .macrocommands import parse_macro_command

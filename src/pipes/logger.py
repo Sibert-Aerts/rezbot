@@ -9,14 +9,14 @@ class ErrorLog:
         self.clear()
 
     def clear(self):
-        self.errors = []
+        self.errors: list[ErrorLog.ErrorMessage] = []
         self.terminal = False
         self.time = datetime.now(tz=timezone.utc)
 
     class ErrorMessage:
-        def __init__(self, message, count=1):
-            self.count = count
-            self.message = message
+        def __init__(self, message: str, count=1):
+            self.message: str = message
+            self.count: int = count
         def __str__(self):
             return ('**(%d)** ' % self.count if self.count > 1 else '') + self.message
 
@@ -24,9 +24,10 @@ class ErrorLog:
     ## Error logging methods
     #############################################
 
-    def log(self, message, terminal=False):
+    def log(self, message, terminal=False, context=None):
         ''' The error-logging method '''
         message = str(message)
+        if context is not None: message = f'**in {context}:** {message}'
         if self.errors and self.errors[-1].message == message:
             self.errors[-1].count += 1
         else:
@@ -44,7 +45,7 @@ class ErrorLog:
         ''' Bespoke formatting for a not-uncommon terminal exception. '''
         if isinstance(e.parserElement, StringEnd):
             message = f'ParseException: Likely unclosed brace at position {e.loc}:\n­\t'
-            message += e.line[:e.col-1] + '**[' + e.line[e.col-1] + '](http://0)**' + e.line[e.col:]
+            message += f'{e.line[:e.col-1]}**[{e.line[e.col-1]}](http://0)**{e.line[e.col:]}'
             self.log(message, True)
         else:
             self.log('An unexpected ParseException occurred!')
@@ -54,11 +55,11 @@ class ErrorLog:
     ## Log transfering methods
     #############################################
 
-    def extend(self, other, context=None):
+    def extend(self, other: 'ErrorLog', context=None):
         '''extend another error log, prepending the given 'context' for each error.'''
         self.terminal |= other.terminal
         for e in other.errors:
-            if context is not None: message = '**in {}:** {}'.format(context, e.message)
+            if context is not None: message = f'**in {context}:** {e.message}'
             else: message = e.message
             if self.errors and self.errors[-1].message == message:
                 self.errors[-1].count += e.count

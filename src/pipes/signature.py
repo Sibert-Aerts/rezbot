@@ -294,7 +294,7 @@ class Arguments:
             if not remainder or len(missing) > 1:
                 # There's no implicit argument left to use for a missing argument
                 # OR: There's more than 1 missing argument, which we can't handle in any case
-                errors('Missing required parameter{} {}'.format('s' if len(missing) > 1 else '', ' '.join('`%s`'%p for p in missing)), True)
+                errors.log(f'Missing required parameter{"s" if len(missing)>1 else ""} {" ".join("`%s`"%p for p in missing)}', True)
 
             elif len(missing) == 1:
                 ## Only one required parameter is missing; use the implicit parameter

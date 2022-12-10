@@ -346,7 +346,7 @@ class PipeSlashCommands(MyCommands):
         force="Force the Macro to save even if there are errors"
     )
     @app_commands.autocomplete(macro_choice=autocomplete_macro)
-    @app_commands.rename(macro_choice="macro")
+    @app_commands.rename(macro_choice='macro')
     async def macro_edit(self, interaction: Interaction,
         macro_choice: str,
         code: str=None,
@@ -386,7 +386,7 @@ class PipeSlashCommands(MyCommands):
     @macro_group.command(name='delete')
     @app_commands.describe(macro_choice="The Macro to delete")
     @app_commands.autocomplete(macro_choice=autocomplete_macro)
-    @app_commands.rename(macro_choice="macro")
+    @app_commands.rename(macro_choice='macro')
     async def macro_delete(self, interaction: Interaction, macro_choice: str):
         ''' Delete a Macro. '''
         reply = interaction.response.send_message
@@ -411,35 +411,42 @@ class PipeSlashCommands(MyCommands):
         param="The name of the parameter to assign",
         description="The parameter's description to assign",
         default="The parameter's default value to assign",
+        delete="If True, will delete this parameter instead",
     )
     @app_commands.autocomplete(macro_choice=autocomplete_macro)
+    @app_commands.rename(macro_choice='macro')
     async def macro_set_param(self, interaction: Interaction,
         macro_choice: str,
         param: str,
         description: str=None,
         default: str=None,
+        delete: bool=False,
     ):
-        ''' Add or overwrite a parameter on a Macro. '''
+        ''' Add, overwrite or delete a parameter on a Macro. '''
         reply = interaction.response.send_message
         author = interaction.user
         
+        param = normalize_name(param)
         try:
             macro, macros = choice_to_scriptoid(macro_choice, Macro)
         except:
-            await reply(f'Command failed, likely due to nonexistent Macro.', ephemeral=True)
-            return
+            return await reply(f'Command failed, likely due to nonexistent Macro.', ephemeral=True)
 
         if not macro.authorised(author):
-            await reply('You are not authorised to modify that macro.')
-            return
+            return await reply(f'You are not authorised to modify {macro.kind} Macro {macro.name}.', ephemeral=True)
 
-        is_overwrite = (param in macro.signature)
-        par = MacroSig(param, default, description)
-        macro.signature[param] = par
+        existed = (param in macro.signature)
+        if not delete:
+            par = MacroSig(param, default, description)
+            macro.signature[param] = par
+        elif existed:
+            del macro.signature[param]
+        else:
+            return await reply(f'Parameter `{param}` does not exist on {macro.kind} Macro {macro.name}.', ephemeral=True)
+
         macros.write()
-
-        verbed = "overwrote" if is_overwrite else "added"
-        await reply(f'Successfully {verbed} parameter `{param}`.', embed=macro.embed(interaction))
+        verbed = 'deleted' if delete else 'overwrote' if existed else 'added'
+        await reply(f'Successfully {verbed} parameter `{param}` on {macro.kind} Macro {macro.name}.', embed=macro.embed(interaction))
 
 
     # ================================================= Event Listing =================================================

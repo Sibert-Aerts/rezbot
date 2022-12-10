@@ -7,7 +7,7 @@ from .processor import PipelineProcessor, Pipeline
 
 from .grammar import templatedString
 from .context import Context, ContextError
-from .signature import Arguments
+from .signature import ArgumentError, Arguments
 from .sources import sources
 from .macros import source_macros
 from .logger import ErrorLog
@@ -106,7 +106,11 @@ class ParsedSource:
 
         ### CASE: Macro Source
         elif self.name in source_macros:
-            code = source_macros[self.name].apply_args(args)
+            try:
+                code = source_macros[self.name].apply_args(args)
+            except ArgumentError as e:
+                errors.log(e, True, context=self.name)
+                return NOTHING_BUT_ERRORS
 
             #### Fast-tracked version of PipelineProcessor.execute_script:
             origin, code = PipelineProcessor.split(code)
