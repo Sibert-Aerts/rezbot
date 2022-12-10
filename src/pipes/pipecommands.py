@@ -1,7 +1,5 @@
 import discord
 from discord.ext import commands
-from discord import app_commands, Interaction
-from discord.app_commands import Choice
 
 from .pipe import Pipe, Source, Spout
 from .pipes import pipes
@@ -307,30 +305,33 @@ async def setup(bot: commands.Bot):
     #                  Turn pipes into commands!                  #
     ###############################################################
 
-    newCommands = []
-
     def pipe_to_func(pipe: Pipe):
-        async def func(self, ctx, *args):
+        async def func(ctx: commands.Context):
             text = util.strip_command(ctx)
 
             # Parse and process arguments from the command string
             args, text, err = Arguments.from_string(text, pipe.signature, greedy=False)
-            if err.terminal: await ctx.send(embed=err.embed(f'`{pipe.name}`')); return
+            err.name = f'`{pipe.name}`'
+            if err.terminal: return await ctx.send(embed=err.embed())
             args, err2 = await args.determine(ctx.message)
             err.extend(err2, 'arguments'); 
             if text is not None:
                 text, err3 = await text.evaluate(ctx.message)
                 err.extend(err3, 'input string')
-            if err.terminal: await ctx.send(embed=err.embed(f'`{pipe.name}`')); return
+            if err.terminal: return await ctx.send(embed=err.embed())
+
+            if not pipe.may_use(ctx.author):
+                err.log(f'User lacks permission to use Pipe `{pipe.name}`.', True)
+                return await ctx.send(embed=err.embed())
 
             try:
                 # Apply the pipe to what remains of the command string
-                text = '\n'.join(pipe([text], **args))
-                await ctx.send(text)
+                results = pipe.apply([text], **args)
+                await ctx.send('\n'.join(results))
+
             except Exception as e:
-                err = ErrorLog()
-                err(f'With args {" ".join( f"`{p}`={args[p]}" for p in args )}:\n\t{e.__class__.__name__}: {e}', True)
-                await ctx.send(embed=err.embed(f'`{pipe.name}`'))
+                err.log(f'With args {" ".join( f"`{p}`={args[p]}" for p in args )}:\n\t{type(e).__name__}: {e}', True)
+                await ctx.send(embed=err.embed())
 
         func.__name__ = pipe.name
         func.__doc__ = pipe.command_doc()
@@ -348,24 +349,29 @@ async def setup(bot: commands.Bot):
     ###############################################################
 
     def source_to_func(source: Source):
-        async def func(self, ctx, *args):
+        async def func(ctx: commands.Context):
             text = util.strip_command(ctx)
 
             # Parse and process arguments from the command string
             args, _, err = Arguments.from_string(text, source.signature, greedy=True)
-            if err.terminal: await ctx.send(embed=err.embed(f'`{source.name}`')); return
+            err.name = f'`{source.name}`'
+            if err.terminal: return await ctx.send(embed=err.embed())
             args, err2 = await args.determine(ctx.message)
             err.extend(err2, 'arguments')
-            if err.terminal: await ctx.send(embed=err.embed(f'`{source.name}`')); return
+            if err.terminal: return await ctx.send(embed=err.embed())
+
+            if not source.may_use(ctx.author):
+                err.log(f'User lacks permission to use Source `{source.name}`.', True)
+                return await ctx.send(embed=err.embed())
 
             try:
                 # Apply the source with the given arguments
-                text = '\n'.join(await source(ctx.message, args))
-                await ctx.send(text)
+                results = await source(ctx.message, args)
+                await ctx.send('\n'.join(results))
+    
             except Exception as e:
-                err = ErrorLog()
-                err(f'With args {" ".join( f"`{p}`={args[p]}" for p in args )}:\n\t{e.__class__.__name__}: {e}', True)
-                await ctx.send(embed=err.embed(f'`{source.name}`'))
+                err.log(f'With args {" ".join( f"`{p}`={args[p]}" for p in args )}:\n\t{type(e).__name__}: {e}', True)
+                await ctx.send(embed=err.embed())
 
         func.__name__ = source.name
         func.__doc__ = source.command_doc()
@@ -383,24 +389,29 @@ async def setup(bot: commands.Bot):
     ###############################################################
 
     def spout_to_func(spout: Spout):
-        async def func(self, ctx, *args):
+        async def func(ctx: commands.Context):
             text = util.strip_command(ctx)
 
             # Parse and process arguments from the command string
             args, text, err = Arguments.from_string(text, spout.signature, greedy=False)
-            if err.terminal: await ctx.send(embed=err.embed(f'`{spout.name}`')); return
+            err.name = f'`{spout.name}`'
+            if err.terminal: return await ctx.send(embed=err.embed())
             args, err2 = await args.determine(ctx.message)
             text, err3 = await text.evaluate(ctx.message)
             err.extend(err2, 'arguments'); err.extend(err3, 'input string')
-            if err.terminal: await ctx.send(embed=err.embed(f'`{spout.name}`')); return
+            if err.terminal: return await ctx.send(embed=err.embed())
+            
+            if not spout.may_use(ctx.author):
+                err.log(f'User lacks permission to use Spout `{spout.name}`.', True)
+                return await ctx.send(embed=err.embed())
 
             try:
-                # Apply the spout to what remains of the argstr
-                await spout.function(self.bot, ctx.message, [text], **args)
+                # Execute the spout with what remains of the argstr
+                await spout.function(ctx.bot, ctx.message, [text], **args)
+
             except Exception as e:
-                err = ErrorLog()
-                err(f'With args {" ".join( f"`{p}`={args[p]}" for p in args )}:\n\t{e.__class__.__name__}: {e}', True)
-                await ctx.send(embed=err.embed(f'`{spout.name}`'))
+                err.log(f'With args {" ".join( f"`{p}`={args[p]}" for p in args )}:\n\t{type(e).__name__}: {e}', True)
+                await ctx.send(embed=err.embed())
 
         func.__name__ = spout.name
         func.__doc__ = spout.command_doc()
@@ -412,8 +423,5 @@ async def setup(bot: commands.Bot):
         # manually call the function decorator to make func into a command
         command = commands.command()(func)
         bot.add_command(command)
-
-    cog = PipeCommands(bot)
-    cog.__cog_commands__ = (*newCommands, *cog.__cog_commands__)
     
-    await bot.add_cog(cog)
+    await bot.add_cog(PipeCommands(bot))
