@@ -33,7 +33,7 @@ class Pipe:
             out += '\n'.join(['• ' + s + ': ' + str(self.signature[s]) for s in self.signature])
         return out
 
-    def embed(self):
+    def embed(self, ctx=None):
         embed = Embed(title=(self.__class__.__name__ + ': ' + self.name), description=self.doc, color=0xfdca4b)
         if self.signature:
             sig = '\n'.join(['__'+s+':__ ' + str(self.signature[s]) for s in self.signature])

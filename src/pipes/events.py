@@ -25,10 +25,14 @@ class Event:
         self.script = script
 
     def test(self, channel):
+        return self.is_enabled(channel)
+
+    def is_enabled(self, channel):
+        # TODO: distinguish threads/channels?
         return channel.id in self.channels
 
     def embed(self, ctx):
-        desc = '{}abled in this channel'.format( 'En' if ctx.channel.id in self.channels else 'Dis' )
+        desc = '{}abled in this channel'.format( 'En' if self.is_enabled(ctx.channel) else 'Dis' )
         embed = Embed(title='Event: ' + self.name, description=desc, color=0x7628cc)
         
         ### List of the current server's channels it's enabled in

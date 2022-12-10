@@ -1,4 +1,5 @@
 import asyncio
+import re
 from typing import Any, Coroutine, List, Tuple, TypeVar
 
 T = TypeVar('T')
@@ -55,6 +56,16 @@ async def gather_dict(d: dict):
     '''Asyncronously turns a dict of coroutines into a dict of awaited values.'''
     values = await asyncio.gather(*d.values())
     return {k: v for (k, v) in zip(d, values)}
+
+def normalize_name(name: str):
+    '''Normalizes a user-entered name to a lowercase name of only alphanumeric/underscore chars.'''
+    # Cut off anything past the first space
+    name = re.match('\s*(\S*)\s*', name)[1].lower()
+    if not name:
+        raise ValueError()
+    # Squash inappropriate characters down to underscores
+    name = re.sub('[^a-z0-9_]+', '_', name)
+    return name
 
 class FormatDict(dict):
     '''A dict that returns "{key}" if it does not contain an entry for "key".'''

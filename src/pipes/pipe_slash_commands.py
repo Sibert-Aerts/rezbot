@@ -1,5 +1,5 @@
 import itertools
-from typing import Literal, Type
+from typing import Callable, Literal, Type
 
 import discord
 from discord.ext import commands
@@ -12,46 +12,87 @@ from .sources import sources, SourceResources
 from .spouts import spouts
 from .macros import Macros, Macro, MacroSig, pipe_macros, source_macros
 from .events import Event, Events, OnMessage, OnReaction, events
-from .macrocommands import typedict
+from .macrocommands import check_pipe_macro, check_source_macro
 from mycommands import MyCommands
 import utils.texttools as texttools
-import utils.util as util
+from utils.util import normalize_name
 
 '''
 A module providing a collection of slash commands for interacting with scripting/pipes/macros/events.
 '''
 
-pipeoid_type_map: dict[str, Pipes|Macros|Events]  = {
-    "Source": sources,
-    "Pipe": pipes,
-    "Spout": spouts,
-    "Source_macro": source_macros,
-    "Pipe_macro": pipe_macros,
-    "Event": events,
+# ====================================== Scriptoid mappings =======================================
+
+scriptoid_type_map: dict[str, Pipes|Macros|Events]  = {
+    'Pipe': pipes,
+    'Source': sources,
+    'Spout': spouts,
+    'Pipe_macro': pipe_macros,
+    'Source_macro': source_macros,
+    'Event': events,
+}
+
+macro_check_map: dict[str, Callable] = {
+    'Pipe': check_pipe_macro,
+    'Source': check_source_macro,
 }
 
 event_type_map: dict[str, Type[OnMessage|OnReaction]] = {
-    'On Message': OnMessage,
-    'On Reaction': OnReaction
+    'OnMessage': OnMessage,
+    'OnReaction': OnReaction
 }
 
-async def autocomplete_pipeoid(interaction: Interaction, name: str):
+# ===================================== Autocomplete utility ======================================
+
+
+def scriptoid_to_choice(scriptoid: Pipe|Macro|Event, channel=None):
+    # This could be class methods but it's only used in this one file
+    # and it is much nicer to have all the implementations laid out right here.    
+    if isinstance(scriptoid, Pipe):
+        # name  = 'pipe_name (PipeType)'
+        # value = 'PipeType:pipe_name'
+        type_name = type(scriptoid).__name__
+        name = f'{scriptoid.name} ({type_name})'
+        value = f'{type_name}:{scriptoid.name}'
+        return Choice(name=name, value=value)
+    
+    if isinstance(scriptoid, Macro):
+        # name  = 'macro_name (Kind Macro)'
+        # value = 'Kind_macro:macro_name'
+        name = f'{scriptoid.name} ({scriptoid.kind} Macro)'
+        value = f'{scriptoid.kind}_macro:{scriptoid.name}'
+        return Choice(name=name, value=value)
+    
+    if isinstance(scriptoid, Event):
+        # name  = 'event_name (EventType Event, xabled)'
+        # value = 'Event:macro_name'
+        type_name = type(scriptoid).__name__
+        xabled = 'enabled' if scriptoid.is_enabled(channel) else 'disabled'
+        name = f'{scriptoid.name} ({type_name} Event, {xabled})'
+        value = 'Event:' + scriptoid.name
+        return Choice(name=name, value=value)
+
+def choice_to_scriptoid(value: str, expect_type=None):
+    '''Performs the inverse lookup of scriptoid_to_choice, given a Choice's value.'''
+    scriptoid_type, name = value.strip().split(':')
+    scriptoids = scriptoid_type_map[scriptoid_type]
+    name = normalize_name(name)
+    scriptoid = scriptoids[name]
+
+    if expect_type and not isinstance(scriptoid, expect_type):
+        raise ValueError('Inappropriate scriptoid type.')
+
+    return scriptoid, scriptoids
+
+# ==================================== Autocomplete callbacks =====================================
+
+async def autocomplete_scriptoid(interaction: Interaction, name: str):
     name = name.lower()
     results = []
-    pipeoids = itertools.chain(*(p.values() for p in pipeoid_type_map.values()))
-    for pipeoid in pipeoids:
-        if name in pipeoid.name:
-            if isinstance(pipeoid, Event):
-                choice_name = f"{pipeoid.name} (Event)"
-                value = pipeoid.name + ' Event'
-            elif isinstance(pipeoid, Pipe):
-                choice_name = f"{pipeoid.name} ({type(pipeoid).__name__})"
-                value = pipeoid.name + ' ' + type(pipeoid).__name__
-            else:
-                choice_name = f"{pipeoid.name} ({pipeoid.kind} Macro)"
-                value = f"{pipeoid.name} {pipeoid.kind}_macro"
-
-            results.append(Choice(name=choice_name, value=value))
+    scriptoids = itertools.chain(*(p.values() for p in scriptoid_type_map.values()))
+    for scriptoid in scriptoids:
+        if name in scriptoid.name:
+            results.append(scriptoid_to_choice(scriptoid, interaction.channel))
             if len(results) >= 25:
                 break
     return results
@@ -61,69 +102,68 @@ async def autocomplete_macro(interaction: Interaction, name: str):
     results = []
     for macro in itertools.chain(pipe_macros.values(), source_macros.values()):
         if name in macro.name:
-            choice_name = f"{macro.name} ({macro.kind})"
-            value = macro.name + " " + macro.kind.lower()
-            results.append(Choice(name=choice_name, value=value))
+            results.append(scriptoid_to_choice(macro))
             if len(results) >= 25:
                 break
     return results
-    
-async def autocomplete_event(interaction: Interaction, name: str):
-    name = name.lower()
-    results = []
-    for event in events.values():
-        if name in event.name:
-            results.append(Choice(name=f"{event.name} (Event)", value=event.name))
-            if len(results) >= 25:
-                break
-    return results
+
+def autocomplete_event(*, enabled=None):
+    async def _autocomplete_event(interaction: Interaction, name: str):
+        name = name.lower()
+        results = []
+        for event in events.values():
+            if enabled is not None and event.is_enabled(interaction.channel) != enabled:
+                continue
+            if name in event.name:
+                results.append(scriptoid_to_choice(event, interaction.channel))
+                if len(results) >= 25:
+                    break
+        return results
+    return _autocomplete_event
+
 
 class PipeSlashCommands(MyCommands):
 
-    # ============================================ General Pipeoid Lookup =============================================
+    # =========================================== General scriptoid Lookup ============================================
 
     @app_commands.command()
-    @app_commands.describe(pipeoid='The pipeoid to look up')
-    @app_commands.autocomplete(pipeoid=autocomplete_pipeoid)
-    async def lookup(self, interaction: Interaction, pipeoid: str):
+    @app_commands.describe(scriptoid_name='The scriptoid to look up')
+    @app_commands.autocomplete(scriptoid_name=autocomplete_scriptoid)
+    @app_commands.rename(scriptoid_name="scriptoid")
+    async def lookup(self, interaction: Interaction, scriptoid_name: str):
         ''' Look up info on a specific Pipe, Source, Spout, Macro or Event. '''        
         reply = interaction.response.send_message
         try:
-            name, pipeoid_type = pipeoid.strip().split(' ')
-            pipeoids = pipeoid_type_map[pipeoid_type]
-            pipeoid = pipeoids[name]
+            scriptoid, _ = choice_to_scriptoid(scriptoid_name)
         except:
-            await reply(f'Command failed, likely due to nonexistent lookup.', ephemeral=True)
+            await reply(f'Command failed, likely due to nonexistent scriptoid.', ephemeral=True)
             return
 
         # Get embed
-        if isinstance(pipeoid, Event):
-            embed = pipeoid.embed(interaction)
-        else:
-            embed = pipeoid.embed()
+        embed = scriptoid.embed(interaction)
 
-        # Take credit for native pipeoids
-        if isinstance(pipeoid, Pipe):
+        # Take credit for native scriptoids
+        if isinstance(scriptoid, Pipe):
             embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar)
 
         await reply(embed=embed)
 
 
-    # ============================================= Native Pipeoid Listing ============================================
+    # ============================================ Native scriptoid Listing ===========================================
 
-    async def _list_pipeoids(self, interaction: Interaction, pipeoids: Pipes, what: str, category_name: str):
+    async def _list_scriptoids(self, interaction: Interaction, scriptoids: Pipes, what: str, category_name: str):
         ## List pipes in a specific category
         reply = interaction.response.send_message
         
-        if category_name or not pipeoids.categories:
+        if category_name or not scriptoids.categories:
             if category_name:
                 category_name = category_name.upper()
-                if category_name not in pipeoids.categories:
+                if category_name not in scriptoids.categories:
                     await reply(f'Unknown category "{category_name}".', ephemeral=True)
                     return
-                pipeoids_to_display = pipeoids.categories[category_name]
+                scriptoids_to_display = scriptoids.categories[category_name]
             else:
-                pipeoids_to_display = pipeoids.values()
+                scriptoids_to_display = scriptoids.values()
 
             infos = []
             if category_name:
@@ -132,8 +172,8 @@ class PipeSlashCommands(MyCommands):
                 infos.append(f'{what.capitalize()}s:\n')
 
 
-            col_width = len(max((p.name for p in pipeoids_to_display), key=len)) + 3
-            for pipe in pipeoids_to_display:
+            col_width = len(max((p.name for p in scriptoids_to_display), key=len)) + 3
+            for pipe in scriptoids_to_display:
                 info = pipe.name
                 if pipe.doc:
                     info = info.ljust(col_width) + pipe.small_doc
@@ -150,10 +190,10 @@ class PipeSlashCommands(MyCommands):
             infos = []
             infos.append(f'{what.capitalize()} categories:\n')
             
-            col_width = len(max(pipeoids.categories, key=len)) + 2
-            for category_name in pipeoids.categories:
+            col_width = len(max(scriptoids.categories, key=len)) + 2
+            for category_name in scriptoids.categories:
                 info = category_name.ljust(col_width)
-                category = pipeoids.categories[category_name]
+                category = scriptoids.categories[category_name]
                 MAX_PRINT = 8
                 if len(category) > MAX_PRINT:
                     info += ', '.join(p.name for p in category[:MAX_PRINT-1]) + '... (%d more)' % (len(category)-MAX_PRINT+1)
@@ -168,26 +208,26 @@ class PipeSlashCommands(MyCommands):
             await reply(texttools.block_format('\n'.join(infos)))
 
     @app_commands.command()
-    @app_commands.describe(category="The specific category whose Pipes to list")
+    @app_commands.describe(category="The specific category of Pipes to list")
     @app_commands.choices(category=[Choice(name=cat, value=cat) for cat in pipes.categories])
     async def pipes(self, interaction: Interaction, category: str=None):
         ''' Display a list of native Pipes, which can be used in scripts. '''
-        await self._list_pipeoids(interaction, pipes, 'pipe', category)
+        await self._list_scriptoids(interaction, pipes, 'pipe', category)
 
     @app_commands.command()
-    @app_commands.describe(category="The specific category whose Sources to list")
+    @app_commands.describe(category="The specific category of Sources to list")
     @app_commands.choices(category=[Choice(name=cat, value=cat) for cat in sources.categories])
     async def sources(self, interaction: Interaction, category: str=None):
         ''' Display a list of native Sources, which can be used in scripts. '''
-        await self._list_pipeoids(interaction, sources, 'source', category)
+        await self._list_scriptoids(interaction, sources, 'source', category)
 
     @app_commands.command()
     async def spouts(self, interaction: Interaction):
         ''' Display a list of native Spouts, which can be used in scripts. '''
-        await self._list_pipeoids(interaction, spouts, 'spout', None)
+        await self._list_scriptoids(interaction, spouts, 'spout', None)
 
 
-    # ================================================= Macro Listing =================================================
+    # ================================================ Macro Listing ================================================
 
     async def _list_macros(self, interaction: Interaction, macros: Macros, hidden: bool, mine: bool):
         '''Reply with a list of macros.'''
@@ -260,16 +300,16 @@ class PipeSlashCommands(MyCommands):
 
     @macro_group.command(name='define')
     @app_commands.describe(
-        macro_type="The type of macro",
-        name="The name of the macro",
-        code="The code to define the macro as",
-        description="The macro's description",
-        hidden="Whether the macro should show up in the general macro list",
-        force="Force the macro to save even if there are errors"
+        macro_type="The type of Macro",
+        name="The name of the Macro",
+        code="The code to define the Macro as",
+        description="The Macro's description",
+        hidden="Whether the Macro should show up in the general Macro list",
+        force="Force the Macro to save even if there are errors"
     )
     @app_commands.rename(macro_type="type")
     async def macro_define(self, interaction: Interaction,
-        macro_type: Literal['pipe', 'source'],
+        macro_type: Literal['Pipe', 'Source'],
         name: str,
         code: str,
         description: str=None,
@@ -279,13 +319,16 @@ class PipeSlashCommands(MyCommands):
         ''' Define a new Macro. '''
         reply = interaction.response.send_message
         author = interaction.user
-        macros, _, natives, check = typedict[macro_type]
         
-        name = name.split(' ')[0].lower()
+        natives = scriptoid_type_map[macro_type]
+        macros = scriptoid_type_map[macro_type + '_macro']
+        
+        name = normalize_name(name)
         if name in natives or name in macros:
             await reply(f'A {macro_type} called `{name}` already exists, try the `/macro edit` command.')
             return
 
+        check = macro_check_map[macros.kind]
         if not force and not await check(code, reply):
             await interaction.channel.send('Run the command again with `force: True` to save it anyway.')
             return
@@ -296,15 +339,16 @@ class PipeSlashCommands(MyCommands):
 
     @macro_group.command(name='edit')
     @app_commands.describe(
-        macro="The macro to edit",
-        code="If given, the macro's new code",
-        description="If given, the macro's new description",
-        hidden="If given, the macro's new visibility",
-        force="Force the macro to save even if there are errors"
+        macro_choice="The Macro to edit",
+        code="If given, the Macro's new code",
+        description="If given, the Macro's new description",
+        hidden="If given, the Macro's new visibility",
+        force="Force the Macro to save even if there are errors"
     )
-    @app_commands.autocomplete(macro=autocomplete_macro)
+    @app_commands.autocomplete(macro_choice=autocomplete_macro)
+    @app_commands.rename(macro_choice="macro")
     async def macro_edit(self, interaction: Interaction,
-        macro: str,
+        macro_choice: str,
         code: str=None,
         description: str=None,
         hidden: bool=None,
@@ -313,19 +357,18 @@ class PipeSlashCommands(MyCommands):
         ''' Redefine one or more fields on an existing Macro. '''
         reply = interaction.response.send_message
         author = interaction.user
-        name, macro_type = macro.split(' ')
-        macros, _, natives, check = typedict[macro_type]
 
-        name = name.split(' ')[0].lower()
-        if name not in macros:
-            await reply(f'A {macro_type} macro by that name was not found.')
+        try:
+            macro, macros = choice_to_scriptoid(macro_choice, Macro)
+        except:
+            await reply(f'Command failed, likely due to nonexistent Macro.', ephemeral=True)
             return
-        macro = macros[name]
 
         if not macro.authorised(author):
-            await reply('You are not authorised to modify that macro. Try defining a new one instead.')
+            await reply('You are not authorised to modify that Macro. Try defining a new one instead.')
             return
 
+        check = macro_check_map[macros.kind]
         if not force and code and not await check(code, reply):
             await interaction.channel.send('Run the command again with `force: True` to save it anyway.')
             return
@@ -338,58 +381,53 @@ class PipeSlashCommands(MyCommands):
             macro.visible = not hidden
 
         macros.write()
-        await reply(f'Successfully edited the {macro_type} macro.', embed=macro.embed(interaction))
+        await reply(f'Successfully edited the {macro.kind} Macro.', embed=macro.embed(interaction))
 
     @macro_group.command(name='delete')
-    @app_commands.describe(macro="The macro to delete")
-    @app_commands.autocomplete(macro=autocomplete_macro)
-    async def macro_delete(self, interaction: Interaction, macro: str):
+    @app_commands.describe(macro_choice="The Macro to delete")
+    @app_commands.autocomplete(macro_choice=autocomplete_macro)
+    @app_commands.rename(macro_choice="macro")
+    async def macro_delete(self, interaction: Interaction, macro_choice: str):
         ''' Delete a Macro. '''
         reply = interaction.response.send_message
         author = interaction.user
-        name, macro_type = macro.split(' ')
-        macros, *_ = typedict[macro_type]
-
-        name = name.split(' ')[0].lower()
-        if name not in macros:
-            await reply(f'A {macro_type} macro by that name was not found.')
+    
+        try:
+            macro, macros = choice_to_scriptoid(macro_choice, Macro)
+        except:
+            await reply(f'Command failed, likely due to nonexistent Macro.', ephemeral=True)
             return
-        macro = macros[name]
 
         if not macro.authorised(author):
-            await reply('You are not authorised to modify that macro.')
+            await reply('You are not authorised to modify that Macro.')
             return
 
-        del macros[name]
-        await reply(f'Successfully deleted {macro_type} macro `{name}`.')
+        del macros[macro.name]
+        await reply(f'Successfully deleted {macros.kind} Macro `{macro.name}`.')
 
     @macro_group.command(name='set_param')
     @app_commands.describe(
-        macro="The macro",
+        macro_choice="The Macro",
         param="The name of the parameter to assign",
         description="The parameter's description to assign",
         default="The parameter's default value to assign",
     )
-    @app_commands.autocomplete(macro=autocomplete_macro)
+    @app_commands.autocomplete(macro_choice=autocomplete_macro)
     async def macro_set_param(self, interaction: Interaction,
-        macro: str,
+        macro_choice: str,
         param: str,
         description: str=None,
         default: str=None,
     ):
         ''' Add or overwrite a parameter on a Macro. '''
+        reply = interaction.response.send_message
         author = interaction.user
-        name, macro_type = macro.split(' ')
-        macros, *_ = typedict[macro_type]
-
-        def reply(text: str, **kwargs):
-            return interaction.response.send_message(text, **kwargs)
-
-        name = name.split(' ')[0].lower()
-        if name not in macros:
-            await reply(f'A {macro_type} macro by that name was not found.')
+        
+        try:
+            macro, macros = choice_to_scriptoid(macro_choice, Macro)
+        except:
+            await reply(f'Command failed, likely due to nonexistent Macro.', ephemeral=True)
             return
-        macro = macros[name]
 
         if not macro.authorised(author):
             await reply('You are not authorised to modify that macro.')
@@ -448,7 +486,7 @@ class PipeSlashCommands(MyCommands):
     @app_commands.rename(event_type='type')
     async def event_define(self, interaction: Interaction,
         name: str,
-        event_type: Literal['On Message', 'On Reaction'],
+        event_type: Literal['OnMessage', 'OnReaction'],
         trigger: str,
         code: str,
     ):
@@ -456,7 +494,7 @@ class PipeSlashCommands(MyCommands):
         reply = interaction.response.send_message
         EventType = event_type_map[event_type]
 
-        name = name.split(' ')[0].lower()
+        name = normalize_name(name)
         if name in events:
             await reply(f'An Event called `{name}` already exists, try the `/event edit` command.')
             return
@@ -469,29 +507,29 @@ class PipeSlashCommands(MyCommands):
 
     @event_group.command(name='edit')
     @app_commands.describe(
-        name='The Event to edit',
+        event_choice='The Event to edit',
         event_type='If given, the Event\'s new type',
         trigger='If given, the Event\'s new type-dependent trigger',
         code='If given, the Event\'s new code',
     )
-    @app_commands.rename(name='event')
-    @app_commands.autocomplete(name=autocomplete_event)
+    @app_commands.rename(event_choice='event')
+    @app_commands.autocomplete(event_choice=autocomplete_event())
     async def event_edit(self, interaction: Interaction,
-        name: str,
-        event_type: Literal['On Message', 'On Reaction']=None,
+        event_choice: str,
+        event_type: Literal['OnMessage', 'OnReaction']=None,
         trigger: str=None,
         code: str=None,
     ):
-        ''' Redefine one or more fields on an existing Macro. '''
+        ''' Redefine one or more fields on an existing Event. '''
         reply = interaction.response.send_message
 
-        name = name.split(' ')[0].lower()
-        if name not in events:
-            await reply(f'An Event by that name was not found.')
+        try:
+            event, _ = choice_to_scriptoid(event_choice, Event)
+        except:
+            await reply(f'Command failed, likely due to nonexistent Event.', ephemeral=True)
             return
-        event = events[name]
 
-        # TODO: Check event script code before saving
+        # TODO: Check event code for errors
 
         if event_type is not None:
             EventType = event_type_map[event_type]
@@ -511,58 +549,59 @@ class PipeSlashCommands(MyCommands):
         await reply(f'Successfully edited the Event.', embed=event.embed(interaction))
 
     @event_group.command(name='delete')
-    @app_commands.describe(name='The Event to delete')
-    @app_commands.rename(name='event')
-    @app_commands.autocomplete(name=autocomplete_event)
-    async def event_delete(self, interaction: Interaction, name: str):
-        ''' Delete a Macro. '''
+    @app_commands.describe(event_choice='The Event to delete')
+    @app_commands.rename(event_choice='event')
+    @app_commands.autocomplete(event_choice=autocomplete_event())
+    async def event_delete(self, interaction: Interaction, event_choice: str):
+        ''' Delete an Event. '''
         reply = interaction.response.send_message
 
-        name = name.split(' ')[0].lower()
-        if name not in events:
-            await reply(f'An Event by that name was not found.')
+        try:
+            event, _ = choice_to_scriptoid(event_choice, Event)
+        except:
+            await reply(f'Command failed, likely due to nonexistent Event.', ephemeral=True)
             return
 
-        del events[name]
-        await reply(f'Successfully deleted Event `{name}`.')
+        del events[event.name]
+        await reply(f'Successfully deleted Event `{event.name}`.')
         
-    async def _event_set_enabled(self, interaction: Interaction, name: str, enable: bool):
+    async def _event_set_enabled(self, interaction: Interaction, event_choice: str, enable: bool):
         reply = interaction.response.send_message
 
-        name = name.split(' ')[0].lower()
-        if name not in events:
-            await reply(f'An Event by that name was not found.')
+        try:
+            event, _ = choice_to_scriptoid(event_choice, Event)
+        except:
+            await reply(f'Command failed, likely due to nonexistent Event.', ephemeral=True)
             return
-        event = events[name]
 
         if enable:
             if interaction.channel.id in event.channels:
-                await reply(f'Event {name} is already enabled in {interaction.channel.mention}.')
+                await reply(f'Event {event.name} is already enabled in {interaction.channel.mention}.')
             else:                
                 event.channels.append(interaction.channel.id)
-                await reply(f'Event {name} has been enabled in {interaction.channel.mention}.')
+                await reply(f'Event {event.name} has been enabled in {interaction.channel.mention}.')
         else:
             if interaction.channel.id not in event.channels:
-                await reply(f'Event {name} is already disabled in {interaction.channel.mention}.')
+                await reply(f'Event {event.name} is already disabled in {interaction.channel.mention}.')
             else:                
                 event.channels.remove(interaction.channel.id)
-                await reply(f'Event {name} has been disabled in {interaction.channel.mention}.')
+                await reply(f'Event {event.name} has been disabled in {interaction.channel.mention}.')
 
     @event_group.command(name='enable')
-    @app_commands.describe(name='The Event to enable')
-    @app_commands.rename(name='event')
-    @app_commands.autocomplete(name=autocomplete_event)
-    async def event_enable(self, interaction: Interaction, name: str):
-        ''' Delete a Macro. '''
-        await self._event_set_enabled(interaction, name, enable=True)
+    @app_commands.describe(event_choice='The Event to enable')
+    @app_commands.rename(event_choice='event')
+    @app_commands.autocomplete(event_choice=autocomplete_event(enabled=False))
+    async def event_enable(self, interaction: Interaction, event_choice: str):
+        ''' Enable an Event in this channel. '''
+        await self._event_set_enabled(interaction, event_choice, enable=True)
 
     @event_group.command(name='disable')
-    @app_commands.describe(name='The Event to disable')
-    @app_commands.rename(name='event')
-    @app_commands.autocomplete(name=autocomplete_event)
-    async def event_disable(self, interaction: Interaction, name: str):
-        ''' Delete a Macro. '''
-        await self._event_set_enabled(interaction, name, enable=False)
+    @app_commands.describe(event_choice='The Event to disable')
+    @app_commands.rename(event_choice='event')
+    @app_commands.autocomplete(event_choice=autocomplete_event(enabled=True))
+    async def event_disable(self, interaction: Interaction, event_choice: str):
+        ''' Disable an Event in this channel. '''
+        await self._event_set_enabled(interaction, event_choice, enable=False)
 
 
 

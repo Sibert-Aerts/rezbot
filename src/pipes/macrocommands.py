@@ -10,6 +10,7 @@ from .pipes import pipes
 from .sources import sources
 from .macros import Macro, MacroSig, Macros, pipe_macros, source_macros
 import utils.texttools as texttools
+from utils.util import normalize_name
 from mycommands import MyCommands
 
 
@@ -65,7 +66,7 @@ class MacroCommands(MyCommands):
         try: macros, visible, native, check = typedict[what]
         except: await self.what_complain(channel); return
 
-        name = name.lower().split(' ')[0]
+        name = normalize_name(name)
         if name in native or name in macros:
             await channel.send('A {0} called `{1}` already exists, try `>redefine {0}` instead.'.format(what, name))
             return
@@ -90,7 +91,7 @@ class MacroCommands(MyCommands):
         try: macros, _, _, check = typedict[what]
         except: await self.what_complain(channel); return
 
-        name = name.lower().split(' ')[0]
+        name = normalize_name(name)
         if name not in macros:
             await self.not_found_complain(channel, what); return
 
@@ -117,7 +118,7 @@ class MacroCommands(MyCommands):
         try: macros, *_ = typedict[what]
         except: await self.what_complain(channel); return
 
-        name = name.lower().split(' ')[0]
+        name = normalize_name(name)
         if name not in macros:
             await self.not_found_complain(channel, what); return
 
@@ -135,7 +136,7 @@ class MacroCommands(MyCommands):
         try: macros, *_ = typedict[what]
         except: await self.what_complain(ctx); return
 
-        name = name.lower().split(' ')[0]
+        name = normalize_name(name)
         if name not in macros:
             await self.not_found_complain(ctx, what); return
 
@@ -153,7 +154,7 @@ class MacroCommands(MyCommands):
         try: macros, *_ = typedict[what]
         except: await self.what_complain(ctx); return
 
-        name = name.lower().split(' ')[0]
+        name = normalize_name(name)
         if name not in macros:
             await self.not_found_complain(ctx, what); return
 
@@ -185,7 +186,7 @@ class MacroCommands(MyCommands):
         try: macros, *_ = typedict[what]
         except: await self.what_complain(ctx); return
 
-        name = name.lower().split(' ')[0]
+        name = normalize_name(name)
         if name not in macros:
             await self.not_found_complain(ctx, what); return
 
@@ -204,7 +205,7 @@ class MacroCommands(MyCommands):
         try: macros, *_ = typedict[what]
         except: await self.what_complain(ctx); return
 
-        name = name.lower().split(' ')[0]
+        name = normalize_name(name)
         if name not in macros:
             await self.not_found_complain(ctx, what); return
 
