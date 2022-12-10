@@ -7,8 +7,10 @@ import math
 import textwrap
 import re
 import hashlib
+from configparser import ConfigParser
 from functools import wraps, lru_cache
 
+import openai
 from datamuse import datamuse
 from google.cloud import translate_v2 as translate
 import nltk
@@ -900,11 +902,39 @@ def pos_analyse_pipe(text):
     # Return flattened tuples of (text, tag, whitespace)
     return [ x for t in doc for x in (t.text, t.pos_, t.whitespace_) ]
 
+openai_works = False
+def openai_setup(): 
+    config = ConfigParser()
+    config.read('config.ini')
+    openai_api_key = config['OPENAI']['api_key']
+    if openai_api_key == 'PutYourKeyHere':
+        return
+    openai.api_key = openai_api_key
+    
+    global openai_works
+    openai_works = True
 
-@make_pipe({}, may_use=lambda user: permissions.has(user.id, permissions.owner), command=True)
+openai_setup()
+
+@make_pipe({
+        'n':            Par(int, 1, 'The amount of completions to generate.'),
+        'max_tokens':   Par(int, 50, 'The limit of tokens to generate per completion, includes prompt.'),
+        'model':        Par(str, 'ada', 'The GPT model to use.'),
+        'prepend_prompt': Par(parse_bool, True, 'Whether to automatically prepend the input prompt to each completion.'),
+    },
+    may_use=lambda user: permissions.has(user.id, permissions.trusted),
+    command=True,
+)
 @one_to_many
-def gpt_pipe(text):
-    return [text + ", and that's how it really happened"]
+def gpt_complete_pipe(text, n, max_tokens, model, prepend_prompt):
+    '''Uses OpenAI GPT models to generate a completion to the individual given inputs.'''
+    if not openai_works: return [text]
+
+    response = openai.Completion.create(model=model, prompt=text, max_tokens=max_tokens, n=n)
+    completions = [choice.text for choice in response.choices]
+    if prepend_prompt:
+        completions = [text + completion for completion in completions]
+    return completions
 
 
 #####################################################
