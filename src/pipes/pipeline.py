@@ -1,5 +1,5 @@
 import re
-from typing import List, Tuple, Optional, Any, TypeVar, Union
+from typing import Union
 
 import discord
 
@@ -10,18 +10,20 @@ from utils.choicetree import ChoiceTree
 import pipes.groupmodes as groupmodes
 from .logger import ErrorLog
 
+
 class PipelineError(ValueError):
     '''Special error for some invalid element when processing a pipeline.'''
+
 
 class ParsedPipe:
     '''In a parsed Pipeline represents a single, specific pipeoid along with its specific assigned arguments.'''
     # Different types of ParsedPipe, determined at moment of parsing
     SPECIAL      = object()
-    NATIVEPIPE   = object()
+    NATIVE_PIPE   = object()
     SPOUT        = object()
-    NATIVESOURCE = object()
-    PIPEMACRO    = object()
-    SOURCEMACRO  = object()
+    NATIVE_SOURCE = object()
+    MACRO_PIPE    = object()
+    MACRO_SOURCE  = object()
     UNKNOWN      = object()
 
     def __init__(self, pipestr:str):
@@ -31,14 +33,14 @@ class ParsedPipe:
         self.argstr = args[0] if args else ''
 
         self.errors = ErrorLog()
-        self.arguments: Optional[Arguments] = None
+        self.arguments: Arguments|None = None
         
         ## (Attempt to) determine what kind of pipe it is ahead of time
         if self.name in ['', 'nop', 'print']:
             self.type = ParsedPipe.SPECIAL
             # Special pipes don't have arguments
         elif self.name in pipes:
-            self.type = ParsedPipe.NATIVEPIPE
+            self.type = ParsedPipe.NATIVE_PIPE
             self.pipe = pipes[self.name]
             self.arguments, _, errors = Arguments.from_string(self.argstr, self.pipe.signature)
             self.errors.extend(errors, self.name)
@@ -48,16 +50,16 @@ class ParsedPipe:
             self.arguments, _, errors = Arguments.from_string(self.argstr, self.pipe.signature)
             self.errors.extend(errors, self.name)
         elif self.name in sources:
-            self.type = ParsedPipe.NATIVESOURCE
+            self.type = ParsedPipe.NATIVE_SOURCE
             self.pipe = sources[self.name]
             self.arguments, _, errors = Arguments.from_string(self.argstr, self.pipe.signature)
             self.errors.extend(errors, self.name)
         elif self.name in pipe_macros:
-            self.type = ParsedPipe.PIPEMACRO
+            self.type = ParsedPipe.MACRO_PIPE
             self.arguments, _, errors = Arguments.from_string(self.argstr)
             self.errors.extend(errors, self.name)
         elif self.name in source_macros:
-            self.type = ParsedPipe.SOURCEMACRO
+            self.type = ParsedPipe.MACRO_SOURCE
             self.arguments, _, errors = Arguments.from_string(self.argstr)
             self.errors.extend(errors, self.name)
         else:
@@ -71,16 +73,16 @@ class ParsedPipe:
 
 class Pipeline:
     ''' 
-        The Pipeline class parses a pipeline script into a reusable, applicable Pipeline object.
-        A Pipeline is made for each script execution, for nested (parenthesised) Pipelines, and for macros.
-        Its state should be immutable and comprises only two things:
-            An internal representation of the script using e.g. ParsedPipes, GroupModes, Pipelines, etc.
-            An ErrorLog containing warnings and errors encountered during parsing.
+    The Pipeline class parses a pipeline script into a reusable, applicable Pipeline object.
+    A Pipeline is made for each script execution, for nested (parenthesised) Pipelines, and for Macros.
+    Its state should be immutable past parsing and comprises only two things:
+        * An internal representation of the script using ParsedPipes, GroupModes, Pipelines, Arguments, etc.
+        * An ErrorLog containing warnings and errors encountered during parsing.
     '''
     def __init__(self, string: str, iterations: str=None):
         self.parser_errors = ErrorLog()
 
-        self.iterations = int(iterations) if iterations else 1
+        self.iterations = int(iterations or 1)
         if self.iterations < 0:
             self.parser_errors.log('Negative iteration counts are not allowed.', True)
 
@@ -88,7 +90,7 @@ class Pipeline:
         segments = self.split_into_segments(string)
 
         ### For each segment, parse the group mode, expand the parallel pipes and parse each parallel pipe.
-        self.parsed_segments: List[Tuple[ groupmodes.GroupMode, List[Union[ParsedPipe, Pipeline]] ]] = []
+        self.parsed_segments: list[tuple[ groupmodes.GroupMode, list[ParsedPipe | Pipeline] ]] = []
         for segment in segments:
             try:
                 segment, groupMode = groupmodes.parse(segment)
@@ -99,7 +101,8 @@ class Pipeline:
             parallel = self.parse_segment(segment)
             self.parsed_segments.append((groupMode, parallel))
 
-    def split_into_segments(self, string):
+    @classmethod
+    def split_into_segments(cls, string: str):
         '''
         Split the sequence of pipes (one big string) into a list of pipes (list of strings).
         Doesn't split on >'s inside quote blocks or within parentheses, and inserts "print"s on ->'s.
@@ -108,7 +111,7 @@ class Pipeline:
         # There are NO ESCAPE SEQUENCES. Every quotation mark is taken as one. Every parenthesis outside of quotation marks is 100% real.
         # TODO: NOTE: This causes terrible parsing inconsistencies. e.g.    foo > bar x=( > baz     only splits on the first >
 
-        segments = []
+        segments: list[str] = []
         quotes = False
         parens = 0
         start = 0
@@ -151,7 +154,8 @@ class Pipeline:
     wrapping_parens_regex = re.compile(r'\(((.*)\)(?:\^(-?\d+))?|(.*))', re.S)
     #                                        ^^         ^^^^^     ^^
 
-    def steal_parentheses(self, segment):
+    @classmethod
+    def steal_parentheses(cls, segment):
         '''Steals all (intelligently-parsed) parentheses-wrapped parts from a string and puts them in a list so we can put them back later.'''
         ## Prepare the segment for Magic
         # Pretty sure the magic markers don't need to be different from the triple quote ones, but it can't hurt so why not haha
@@ -161,7 +165,7 @@ class Pipeline:
         # NOTE: So why not combine the two into one? Well, I tried, but BETWEEN splitting into segments and stealing parentheses
         # we have to consume the group mode from each segment! Which is hard to squeeze in here! Especially since one group mode also uses parentheses!!!
         stolen = []
-        bereft = ''
+        bereft = []
 
         quotes = False
         parens = 0
@@ -183,7 +187,7 @@ class Pipeline:
                 ## This '(' opens a top level parenthesis: Start stealing it.
                 if parens == 1:
                     ## Leave behind a Magic Marker in its place, and remember where it started
-                    bereft += segment[start:i] + 'µ' + str(len(stolen)) + 'µ'
+                    bereft += (segment[start:i], 'µ',  str(len(stolen)), 'µ')
                     start = i
 
             ## Close parentheses
@@ -199,18 +203,20 @@ class Pipeline:
         ## Parentheses weren't closed before the segment (and thus also the script) ended: Pretend they were closed.
         if parens > 0: stolen.append(segment[start:])
         ## Parentheses were closed: Just add the last bit of text and we're done.
-        else: bereft += segment[start:]
+        else: bereft.append( segment[start:] )
 
-        return bereft, stolen
+        return ''.join(bereft), stolen
 
     rp_regex = re.compile(r'µ(\d+)µ')
     rq_regex = re.compile(r'§(\d+)§')
 
-    def restore_parentheses(self, bereft, stolen):
-        bereft = self.rp_regex.sub(lambda m: stolen[int(m[1])], bereft)
+    @classmethod
+    def restore_parentheses(cls, bereft, stolen):
+        bereft = cls.rp_regex.sub(lambda m: stolen[int(m[1])], bereft)
         return bereft.replace('?µ?', 'µ')
 
-    def steal_triple_quotes(self, segment):
+    @classmethod
+    def steal_triple_quotes(cls, segment):
         '''Steals all triple quoted parts from a string and puts them in a list so we can put them back later.'''
         stolen = []
         def steal(match):
@@ -220,11 +226,12 @@ class Pipeline:
         segment = re.sub(r'(?s)""".*?"""', steal, segment) # (?s) means "dot matches all"
         return segment, stolen
 
-    def restore_triple_quotes(self, bereft, stolen):
-        bereft = self.rq_regex.sub(lambda m: stolen[int(m[1])], bereft)
+    @classmethod
+    def restore_triple_quotes(cls, bereft, stolen):
+        bereft = cls.rq_regex.sub(lambda m: stolen[int(m[1])], bereft)
         return bereft.replace('!§!', '§')
 
-    def parse_segment(self, segment) -> List[ Union[ParsedPipe, 'Pipeline'] ]:
+    def parse_segment(self, segment: str) -> list[Union[ParsedPipe, 'Pipeline']]:
         '''Turn a single string describing one or more parallel pipes into a list of ParsedPipes or Pipelines.'''
         #### True and utter hack: Steal triple-quoted strings and parentheses wrapped strings out of the segment string.
         # This way these types of substrings are not affected by ChoiceTree expansion, because we only put them back afterwards.
@@ -233,8 +240,8 @@ class Pipeline:
         segment, stolen_parens = self.steal_parentheses(segment)
         segment, stolen_quotes = self.steal_triple_quotes(segment)
 
-        ### Parse the simultaneous pipes into a usable form: A List[Union[Pipeline, ParsedPipe]]
-        parsedPipes = []
+        ### Parse the simultaneous pipes into a usable form: A list[Union[Pipeline, ParsedPipe]]
+        parsedPipes: list[ParsedPipe | Pipeline] = []
 
         # ChoiceTree expands the segment into the different parallel pipes 
         for pipe in ChoiceTree(segment, add_brackets=True):
@@ -261,7 +268,7 @@ class Pipeline:
 
         return parsedPipes
 
-    def check_items(self, values, message):
+    def check_items(self, values: list[str], message: discord.Message):
         '''Raises an error if the user is asking too much of the bot.'''
         # TODO: this could stand to be smarter/more oriented to the type of operation you're trying to do, or something, maybe...?
         # meditate on this...
@@ -270,7 +277,7 @@ class Pipeline:
         if chars > MAXCHARS and not permissions.has(message.author.id, permissions.owner):
             raise PipelineError(f'Attempted to process a flow of {chars} total characters at once, try staying under {MAXCHARS}.')
 
-    async def apply(self, items: List[str], message, parent_context=None) -> Tuple[ List[str], List[List[str]], ErrorLog, List[Any] ]:
+    async def apply(self, items: list[str], message: discord.Message, parent_context: 'Context'=None) -> tuple[ list[str], list[list[str]], ErrorLog, list ]:
         '''Apply the pipeline to a list of items the denoted amount of times.'''
         errors = ErrorLog()
         NOTHING_BUT_ERRORS = (None, None, errors, None)
@@ -278,19 +285,19 @@ class Pipeline:
         errors.extend(self.parser_errors)
         if errors.terminal: return NOTHING_BUT_ERRORS
 
-        printValues = []
+        print_values = []
         spoutCallbacks = []
         for _ in range(self.iterations):
             iterItems, iterPrintValues, iterErrors, iterSpoutCallbacks = await self.apply_iteration(items, message, parent_context)
             errors.extend(iterErrors)
             if errors.terminal: return NOTHING_BUT_ERRORS
             items = iterItems
-            printValues.extend(iterPrintValues)
+            print_values.extend(iterPrintValues)
             spoutCallbacks.extend(iterSpoutCallbacks)
 
-        return items, printValues, errors, spoutCallbacks
+        return items, print_values, errors, spoutCallbacks
 
-    async def apply_iteration(self, items: List[str], message: discord.Message, parent_context: 'Context'=None) -> Tuple[ List[str], List[List[str]], ErrorLog, List[Any] ]:
+    async def apply_iteration(self, items: list[str], message: discord.Message, parent_context: 'Context'=None) -> tuple[ list[str], list[list[str]], ErrorLog, list ]:
         '''Apply the pipeline to a list of items a single time.'''
         ## This is the big method where everything happens.
 
@@ -312,28 +319,28 @@ class Pipeline:
         self.check_items(loose_items, message)
 
         ### This loop iterates over the pipeline's segments as they are applied in sequence. (first > second > third)
-        for groupMode, parsed_pipes in self.parsed_segments:
+        for group_mode, parsed_pipes in self.parsed_segments:
             next_items = []
             new_printed_items = []
 
             # Non-trivial groupmodes add a new context layer
-            if groupMode.splits_trivially():
+            if group_mode.splits_trivially():
                 group_context = context
             else:
                 context.set(loose_items)
                 group_context = Context(context)
 
             try:
-                appliedGroupMode = groupMode.apply(loose_items, parsed_pipes)
+                applied_group_mode = group_mode.apply(loose_items, parsed_pipes)
             except groupmodes.GroupModeError as e:
                 errors.log('GroupModeError: ' + str(e), True)
                 return NOTHING_BUT_ERRORS
 
-            ### The group mode turns the List[item], List[pipe] into  List[Tuple[ List[item], Optional[Pipe] ]]
+            ### The group mode turns the list[item], list[pipe] into  list[Tuple[ list[item], Optional[Pipe] ]]
             # i.e. it splits the list of items into smaller lists, and assigns each one a pipe to be applied to (if any).
             # The implemenation of this arcane flowchart magicke is detailed in `./groupmodes.py`
             # In the absolute simplest (and most common) case, all values are simply sent to a single pipe, and this loop iterates exactly once.
-            for items, parsed_pipe in appliedGroupMode:
+            for items, parsed_pipe in applied_group_mode:
                 group_context.set(items)
 
                 ## CASE: `None` is how the groupmode assigns values to remain unaffected
@@ -343,15 +350,15 @@ class Pipeline:
 
                 ## CASE: The pipe is itself an inlined Pipeline (recursion!)
                 if isinstance(parsed_pipe, Pipeline):
-                    items, pl_printValues, pl_errors, pl_spout_callbacks = await parsed_pipe.apply(items, message, group_context)
+                    items, pl_print_values, pl_errors, pl_spout_callbacks = await parsed_pipe.apply(items, message, group_context)
                     errors.extend(pl_errors, 'braces')
                     if errors.terminal: return NOTHING_BUT_ERRORS
                     next_items.extend(items)
                     spout_callbacks += pl_spout_callbacks
 
                     # Special case where we can safely absorb print items into the whole
-                    if groupMode.is_singular():
-                        printed_items.extend(pl_printValues)
+                    if group_mode.is_singular():
+                        printed_items.extend(pl_print_values)
 
                     continue
 
@@ -383,7 +390,7 @@ class Pipeline:
                     spout_callbacks.append(spouts['print'](items))
 
                 ## A NATIVE PIPE
-                elif parsed_pipe.type == ParsedPipe.NATIVEPIPE:
+                elif parsed_pipe.type == ParsedPipe.NATIVE_PIPE:
                     pipe: Pipe = parsed_pipe.pipe
                     if not pipe.may_use(message.author):
                         errors.log(f'User lacks permission to use Pipe `{pipe.name}`.', True)
@@ -412,7 +419,7 @@ class Pipeline:
                         return NOTHING_BUT_ERRORS
                     
                 ## A NATIVE SOURCE
-                elif parsed_pipe.type == ParsedPipe.NATIVESOURCE:
+                elif parsed_pipe.type == ParsedPipe.NATIVE_SOURCE:
                     # Sources don't accept input values: Discard them but warn about it if nontrivial input is being discarded.
                     # This is just a style warning, if it turns out this is annoying then it should be removed.
                     if items and not (len(items) == 1 and not items[0]):
@@ -440,7 +447,7 @@ class Pipeline:
                         macro = Pipeline(code)
                         pipe_macros.pipeline_cache[code] = macro
 
-                    newvals, macro_printValues, macro_errors, macro_spout_callbacks = await macro.apply(items, message)
+                    newvals, macro_print_values, macro_errors, macro_spout_callbacks = await macro.apply(items, message)
                     errors.extend(macro_errors, name)
                     if errors.terminal: return NOTHING_BUT_ERRORS
 
@@ -448,16 +455,16 @@ class Pipeline:
                     spout_callbacks += macro_spout_callbacks
 
                     # Special case where we can safely absorb print items into the whole
-                    if groupMode.is_singular():
-                        printed_items.extend(macro_printValues)
+                    if group_mode.is_singular():
+                        printed_items.extend(macro_print_values)
 
                 ## A SOURCE MACRO
                 elif name in source_macros:
                     if items and not (len(items) == 1 and not items[0]):
                         errors.log(f'Macro-source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
 
-                    sourceMacro = ParsedSource(name, None, None)
-                    newVals, src_errs = await sourceMacro.evaluate(message, group_context, args)
+                    source_macro = ParsedSource(name, None, None)
+                    newVals, src_errs = await source_macro.evaluate(message, group_context, args)
                     errors.steal(src_errs, context='source-as-pipe')
 
                     if newVals is None or errors.terminal:

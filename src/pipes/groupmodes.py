@@ -1,5 +1,5 @@
 import re
-from typing import List, Tuple, Optional, TypeVar, Union
+from typing import TypeVar
 from random import choice
 
 # Pipe grouping syntax!
@@ -189,6 +189,7 @@ from random import choice
 #         delta
 
 class GroupModeError(ValueError):
+    '''Something went wrong while parsing or applying a GroupMode.'''
     pass
 
 T = TypeVar('T')
@@ -207,10 +208,10 @@ class SplitMode:
         if self.strictness == 2: return 'VERY STRICT '
 
     def isDefault(self):
-        '''Whether or not this SplitMode is the default groupmode DIVIDE BY 1.'''
+        '''Whether or not this SplitMode is the default GroupMode DIVIDE BY 1.'''
         return False
 
-    def apply(self, items: List[P]) -> List[Tuple[List[P], bool]]:
+    def apply(self, items: list[P]) -> list[tuple[list[P], bool]]:
         raise NotImplementedError()
 
 class Row(SplitMode):
@@ -223,7 +224,7 @@ class Row(SplitMode):
     def __str__(self):
         return '{}ROWS SIZE {}{}'.format(super().__str__(), self.size, ' WITH PADDING' if self.padding else '')
 
-    def apply(self, items: List[P]) -> List[Tuple[List[P], bool]]:
+    def apply(self, items: list[P]) -> list[tuple[list[P], bool]]:
         length = len(items)     # The number of items we want to split
         size = self.size        # The size of each group (GIVEN)
         count= length //size    # The minimal number of groups we have to split it into
@@ -269,7 +270,7 @@ class Divide(SplitMode):
     def __str__(self):
         return '{}DIVIDE INTO {}{}'.format(super().__str__(), self.count, ' WITH PADDING' if self.padding else '')
 
-    def apply(self, items: List[P]) -> List[Tuple[List[P], bool]]:
+    def apply(self, items: list[P]) -> list[tuple[list[P], bool]]:
         length = len(items)     # The number of items we want to split
         count = self.count      # The number of groups we want to split it into (GIVEN)
         size = length //count   # The minimal size of each group
@@ -327,7 +328,7 @@ class Modulo(SplitMode):
     def __str__(self):
         return '{}MODULO {}{}'.format(super().__str__(), self.modulo, ' WITH PADDING' if self.padding else '')
 
-    def apply(self, items: List[P]) -> List[Tuple[List[P], bool]]:
+    def apply(self, items: list[P]) -> list[tuple[list[P], bool]]:
         length = len(items)    # The number of items we want to split
         count = self.modulo     # The number of groups we want to split it into (GIVEN)
         size = length //count   # The minimal size of each group
@@ -375,7 +376,7 @@ class Column(SplitMode):
     def __str__(self):
         return '{}COLUMNS SIZE {}{}'.format(super().__str__(), self.size, ' WITH PADDING' if self.padding else '')
 
-    def apply(self, items: List[P]) -> List[Tuple[List[P], bool]]:
+    def apply(self, items: list[P]) -> list[tuple[list[P], bool]]:
         length = len(items)     # The number of items we want to split
         size = self.size        # The size of each group (GIVEN)
         count= length //size    # The minimal number of groups we have to split it into
@@ -434,7 +435,7 @@ class Interval(SplitMode):
         if self.rval is None: return '{}INDEX AT {}'.format(super().__str__(), self.lval)
         return '{}INTERVAL FROM {} TO {}'.format(super().__str__(), self.lval, self.rval)
 
-    def apply(self, items: List[P]) -> List[Tuple[List[P], bool]]:
+    def apply(self, items: list[P]) -> list[tuple[list[P], bool]]:
         length = len(items)
 
         if length == 0: return [(items, False)]
@@ -487,7 +488,7 @@ class AssignMode:
         ''' A method that returns False unless the AssignMode is DefaultAssign(multiply=False) '''
         return False
 
-    def apply(self, tuples: List[Tuple[T, bool]], pipes: List[P]) -> List[Tuple[T, P]]:
+    def apply(self, tuples: list[tuple[T, bool]], pipes: list[P]) -> list[tuple[T, P]]:
         raise NotImplementedError()
 
 class DefaultAssign(AssignMode):
@@ -500,7 +501,7 @@ class DefaultAssign(AssignMode):
     def is_trivial(self):
         return not self.multiply
 
-    def apply(self, tuples: List[Tuple[T, bool]], pipes: List[P]) -> List[Tuple[T, Optional[P]]]:
+    def apply(self, tuples: list[tuple[T, bool]], pipes: list[P]) -> list[tuple[T, P | None]]:
         out = []
         i = 0
         l = len(pipes)
@@ -563,7 +564,7 @@ class Switch(AssignMode):
             if self.type == 3: return '{} {}LIKE /{}/'.format(self.left, 'NOT ' if self.inverse else '', self.re_str)
             if self.type == 4: return '{}THING'.format('NO' if self.inverse else 'ANY')
 
-        def check(self, values: List[str]) -> bool:
+        def check(self, values: list[str]) -> bool:
             try:
                 if self.type == 1:
                     return self.inverse ^ (values[self.left] == values[self.right])
@@ -598,7 +599,7 @@ class Switch(AssignMode):
     def __str__(self):
         return '{}CONDITIONAL {{ {} }}'.format(super().__str__(), ' | '.join(str(c) for c in self.conditions))
 
-    def apply(self, tuples: List[Tuple[T, bool]], pipes: List[P]) -> List[Tuple[T, Optional[P]]]:
+    def apply(self, tuples: list[tuple[T, bool]], pipes: list[P]) -> list[tuple[T, P | None]]:
         #### Sends ALL VALUES as a single group to the FIRST pipe whose corresponding condition succeeds
         ## Multiply:    Send all values to EACH pipe whose condition succeeds
         ## Non-strict:  If all conditions fail, either pass to the (n+1)th pipe or leave values unaffected if it is not present
@@ -658,7 +659,7 @@ class Random(AssignMode):
     def __str__(self):
         return super().__str__() + 'RANDOM'
 
-    def apply(self, tuples: List[Tuple[T, bool]], pipes: List[P]) -> List[Tuple[T, Optional[P]]]:
+    def apply(self, tuples: list[tuple[T, bool]], pipes: list[P]) -> list[tuple[T, P | None]]:
         return [ (items, None if ignore else choice(pipes)) for (items, ignore) in tuples ]
 
 
@@ -672,7 +673,7 @@ class IfMode:
     def __str__(self):
         return 'IF ((' + str(self.cond) + '))' + ('!' if self.strict else '')
 
-    def apply(self, tuples: List[Tuple[T, bool]]) -> List[Tuple[T, bool]]:
+    def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
         out = []
         for (items, ignore) in tuples:
             if ignore:
@@ -705,7 +706,7 @@ class GroupBy:
     def __str__(self):
         return self.mode + ' BY ' + ', '.join(str(i) for i in self.keys)
 
-    def apply(self, tuples: List[Tuple[T, bool]]) -> List[Tuple[T, bool]]:
+    def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
         out = []
         known = {}
 
@@ -761,7 +762,7 @@ class SortBy:
     def __str__(self):
         return 'SORT BY ' + ', '.join( ('+'+str(i) if self.isNum[i] else str(i)) for i in self.keys)
 
-    def apply(self, tuples: List[Tuple[T, bool]]) -> List[Tuple[T, bool]]:
+    def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
         head = []
         toSort = []
         tail = []
@@ -782,43 +783,43 @@ class SortBy:
 
 class GroupMode:
     '''A class that combines multiple SplitModes and an AssignMode'''
-    def __init__(self, splitModes: List[SplitMode], midModes: List[Union[IfMode, SortBy, GroupBy]], assignMode: AssignMode):
-        self.splitModes: List[SplitMode] = splitModes
-        self.midModes = midModes
-        self.assignMode: AssignMode = assignMode
+    def __init__(self, split_modes: list[SplitMode], mid_modes: list[IfMode | SortBy | GroupBy], assign_mode: AssignMode):
+        self.split_modes= split_modes
+        self.mid_modes = mid_modes
+        self.assign_mode = assign_mode
 
     def __str__(self):
-        if self.splits_trivially() and self.assignMode.is_trivial():
+        if self.splits_trivially() and self.assign_mode.is_trivial():
             return 'TRIVIAL'
-        splitmodes = ' > '.join(str(s) for s in self.splitModes)
-        ifMode = (' × ' + str(self.ifMode)) if self.ifMode else ''
-        groupBy = (' × ' + str(self.groupBy)) if self.groupBy else ''
-        assignMode= ' × ' + str(self.assignMode)
-        return splitmodes + ifMode + groupBy + assignMode
+        split_modes = ' > '.join(str(s) for s in self.split_modes)
+        if_mode = (' × ' + str(self.if_mode)) if self.if_mode else ''
+        group_by = (' × ' + str(self.group_by)) if self.group_by else ''
+        assign_mode = ' × ' + str(self.assign_mode)
+        return split_modes + if_mode + group_by + assign_mode
 
     def splits_trivially(self):
-        return not self.splitModes
+        return not self.split_modes
 
     def is_singular(self):
-        return not self.splitModes and not self.assignMode.multiply
+        return not self.split_modes and not self.assign_mode.multiply
 
-    def apply(self, all_items: List[T], pipes: List[P]) -> List[ Tuple[List[T], Optional[P]] ]:
-        groups: List[Tuple[List[T], bool]] = [(all_items, False)]
+    def apply(self, all_items: list[T], pipes: list[P]) -> list[tuple[ list[T], P | None ]]:
+        groups: list[tuple[list[T], bool]] = [(all_items, False)]
 
         ## Apply the SplitModes
-        for groupmode in self.splitModes:
-            newGroups = []
+        for group_mode in self.split_modes:
+            new_group = []
             for items, ignore in groups:
-                if ignore: newGroups.append( (items, True, None) )
-                else: newGroups.extend( groupmode.apply(items) )
-            groups = newGroups
+                if ignore: new_group.append( (items, True, None) )
+                else: new_group.extend( group_mode.apply(items) )
+            groups = new_group
 
         ## Apply the MidModes
-        for midMode in self.midModes:
-            groups = midMode.apply(groups)
+        for mid_mode in self.mid_modes:
+            groups = mid_mode.apply(groups)
 
         ## Apply the AssignMode
-        return self.assignMode.apply(groups, pipes)
+        return self.assign_mode.apply(groups, pipes)
 
 
 # pattern:
@@ -871,29 +872,30 @@ strict_pattern = re.compile(r'\s*(!?!?)\s*')
 
 op_dict = {'/': Divide, '\\': Column, '%': Modulo}
 
-def parse(bigPipe):
+def parse(big_pipe: str):
+    '''Consumes the GroupMode from the start of a string and returns the GroupMode and remainder.'''
     ### HEAD MULTIPLY FLAG (for backwards compatibility)
-    m = mul_pattern.match(bigPipe)
+    m = mul_pattern.match(big_pipe)
     multiply = (m[1] == '*')
-    cropped = bigPipe[m.end():]
+    cropped = big_pipe[m.end():]
 
-    splitModes: List[SplitMode] = []
+    split_modes: list[SplitMode] = []
     ### SPLITMODES (multiple consecutive ones!)
     while(True):
         ### MODE
         m = row_pattern.match(cropped)
         if m is not None:
-            splitMode = Row
+            split_mode = Row
             value = m[1]
         else:
             m = op_pattern.match(cropped)
             if m is not None:
-                splitMode = op_dict[m[1]]
+                split_mode = op_dict[m[1]]
                 value = m[2]
             else:
                 m = int_pattern.match(cropped)
                 if m is not None:
-                    splitMode = Interval
+                    split_mode = Interval
                     lval, rval = m.groups()
                 else:
                     ## No (more) SplitMode found; Stop the loop!
@@ -911,38 +913,38 @@ def parse(bigPipe):
 
         ## Instantiate our SplitMode (this can raise GroupModeErrors)
         try:
-            if splitMode in [Row, Column, Divide, Modulo]:
+            if split_mode in [Row, Column, Divide, Modulo]:
                 if value is None: raise GroupModeError('Missing number.')
                 padding = (value[0]=='0')
                 value = int(value)
-                splitMode = splitMode(strictness, value, padding)
+                split_mode = split_mode(strictness, value, padding)
 
-            elif splitMode is Interval:
-                splitMode = Interval(strictness, lval, rval)
+            elif split_mode is Interval:
+                split_mode = Interval(strictness, lval, rval)
 
         except GroupModeError as e:
             raise GroupModeError( 'In split mode `%s`: %s' % (flag, e) )
 
-        splitModes.append(splitMode)
+        split_modes.append(split_mode)
 
-    midModes = []
+    mid_modes = []
 
     ### IFMODE (optional)
     m = if_pattern.match(cropped)
     if m is not None:
-        midModes.append(IfMode(m[1], m[2]))
+        mid_modes.append(IfMode(m[1], m[2]))
         cropped = cropped[m.end():]
 
     ### SORTBY MODE (optional)
     m = sort_by_pattern.match(cropped)
     if m is not None:
-        midModes.append(SortBy(m[1]))
+        mid_modes.append(SortBy(m[1]))
         cropped = cropped[m.end():]
 
     ### GROUPBY MODE (optional)
     m = group_by_pattern.match(cropped)
     if m is not None:
-        midModes.append(GroupBy(m[1], m[2]))
+        mid_modes.append(GroupBy(m[1], m[2]))
         cropped = cropped[m.end():]
 
     ### ASSIGNMODE MULTIPLY FLAG (preferred syntax)
@@ -953,19 +955,19 @@ def parse(bigPipe):
     ### ASSIGNMODE
     m = switch_pattern.match(cropped) or switch_pattern_DEPREC.match(cropped)
     if m is not None:
-        assignMode = Switch(multiply, len(m[2]), m[1])
+        assign_mode = Switch(multiply, len(m[2]), m[1])
         cropped = cropped[m.end():]
     else:
         m = rand_pattern.match(cropped)
         if m is not None:
-            assignMode = Random(multiply)
+            assign_mode = Random(multiply)
             cropped = cropped[m.end():]
         else:
-            assignMode = DefaultAssign(multiply)
+            assign_mode = DefaultAssign(multiply)
 
     ### GROUPMODE
-    groupMode = GroupMode(splitModes, midModes, assignMode)
-    return cropped, groupMode
+    group_mode = GroupMode(split_modes, mid_modes, assign_mode)
+    return cropped, group_mode
 
 
 # Tests!

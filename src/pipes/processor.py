@@ -1,5 +1,4 @@
 import re
-from typing import List, Tuple, Optional, Any, TypeVar, Union
 
 from lru import LRU
 import discord
@@ -8,9 +7,9 @@ import discord
 from .logger import ErrorLog
 import utils.texttools as texttools
 
-#################################################################
-#               The class that puts it all to work              #
-#################################################################
+'''
+The PipelineProcessor class provides the primary interface through which Rezbot Scripts are executed.
+'''
 
 
 class TerminalError(Exception):
@@ -42,51 +41,14 @@ class PipelineProcessor:
                 await self.execute_script(event.script, message, context, name='Event: ' + event.name)
 
     async def on_reaction(self, channel, emoji, user_id, msg_id):
+        '''Check if an incoming reaction triggers any custom Events.'''
         for event in events.values():
             if isinstance(event, OnReaction) and event.test(channel, emoji):
                 message = await channel.fetch_message(msg_id)
                 await self.execute_script(event.script, message, Context(items=[emoji, str(user_id)]), name='Event: ' + event.name)
 
-    async def print(self, dest, output):
-        ''' Nicely print the output in rows and columns and even with little arrows.'''
-
-        # Don't apply any formatting if the output is just a single row and column.
-        if len(output) == 1:
-            if len(output[0]) == 1:
-                if output[0][0].strip() != '':
-                    await dest.send(output[0][0])
-                else:
-                    await dest.send('`empty string`')
-                return
-            elif len(output[0]) == 0:
-                await dest.send('`no output`')
-                return
-
-        rowCount = len(max(output, key=len))
-        rows = [''] * rowCount
-        for c in range(len(output)):
-            col = output[c]
-            if len(col) == 0: continue
-            colWidth = len(max(col, key=len))
-            for r in range(rowCount):
-                if r < len(col):
-                    rows[r] += col[r] + ' ' * (colWidth - len(col[r]))
-                else:
-                    rows[r] += ' ' * colWidth
-                try:
-                    output[c+1][r]
-                    rows[r] += ' → '
-                except:
-                    rows[r] += '   '
-                    pass
-
-        # Remove unnecessary padding
-        rows = [row.rstrip() for row in rows]
-        output = texttools.block_format('\n'.join(rows))
-        await dest.send(output)
-
     @staticmethod
-    def split(script: str) -> Tuple[str, str]:
+    def split(script: str) -> tuple[str, str]:
         '''Splits a script into the source and pipeline.'''
         # So here's the deal:
         #    SOURCE > PIPE > PIPE > PIPE > ETC...
@@ -109,6 +71,60 @@ class PipelineProcessor:
                 return script[:i].strip(), script[i+1:]
             p = c
         return script.strip(), ''
+
+    @staticmethod
+    async def send_print_values(channel: discord.TextChannel, values: list[list[str]]):
+        ''' Nicely print the output in rows and columns and even with little arrows.'''
+        # TODO: Account for 2000 char limit in all cases!
+
+        # Don't apply any formatting if the output is just a single row and column.
+        if len(values) == 1:
+            if len(values[0]) == 1:
+                if values[0][0].strip() != '':
+                    await channel.send(values[0][0])
+                else:
+                    await channel.send('`empty string`')
+                return
+            elif len(values[0]) == 0:
+                await channel.send('`no output`')
+                return
+
+        # Rudimentary table layout
+        row_count = len(max(values, key=len))
+        rows = [''] * row_count
+        for c in range(len(values)):
+            col = values[c]
+            if len(col) == 0: continue
+            colWidth = len(max(col, key=len))
+            for r in range(row_count):
+                if r < len(col):
+                    rows[r] += col[r] + ' ' * (colWidth - len(col[r]))
+                else:
+                    rows[r] += ' ' * colWidth
+                try:
+                    values[c+1][r]
+                    rows[r] += ' → '
+                except:
+                    rows[r] += '   '
+                    pass
+
+        # Remove unnecessary padding at line ends
+        rows = [row.rstrip() for row in rows]
+        values = texttools.block_format('\n'.join(rows))
+        await channel.send(values)
+
+    @staticmethod
+    async def send_error_log(message: discord.Message, errors: ErrorLog, name: str):
+        try:
+            await message.channel.send(embed=errors.embed(name=name))
+        except:
+            newErrors = ErrorLog()
+            newErrors.terminal = errors.terminal
+            newErrors.log(
+                f'🙈 {"Error" if errors.terminal else "Warning"} log too big to reasonably display...'
+                '\nDoes your script perhaps contain an infinite recursion?'
+            )
+            await message.channel.send(embed=newErrors.embed(name=name))
 
     async def execute_script(self, script: str, message: discord.Message, context=None, name=None):
         errors = ErrorLog()
@@ -144,7 +160,7 @@ class PipelineProcessor:
             # TODO: auto-print if the last pipe was not a spout, or something
             if not spout_callbacks or any( callback is spouts['print'].function for (callback, _, _) in spout_callbacks ):
                 printValues.append(values)
-                await self.print(message.channel, printValues)
+                await self.send_print_values(message.channel, printValues)
 
             ## Perform all Spouts (TODO: MAKE THIS BETTER)
             for callback, args, values in spout_callbacks:
@@ -172,19 +188,7 @@ class PipelineProcessor:
             await self.send_error_log(message, errors, name)
             raise e
 
-    async def send_error_log(self, message, errors: ErrorLog, name):
-        try:
-            await message.channel.send(embed=errors.embed(name=name))
-        except:
-            newErrors = ErrorLog()
-            newErrors.terminal = errors.terminal
-            newErrors.log(
-                f'🙈 {"Error" if errors.terminal else "Warning"} log too big to reasonably display...' + 
-                '\nDoes your script perhaps contain an infinite recursion?'
-            )
-            await message.channel.send(embed=newErrors.embed(name=name))
-
-    async def process_script(self, message):
+    async def process_script(self, message: discord.Message):
         '''This is the starting point for all script execution.'''
         text = message.content
 
