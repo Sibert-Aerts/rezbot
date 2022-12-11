@@ -1,10 +1,11 @@
 import re
 import os
 import pickle
-from typing import Dict
 from discord import Embed
+
 from utils.texttools import block_format
-from .processor import Pipeline, PipelineProcessor
+from .pipeline import Pipeline
+from .processor import PipelineProcessor
 
 # Save events to the same directory as macros... because they're essentially macros.
 def DIR(filename=''):

@@ -5,7 +5,8 @@ import discord
 from discord.ext import commands
 
 from .pipe import Pipes
-from .processor import Pipeline, PipelineProcessor
+from .pipeline import Pipeline
+from .processor import PipelineProcessor
 from .pipes import pipes
 from .sources import sources
 from .macros import Macro, MacroSig, Macros, pipe_macros, source_macros

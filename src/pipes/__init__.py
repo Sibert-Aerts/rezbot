@@ -1,10 +1,11 @@
 __all__ = [
+    'processor',
+    'pipeline',
     'pipes',
     'sources',
     'pipecommands',
     'context',
     'logger'
-    'processor',
     'groupmodes',
     'macros',
     'macrocommands',

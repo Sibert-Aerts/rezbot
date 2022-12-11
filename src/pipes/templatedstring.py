@@ -2,9 +2,8 @@ import asyncio
 from pyparsing import ParseException, ParseResults
 from typing import List, Optional, Tuple, Union
 
-# Here to make sure circular dependencies get loaded in the right order...
-from .processor import PipelineProcessor, Pipeline
-
+from .processor import PipelineProcessor
+from .pipeline import Pipeline
 from .grammar import templatedString
 from .context import Context, ContextError
 from .signature import ArgumentError, Arguments
