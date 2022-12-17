@@ -4,7 +4,7 @@ import discord
 from discord import Embed
 
 from .signature import Signature
-from typing import List, Dict, Callable, Any, Tuple
+from typing import Callable, Any
 
 
 class Pipe:
@@ -15,7 +15,7 @@ class Pipe:
     def __init__(
         self,
         signature: Signature,
-        function: Callable[..., List[str]],
+        function: Callable[..., list[str]],
         category: str=None,
         may_use: Callable[[discord.User], bool]=None,
     ):
@@ -34,10 +34,10 @@ class Pipe:
             # small_doc is only the first line of the docstring
             self.small_doc = self.doc.split('\n', 1)[0]
 
-    def __call__(self, items: List[str], **args) -> List[str]:
+    def __call__(self, items: list[str], **args) -> list[str]:
         raise DeprecationWarning("PIPE.__CALL__")
 
-    def apply(self, items: List[str], **args) -> List[str]:
+    def apply(self, items: list[str], **args) -> list[str]:
         ''' Apply the pipe to a list of items. '''
         return self.function(items, **args)
 
@@ -68,7 +68,7 @@ class Source(Pipe):
         self.depletable = depletable
         self.plural = plural.lower() if plural else (self.name + 's') if 'n' in signature else self.name
 
-    def __call__(self, message, args: Dict[str, Any], n=None):
+    def __call__(self, message, args: dict[str, Any], n=None):
         ''' Call the Source to produce items using a parsed dict of arguments. '''
         if n:
             # Handle the `n` that may be given using the {n sources} notation
@@ -95,7 +95,7 @@ class Spout(Pipe):
     def __init__(self, signature, function, category):
         super().__init__(signature, function, category)
         
-    def __call__(self, items: List[str], **args) -> Tuple[Callable[..., None], Dict[str, Any], List[str]] :
+    def __call__(self, items: list[str], **args) -> tuple[Callable[..., None], dict[str, Any], list[str]] :
         # DOES NOT actually call the underlying function yet, but returns the tuple of items so it can be done later...
         return (self.function, args, items)
 

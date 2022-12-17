@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 
+from .processor import PipelineProcessor
 from .pipe import Pipe, Source, Spout
 from .pipes import pipes
 from .sources import sources, SourceResources
@@ -327,7 +328,7 @@ async def setup(bot: commands.Bot):
             try:
                 # Apply the pipe to what remains of the command string
                 results = pipe.apply([text], **args)
-                await ctx.send('\n'.join(results))
+                await PipelineProcessor.send_print_values(ctx.channel, [results])
 
             except Exception as e:
                 err.log(f'With args {" ".join( f"`{p}`={args[p]}" for p in args )}:\n\t{type(e).__name__}: {e}', True)
@@ -367,7 +368,7 @@ async def setup(bot: commands.Bot):
             try:
                 # Apply the source with the given arguments
                 results = await source(ctx.message, args)
-                await ctx.send('\n'.join(results))
+                await PipelineProcessor.send_print_values(ctx.channel, [results])
     
             except Exception as e:
                 err.log(f'With args {" ".join( f"`{p}`={args[p]}" for p in args )}:\n\t{type(e).__name__}: {e}', True)

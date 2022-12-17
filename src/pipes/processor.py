@@ -113,9 +113,9 @@ class PipelineProcessor:
             await channel.send(block)
 
     @staticmethod
-    async def send_error_log(message: discord.Message, errors: ErrorLog, name: str):
+    async def send_error_log(channel: discord.TextChannel, errors: ErrorLog, name: str):
         try:
-            await message.channel.send(embed=errors.embed(name=name))
+            await channel.send(embed=errors.embed(name=name))
         except:
             newErrors = ErrorLog()
             newErrors.terminal = errors.terminal
@@ -123,7 +123,7 @@ class PipelineProcessor:
                 f'🙈 {"Error" if errors.terminal else "Warning"} log too big to reasonably display...'
                 '\nDoes your script perhaps contain an infinite recursion?'
             )
-            await message.channel.send(embed=newErrors.embed(name=name))
+            await channel.send(embed=newErrors.embed(name=name))
 
     async def execute_script(self, script: str, message: discord.Message, context=None, name=None):
         errors = ErrorLog()
@@ -171,20 +171,20 @@ class PipelineProcessor:
 
             ## Post warning output to the channel if any
             if errors:
-                await self.send_error_log(message, errors, name)
+                await self.send_error_log(message.channel, errors, name)
 
         except TerminalError:
             ## A TerminalError indicates that whatever problem we encountered was caught, logged, and we halted voluntarily.
             # Nothing more to be done than posting log contents to the channel.
             print('Script execution halted due to error.')
-            await self.send_error_log(message, errors, name)
+            await self.send_error_log(message.channel, errors, name)
             
         except Exception as e:
             ## An actual error has occurred in executing the script that we did not catch.
             # No script, no matter how poorly formed or thought-out, should be able to trigger this; if this occurs it's a Rezbot bug.
             print('Script execution halted unexpectedly!')
             errors.log(f'🛑 **Unexpected pipeline error:**\n {type(e).__name__}: {e}', terminal=True)
-            await self.send_error_log(message, errors, name)
+            await self.send_error_log(message.channel, errors, name)
             raise e
 
     async def process_script(self, message: discord.Message):
