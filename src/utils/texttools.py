@@ -44,16 +44,85 @@ def line_chunk_list(list, maxlength=100):
 
 def block_chunk_lines(lines):
     ''' Turn a list of lines into a list of <2000 character code blocks safe to send over discord.'''
-    blocks = [[]]
-    l = 0
+    blocks = []
+    block = []
+    block_length = 0
+
     for line in lines:
-        if l + len(line) > 1900:
-            blocks.append([])
-            l = 0
-        l += len(line) + 2
-        blocks[-1].append(line)
+        # The new line would be too long to fit in the block (anymore).
+        if block_length + len(line) > 1900:
+            # Move on to the next block.
+            if block:
+                blocks.append(block)
+                block = []
+                block_length = 0
+            # Special case: The single line is too big to even fit in a block at all, spread it over multiple.
+            if len(line) > 1900:
+                chunks = chunk_text(line, 1900)
+                for chunk in chunks[:-1]:
+                    blocks.append([chunk])
+                line = chunks[-1]
+
+        block.append(line)
+        block_length += len(line) + 2
     
+    blocks.append(block)    
     return [ block_format('\n'.join(block)) for block in blocks ]
+
+def split_once_within_length(text: str, splitter: str, max_length: int):
+    '''
+    Greedily splits `text` on the last occurence of `max_length` which starts at index `<= max_length`.
+    If there is no such occurence, returns `('', text)`.
+
+    Example:
+    >>> split_once_within_length('AA-BB-CC-DD', '-', 8)
+    ('AA-BB-CC', 'DD')
+    '''
+    # Test if it is possible at all:
+    i = text.find(splitter)
+    if i > max_length:
+        return '', text
+
+    text_lines = text.split(splitter)
+    chunk_lines = []
+    chunk_length = 0
+    while True:
+        line = text_lines[0]
+        if chunk_length + len(splitter) + len(line) > max_length:
+            break
+        text_lines.pop(0)
+        chunk_lines.append(line)
+        chunk_length += len(splitter) + len(line)
+
+    return splitter.join(chunk_lines), splitter.join(text_lines)
+
+def chunk_text(text: str, chunk_size=2000):
+    ''' Smartly splits a string into a list of strings under a given size. '''
+    chunks = []
+
+    while True:
+        # Best case: Entire (remaining) text fits.
+        if len(text) <= chunk_size:
+            chunks.append(text)
+            break
+
+        # OK case: Try to split on newlines to squeeze within chunk_size.
+        chunk, text = split_once_within_length(text, '\n', chunk_size)
+        if chunk:
+            chunks.append(chunk)
+            continue
+
+        # Bad case: Try to split on spaces to squeeze within chunk_size.
+        chunk, text = split_once_within_length(text, ' ', chunk_size)
+        if chunk:
+            chunks.append(chunk)
+            continue
+
+        # Worst case: No spaces or newlines within chunk_size; just slice off chunk_size chars and continue.
+        chunks.append(text[:chunk_size])
+        text = text[chunk_size:]
+
+    return chunks
 
 def matchCase(char, case):
     return char.upper() if case.isupper() else char.lower()

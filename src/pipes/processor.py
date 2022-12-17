@@ -75,13 +75,13 @@ class PipelineProcessor:
     @staticmethod
     async def send_print_values(channel: discord.TextChannel, values: list[list[str]]):
         ''' Nicely print the output in rows and columns and even with little arrows.'''
-        # TODO: Account for 2000 char limit in all cases!
 
-        # Don't apply any formatting if the output is just a single row and column.
+        # Don't apply any formatting if the output is just a single cel.
         if len(values) == 1:
             if len(values[0]) == 1:
                 if values[0][0].strip() != '':
-                    await channel.send(values[0][0])
+                    for chunk in texttools.chunk_text(values[0][0]):
+                        await channel.send(chunk)
                 else:
                     await channel.send('`empty string`')
                 return
@@ -89,7 +89,7 @@ class PipelineProcessor:
                 await channel.send('`no output`')
                 return
 
-        # Rudimentary table layout
+        # Simple "arrow table" layout
         row_count = len(max(values, key=len))
         rows = [''] * row_count
         for c in range(len(values)):
@@ -106,12 +106,11 @@ class PipelineProcessor:
                     rows[r] += ' → '
                 except:
                     rows[r] += '   '
-                    pass
 
         # Remove unnecessary padding at line ends
         rows = [row.rstrip() for row in rows]
-        values = texttools.block_format('\n'.join(rows))
-        await channel.send(values)
+        for block in texttools.block_chunk_lines(rows):
+            await channel.send(block)
 
     @staticmethod
     async def send_error_log(message: discord.Message, errors: ErrorLog, name: str):
