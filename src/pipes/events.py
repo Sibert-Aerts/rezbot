@@ -45,6 +45,7 @@ class Event:
 
         return embed
 
+
 class OnMessage(Event):
     pattern: re.Pattern
 
@@ -201,3 +202,4 @@ class Events:
         return len(self.events)
 
 events = Events(DIR, 'events.p')
+'The canonical object managing all Event instances, responsible for serialising and deserialising them.'

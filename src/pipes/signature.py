@@ -1,7 +1,5 @@
-import asyncio
-from typing import List, Tuple, Dict, Any, Optional, TypeVar, Union, Callable
-from pyparsing import ParseException, ParseResults, StringEnd
-import re
+from typing import Optional, TypeVar, Callable
+from pyparsing import ParseException, ParseResults
 
 from .grammar import argumentList
 from .logger import ErrorLog
@@ -14,8 +12,8 @@ class ArgumentError(ValueError):
 
 # In this file, a "type" is an object which has a __name__ field
 #   and a __call__ method of type (str -> T), which may also raise errors for poorly formed input strings.
-# e.g. `str`, `int` and `float` are "types", but also any function (str -> T) is a "type"
-# The two classes below are used to create simple new "types" as well
+# e.g. `str`, `int` and `float` are "types", but also any function (str -> T) is a "type".
+# The two classes below can be used to instantiate simple new "types" as well.
 
 class Option:
     '''
@@ -95,7 +93,7 @@ class Multi:
         >>> intList('10,20,30')
         10,20,30
     '''
-    
+
     class List(list):
         def __init__(self, sep, *a, **kw):
             super().__init__(self, *a, **kw)
@@ -130,7 +128,7 @@ class Par:
     name: str
     default: T
 
-    def __init__(self, type: Callable[[str], T], default: Union[str, T]=None, desc: str=None, check: Callable[[T], bool]=None, required: bool=None):
+    def __init__(self, type: Callable[[str], T], default: str | T=None, desc: str=None, check: Callable[[T], bool]=None, required: bool=None):
         '''
         Arguments:
             type: A "type" as described above; a callable (str -> T) with a __name__.
@@ -158,7 +156,7 @@ class Par:
         out.append(')')
         return ''.join(out)
 
-    def parse(self, raw):
+    def parse(self, raw: str):
         ''' Attempt to parse and check the given string as an argument for this parameter, raises ArgumentError if it fails. '''
         try:
             val = self.type(raw)
@@ -186,13 +184,13 @@ class Signature(dict):
 
 class Arg:
     ''' Object representing a TemplatedString assigned to a specific parameter. '''
-    param: Optional[Par]
+    param: Par | None
     name: str
     string: 'TemplatedString'
-    value: Any = None
+    value: T = None
     predetermined: bool = False
 
-    def __init__(self, string: 'TemplatedString', param: Union[Par, str]):
+    def __init__(self, string: 'TemplatedString', param: Par | str):
         self.param = param if isinstance(param, Par) else None
         self.name = param.name if isinstance(param, Par) else param
         self.string = string
@@ -205,7 +203,7 @@ class Arg:
             except ArgumentError as e:
                 errors.log(e, True)
 
-    async def determine(self, message, context, errors: ErrorLog) -> Any:
+    async def determine(self, message, context, errors: ErrorLog) -> T | None:
         if self.predetermined: return self.value
 
         value, arg_errs = await self.string.evaluate(message, context)
@@ -225,25 +223,23 @@ class DefaultArg(Arg):
         self.value = value
 
 class Arguments:
-    def __init__(self, args: Dict[str, Arg]):
+    def __init__(self, args: dict[str, Arg]):
         self.args = args
         self.predetermined = all(args[p].predetermined for p in args)
         if self.predetermined:
             self.args = { param: args[param].value for param in args }
 
     @staticmethod
-    def from_string(string: str, sig: Signature=None, greedy=True) -> Tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
+    def from_string(string: str, sig: Signature=None, greedy=True) -> tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
         try:
             parsed = argumentList.parseString(string, parseAll=True)
         except ParseException as e:
-            errors = ErrorLog()
-            errors.parseException(e)
-            return None, None, errors
+            return None, None, ErrorLog().log_parse_exception(e)
         else:
             return Arguments.from_parsed(parsed, sig, greedy=greedy)
 
     @staticmethod
-    def from_parsed(argList: ParseResults, signature: Signature=None, greedy: bool=True) -> Tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
+    def from_parsed(argList: ParseResults, signature: Signature=None, greedy: bool=True) -> tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
         '''
             Compiles an argList ParseResult into a ParsedArguments object.
             If Signature is not given, will create a "naive" ParsedArguments object that Macros use.
@@ -329,7 +325,7 @@ class Arguments:
     def __repr__(self):
         return 'Args(' + ' '.join(self.args.keys()) + ')'
 
-    async def determine(self, message, context=None) -> Tuple[Dict[str, Any], ErrorLog]:
+    async def determine(self, message, context=None) -> tuple[dict[str], ErrorLog]:
         ''' Returns a parsed {parameter: argument} dict ready for use. '''
         errors = ErrorLog()
         if self.predetermined: return self.args, errors

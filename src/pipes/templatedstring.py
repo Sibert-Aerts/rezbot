@@ -1,6 +1,5 @@
 import asyncio
 from pyparsing import ParseException, ParseResults
-from typing import List, Optional, Tuple, Union
 
 from .processor import PipelineProcessor
 from .pipeline import Pipeline
@@ -35,8 +34,8 @@ class ParsedItem:
 
 class ParsedSource:
     ''' Class representing a Source inside a TemplatedString. '''
-    NATIVESOURCE = object()
-    SOURCEMACRO  = object()
+    NATIVE_SOURCE = object()
+    MACRO_SOURCE  = object()
     UNKNOWN      = object()
 
     def __init__(self, name: str, args: Arguments, amount: str | int | None):
@@ -46,10 +45,10 @@ class ParsedSource:
         self.pre_errors = ErrorLog()
         
         if self.name in sources:
-            self.type = ParsedSource.NATIVESOURCE
+            self.type = ParsedSource.NATIVE_SOURCE
             self.source = sources[self.name]
         elif self.name in source_macros:
-            self.type = ParsedSource.SOURCEMACRO
+            self.type = ParsedSource.MACRO_SOURCE
         else:
             self.type = ParsedSource.UNKNOWN            
 
@@ -71,12 +70,12 @@ class ParsedSource:
         return parsedSource
 
     def __str__(self):
-        return '{%s %s %s}' %( self.amount or '', self.name, self.args.__repr__() if self.args else '' )
+        return '{%s %s %s}' %( self.amount or '', self.name, repr(self.args) if self.args else '' )
     def __repr__(self):
         return 'Source' + str(self)
 
 
-    async def evaluate(self, message=None, context=None, args=None) -> Tuple[ Optional[List[str]], ErrorLog ]:
+    async def evaluate(self, message=None, context=None, args=None) -> tuple[ list[str] | None, ErrorLog ]:
         ''' Find some values for the damn Source that we are. '''
         errors = ErrorLog()
         if self.pre_errors: errors.extend(self.pre_errors)
@@ -94,7 +93,7 @@ class ParsedSource:
             if errors.terminal: return NOTHING_BUT_ERRORS
 
         ### CASE: Native Source
-        if self.type == ParsedSource.NATIVESOURCE:
+        if self.type == ParsedSource.NATIVE_SOURCE:
             try:
                 return await self.source(message, args, n=self.amount), errors
 
@@ -141,7 +140,7 @@ class TemplatedString:
 
     If there is no need to hold on to the parsed TemplatedString, the static methods `evaluate_string` and `evaluate_origin` can be used instead.
     '''
-    def __init__(self, pieces: List[Union[str, ParsedSource, ParsedItem]], startIndex: int=0):
+    def __init__(self, pieces: list[str | ParsedSource | ParsedItem], startIndex: int=0):
         self.pieces = pieces
         self.pre_errors = ErrorLog()
         
@@ -165,7 +164,7 @@ class TemplatedString:
         if explicitItem and implicitItem:
             self.pre_errors('Do not mix empty {}\'s with numbered {}\'s"!', True)
 
-        # For simplicity, an empty List is normalised to an empty string
+        # For simplicity, an empty list is normalised to an empty string
         self.pieces = self.pieces or ['']
         
         ## Determine if we're a very simple kind of TemplatedString
@@ -229,7 +228,7 @@ class TemplatedString:
 
         return self
 
-    def split_implicit_arg(self, greedy: bool) -> Tuple['TemplatedString', 'TemplatedString']:
+    def split_implicit_arg(self, greedy: bool) -> tuple['TemplatedString', 'TemplatedString']:
         ''' Splits the TemplatedString into an implicit arg and a "remainder" TemplatedString. '''
         if greedy:
             return self.unquote(), None
@@ -253,7 +252,7 @@ class TemplatedString:
 
             return TemplatedString(implicit).unquote(), TemplatedString(remainder)
 
-    async def evaluate(self, message, context: Context=None) -> Tuple[str, ErrorLog]:
+    async def evaluate(self, message, context: Context=None) -> tuple[str, ErrorLog]:
         ''' Evaluate the TemplatedString into a string '''
         errors = ErrorLog()
         errors.extend(self.pre_errors)
@@ -300,7 +299,7 @@ class TemplatedString:
 
 
     @staticmethod
-    async def evaluate_string(string: str, message=None, context=None, forceSingle=False) -> Tuple[Optional[List[str]], ErrorLog]:
+    async def evaluate_string(string: str, message=None, context=None, forceSingle=False) -> tuple[list[str] | None, ErrorLog]:
         '''
         Takes a raw source string, evaluates {sources} and returns the list of values.
         
@@ -310,9 +309,7 @@ class TemplatedString:
             templatedString = TemplatedString.from_string(string)
 
         except ParseException as e:
-            errors = ErrorLog()
-            errors.parseException(e)
-            return None, errors
+            return None, ErrorLog().log_parse_exception(e)
 
         if not forceSingle and templatedString.isSource:
             vals, errs = await templatedString.source.evaluate(message, context)
@@ -322,7 +319,7 @@ class TemplatedString:
             return [val], errs
 
     @staticmethod
-    async def evaluate_origin(originStr: str, message=None, context=None) -> Tuple[Optional[List[str]], ErrorLog]:
+    async def evaluate_origin(originStr: str, message=None, context=None) -> tuple[list[str] | None, ErrorLog]:
         '''Takes a raw source string, expands it if necessary, evaluates {sources} in each one and returns the list of values.'''
         values = []
         expand = True
@@ -344,7 +341,7 @@ class TemplatedString:
                 origin = TemplatedString.from_string(originStr)
 
             except ParseException as e:
-                errors.parseException(e)
+                errors.log_parse_exception(e)
 
             else:
                 if origin.isSource:

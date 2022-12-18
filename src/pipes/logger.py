@@ -4,7 +4,7 @@ import discord
 
 
 class ErrorLog:
-    '''Class for logging warnings & error messages from a pipeline's execution.'''
+    '''Class for storing warning and error messages related to Rezbot scripting.'''
     def __init__(self, name=None):
         self.name = name
         self.clear()
@@ -35,22 +35,23 @@ class ErrorLog:
             print(datetime.now().strftime('[%X]'), 'Error' if terminal else 'Warning', 'logged:', message)
             self.errors.append(ErrorLog.ErrorMessage(message))
         self.terminal |= terminal
+        return self
 
     def __call__(self, message, terminal=False):
-        self.log(message, terminal=terminal)
+        return self.log(message, terminal=terminal)
 
     def warn(self, message):
-        self.log(message, terminal=False)
+        return self.log(message, terminal=False)
 
-    def parseException(self, e: ParseException):
+    def log_parse_exception(self, e: ParseException):
         ''' Bespoke formatting for a not-uncommon terminal exception. '''
         if isinstance(e.parserElement, StringEnd):
             message = f'ParseException: Likely unclosed brace at position {e.loc}:\n­\t'
             message += f'{e.line[:e.col-1]}**[{e.line[e.col-1]}](http://0)**{e.line[e.col:]}'
-            self.log(message, True)
+            return self.log(message, True)
         else:
             self.log('An unexpected ParseException occurred!')
-            self.log(e, True)
+            return self.log(e, True)
 
     #############################################
     ## Log transfering methods
