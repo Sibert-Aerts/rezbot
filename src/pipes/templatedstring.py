@@ -1,6 +1,8 @@
 import asyncio
 from pyparsing import ParseException, ParseResults
 
+import discord
+
 from .processor import PipelineProcessor
 from .pipeline import Pipeline
 from .grammar import templatedString
@@ -140,45 +142,59 @@ class TemplatedString:
 
     If there is no need to hold on to the parsed TemplatedString, the static methods `evaluate_string` and `evaluate_origin` can be used instead.
     '''
-    def __init__(self, pieces: list[str | ParsedSource | ParsedItem], startIndex: int=0):
+
+    pieces: list[str | ParsedSource | ParsedItem]
+    pre_errors: ErrorLog
+    end_index: int
+
+    is_string = False
+    string: str = None
+    is_source = False
+    source: ParsedSource = None
+    is_item = False
+    item: ParsedItem = None
+
+    def __init__(self, pieces: list[str | ParsedSource | ParsedItem], start_index: int=0):
         self.pieces = pieces
         self.pre_errors = ErrorLog()
         
-        itemIndex = startIndex; explicitItem = False; implicitItem = False
+        item_index = start_index; explicit_item = False; implicit_item = False
         # TODO: this currently does not work as intended due to nesting:
         # "{} {roll max={}} {}" == "{0} {roll max={0}} {1}"
         for piece in pieces:
             if isinstance(piece, ParsedSource):
+                # TODO
                 pass
             elif isinstance(piece, ParsedItem):
                 if piece.explicitlyIndexed:
-                    explicitItem = True
+                    explicit_item = True
                 else:
-                    implicitItem = True
-                    piece.index = itemIndex
-                    itemIndex += 1
+                    implicit_item = True
+                    piece.index = item_index
+                    item_index += 1
 
-        self.endIndex = itemIndex
+        self.end_index = item_index
 
         # TODO: only make this show up if Items are actually intended to be added at some point(?)
-        if explicitItem and implicitItem:
-            self.pre_errors('Do not mix empty {}\'s with numbered {}\'s"!', True)
+        if explicit_item and implicit_item:
+            self.pre_errors.log('Do not mix empty {}\'s with numbered {}\'s"!', True)
 
         # For simplicity, an empty list is normalised to an empty string
         self.pieces = self.pieces or ['']
         
         ## Determine if we're a very simple kind of TemplatedString
-        self.isString = len(self.pieces)==1 and isinstance(self.pieces[0], str)
-        if self.isString: self.string: str = self.pieces[0]
+        if len(self.pieces) == 1:
+            self.is_string = isinstance(self.pieces[0], str)
+            if self.is_string: self.string = self.pieces[0]
 
-        self.isSource = len(self.pieces)==1 and isinstance(self.pieces[0], ParsedSource)
-        if self.isSource: self.source: ParsedSource = self.pieces[0]
-        
-        self.isItem = len(self.pieces)==1 and isinstance(self.pieces[0], ParsedItem)
-        if self.isItem: self.item: ParsedItem = self.pieces[0]
+            self.is_source = isinstance(self.pieces[0], ParsedSource)
+            if self.is_source: self.source = self.pieces[0]
+            
+            self.is_item = isinstance(self.pieces[0], ParsedItem)
+            if self.is_item: self.item = self.pieces[0]
 
     @staticmethod
-    def from_parsed(parsed: ParseResults=[], minIndex=0):
+    def from_parsed(parsed: ParseResults=[], start_index=0):
         pre_errors = ErrorLog()
         pieces = []
 
@@ -198,37 +214,37 @@ class TemplatedString:
                 item = ParsedItem(piece['item'])
                 pieces.append(item)
 
-        string = TemplatedString(pieces, minIndex)
+        string = TemplatedString(pieces, start_index)
         string.pre_errors.extend(pre_errors)
         return string
     
     @staticmethod
     def from_string(string: str):
-        return TemplatedString.from_parsed( templatedString.parseString(string, parseAll=True) )
+        return TemplatedString.from_parsed(templatedString.parseString(string, parseAll=True))
 
     def __str__(self):
         return ''.join(str(x) for x in self.pieces)
     def __repr__(self):
-        return 'TString"' + ''.join(x if isinstance(x, str) else x.__repr__() for x in self.pieces) + '"'
+        return 'TString"' + ''.join(x if isinstance(x, str) else repr(x) for x in self.pieces) + '"'
     def __bool__(self):
-        return not (self.isString and not self.pieces[0])
+        return not (self.is_string and not self.pieces[0])
 
     def unquote(self) -> 'TemplatedString':
         ''' Modifies the TemplatedString to remove wrapping string delimiters, if present. '''
         pieces = self.pieces
 
         if isinstance(pieces[0], str) and isinstance(pieces[-1], str):
-            if pieces[0][:3] == pieces[-1][-3:] == '"""' and not (self.isString and len(pieces[0]) < 6):
+            if pieces[0][:3] == pieces[-1][-3:] == '"""' and not (self.is_string and len(pieces[0]) < 6):
                 pieces[0] = pieces[0][3:]
                 pieces[-1] = pieces[-1][:-3]
-            elif pieces[0][:1] == pieces[-1][-1:] in ('"', "'", '/') and not (self.isString and len(pieces[0]) < 2):
+            elif pieces[0][:1] == pieces[-1][-1:] in ('"', "'", '/') and not (self.is_string and len(pieces[0]) < 2):
                 pieces[0] = pieces[0][1:]
                 pieces[-1] = pieces[-1][:-1]
-            if self.isString: self.string: str = self.pieces[0]
+            if self.is_string: self.string: str = self.pieces[0]
 
         return self
 
-    def split_implicit_arg(self, greedy: bool) -> tuple['TemplatedString', 'TemplatedString']:
+    def split_implicit_arg(self, greedy: bool) -> tuple['TemplatedString', 'TemplatedString | None']:
         ''' Splits the TemplatedString into an implicit arg and a "remainder" TemplatedString. '''
         if greedy:
             return self.unquote(), None
@@ -257,7 +273,7 @@ class TemplatedString:
         errors = ErrorLog()
         errors.extend(self.pre_errors)
 
-        if self.isString:
+        if self.is_string:
             return self.string, errors
 
         FUTURE = object()
@@ -299,7 +315,7 @@ class TemplatedString:
 
 
     @staticmethod
-    async def evaluate_string(string: str, message=None, context=None, forceSingle=False) -> tuple[list[str] | None, ErrorLog]:
+    async def evaluate_string(string: str, message: discord.Message=None, context: Context=None, force_single=False) -> tuple[list[str] | None, ErrorLog]:
         '''
         Takes a raw source string, evaluates {sources} and returns the list of values.
         
@@ -311,7 +327,7 @@ class TemplatedString:
         except ParseException as e:
             return None, ErrorLog().log_parse_exception(e)
 
-        if not forceSingle and templatedString.isSource:
+        if not force_single and templatedString.is_source:
             vals, errs = await templatedString.source.evaluate(message, context)
             return vals, errs
         else:
@@ -319,32 +335,32 @@ class TemplatedString:
             return [val], errs
 
     @staticmethod
-    async def evaluate_origin(originStr: str, message=None, context=None) -> tuple[list[str] | None, ErrorLog]:
+    async def evaluate_origin(origin_str: str, message: discord.Message=None, context: Context=None) -> tuple[list[str] | None, ErrorLog]:
         '''Takes a raw source string, expands it if necessary, evaluates {sources} in each one and returns the list of values.'''
         values = []
         expand = True
         errors = ErrorLog()
     
         ## Get rid of wrapping quotes or triple quotes
-        if len(originStr) >= 6 and originStr[:3] == originStr[-3:] == '"""':
-            originStr = originStr[3:-3]
+        if len(origin_str) >= 6 and origin_str[:3] == origin_str[-3:] == '"""':
+            origin_str = origin_str[3:-3]
             expand = False
-        elif len(originStr) >= 2 and originStr[0] == originStr[-1] in ('"', "'", '/'):
-            originStr = originStr[1:-1]
+        elif len(origin_str) >= 2 and origin_str[0] == origin_str[-1] in ('"', "'", '/'):
+            origin_str = origin_str[1:-1]
     
-        sources = ChoiceTree(originStr, parse_flags=True, add_brackets=True) if expand else [originStr]
+        expanded = ChoiceTree(origin_str, parse_flags=True, add_brackets=True) if expand else [origin_str]
 
         ## Evaluate each string as a TemplatedString, collecting errors along the way
         ## This part is basically TemplatedString.evaluate_string inlined
-        for originStr in sources:
+        for origin_str in expanded:
             try:
-                origin = TemplatedString.from_string(originStr)
+                origin = TemplatedString.from_string(origin_str)
 
             except ParseException as e:
                 errors.log_parse_exception(e)
 
             else:
-                if origin.isSource:
+                if origin.is_source:
                     vals, errs = await origin.source.evaluate(message, context)
                     errors.extend(errs)
                     if not errors.terminal: values.extend(vals)
@@ -354,4 +370,3 @@ class TemplatedString:
                     if not errors.terminal: values.append(val)
 
         return values, errors
-

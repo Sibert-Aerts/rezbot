@@ -42,7 +42,7 @@ async def evaluate_sources_pipe(items, force_single: bool):
     output = []
     try:
         for item in items:
-            values, errs = await TemplatedString.evaluate_string(item, None, None, forceSingle=force_single)
+            values, errs = await TemplatedString.evaluate_string(item, None, None, force_single=force_single)
             if values: output.extend(values)
             errors.extend(errs)
     except:

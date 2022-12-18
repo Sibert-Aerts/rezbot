@@ -196,7 +196,7 @@ class Arg:
         self.string = string
 
     def predetermine(self, errors):
-        if self.string.isString:
+        if self.string.is_string:
             try:
                 self.value = self.param.parse(self.string.string) if self.param else self.string.string
                 self.predetermined = True
@@ -249,7 +249,7 @@ class Arguments:
         ## Step 1: Collect explicitly and implicitly assigned parameters
         remainder = []
         args = {}
-        startIndex = 0
+        start_index = 0
 
         ## TODO: the running startIndex doesn't track the remainder/implicit string! yikes!!
         for arg in argList or []:
@@ -258,8 +258,8 @@ class Arguments:
                 if param in args:
                     errors.warn(f'Repeated assignment of parameter `{param}`')
                 else:
-                    value = TemplatedString.from_parsed(arg['value'], startIndex)
-                    startIndex = value.endIndex
+                    value = TemplatedString.from_parsed(arg['value'], start_index)
+                    start_index = value.end_index
                     args[param] = value
             else:
                 remainder += list(arg['implicitArg'])
