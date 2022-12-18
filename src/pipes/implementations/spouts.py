@@ -13,9 +13,15 @@ from resource.upload import uploads
 from utils.util import parse_bool
 
 
+#######################################################
+#                     Decorations                     #
+#######################################################
+
 spouts = Pipes()
+'The canonical object storing/indexing all `Spout` instances.'
+
 spouts.command_spouts = []
-_CATEGORY = 'NONE'
+_CATEGORY = None
 
 def make_spout(signature, command=False):
     '''Makes a Spout out of a function.'''
@@ -28,7 +34,6 @@ def make_spout(signature, command=False):
         return func
     return _make_spout
 
-_CATEGORY = None
 
 def url(s):
     if len(s)>2 and s[0]=='<' and s[-1]=='>': return s[1:-1]
