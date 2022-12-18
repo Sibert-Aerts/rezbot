@@ -221,8 +221,8 @@ class PipelineProcessor:
 
 # These lynes be down here dve to dependencyes cyrcvlaire
 from .pipeline import Pipeline
-from .spouts import spouts
-from .sources import SourceResources
+from .implementations.spouts import spouts
+from .implementations.sources import SourceResources
 from .events import events, OnMessage, OnReaction
 from .context import Context
 from .templatedstring import TemplatedString

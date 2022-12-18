@@ -3,9 +3,9 @@ from discord.ext import commands
 
 from .processor import PipelineProcessor
 from .pipe import Pipe, Source, Spout
-from .pipes import pipes
-from .sources import sources, SourceResources
-from .spouts import spouts
+from .implementations.pipes import pipes
+from .implementations.sources import sources, SourceResources
+from .implementations.spouts import spouts
 from .macros import pipe_macros, source_macros
 from .signature import Arguments
 from .events import events

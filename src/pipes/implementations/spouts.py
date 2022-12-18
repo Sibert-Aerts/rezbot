@@ -5,10 +5,10 @@ from discord import Embed
 from discord.errors import HTTPException
 from discord.ext.commands import Bot
 
-from .signature import Par, Signature
-from .pipe import Spout, Pipes
+from ..signature import Par, Signature
+from ..pipe import Spout, Pipes
 from .sources import SourceResources
-from .events import events
+from ..events import events
 from resource.upload import uploads
 from utils.util import parse_bool
 

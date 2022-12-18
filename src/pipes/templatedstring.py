@@ -7,7 +7,7 @@ from .pipeline import Pipeline
 from .grammar import templatedString
 from .context import Context, ContextError
 from .signature import ArgumentError, Arguments
-from .sources import sources
+from .implementations.sources import sources
 from .macros import source_macros
 from .logger import ErrorLog
 

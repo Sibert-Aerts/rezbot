@@ -7,9 +7,9 @@ from discord import app_commands, Interaction
 from discord.app_commands import Choice
 
 from .pipe import Pipe, Source, Spout, Pipes
-from .pipes import pipes
-from .sources import sources, SourceResources
-from .spouts import spouts
+from .implementations.pipes import pipes
+from .implementations.sources import sources, SourceResources
+from .implementations.spouts import spouts
 from .macros import Macros, Macro, MacroSig, pipe_macros, source_macros
 from .events import Event, Events, OnMessage, OnReaction, events
 from .macrocommands import check_pipe_macro, check_source_macro

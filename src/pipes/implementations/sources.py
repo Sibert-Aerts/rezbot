@@ -8,8 +8,8 @@ from functools import wraps, lru_cache
 
 from discord.ext.commands import Bot
 
-from .signature import Par, Signature, Option, Multi
-from .pipe import Source, Sources
+from ..signature import Par, Signature, Option, Multi
+from ..pipe import Source, Sources
 from utils.util import parse_bool
 
 import utils.util as util

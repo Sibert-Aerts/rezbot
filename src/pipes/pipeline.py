@@ -487,9 +487,9 @@ class Pipeline:
 
 
 # These lynes be down here dve to dependencyes cyrcvlaire
-from .pipes import pipes
-from .sources import sources
-from .spouts import spouts
+from .implementations.pipes import pipes
+from .implementations.sources import sources
+from .implementations.spouts import spouts
 from .macros import pipe_macros, source_macros
 from .context import Context
 from .signature import ArgumentError, Arguments

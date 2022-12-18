@@ -17,10 +17,10 @@ from simpleeval import SimpleEval
 import spacy
 spacy.LOADED_NLP = None
 
-from .signature import Par, Signature, Option, Multi
-from .pipe import Pipe, Pipes
-from .logger import ErrorLog
-from .templatedstring import TemplatedString
+from ..signature import Par, Signature, Option, Multi
+from ..pipe import Pipe, Pipes
+from ..logger import ErrorLog
+from ..templatedstring import TemplatedString
 from utils.texttools import vowelize, consonize, letterize, letterize2, converters, min_dist, case_pattern
 from utils.choicetree import ChoiceTree
 from utils.rand import choose_slice
