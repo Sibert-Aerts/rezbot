@@ -15,8 +15,14 @@ from pipes.processor import PipelineProcessor
 config = ConfigParser()
 config.read('config.ini')
 
+bot_token = config['BOT']['token']
 command_prefix = config['BOT']['prefix']
 pipe_prefix = config['BOT']['pipe_prefix']
+
+patterns_blacklist = []
+if 'PATTERNS.PY BLACKLIST' in config:
+    for key in config['PATTERNS.PY BLACKLIST']:
+        patterns_blacklist.append(int(config['PATTERNS.PY BLACKLIST'][key]))
 
 # Configure our intents
 intents = discord.Intents.all()
@@ -58,12 +64,10 @@ async def on_message(message: discord.Message):
     # Do not listen to self.
     if message.author.id == bot.user.id:
         return
-
-    # Do not listen to bots
+    # Do not listen to bots.
     if message.author.bot:
         return
-
-    # Do not listen to muted users
+    # Do not listen to muted users.
     if permissions.is_muted(message.author.id):
         return
 
@@ -74,7 +78,8 @@ async def on_message(message: discord.Message):
     # Try for patterns and custom Events if it doesn't look like a command
     if message.content[:len(command_prefix)] != command_prefix:
         await scriptProcessor.on_message(message)
-        await patternProcessor.process_patterns(message)
+        if (not message.guild or message.guild.id not in patterns_blacklist) and message.channel.id not in patterns_blacklist:
+            await patternProcessor.process_patterns(message)
 
     # Try for commands
     await bot.process_commands(message)
@@ -96,23 +101,22 @@ async def on_command_error(ctx, error):
     elif isinstance(error, commands.DisabledCommand):
         await ctx.author.send('Sorry. This command is disabled and cannot be used.')
     elif isinstance(error, commands.CommandInvokeError):
-        print('In {0.command.qualified_name}:'.format(ctx), file=sys.stderr)
+        print(f'In {ctx.command.qualified_name}:', file=sys.stderr)
         # traceback.print_tb(error.original.__traceback__)
-        print('{0.__class__.__name__}: {0}'.format(error.original), file=sys.stderr)
+        print(f'{type(error.original).__name__}: {error.original}', file=sys.stderr)
     else:
         print('Command Error:', error)
 
 
 async def main():
     async with bot:
-        token = config['BOT']['token']
         await bot.load_extension('botcommands')
         await bot.load_extension('pipes.pipecommands')
         await bot.load_extension('pipes.pipe_slash_commands')
         await bot.load_extension('pipes.macrocommands')
         await bot.load_extension('resource.youtubecaps.commands')
         await bot.load_extension('resource.upload.commands')
-        await bot.start(token)
+        await bot.start(bot_token)
 
 if __name__ == '__main__':
     asyncio.run(main())

@@ -8,12 +8,14 @@ from utils.rand import chance, choose, RandomBranch
 from utils.emojifight import EmojiFight
 
 '''
+This file is ancient.
+
 This file is a bit of a mess, but what happens here is that the bot will scan all messages
 looking for certain patterns to react to.
 
 e.g. when a message contains "hi bot" the bot will automatically respond with a greeting
 
-There's currently no way to disable this feature for, say, a specific channel/server without touching code.
+It can be disabled in specific channels or severs by editing config.ini.
 '''
 
 
