@@ -226,4 +226,4 @@ from .implementations.sources import SourceResources
 from .events import events, OnMessage, OnReaction
 from .context import Context
 from .templatedstring import TemplatedString
-from .macrocommands import parse_macro_command
+from .commands.macro_commands import parse_macro_command

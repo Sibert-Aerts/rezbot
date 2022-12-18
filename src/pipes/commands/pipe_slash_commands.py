@@ -1,18 +1,17 @@
 import itertools
 from typing import Callable, Literal, Type
 
-import discord
 from discord.ext import commands
 from discord import app_commands, Interaction
 from discord.app_commands import Choice
 
-from .pipe import Pipe, Source, Spout, Pipes
-from .implementations.pipes import pipes
-from .implementations.sources import sources, SourceResources
-from .implementations.spouts import spouts
-from .macros import Macros, Macro, MacroSig, pipe_macros, source_macros
-from .events import Event, Events, OnMessage, OnReaction, events
-from .macrocommands import check_pipe_macro, check_source_macro
+from ..pipe import Pipe, Source, Spout, Pipes
+from ..implementations.pipes import pipes
+from ..implementations.sources import sources
+from ..implementations.spouts import spouts
+from ..macros import Macros, Macro, MacroSig, pipe_macros, source_macros
+from ..events import Event, Events, OnMessage, OnReaction, events
+from .macro_commands import check_pipe_macro, check_source_macro
 from mycommands import MyCommands
 import utils.texttools as texttools
 from utils.util import normalize_name

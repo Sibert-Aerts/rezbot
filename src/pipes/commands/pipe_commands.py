@@ -1,15 +1,15 @@
 import discord
 from discord.ext import commands
 
-from .processor import PipelineProcessor
-from .pipe import Pipe, Source, Spout
-from .implementations.pipes import pipes
-from .implementations.sources import sources, SourceResources
-from .implementations.spouts import spouts
-from .macros import pipe_macros, source_macros
-from .signature import Arguments
-from .events import events
-from .logger import ErrorLog
+from ..processor import PipelineProcessor
+from ..pipe import Pipe, Source, Spout
+from ..implementations.pipes import pipes
+from ..implementations.sources import sources, SourceResources
+from ..implementations.spouts import spouts
+from ..macros import pipe_macros, source_macros
+from ..signature import Arguments
+from ..events import events
+from ..logger import ErrorLog
 from mycommands import MyCommands
 import utils.texttools as texttools
 import utils.util as util

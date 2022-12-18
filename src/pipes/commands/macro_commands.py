@@ -4,12 +4,12 @@ from typing import Callable
 import discord
 from discord.ext import commands
 
-from .pipe import Pipes
-from .pipeline import Pipeline
-from .processor import PipelineProcessor
-from .implementations.pipes import pipes
-from .implementations.sources import sources
-from .macros import Macro, MacroSig, Macros, pipe_macros, source_macros
+from ..pipe import Pipes
+from ..pipeline import Pipeline
+from ..processor import PipelineProcessor
+from ..implementations.pipes import pipes
+from ..implementations.sources import sources
+from ..macros import Macro, MacroSig, Macros, pipe_macros, source_macros
 import utils.texttools as texttools
 from utils.util import normalize_name
 from mycommands import MyCommands
