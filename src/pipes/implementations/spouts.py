@@ -5,7 +5,7 @@ from discord import Embed
 from discord.errors import HTTPException
 from discord.ext.commands import Bot
 
-from ..signature import Par, Signature
+from ..signature import Par, Signature, hex, url
 from ..pipe import Spout, Pipes
 from .sources import SourceResources
 from ..events import events
@@ -34,16 +34,6 @@ def make_spout(signature, command=False):
         return func
     return _make_spout
 
-
-def url(s):
-    if len(s)>2 and s[0]=='<' and s[-1]=='>': return s[1:-1]
-    return s
-
-def hex(h):
-    if h and h[0] == '#': h = h[1:]
-    elif h and h[:2] == '0x': h = h[2:]
-    return int(h, base=16)
-
 #####################################################
 #                  Spouts : EMBEDS                  #
 #####################################################
@@ -56,7 +46,7 @@ def hex(h):
     'author_icon': Par(url, None, 'Link to the author\'s portrait.', required=False),
     'thumb':       Par(url, None, 'Link to an image shown as a thumbnail.', required=False),
     'image':       Par(url, None, 'Link to an image shown in big.', required=False),
-    'footer':      Par(str, '',   'The footer text.'),
+    'footer':      Par(str, None, 'The footer text.', required=False),
     'footer_icon': Par(url, None, 'Link to the footer icon.', required=False),
     'timestamp':   Par(int, None, 'A timestamp representing the date that shows up in the footer.', required=False),
 }, command=True)
@@ -91,7 +81,7 @@ async def embed_spout(bot, message, values, color, title, author, author_icon, l
 async def tweet_spout(bot, message, values, name, handle, icon, retweets, likes, timestamp):
     ''' Outputs text as a fake tweet embed. '''
     embed = Embed(description='\n'.join(values), color=0x1da1f2)
-    embed.set_author(name='{} (@{})'.format(name, handle), url='https://twitter.com/'+handle, icon_url=icon)
+    embed.set_author(name=f'{name} (@{handle})', url='https://twitter.com/'+handle, icon_url=icon)
     embed.set_footer(text='Twitter', icon_url='https://abs.twimg.com/icons/apple-touch-icon-192x192.png')
     embed.timestamp = datetime.now(tz=timezone.utc) if timestamp is None else datetime.fromtimestamp(timestamp, tz=timezone.utc)
     if retweets:

@@ -1,15 +1,9 @@
-import re
 import random
 
 from .sources import make_source, set_category
-from ..signature import Par
-
-import utils.util as util
-from utils.texttools import *
+from ..signature import Par, regex, bool_or_none, parse_bool
 from resource.upload import uploads
 
-# So the typename correctly shows up as "regex"
-def regex(*args, **kwargs): return re.compile(*args, **kwargs)
 
 #####################################################
 #                  Sources : FILE                   #
@@ -17,9 +11,6 @@ def regex(*args, **kwargs): return re.compile(*args, **kwargs)
 set_category('FILE')
 # NOTE: the category can't be called "FILE" if I rename "txt" to "file", also the "file" source can't be a command then!
 
-def bool_or_none(val):
-    if val is None or val == 'None': return None
-    return(util.parse_bool(val))
 
 @make_source({
     'file' : Par(str, None, 'The file name, "random" for a random file'),
@@ -59,7 +50,7 @@ async def markov_source(file, n, length, start):
 @make_source({
     'file'   : Par(str, None, 'The file name'),
     'tag'    : Par(str, None, 'The POS tag'),
-    'uniform': Par(util.parse_bool, False, 'Whether to pick pieces uniformly or based on their frequency'),
+    'uniform': Par(parse_bool, False, 'Whether to pick pieces uniformly or based on their frequency'),
     'n'      : Par(int, 1, 'The amount of pieces')
 }, depletable=True, plural='pos')
 async def pos_source(file, tag, uniform, n):

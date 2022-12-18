@@ -1,13 +1,9 @@
 from datetime import timezone
 
 from .sources import make_source, get_which, set_category, SourceResources
-from ..signature import Par, Option, Multi
-from utils.util import parse_bool
+from ..signature import Par, Option, Multi, regex, parse_bool
 
 from utils.texttools import *
-
-# So the typename correctly shows up as "regex"
-def regex(*args, **kwargs): return re.compile(*args, **kwargs)
 
 #####################################################
 #                 Sources : DISCORD                 #

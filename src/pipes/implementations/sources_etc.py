@@ -4,14 +4,11 @@ import random
 from datetime import datetime, timezone, timedelta
 
 from .sources import make_source, multi_source, set_category
-from ..signature import Par
+from ..signature import Par, regex
 
 from utils.rand import choose, sample 
 from utils.texttools import *
 
-
-# So the typename correctly shows up as "regex"
-def regex(*args, **kwargs): return re.compile(*args, **kwargs)
 
 #####################################################
 #                  Sources : ETC.                   #
