@@ -6,7 +6,7 @@ from discord.errors import HTTPException
 from discord.ext.commands import Bot
 
 from ..signature import Par, Signature, hex, url
-from ..pipe import Spout, Pipes
+from ..pipe import Spout, Spouts
 from .sources import SourceResources
 from ..events import events
 from resource.upload import uploads
@@ -17,7 +17,7 @@ from utils.util import parse_bool
 #                     Decorations                     #
 #######################################################
 
-spouts = Pipes()
+spouts = Spouts()
 'The canonical object storing/indexing all `Spout` instances.'
 
 spouts.command_spouts = []
@@ -27,7 +27,7 @@ def make_spout(signature, command=False):
     '''Makes a Spout out of a function.'''
     def _make_spout(func):
         global spouts, _CATEGORY
-        spout = Spout(Signature(signature), func, _CATEGORY)
+        spout = Spout(Signature(signature), func, category=_CATEGORY)
         spouts.add(spout)
         if command:
             spouts.command_spouts.append(spout)

@@ -19,7 +19,7 @@ set_category('FILE')
     'sentences' : Par(bool_or_none, None, 'If the file should be split on sentences as opposed to on dividing characters, "None" for file-dependent.', required=False),
     'query'     : Par(str, '', 'Optional search query'),
     'pattern'   : Par(regex, None, 'Optional search regex', required=False),
-}, command=True, depletable=True)
+}, command=True, depletable=True, plural=False)
 async def txt_source(file, n, sequential, sentences, query, pattern):
     '''Lines from an uploaded text file. Check >files for a list of files.'''
     if file == 'random':
@@ -37,10 +37,10 @@ async def txt_source(file, n, sequential, sentences, query, pattern):
 
 @make_source({
     'file'  : Par(str, None, 'The file name'),
-    'n'     : Par(int, 1, 'The amount of lines'),
+    'n'     : Par(int, 1, 'The number of lines'),
     'length': Par(int, 0, 'The maximum length of the generated sentence (0 for unlimited)'),
     'start' : Par(str, None, 'One or two starting words to continue a sentence from (NOTE: EXTREMELY FINNICKY)', required=False)
-}, command=True)
+}, command=True, plural=False)
 async def markov_source(file, n, length, start):
     '''Randomly generated markov chains based on an uploaded file. Check >files for a list of files.'''
     file = uploads[file]
@@ -51,11 +51,11 @@ async def markov_source(file, n, length, start):
     'file'   : Par(str, None, 'The file name'),
     'tag'    : Par(str, None, 'The POS tag'),
     'uniform': Par(parse_bool, False, 'Whether to pick pieces uniformly or based on their frequency'),
-    'n'      : Par(int, 1, 'The amount of pieces')
+    'n'      : Par(int, 1, 'The number of pieces')
 }, depletable=True, plural='pos')
 async def pos_source(file, tag, uniform, n):
     '''
-        Returns a Piece Of Sentence from a given text file that match a given grammatical POS tag.
+        Pieces Of Sentence from a given text file that match a given grammatical POS tag.
 
         See >files for a list of uploaded files.
         List of POS tags: https://universaldependencies.org/docs/u/pos/

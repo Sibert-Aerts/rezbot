@@ -55,18 +55,15 @@ def make_source(signature, *, command=False, **kwargs):
     Makes a source out of a function.
 
     Keyword arguments:
-        command: Whether or not the source should be usable as a standalone bot command (default: False)
-
-        pass_message: Whether or not the function should receive the Discord message as its first argument (default: False)
-
-        plural: The source's name pluralised (default: name + 's')
-
-        depletable: Whether the source allows to request "all" elements (e.g. "{all words}" instead of just "{10 words}"),
+    * command: If True, source becomes usable as a standalone bot command (default: False)
+    * pass_message: If True, function receives the discord Message as its first argument (default: False)
+    * plural: The source's name pluralised, to use as an alias (default: name + 's')
+    * depletable: If True, it is allowed to request "ALL" of a source. (e.g. "{all words}" instead of just "{10 words}"),
     in this case `n` will be passed as -1 (default: False)
     '''
     def _make_source(func):
         global sources, _CATEGORY
-        source = Source(Signature(signature), func, _CATEGORY, **kwargs)
+        source = Source(Signature(signature), func, category=_CATEGORY, **kwargs)
         sources.add(source)
         if command:
             sources.command_sources.append(source)

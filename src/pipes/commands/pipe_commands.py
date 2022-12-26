@@ -335,7 +335,7 @@ async def setup(bot: commands.Bot):
                 await ctx.send(embed=err.embed())
 
         func.__name__ = pipe.name
-        func.__doc__ = pipe.command_doc()
+        func.__doc__ = pipe.get_command_doc()
         return func
 
     # Turn those pipes into discord.py bot commands!
@@ -375,7 +375,7 @@ async def setup(bot: commands.Bot):
                 await ctx.send(embed=err.embed())
 
         func.__name__ = source.name
-        func.__doc__ = source.command_doc()
+        func.__doc__ = source.get_command_doc()
         return func
 
     # Turn those sources into discord.py bot commands!
@@ -415,7 +415,7 @@ async def setup(bot: commands.Bot):
                 await ctx.send(embed=err.embed())
 
         func.__name__ = spout.name
-        func.__doc__ = spout.command_doc()
+        func.__doc__ = spout.get_command_doc()
         return func
 
     # Turn those spouts into discord.py bot commands!

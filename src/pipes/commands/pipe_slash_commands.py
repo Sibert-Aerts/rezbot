@@ -5,7 +5,7 @@ from discord.ext import commands
 from discord import app_commands, Interaction
 from discord.app_commands import Choice
 
-from ..pipe import Pipe, Source, Spout, Pipes
+from ..pipe import Pipe, Source, Spout, Pipes, Sources, Spouts
 from ..implementations.pipes import pipes
 from ..implementations.sources import sources
 from ..implementations.spouts import spouts
@@ -22,7 +22,7 @@ A module providing a collection of slash commands for interacting with scripting
 
 # ====================================== Scriptoid mappings =======================================
 
-scriptoid_type_map: dict[str, Pipes|Macros|Events]  = {
+scriptoid_type_map: dict[str, Pipes|Sources|Spouts|Macros|Events]  = {
     'Pipe': pipes,
     'Source': sources,
     'Spout': spouts,
@@ -150,7 +150,7 @@ class PipeSlashCommands(MyCommands):
 
     # ============================================ Native scriptoid Listing ===========================================
 
-    async def _list_scriptoids(self, interaction: Interaction, scriptoids: Pipes, what: str, category_name: str):
+    async def _list_scriptoids(self, interaction: Interaction, scriptoids: Pipes|Sources|Spouts, what: str, category_name: str):
         ## List pipes in a specific category
         reply = interaction.response.send_message
         

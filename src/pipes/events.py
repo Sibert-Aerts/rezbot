@@ -162,7 +162,7 @@ class Events:
 
         except Exception as e:
             ## Failed to register event (most likely regex could not parse)
-            await channel.send('Failed to {} event:\n\t{}: {}'.format( 'register' if mode=='NEW' else 'update', e.__class__.__name__, e))
+            await channel.send('Failed to {} event:\n\t{}: {}'.format( 'register' if mode=='NEW' else 'update', type(e).__name__, e))
             raise e
 
         else:

@@ -327,7 +327,7 @@ class Pipeline:
             if group_mode.splits_trivially():
                 group_context = context
             else:
-                context.set(loose_items)
+                context.set_items(loose_items)
                 group_context = Context(context)
 
             try:
@@ -341,7 +341,7 @@ class Pipeline:
             # The implemenation of this arcane flowchart magicke is detailed in `./groupmodes.py`
             # In the absolute simplest (and most common) case, all values are simply sent to a single pipe, and this loop iterates exactly once.
             for items, parsed_pipe in applied_group_mode:
-                group_context.set(items)
+                group_context.set_items(items)
 
                 ## CASE: `None` is how the groupmode assigns values to remain unaffected
                 if parsed_pipe is None:
