@@ -97,7 +97,7 @@ class ParsedSource:
         ### CASE: Native Source
         if self.type == ParsedSource.NATIVE_SOURCE:
             try:
-                return await self.source(message, args, n=self.amount), errors
+                return await self.source.generate(message, args, n=self.amount), errors
 
             except Exception as e:
                 argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )

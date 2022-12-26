@@ -20,17 +20,16 @@ from utils.util import parse_bool
 spouts = Spouts()
 'The canonical object storing/indexing all `Spout` instances.'
 
-spouts.command_spouts = []
 _CATEGORY = None
 
-def make_spout(signature, command=False):
+def make_spout(signature, command=False, **kwargs):
     '''Makes a Spout out of a function.'''
     def _make_spout(func):
         global spouts, _CATEGORY
-        spout = Spout(Signature(signature), func, category=_CATEGORY)
-        spouts.add(spout)
-        if command:
-            spouts.command_spouts.append(spout)
+        name = func.__name__.rsplit('_', 1)[0].lower()
+        doc = func.__doc__
+        spout = Spout(Signature(signature), func, name=name, doc=doc, category=_CATEGORY, **kwargs)
+        spouts.add(spout, command)
         return func
     return _make_spout
 

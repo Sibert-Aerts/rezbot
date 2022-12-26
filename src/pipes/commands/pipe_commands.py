@@ -339,7 +339,7 @@ async def setup(bot: commands.Bot):
         return func
 
     # Turn those pipes into discord.py bot commands!
-    for pipe in pipes.command_pipes:
+    for pipe in pipes.commands:
         func = pipe_to_func(pipe)
         # manually call the function decorator to make func into a command
         command = commands.command()(func)
@@ -367,7 +367,7 @@ async def setup(bot: commands.Bot):
 
             try:
                 # Apply the source with the given arguments
-                results = await source(ctx.message, args)
+                results = await source.generate(ctx.message, args)
                 await PipelineProcessor.send_print_values(ctx.channel, [results])
     
             except Exception as e:
@@ -379,7 +379,7 @@ async def setup(bot: commands.Bot):
         return func
 
     # Turn those sources into discord.py bot commands!
-    for source in sources.command_sources:
+    for source in sources.commands:
         func = source_to_func(source)
         # manually call the function decorator to make func into a command
         command = commands.command()(func)
@@ -408,7 +408,7 @@ async def setup(bot: commands.Bot):
 
             try:
                 # Execute the spout with what remains of the argstr
-                await spout.function(ctx.bot, ctx.message, [text], **args)
+                await spout.spout_function(ctx.bot, ctx.message, [text], **args)
 
             except Exception as e:
                 err.log(f'With args {" ".join( f"`{p}`={args[p]}" for p in args )}:\n\t{type(e).__name__}: {e}', True)
@@ -419,7 +419,7 @@ async def setup(bot: commands.Bot):
         return func
 
     # Turn those spouts into discord.py bot commands!
-    for spout in spouts.command_spouts:
+    for spout in spouts.commands:
         func = spout_to_func(spout)
         # manually call the function decorator to make func into a command
         command = commands.command()(func)

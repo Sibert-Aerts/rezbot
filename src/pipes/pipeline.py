@@ -387,7 +387,7 @@ class Pipeline:
                 elif name == 'print':
                     next_items.extend(items)
                     new_printed_items.extend(items)
-                    spout_callbacks.append(spouts['print'](items))
+                    spout_callbacks.append(spouts['print'].hook(items))
 
                 ## A NATIVE PIPE
                 elif parsed_pipe.type == ParsedPipe.NATIVE_PIPE:
@@ -412,7 +412,7 @@ class Pipeline:
                     next_items.extend(items)
                     try:
                         # Queue up the spout's side-effects instead, to be executed once the entire script has completed
-                        spout_callbacks.append( parsed_pipe.pipe(items, **args) )
+                        spout_callbacks.append( parsed_pipe.pipe.hook(items, **args) )
                     except Exception as e:
                         argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
                         errors.log(f'Failed to process spout `{name}` with args {argfmt}:\n\t{type(e).__name__}: {e}', True)
@@ -426,7 +426,7 @@ class Pipeline:
                         errors.log(f'Source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
 
                     try:
-                       next_items.extend( await parsed_pipe.pipe(message, args) )
+                       next_items.extend( await parsed_pipe.pipe.generate(message, args) )
                     except Exception as e:
                         argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
                         errors.log(f'Failed to process source-as-pipe `{name}` with args {argfmt}:\n\t{type(e).__name__}: {e}', True)

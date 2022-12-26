@@ -43,7 +43,6 @@ def get_which(get_what):
 sources = Sources()
 'The canonical object storing/indexing all `Source` instances.'
 
-sources.command_sources = []
 _CATEGORY = 'NONE'
 
 def set_category(category: str):
@@ -53,9 +52,9 @@ def set_category(category: str):
 def make_source(signature, *, command=False, **kwargs):
     '''
     Makes a source out of a function.
-
-    Keyword arguments:
     * command: If True, source becomes usable as a standalone bot command (default: False)
+
+    Source-specific keyword arguments:
     * pass_message: If True, function receives the discord Message as its first argument (default: False)
     * plural: The source's name pluralised, to use as an alias (default: name + 's')
     * depletable: If True, it is allowed to request "ALL" of a source. (e.g. "{all words}" instead of just "{10 words}"),
@@ -63,10 +62,10 @@ def make_source(signature, *, command=False, **kwargs):
     '''
     def _make_source(func):
         global sources, _CATEGORY
-        source = Source(Signature(signature), func, category=_CATEGORY, **kwargs)
-        sources.add(source)
-        if command:
-            sources.command_sources.append(source)
+        name = func.__name__.rsplit('_', 1)[0].lower()
+        doc = func.__doc__
+        source = Source(Signature(signature), func, name=name, doc=doc, category=_CATEGORY, **kwargs)
+        sources.add(source, command)
         return func
     return _make_source
 

@@ -53,21 +53,20 @@ def word_to_word(func):
 pipes = Pipes()
 'The canonical object storing/indexing all `Pipe` instances.'
 
-pipes.command_pipes = []
 _CATEGORY = 'NONE'
 
 def set_category(category: str):
     global _CATEGORY
     _CATEGORY = category
 
-def make_pipe(signature, command=False, may_use=None):
+def make_pipe(signature, command=False, **kwargs):
     '''Makes a Pipe out of a function.'''
     def _make_pipe(func):
         global pipes, _CATEGORY
-        pipe = Pipe(Signature(signature), func, category=_CATEGORY, may_use=may_use)
-        pipes.add(pipe)
-        if command:
-            pipes.command_pipes.append(pipe)
+        name = func.__name__.rsplit('_', 1)[0].lower()
+        doc = func.__doc__
+        pipe = Pipe(Signature(signature), func, name=name, doc=doc, category=_CATEGORY, **kwargs)
+        pipes.add(pipe, command)
         return func
     return _make_pipe
 
