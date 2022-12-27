@@ -4,7 +4,7 @@ from functools import wraps
 
 from discord.ext.commands import Bot
 
-from ..signature import Signature
+from ..signature import Signature, Par, get_signature
 from ..pipe import Source, Sources
 from resource.variables import VariableStore
 
@@ -49,7 +49,7 @@ def set_category(category: str):
     global _CATEGORY
     _CATEGORY = category
 
-def make_source(signature, *, command=False, **kwargs):
+def source_from_func(signature: dict[str, Par]=None, /, *, command=False, **kwargs):
     '''
     Makes a source out of a function.
     * command: If True, source becomes usable as a standalone bot command (default: False)
@@ -60,14 +60,26 @@ def make_source(signature, *, command=False, **kwargs):
     * depletable: If True, it is allowed to request "ALL" of a source. (e.g. "{all words}" instead of just "{10 words}"),
     in this case `n` will be passed as -1 (default: False)
     '''
-    def _make_source(func):
+    func = None
+    if callable(signature):
+        (func, signature) = (signature, None)
+
+    def _source_from_func(func):
         global sources, _CATEGORY
+        # Name is the function name with the _source bit cropped off
         name = func.__name__.rsplit('_', 1)[0].lower()
         doc = func.__doc__
-        source = Source(Signature(signature), func, name=name, doc=doc, category=_CATEGORY, **kwargs)
+        # Signature may be set using @with_signature, given directly, or not given at all
+        sig = get_signature(func, Signature(signature or {}))
+        source = Source(sig, func, name=name, doc=doc, category=_CATEGORY, **kwargs)
         sources.add(source, command)
         return func
-    return _make_source
+
+    if func: return _source_from_func(func)
+    return _source_from_func
+
+# TODO: Copy @pipe_from_class to make @source_from_class
+
 
 # Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.
 class SourceResources:

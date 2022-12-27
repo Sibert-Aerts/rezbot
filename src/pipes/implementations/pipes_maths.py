@@ -4,7 +4,7 @@ import re
 
 from simpleeval import SimpleEval
 
-from .pipes import make_pipe, many_to_one, set_category
+from .pipes import pipe_from_func, many_to_one, set_category
 from ..signature import Par
 
 
@@ -53,7 +53,7 @@ MATH_FUNCTIONS = {
 
 SIMPLE_EVAL = SimpleEval(functions=MATH_FUNCTIONS, names={'e': math.e, 'pi': math.pi, 'inf': math.inf, 'True': True, 'False': False})
 
-@make_pipe({
+@pipe_from_func({
     'expr': Par(str, None, 'The mathematical expression to evaluate. Use {} notation to insert items into the expression.')
 }, command=True)
 @many_to_one
@@ -70,28 +70,28 @@ def math_pipe(values, expr):
     return [ smart_format(SIMPLE_EVAL.eval(expr)) ]
 
 
-@make_pipe({})
+@pipe_from_func
 @many_to_one
 def max_pipe(values):
     ''' Produces the maximum value of the inputs evaluated as numbers. '''
     return [smart_format(max(float(x) for x in values))]
 
 
-@make_pipe({})
+@pipe_from_func
 @many_to_one
 def min_pipe(values):
     ''' Produces the minimum value of the inputs evaluated as numbers. '''
     return [smart_format(min(float(x) for x in values))]
 
 
-@make_pipe({})
+@pipe_from_func
 @many_to_one
 def sum_pipe(values):
     ''' Produces the sum of the inputs evaluated as numbers. '''
     return [smart_format(sum(float(x) for x in values))]
 
 
-@make_pipe({})
+@pipe_from_func
 @many_to_one
 def avg_pipe(values):
     ''' Produces the mean average of the inputs evaluated as numbers. '''

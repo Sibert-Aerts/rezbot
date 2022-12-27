@@ -3,7 +3,7 @@ import re
 import random
 from datetime import datetime, timezone, timedelta
 
-from .sources import make_source, multi_source, set_category
+from .sources import source_from_func, multi_source, set_category
 from ..signature import Par, regex
 
 from utils.rand import choose, sample 
@@ -15,7 +15,7 @@ from utils.texttools import *
 #####################################################
 set_category('ETC')
 
-@make_source({
+@source_from_func({
     'min': Par(int, 1, 'The minimum value'),
     'max': Par(int, 20, 'The maximum value'),
     'n'  : Par(int, 1, 'The amount of rolls')
@@ -26,7 +26,7 @@ async def roll_source(min, max):
     return str(random.randint(min, max))
 
 
-@make_source({
+@source_from_func({
     'start': Par(int, 0, 'The starting of the range'),
     'end':   Par(int, None, 'The end of the range (not included in the range!)'),
     'step':  Par(int, 1, 'The step size')
@@ -38,7 +38,7 @@ async def range_source(start, end, step):
     return list(map(str, range(start, end, step)))
 
 
-@make_source({
+@source_from_func({
     'format': Par(str, '%Y/%m/%d %H:%M:%S', 'The format, see http://strftime.org/ for syntax.'),
     'utc'   : Par(float, 0, 'The offset from UTC in hours.'),
     'timestamp': Par(int, None, 'The UNIX UTC timestamp to format, leave empty to use the current time.', required=False),
@@ -66,7 +66,7 @@ async def datetime_source(format, utc, timestamp, parse, pformat):
     return [time.strftime(format)]
 
 
-@make_source({
+@source_from_func({
     'utc'   : Par(float, 0, 'The offset from UTC in hours to interpret the date as being.'),
     'parse': Par(str, None, 'A datetime string to parse and reformat, leave empty to use the current time.', required=False),
     'pformat': Par(str, '%Y/%m/%d %H:%M:%S', 'The format according to which to parse `parse`.'),
@@ -84,7 +84,7 @@ async def timestamp_source(utc, parse, pformat):
     return [str(int(time.timestamp()))]
 
 
-@make_source({
+@source_from_func({
     'pattern': Par(regex, None, 'The pattern to look for', required=False),
     'n'      : Par(int, 1, 'The number of sampled words.')
 }, depletable=True)
@@ -99,7 +99,7 @@ async def word_source(pattern, n):
 
 EMOJI_LIST = list(emoji.EMOJI_DATA)
 
-@make_source({
+@source_from_func({
     'n' : Par(int, 1, 'The amount of emoji.'),
     'oldest' : Par(float, 0.6, 'How old the emoji can be, inclusive.'),
     'newest' : Par(float, 15, 'How new the emoji can be, inclusive.'),

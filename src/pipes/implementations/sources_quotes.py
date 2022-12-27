@@ -1,7 +1,7 @@
 import re
 import random
 
-from .sources import make_source, set_category, multi_source
+from .sources import source_from_func, set_category, multi_source
 from ..signature import Par, Option
 
 import utils.util as util
@@ -19,7 +19,7 @@ from resource.jerkcity import JERKCITY
 set_category('QUOTES')
 
 
-@make_source({
+@source_from_func({
     'n'         : Par(int, 1, 'The amount of captions.'),
     'q'         : Par(str, '', 'Search query, empty for a random quote'),
     'multiline' : Par(util.parse_bool, True, 'Allow captions longer than one line.')
@@ -39,7 +39,7 @@ async def simpsons_source(n, q, multiline):
     return out
 
 
-@make_source({
+@source_from_func({
     'n'         : Par(int, 1, 'The amount of captions.'),
     'q'         : Par(str, '', 'Search query, empty for a random quote'),
     'multiline' : Par(util.parse_bool, True, 'Allow captions longer than one line.')
@@ -59,7 +59,7 @@ async def futurama_source(n, q, multiline):
     return out
 
 
-@make_source({
+@source_from_func({
     'query' : Par(str, '', 'Search query, empty for random tweets.'),
     'n' : Par(int, 1, 'The amount of tweets.')
 }, depletable=True)
@@ -73,7 +73,7 @@ async def dril_source(query, n):
     return [t['text'] for t in out]
 
 
-@make_source({
+@source_from_func({
     'query': Par(str, '', 'Search query, empty for random tweets.'),
     'n' :    Par(int, 1, 'The amount of tweets.')
 }, depletable=True)
@@ -87,7 +87,7 @@ async def trump_source(query, n):
     return [t['text'] for t in out]
 
 
-@make_source({
+@source_from_func({
     'COMIC' : Par(int, -1, 'EXACT COMIC NUMBER, -1 FOR QUERY COMIC.'),
     'QUERY' : Par(str, '', 'TITLE OR DIALOG TO LOOK FOR (FUZZY!), EMPTY FOR RANDOM COMICS.'),
     'N'     : Par(int, 1, 'NUMBER OF COMICS TO LOAD LINES FROM.', lambda x: x>0),
@@ -125,7 +125,7 @@ async def JERKCITY_source(COMIC, QUERY, N, LINES, NAMES):
 
 SOULS_GAME = Option('?','1','2','3','b','s', name='game', stringy=True)
 
-@make_source({
+@source_from_func({
     'n'     : Par(int, 1, 'The number of generated messages.'),
     'game'  : Par(SOULS_GAME, '?', 'Which game should be used (1/2/3/B/S/? for random).'),
     'phrase': Par(str, '%phrase%', 'Overrides game argument. Construct a custom phrase using the following categories:\nphrase, {}'.format(', '.join(soapstone.phraseDict)))

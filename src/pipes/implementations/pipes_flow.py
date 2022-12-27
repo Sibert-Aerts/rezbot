@@ -1,8 +1,8 @@
 import random
 import math
 
-from .pipes import make_pipe, many_to_one, set_category
-from ..signature import Par, Option
+from .pipes import pipe_from_func, many_to_one, set_category
+from ..signature import Par, Option, with_signature
 from utils.rand import choose_slice
 from utils.util import parse_bool
 
@@ -12,10 +12,11 @@ from utils.util import parse_bool
 #####################################################
 set_category('FLOW')
 
-@make_pipe({
-    'times': Par(int, None, 'Number of times repeated'),
-    'max'  : Par(int, -1, 'Maximum number of outputs produced, -1 for unlimited.')
-})
+@pipe_from_func
+@with_signature(
+    times = Par(int, None, 'Number of times repeated'),
+    max   = Par(int, -1, 'Maximum number of outputs produced, -1 for unlimited.')
+)
 def repeat_pipe(input, times, max):
     '''Repeats each row a given number of times.'''
     if max == -1:
@@ -27,7 +28,7 @@ def repeat_pipe(input, times, max):
 
 REMOVE_WHAT = Option('all', 'empty', 'whitespace')
 
-@make_pipe({ 
+@pipe_from_func({ 
     'what': Par(REMOVE_WHAT, REMOVE_WHAT.all, 'What to filter: all/empty/whitespace') 
 })
 def remove_pipe(items, what):
@@ -46,7 +47,7 @@ def remove_pipe(items, what):
         return [x for x in items if x]
 
 
-@make_pipe({})
+@pipe_from_func
 def sort_pipe(input):
     '''Sorts the input values lexicographically.'''
     # IMPORTANT: `input` is passed BY REFERENCE, so we are NOT supposed to mess with it!
@@ -55,13 +56,13 @@ def sort_pipe(input):
     return out
 
 
-@make_pipe({})
+@pipe_from_func
 def reverse_pipe(input):
     '''Reverses the order of input items.'''
     return input[::-1]
 
 
-@make_pipe({})
+@pipe_from_func
 def shuffle_pipe(input):
     '''Randomly shuffles input values.'''
     # IMPORTANT NOTE: `input` is passed BY REFERENCE, so we are NOT supposed to mess with it!
@@ -70,7 +71,7 @@ def shuffle_pipe(input):
     return out
 
 
-@make_pipe({
+@pipe_from_func({
     'number' : Par(int, 1, 'The number of values to choose.', lambda x: x>=0)
 })
 def choose_pipe(input, number):
@@ -78,7 +79,7 @@ def choose_pipe(input, number):
     return random.choices(input, k=number)
 
 
-@make_pipe({
+@pipe_from_func({
     'length' : Par(int, None, 'The desired slice length.', lambda x: x>=0),
     'cyclical': Par(parse_bool, False, 'Whether or not the slice is allowed to "loop back" to cover both some first elements and last elements. ' +
             'i.e. If False, elements at the start and end of the input have lower chance of being selected, if True all elements have an equal chance.')
@@ -88,7 +89,7 @@ def choose_slice_pipe(input, length, cyclical):
     return choose_slice(input, length, cyclical=cyclical)
 
 
-@make_pipe({
+@pipe_from_func({
     'number' : Par(int, 1, 'The number of values to sample.', lambda x: x>=0) 
 })
 def sample_pipe(input, number):
@@ -99,7 +100,7 @@ def sample_pipe(input, number):
     return random.sample(input, min(len(input), number))
 
 
-@make_pipe({
+@pipe_from_func({
     'count' : Par(parse_bool, False, 'Whether each unique item should be followed by an item counting its number of occurrences')
 })
 def unique_pipe(input, count):
@@ -118,7 +119,7 @@ def unique_pipe(input, count):
     return [x for tup in zip(values, counts) for x in tup]
 
 
-@make_pipe({})
+@pipe_from_func
 @many_to_one
 def count_pipe(input):
     '''Counts the number of input items.'''

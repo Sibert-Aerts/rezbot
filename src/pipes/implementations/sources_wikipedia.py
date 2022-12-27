@@ -1,7 +1,7 @@
 import re
 from functools import lru_cache
 
-from .sources import make_source, set_category
+from .sources import source_from_func, set_category
 from ..signature import Par, Option, Multi
 
 from utils.rand import choose, sample, choose_slice 
@@ -57,7 +57,7 @@ def _wikipedia_get_what(page, what, n):
     elif what == WIKIPEDIA_WHAT.links:
         return sample( page.links, n )
 
-@make_source({
+@source_from_func({
     'language': Par(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
     'lines': Par(int, 1, 'The number of (what) you want ,for summary/content this means number of sentences.'),
     'what': Par(Multi(WIKIPEDIA_WHAT), 'summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
@@ -90,7 +90,7 @@ async def wikipedia_random_source(what, language, lines, n):
     return [ s for page in pages for wh in what for s in _wikipedia_get_what(page, wh, lines) ]
 
 
-@make_source({
+@source_from_func({
     'page': Par(str, None, 'The page you want information from. (For a random page, use wikipedia_random.)', lambda s: s),
     'language': Par(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
     'what': Par(Multi(WIKIPEDIA_WHAT), 'summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
@@ -106,7 +106,7 @@ async def wikipedia_source(page, what, language, n):
     return [ s for wh in what for s in _wikipedia_get_what(page, wh, n) ]
 
 
-@make_source({
+@source_from_func({
     'query': Par(str, None, 'The search query')
 })
 async def wikipedia_search_source(query):

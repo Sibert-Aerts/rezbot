@@ -25,7 +25,7 @@ class Pipeoid():
         self, 
         *,
         signature: Signature,
-        name: str=None,
+        name: str,
         aliases: list[str]=None,
         category: str=None,
         doc: str=None,

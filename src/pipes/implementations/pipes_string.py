@@ -1,7 +1,7 @@
 import math
 import textwrap
 
-from .pipes import make_pipe, many_to_one, one_to_one, one_to_many, set_category
+from .pipes import pipe_from_func, many_to_one, one_to_one, one_to_many, set_category
 from ..signature import Par, Option, Multi, parse_bool, regex
 from utils.texttools import min_dist, case_pattern
 from utils.choicetree import ChoiceTree
@@ -14,7 +14,7 @@ from resource.upload import uploads
 set_category('STRING')
 
 
-@make_pipe({
+@pipe_from_func({
     'f' : Par(str, None, 'The format string. Items of the form {0}, {1} etc. are replaced with the respective item at that index.')
 })
 @many_to_one
@@ -24,21 +24,21 @@ def format_pipe(input, f):
     return [f]
 
 
-@make_pipe({})
+@pipe_from_func
 @one_to_one
 def reverse_text_pipe(text):
     ''' Reverses each text string individually. '''
     return text[::-1]
 
 
-@make_pipe({})
+@pipe_from_func
 @many_to_one
 def length_pipe(input):
     ''' Gives the total length in characters of all items. '''
     return [str(sum( len(text) for text in input ))]
 
 
-@make_pipe({
+@pipe_from_func({
     'on' : Par(regex, None, 'Pattern to split on'),
     'lim': Par(int, 0, 'Maximum number of splits. (0 for no limit)')
 })
@@ -48,7 +48,7 @@ def split_pipe(text, on, lim):
     return on.split(text, maxsplit=lim)
 
 
-@make_pipe({
+@pipe_from_func({
     's' : Par(str, '', 'The separator inserted between two items.')
 })
 @many_to_one
@@ -57,7 +57,7 @@ def join_pipe(input, s):
     return [s.join(input)]
 
 
-@make_pipe({
+@pipe_from_func({
     'pattern': Par(regex, None, 'The pattern to find')
 })
 @one_to_many
@@ -73,7 +73,7 @@ def find_all_pipe(text, pattern):
     return matches
 
 
-@make_pipe({
+@pipe_from_func({
     'from': Par(regex, None, 'Pattern to replace'),
     'to' : Par(str, None, 'Replacement string'),
 })
@@ -87,7 +87,7 @@ def sub_pipe(text, to, **argc):
 
 DIRECTION = Option('left', 'center', 'right')
 
-@make_pipe({
+@pipe_from_func({
     'width': Par(int, None, 'How many characters to trim each string down to.'),
     'where': Par(DIRECTION, DIRECTION.right, 'Which side to trim from: left/center/right'),
 })
@@ -103,7 +103,7 @@ def trim_pipe(text, width, where):
         return text[ diff//2 : -math.ceil(diff/2) ]
 
 
-@make_pipe({
+@pipe_from_func({
     'width': Par(int, None, 'The minimum width to pad to.'),
     'where': Par(DIRECTION, DIRECTION.right, 'Which side to pad on: left/center/right'),
     'fill' : Par(str, ' ', 'The character used to pad out the string.'),
@@ -119,7 +119,7 @@ def pad_pipe(text, where, width, fill):
         return text.ljust(width, fill)
 
 
-@make_pipe({})
+@pipe_from_func
 @one_to_one
 def strip_pipe(value):
     ''' Strips whitespace from the start and end of each input text. '''
@@ -128,7 +128,7 @@ def strip_pipe(value):
 
 WRAP_MODE = Option('dumb', 'smart')
 
-@make_pipe({
+@pipe_from_func({
     'mode' : Par(WRAP_MODE, WRAP_MODE.smart, 'How to wrap: dumb (char-by-char) or smart (on spaces).'),
     'width': Par(int, 40, 'The minimum width to pad to.')
 })
@@ -144,7 +144,7 @@ def wrap_pipe(text, mode, width):
         return textwrap.wrap(text, width)
 
 
-@make_pipe({
+@pipe_from_func({
     'pattern': Par(str, None, 'Case pattern to apply'),
 })
 def case_pipe(inputs, pattern):
@@ -170,7 +170,7 @@ def case_pipe(inputs, pattern):
 
 TABLE_ALIGN = Option('l', 'c', 'r', name='alignment')
 
-@make_pipe({
+@pipe_from_func({
     'columns':    Par(str, None, 'The names of the different columns separated by commas, OR an integer giving the number of columns.'),
     'alignments': Par(Multi(TABLE_ALIGN), 'l', 'How the columns should be aligned: l/c/r separated by commas.'),
     'sep':        Par(str, ' │ ', 'The column separator'),
@@ -294,7 +294,7 @@ class MapType:
         return self.invCaseMap[key.lower()]
 
 
-@make_pipe({
+@pipe_from_func({
     'map': Par(MapType, None, 'A sequence `key:value` entries separated by commas.'),
     'default': Par(str, None, 'The default fallback value. Leave undefined to cause an error instead.', required=False),
     'case': Par(parse_bool, False, 'If mapping should be case sensitive.'),
@@ -315,7 +315,7 @@ def map_pipe(item: str, map: MapType, case: bool, invert: bool, default: str):
         raise KeyError('No map entry for item "{}"'.format(item))
 
 
-@make_pipe({
+@pipe_from_func({
     'file': Par(str, None, 'The name of the file to be matched from. >files for a list of files'),
     'min':  Par(int, 0, 'Upper limit on minimum distance (e.g. 1 to never get the same word).')
 }, command=True)
@@ -326,7 +326,7 @@ def nearest_pipe(text, min, file):
     return min_dist(text, min, file.get())
 
 
-@make_pipe({
+@pipe_from_func({
     'random': Par(int, None, 'If given, only produces the given number of (possibly repeating) random expansions. ' \
         'If there are a large number of possible expansions and you only want a few random ones, this option is far more efficient '\
         'than simply generating all of them before randomly choosing some.', 

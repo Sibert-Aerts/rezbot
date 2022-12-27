@@ -3,7 +3,7 @@ from functools import lru_cache
 
 from datamuse import datamuse
 
-from .pipes import make_pipe, word_to_word, set_category
+from .pipes import pipe_from_func, word_to_word, set_category
 
 
 #####################################################
@@ -17,7 +17,7 @@ set_category('DATAMUSE')
 datamuse_api = datamuse.Datamuse()
 _datamuse = lru_cache()(datamuse_api.words)
 
-@make_pipe({}, command=True)
+@pipe_from_func(command=True)
 @word_to_word
 def rhyme_pipe(word):
     '''
@@ -33,7 +33,7 @@ def rhyme_pipe(word):
         return word
 
 
-@make_pipe({}, command=True)
+@pipe_from_func(command=True)
 @word_to_word
 def homophone_pipe(word):
     '''
@@ -47,7 +47,7 @@ def homophone_pipe(word):
         return word
 
 
-@make_pipe({}, command=True)
+@pipe_from_func(command=True)
 @word_to_word
 def synonym_pipe(word):
     '''
@@ -61,7 +61,7 @@ def synonym_pipe(word):
         return word
 
 
-@make_pipe({}, command=True)
+@pipe_from_func(command=True)
 @word_to_word
 def antonym_pipe(word):
     '''
@@ -75,7 +75,7 @@ def antonym_pipe(word):
         return word
 
 
-@make_pipe({}, command=True)
+@pipe_from_func(command=True)
 @word_to_word
 def part_pipe(word):
     '''
@@ -89,7 +89,7 @@ def part_pipe(word):
         return word
 
 
-@make_pipe({}, command=True)
+@pipe_from_func(command=True)
 @word_to_word
 def comprises_pipe(word):
     '''

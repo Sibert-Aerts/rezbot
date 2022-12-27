@@ -157,7 +157,7 @@ class PipelineProcessor:
 
             ## Print the output!
             # TODO: auto-print if the last pipe was not a spout, or something
-            if not spout_callbacks or any( callback is spouts['print'].function for (callback, _, _) in spout_callbacks ):
+            if not spout_callbacks or any( callback is spouts['print'].spout_function for (callback, _, _) in spout_callbacks ):
                 printValues.append(values)
                 await self.send_print_values(message.channel, printValues)
 

@@ -7,7 +7,7 @@ import nltk
 import spacy
 spacy.LOADED_NLP = None
 
-from .pipes import make_pipe, one_to_one, one_to_many, set_category
+from .pipes import pipe_from_func, one_to_one, one_to_many, set_category
 from ..signature import Par, Option, Multi
 from utils.util import parse_bool
 from resource.upload import uploads
@@ -43,12 +43,12 @@ translate_languages = ['af', 'sq', 'am', 'ar', 'hy', 'az', 'eu', 'be', 'bn', 'bs
 
 LANGUAGE = Option(*translate_languages, name='language', stringy=True)
 
-@make_pipe({
+@pipe_from_func({
     'from': Par(LANGUAGE + ['auto'], 'auto', 'The language code to translate from, "auto" to automatically detect the language.'),
     'to':   Par(LANGUAGE + ['random'], 'en', 'The language code to translate to, "random" for a random language.'),
 }, command=True)
 @one_to_one
-def translate_pipe(text, to, **argc):
+def translate_pipe(text, to, **kwargs):
     '''
     Translates text using Google Translate.
     A list of languages can be browsed at https://cloud.google.com/translate/docs/languages
@@ -56,14 +56,14 @@ def translate_pipe(text, to, **argc):
     if translate_client is None: return text
     if not text.strip(): return text
 
-    fro = argc['from'] # Can't have a variable named 'from' because it's a keyword
+    fro = kwargs['from'] # Can't have a variable named 'from' because it's a keyword
     if fro == 'auto': fro = ''
     if to == 'random': to = random.choice(translate_languages)
 
     return translate_func(text, fro, to)
 
 
-@make_pipe({})
+@pipe_from_func
 @one_to_one
 def detect_language_pipe(text):
     '''
@@ -76,14 +76,14 @@ def detect_language_pipe(text):
     return translate_client.detect_language(text)['language']
 
 
-@make_pipe({})
+@pipe_from_func
 @one_to_many
 def split_sentences_pipe(line):
     ''' Splits text into individual sentences using the Natural Language Toolkit (NLTK). '''
     return nltk.sent_tokenize(line)
 
 
-@make_pipe({
+@pipe_from_func({
     'file'   : Par(str, None, 'The file name'),
     'uniform': Par(parse_bool, False, 'Whether to pick pieces uniformly or based on their frequency'),
     'n'      : Par(int, 1, 'The amount of different phrases to generate')
@@ -112,7 +112,7 @@ def pos_fill_pipe(phrases, file, uniform, n):
 POS_TAG = Option('ADJ', 'ADJ', 'ADP', 'PUNCT', 'ADV', 'AUX', 'SYM', 'INTJ', 'CONJ',
 'X', 'NOUN', 'DET', 'PROPN', 'NUM', 'VERB', 'PART', 'PRON', 'SCONJ', 'SPACE', name='POS tag', stringy=True, prefer_upper=True)
 
-@make_pipe({
+@pipe_from_func({
     'include': Par(Multi(POS_TAG), None, 'Which POS tags to replace, separated by commas. If blank, uses the `exclude` list instead.', required=False),
     'exclude': Par(Multi(POS_TAG), 'PUNCT,SPACE,SYM,X', 'Which POS tags not to replace, separated by commas. Ignored if `include` is given.')
 })
@@ -132,7 +132,7 @@ def pos_unfill_pipe(text, include, exclude):
         return ''.join( f'%{t.pos_}%{t.whitespace_}' if t.pos_ not in exclude else t.text_with_ws for t in doc )
 
 
-@make_pipe({})
+@pipe_from_func
 @one_to_many
 def pos_analyse_pipe(text):
     '''

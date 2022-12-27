@@ -1,4 +1,4 @@
-from .pipes import make_pipe, many_to_one, set_category
+from .pipes import pipe_from_func, many_to_one, set_category
 from ..signature import Par
 from ..logger import ErrorLog
 from ..templatedstring import TemplatedString
@@ -10,7 +10,7 @@ from utils.util import parse_bool
 #####################################################
 set_category('META')
 
-@make_pipe({
+@pipe_from_func({
     'f': Par(str, None, 'The format string. Items of the form {0}, {1} etc. are replaced with the respective item at that index, twice.')
 })
 @many_to_one
@@ -31,7 +31,7 @@ def format2_pipe(input, f):
     return [f.format(*input)]
 
 
-@make_pipe({
+@pipe_from_func({
     'force_single': Par(parse_bool, False, 'Whether to force each input string to evaluate to one output string.')
 })
 async def evaluate_sources_pipe(items, force_single: bool):

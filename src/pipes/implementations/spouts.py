@@ -5,7 +5,7 @@ from discord import Embed
 from discord.errors import HTTPException
 from discord.ext.commands import Bot
 
-from ..signature import Par, Signature, hex, url
+from ..signature import Par, Signature, get_signature, hex, url
 from ..pipe import Spout, Spouts
 from .sources import SourceResources
 from ..events import events
@@ -22,22 +22,33 @@ spouts = Spouts()
 
 _CATEGORY = None
 
-def make_spout(signature, command=False, **kwargs):
+def spout_from_func(signature: dict[str, Par]=None, /, *, command=False, **kwargs):
     '''Makes a Spout out of a function.'''
-    def _make_spout(func):
+    func = None
+    if callable(signature):
+        (func, signature) = (signature, None)
+
+    def _spout_from_func(func):
         global spouts, _CATEGORY
+        # Name is the function name with the _spout bit cropped off
         name = func.__name__.rsplit('_', 1)[0].lower()
         doc = func.__doc__
-        spout = Spout(Signature(signature), func, name=name, doc=doc, category=_CATEGORY, **kwargs)
+        # Signature may be set using @with_signature, given directly, or not given at all
+        sig = get_signature(func, Signature(signature or {}))    
+        spout = Spout(sig, func, name=name, doc=doc, category=_CATEGORY, **kwargs)
         spouts.add(spout, command)
         return func
-    return _make_spout
+
+    if func: return _spout_from_func(func)
+    return _spout_from_func
+    
+# TODO: Copy @pipe_from_class to make @spout_from_class
 
 #####################################################
 #                  Spouts : EMBEDS                  #
 #####################################################
 
-@make_spout({
+@spout_from_func({
     'color':       Par(hex, 0x222222, 'The left-side border color as a hexadecimal value.'),
     'title':       Par(str, None, 'The title.', required=False),
     'link':        Par(url, None, 'A link opened by clicking the title.', required=False),
@@ -69,7 +80,7 @@ async def embed_spout(bot, message, values, color, title, author, author_icon, l
     await message.channel.send(embed=embed)
 
 
-@make_spout({
+@spout_from_func({
     'name':     Par(str, 'test_user', 'The account\'s display name.'),
     'handle':   Par(str, 'test_user', 'The account\'s handle, (without the @).'),
     'icon':     Par(url, 'https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png', 'URL linking to their profile picture.'),
@@ -94,22 +105,22 @@ async def tweet_spout(bot, message, values, name, handle, icon, retweets, likes,
 #                 Spouts : MESSAGES                 #
 #####################################################
 
-@make_spout({})
+@spout_from_func
 async def delete_message_spout(bot, message, values):
     ''' Deletes the message which triggered the script's execution. '''
     await message.delete()
 
 
-@make_spout({})
+@spout_from_func
 async def send_message_spout(bot, message: discord.Message, values):
     '''
-    Sends input as a discord message. (WIP until `print` is integrated fully)
+    Sends input as a discord message.
     If multiple lines of input are given, they're joined with line breaks.
     '''
     await message.channel.send('\n'.join(values))
 
 
-@make_spout({
+@spout_from_func({
     'id': Par(int, -1, 'The message ID to reply to, -1 for the original message.'),
 })
 async def reply_spout(bot, message: discord.Message, values, id):
@@ -122,7 +133,7 @@ async def reply_spout(bot, message: discord.Message, values, id):
     await message.reply('\n'.join(values))
 
 
-@make_spout({
+@spout_from_func({
     'emote': Par(str, None, 'The emote that you\'d like to use to react. (Emoji or custom emote)'),
 })
 async def react_spout(bot, message, values, emote):
@@ -136,7 +147,7 @@ async def react_spout(bot, message, values, emote):
             raise e
 
 
-@make_spout({
+@spout_from_func({
     'sticker': Par(str, None, 'Name or ID of the sticker.'),
 })
 async def sticker_spout(bot: Bot, message: discord.Message, values: list[str], sticker: str):
@@ -157,7 +168,7 @@ async def sticker_spout(bot: Bot, message: discord.Message, values: list[str], s
 #                   Spouts : STATE                  #
 #####################################################
 
-@make_spout({
+@spout_from_func({
     'name' :   Par(str, None, 'The variable name'),
     'persist': Par(parse_bool, False, 'Whether the variable should persist indefinitely.')
 }, command=True)
@@ -170,7 +181,7 @@ async def set_spout(bot, message, values, name, persist):
     SourceResources.variables.set(name, values, persistent=persist)
 
 
-@make_spout({
+@spout_from_func({
     'name' :  Par(str, None, 'The variable name'),
     'strict': Par(parse_bool, False, 'Whether an error should be raised if the variable does not exist.')
 }, command=True)
@@ -183,7 +194,7 @@ async def delete_var_spout(bot, message, values, name, strict):
             raise KeyError(f'No variable "{name}" found.')
 
 
-@make_spout({
+@spout_from_func({
     'name' : Par(str, None, 'The new file\'s name'),
     'sequential': Par(parse_bool, True, 'Whether the order of entries matters when retrieving them from the file later.'),
     'sentences': Par(parse_bool, False, 'Whether the entries should be split based on sentence recognition instead of a splitter regex.'),
@@ -211,7 +222,7 @@ async def new_file_spout(bot, message, values, name, sequential, sentences, edit
 #                  Spouts : SPECIAL                 #
 #####################################################
 
-@make_spout({})
+@spout_from_func
 async def suppress_print_spout(bot, message, values):
     '''
     (WIP) Prevents the default behaviour of printing output to a Discord message.
@@ -221,7 +232,7 @@ async def suppress_print_spout(bot, message, values):
     pass
 
 
-@make_spout({})
+@spout_from_func
 async def print_spout(bot, message, values):
     ''' Appends the values to the output message. (WIP: /any/ other spout suppresses print output right now!) '''
     # The actual implementation of "print" is hardcoded into the pipeline processor code
@@ -229,7 +240,7 @@ async def print_spout(bot, message, values):
     pass
 
 
-@make_spout({
+@spout_from_func({
     'name': Par(str, None, 'The name of the event to be disabled.')
 })
 async def disable_event_spout(bot, message, values, name):

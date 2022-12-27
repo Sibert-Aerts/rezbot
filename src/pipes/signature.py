@@ -68,11 +68,28 @@ class Par:
         return val
 
 class Signature(dict):
-    ''' dict-like class representing a set of parameters for a single function. '''
+    ''' dict-derived class representing a set of parameters for a single function. '''
     def __init__(self, params):
         super().__init__(params)
         for param in params:
             params[param].name = param
+
+def with_signature(**kwargs: dict[str, Par]):
+    ''' Creates a Signature from the given kwargs and stores it on the given function. '''
+    def _with_signature(f: Callable):
+        f.pipe_signature = Signature(kwargs)
+        return f
+    return _with_signature
+
+def get_signature(f: Callable, *args):
+    ''' Retrieves a Signature stored by `@with_signature`, or a default value if given, or an empty Signature. '''
+    sig = getattr(f, 'pipe_signature', None)
+    if sig is not None:
+        return sig
+    elif args:
+        return args[0]
+    else:
+        return Signature({})
 
 
 #####################################################

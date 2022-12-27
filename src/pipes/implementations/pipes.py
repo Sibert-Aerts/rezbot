@@ -1,7 +1,8 @@
 import re
 from functools import wraps
+from typing import Callable
 
-from ..signature import Signature
+from ..signature import Signature, Par, with_signature, get_signature
 from ..pipe import Pipe, Pipes
 
 #######################################################
@@ -59,16 +60,54 @@ def set_category(category: str):
     global _CATEGORY
     _CATEGORY = category
 
-def make_pipe(signature, command=False, **kwargs):
+def pipe_from_func(signature: dict[str, Par]=None, /, *, command=False, **kwargs):
     '''Makes a Pipe out of a function.'''
-    def _make_pipe(func):
+    func = None
+    if callable(signature):
+        (func, signature) = (signature, None)
+
+    def _pipe_from_func(func: Callable):
         global pipes, _CATEGORY
+        # Name is the function name with the _pipe bit cropped off
         name = func.__name__.rsplit('_', 1)[0].lower()
         doc = func.__doc__
-        pipe = Pipe(Signature(signature), func, name=name, doc=doc, category=_CATEGORY, **kwargs)
+        # Signature may be set using @with_signature, given directly, or not given at all
+        sig = get_signature(func, Signature(signature or {}))    
+        pipe = Pipe(sig, func, name=name, doc=doc, category=_CATEGORY, **kwargs)
         pipes.add(pipe, command)
         return func
-    return _make_pipe
+
+    if func: return _pipe_from_func(func)
+    return _pipe_from_func
+
+def pipe_from_class(cls: type):
+    '''
+    Makes a Pipe out of a class by reading its definition, and either the class' or the method's docstring.
+    ```py
+    # Fields:
+    name: str
+    aliases: list[str]=None
+    command: bool=False
+
+    # Methods:
+    @with_signature(...)
+    @staticmethod
+    def pipe_function(items: list[str], ...) -> list[str]: ...
+            
+    @staticmethod
+    def may_use(user: discord.User) -> bool: ...
+    ```
+    '''
+    pipe = Pipe(
+        get_signature(cls.pipe_function),
+        cls.pipe_function,
+        name=cls.name,
+        doc=cls.__doc__ or cls.pipe_function.__doc__,
+        category=_CATEGORY,
+        aliases=getattr(cls, 'aliases', None),
+        may_use=getattr(cls, 'may_use', None),
+    )
+    pipes.add(pipe, getattr(cls, 'command', False))
 
 
 #####################################################

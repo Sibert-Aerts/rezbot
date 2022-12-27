@@ -1,6 +1,6 @@
 import utils.util as util
 
-from .pipes import make_pipe, one_to_one, set_category
+from .pipes import pipe_from_func, one_to_one, set_category
 from ..signature import Par, Option
 from utils.texttools import vowelize, consonize, letterize, letterize2, converters
 
@@ -10,7 +10,7 @@ from utils.texttools import vowelize, consonize, letterize, letterize2, converte
 #####################################################
 set_category('LETTER')
 
-@make_pipe({
+@pipe_from_func({
     'p' : Par(float, 0.4, 'Character swap probability'),
 }, command=True)
 @one_to_one
@@ -19,7 +19,7 @@ def vowelize_pipe(text, p):
     return vowelize(text, p)
 
 
-@make_pipe({
+@pipe_from_func({
     'p' : Par(float, 0.4, 'Character swap probability'),
 }, command=True)
 @one_to_one
@@ -28,7 +28,7 @@ def consonize_pipe(text, p):
     return consonize(text, p)
 
 
-@make_pipe({
+@pipe_from_func({
     'p' : Par(float, 0.2, 'Character swap probability'),
 }, command=True)
 @one_to_one
@@ -37,7 +37,7 @@ def letterize_pipe(text, p):
     return letterize(text, p)
 
 
-@make_pipe({
+@pipe_from_func({
     'p' : Par(float, 0.4, 'Character swap probability'),
 }, command=True)
 @one_to_one
@@ -46,7 +46,7 @@ def letterize2_pipe(text, p):
     return letterize2(text, p)
 
 
-@make_pipe({
+@pipe_from_func({
     'to' : Par(Option(*converters, stringy=True), None, 'Which conversion should be used.'),
 }, command=True)
 @one_to_one

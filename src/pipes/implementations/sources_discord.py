@@ -1,6 +1,6 @@
 from datetime import timezone
 
-from .sources import make_source, get_which, set_category, SourceResources
+from .sources import source_from_func, get_which, set_category, SourceResources
 from ..signature import Par, Option, Multi, regex, parse_bool
 
 from utils.texttools import *
@@ -25,14 +25,14 @@ def messages_get_what(messages, what):
         return [str(msg.author.id) for msg in messages]
 
 
-@make_source({}, pass_message=True, plural='those')
+@source_from_func(pass_message=True, plural='those')
 async def that_source(message):
     '''The previous message in the channel.'''
     msg = [ msg async for msg in message.channel.history(limit=2) ][1]
     return [msg.content]
 
 
-@make_source({
+@source_from_func({
     'n': Par(int, 1, 'The number of next messages to wait for.', lambda n: n < 1000),
     'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT))
 }, pass_message=True)
@@ -51,7 +51,7 @@ async def next_message_source(message, n, what):
     return messages_get_what(messages, what)
 
 
-@make_source({
+@source_from_func({
     'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT))
 }, pass_message=True)
 async def message_source(message, what):
@@ -59,7 +59,7 @@ async def message_source(message, what):
     return messages_get_what([message], what)
 
 
-@make_source({
+@source_from_func({
     'n': Par(int, 1, 'The number of messages'),
     'i': Par(int, 1, 'From which previous message to start counting. (0 for the message that triggers the script itself)', lambda i: i <= 10000),
     'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
@@ -96,7 +96,7 @@ def members_get_what(members, what):
     elif what == MEMBER_WHAT.color:
         return [str(member.color) for member in members]
 
-@make_source({
+@source_from_func({
     'what': Par(Multi(MEMBER_WHAT), 'nickname', '/'.join(MEMBER_WHAT))
 }, pass_message=True)
 async def me_source(message, what):
@@ -104,7 +104,7 @@ async def me_source(message, what):
     return members_get_what([message.author], what)
 
 
-@make_source({
+@source_from_func({
     'n'   : Par(int, 1, 'The maximum number of members to return.'),
     'what': Par(Multi(MEMBER_WHAT), 'nickname', '/'.join(MEMBER_WHAT)),
     'id'  : Par(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
@@ -131,7 +131,7 @@ async def member_source(message, n, what, id, name):
 
 CHANNEL_WHAT = Option('name', 'topic', 'id', 'category', 'mention')
 
-@make_source({
+@source_from_func({
     'what': Par(CHANNEL_WHAT, 'name', '/'.join(CHANNEL_WHAT)),
 }, pass_message=True)
 async def channel_source(message, what):
@@ -152,7 +152,7 @@ async def channel_source(message, what):
 
 SERVER_WHAT = Option('name', 'description', 'icon', 'member_count', 'id')
 
-@make_source({
+@source_from_func({
     'what': Par(SERVER_WHAT, SERVER_WHAT.name, '/'.join(SERVER_WHAT)),
 }, pass_message=True)
 async def server_source(message, what):
@@ -170,7 +170,7 @@ async def server_source(message, what):
         return [str(server.id)]
 
 
-@make_source({
+@source_from_func({
     'n': Par(int, 1, 'The number of emojis'),
     'id': Par(int, None, 'An exact emoji ID to match.', required=False),
     'name': Par(str, None, 'An exact name to match.', required=False),

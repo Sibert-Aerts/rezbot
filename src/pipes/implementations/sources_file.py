@@ -1,6 +1,6 @@
 import random
 
-from .sources import make_source, set_category
+from .sources import source_from_func, set_category
 from ..signature import Par, regex, bool_or_none, parse_bool
 from resource.upload import uploads
 
@@ -12,7 +12,7 @@ set_category('FILE')
 # NOTE: the category can't be called "FILE" if I rename "txt" to "file", also the "file" source can't be a command then!
 
 
-@make_source({
+@source_from_func({
     'file' : Par(str, None, 'The file name, "random" for a random file'),
     'n'    : Par(int, 1, 'The number of lines'),
     'sequential': Par(bool_or_none, None, 'If the multiple lines should be sequential as opposed to random, "None" for file-dependent.', required=False),
@@ -35,7 +35,7 @@ async def txt_source(file, n, sequential, sentences, query, pattern):
         return file.get_random(n, sentences, query=query, regex=pattern)
 
 
-@make_source({
+@source_from_func({
     'file'  : Par(str, None, 'The file name'),
     'n'     : Par(int, 1, 'The number of lines'),
     'length': Par(int, 0, 'The maximum length of the generated sentence (0 for unlimited)'),
@@ -47,7 +47,7 @@ async def markov_source(file, n, length, start):
     return file.get_markov_lines(n, length, start)
 
 
-@make_source({
+@source_from_func({
     'file'   : Par(str, None, 'The file name'),
     'tag'    : Par(str, None, 'The POS tag'),
     'uniform': Par(parse_bool, False, 'Whether to pick pieces uniformly or based on their frequency'),

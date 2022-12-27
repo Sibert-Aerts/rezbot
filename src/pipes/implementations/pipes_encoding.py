@@ -3,7 +3,7 @@ import urllib.parse
 import emoji
 import hashlib
 
-from .pipes import make_pipe, many_to_one, one_to_one, one_to_many, set_category
+from .pipes import pipe_from_func, many_to_one, one_to_one, one_to_many, set_category
 from ..signature import Par, Option
 
 #####################################################
@@ -11,7 +11,7 @@ from ..signature import Par, Option
 #####################################################
 set_category('ENCODING')
 
-@make_pipe({}, command=True)
+@pipe_from_func(command=True)
 @one_to_one
 def demoji_pipe(text):
     '''Replaces emoji in text with their official names.'''
@@ -27,7 +27,7 @@ def demoji_pipe(text):
     return ''.join(out)
 
 
-@make_pipe({}, command=True)
+@pipe_from_func(command=True)
 @one_to_one
 def unicode_pipe(text):
     '''Replaces unicode characters with their official names.'''
@@ -38,7 +38,7 @@ def unicode_pipe(text):
     return ', '.join(out)
 
 
-@make_pipe({
+@pipe_from_func({
     'by': Par(int, 13, 'The number of places to rotate the letters by.'),
 }, command=True)
 @one_to_one
@@ -56,28 +56,28 @@ def rot_pipe(text, by):
     return ''.join(out)
 
 
-@make_pipe({})
+@pipe_from_func
 @one_to_many
 def ord_pipe(text):
     '''Turns each item into a sequence of integers representing each character.'''
     return [str(ord(s)) for s in text]
 
 
-@make_pipe({})
+@pipe_from_func
 @many_to_one
 def chr_pipe(chars):
     '''Turns a sequence of integers representing characters into a single string.'''
     return [''.join(chr(int(c)) for c in chars)]
 
 
-@make_pipe({})
+@pipe_from_func
 @one_to_one
 def url_encode_pipe(text):
     '''Turns a string into a URL (%) encoded string.'''
     return urllib.parse.quote(text)
 
 
-@make_pipe({})
+@pipe_from_func
 @one_to_one
 def url_decode_pipe(text):
     '''Turns a URL (%) encoded string into its original string.'''
@@ -86,7 +86,7 @@ def url_decode_pipe(text):
 
 HASH_ALG = Option('python', 'blake2b', 'sha224', 'shake_128', 'sha3_384', 'md5', 'sha3_512', 'blake2s', 'sha256', 'sha1', 'sha3_224', 'shake_256', 'sha3_256', 'sha512', 'sha384', name='algorithm')
 
-@make_pipe({
+@pipe_from_func({
     'algorithm': Par(HASH_ALG, 'python', 'The hash algorithm to use.')
 })
 @one_to_one
