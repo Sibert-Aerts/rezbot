@@ -4,7 +4,7 @@ A python-based discord bot using `discord.py` for python 3.11.
 ## I want to run this bot
 * Clone the github repository
 * Fill out `src/config.example.ini` and rename it to `src/config.ini`
-* Put your own discord user ID (not your name) as an owner in `src/permissions.py`
+* Put your own discord user ID as an owner in `src/permissions.example.ini` and rename it to `src/permissions.ini`
 * Install python modules: `webvtt-py`, `youtube_dl`, `imgkit`, `python-Levenshtein`, `bs4`, `fuzzywuzzy`, `markovify`, `emoji`, `unicodedata2`, `numpy`, `lru-dict`, `nltk`, `simpleeval`, `spacy`, `python-datamuse`, `google-cloud-translate`, `discord.py`, `openai`
 * Install python module `spacy` and then its English language model via `py -3.11 -m spacy download en_core_web_sm`
 * (Optional) Get a Google Cloud Translation API key [here](https://cloud.google.com/translate/docs/quickstart) and set it as an environment variable as described.
@@ -19,6 +19,6 @@ A python-based discord bot using `discord.py` for python 3.11.
     * One-time scripts can be quickly written or copy-pasted to generate amusing results
     * Reactive scripts can be made to perform simple toy tasks (e.g. react to every mention of bananas with a banana emoji)  
     but can be used to script more complicated interactions (e.g. fetching a picture from a matching Wikipedia page when a user says "show me xyz"),
-    without ever having to leave the discord message box or write a line of python code
+    without ever having to leave the discord message box or write a line of python code.
     
     (See [PIPESGUIDE.md](./PIPESGUIDE.md) for more information)
