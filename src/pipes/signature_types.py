@@ -22,12 +22,18 @@ def bool_or_none(val: str):
         return None
     return(parse_bool(val))
 
-def hex(h: str):
-    if h and h[0] == '#':
-        h = h[1:]
-    elif h and h[:2] == '0x':
-        h = h[2:]
-    return int(h, base=16)
+class Hex(int):
+    def __new__(cls, val: str):
+        if not isinstance(val, str):
+            return super().__new__(cls, val)
+        if val and val[0] == '#':
+            val = val[1:]
+        elif val and val[:2] == '0x':
+            val = val[2:]
+        return super().__new__(cls, val, base=16)
+
+    def __repr__(self):
+        return hex(self)
 
 def url(s: str):
     if len(s) > 2 and s[0] == '<' and s[-1] == '>':

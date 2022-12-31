@@ -92,10 +92,10 @@ def source_from_class(cls: type):
     command: bool=False
 
     # Methods:
-    @staticmethod
     @with_signature(...)
+    @staticmethod
     async def source_function(items: list[str], ...) -> list[str]: ...
-            
+
     @staticmethod
     def may_use(user: discord.User) -> bool: ...
     ```

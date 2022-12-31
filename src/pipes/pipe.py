@@ -148,10 +148,8 @@ class Spout(Pipeoid):
     '''
     spout_function: Callable[..., None]
     
-    def __init__(self, signature: Signature, function: Callable[..., list[str]], **kwargs):
+    def __init__(self, signature: Signature, function: Callable[..., None], **kwargs):
         super().__init__(signature=signature, **kwargs)
-    
-        # self.name = name or function.__name__.rsplit('_', 1)[0].lower()
         self.spout_function = function
 
     def hook(self, items: list[str], **args):

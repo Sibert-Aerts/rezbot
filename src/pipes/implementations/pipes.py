@@ -93,21 +93,24 @@ def pipe_from_class(cls: type):
     @with_signature(...)
     @staticmethod
     def pipe_function(items: list[str], ...) -> list[str]: ...
-            
+
     @staticmethod
     def may_use(user: discord.User) -> bool: ...
     ```
     '''
+    def get(key, default=None):
+        return getattr(cls, key, default)
+    
     pipe = Pipe(
         get_signature(cls.pipe_function),
         cls.pipe_function,
         name=cls.name,
         doc=cls.__doc__ or cls.pipe_function.__doc__,
         category=_CATEGORY,
-        aliases=getattr(cls, 'aliases', None),
-        may_use=getattr(cls, 'may_use', None),
+        aliases=get('aliases'),
+        may_use=get('may_use'),
     )
-    pipes.add(pipe, getattr(cls, 'command', False))
+    pipes.add(pipe, get('command', False))
 
 
 #####################################################

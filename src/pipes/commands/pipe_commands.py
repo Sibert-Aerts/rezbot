@@ -331,7 +331,7 @@ async def setup(bot: commands.Bot):
                 await PipelineProcessor.send_print_values(ctx.channel, [results])
 
             except Exception as e:
-                err.log(f'With args {" ".join( f"`{p}`={args[p]}" for p in args )}:\n\t{type(e).__name__}: {e}', True)
+                err.log(f'With args {args}:\n\t{type(e).__name__}: {e}', True)
                 await ctx.send(embed=err.embed())
 
         func.__name__ = pipe.name
@@ -371,7 +371,7 @@ async def setup(bot: commands.Bot):
                 await PipelineProcessor.send_print_values(ctx.channel, [results])
     
             except Exception as e:
-                err.log(f'With args {" ".join( f"`{p}`={args[p]}" for p in args )}:\n\t{type(e).__name__}: {e}', True)
+                err.log(f'With args {args}:\n\t{type(e).__name__}: {e}', True)
                 await ctx.send(embed=err.embed())
 
         func.__name__ = source.name
@@ -411,7 +411,7 @@ async def setup(bot: commands.Bot):
                 await spout.spout_function(ctx.bot, ctx.message, [text], **args)
 
             except Exception as e:
-                err.log(f'With args {" ".join( f"`{p}`={args[p]}" for p in args )}:\n\t{type(e).__name__}: {e}', True)
+                err.log(f'With args {args}:\n\t{type(e).__name__}: {e}', True)
                 await ctx.send(embed=err.embed())
 
         func.__name__ = spout.name

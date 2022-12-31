@@ -5,7 +5,7 @@ from discord import Embed
 from discord.errors import HTTPException
 from discord.ext.commands import Bot
 
-from ..signature import Par, Signature, get_signature, hex, url
+from ..signature import Par, Signature, get_signature, Hex, url, with_signature
 from ..pipe import Spout, Spouts
 from .sources import SourceResources
 from ..events import events
@@ -41,43 +41,79 @@ def spout_from_func(signature: dict[str, Par]=None, /, *, command=False, **kwarg
 
     if func: return _spout_from_func(func)
     return _spout_from_func
+
+def spout_from_class(cls: type):
+    '''
+    Makes a Spout out of a class by reading its definition, and either the class' or the method's docstring.
+    ```py
+    # Fields:
+    name: str
+    aliases: list[str]=None
+    command: bool=False
+
+    # Methods:
+    @with_signature(...)
+    @staticmethod
+    def spout_function(bot, message, items, **kwargs) -> list[str]: ...
+
+    @staticmethod
+    def may_use(user: discord.User) -> bool: ...
+    ```
+    '''
+    def get(key, default=None):
+        return getattr(cls, key, default)
     
-# TODO: Copy @pipe_from_class to make @spout_from_class
+    spout = Spout(
+        get_signature(cls.spout_function),
+        cls.spout_function,
+        name=cls.name,
+        doc=cls.__doc__ or cls.spout_function.__doc__,
+        category=_CATEGORY,
+        aliases=get('aliases'),
+        may_use=get('may_use'),
+    )
+    spouts.add(spout, get('command', False))
 
 #####################################################
 #                  Spouts : EMBEDS                  #
 #####################################################
 
-@spout_from_func({
-    'color':       Par(hex, 0x222222, 'The left-side border color as a hexadecimal value.'),
-    'title':       Par(str, None, 'The title.', required=False),
-    'link':        Par(url, None, 'A link opened by clicking the title.', required=False),
-    'author':      Par(str, None, 'A name presented as the author\'s.', required=False),
-    'author_icon': Par(url, None, 'Link to the author\'s portrait.', required=False),
-    'thumb':       Par(url, None, 'Link to an image shown as a thumbnail.', required=False),
-    'image':       Par(url, None, 'Link to an image shown in big.', required=False),
-    'footer':      Par(str, None, 'The footer text.', required=False),
-    'footer_icon': Par(url, None, 'Link to the footer icon.', required=False),
-    'timestamp':   Par(int, None, 'A timestamp representing the date that shows up in the footer.', required=False),
-}, command=True)
-async def embed_spout(bot, message, values, color, title, author, author_icon, link, thumb, image, footer, footer_icon, timestamp):
-    ''' Outputs text as the body of a Discord embed box.'''
-    embed = Embed(title=title, description='\n'.join(values), color=color, url=link)
+@spout_from_class
+class SpoutEmbed:
+    name = 'embed'
+    command = True
 
-    if timestamp is not None:
-        embed.timestamp = datetime.fromtimestamp(timestamp, tz=timezone.utc)
-    if image is not None:
-        embed.set_image(url=image)
-    if thumb is not None:
-        embed.set_thumbnail(url=thumb)
-    if author or author_icon:
-        # This is not the empty string (↓↓), it's a soft hyphen to force icon to show up even when the name is empty.
-        embed.set_author(name=author or '­', icon_url=author_icon)
-    if footer or footer_icon:
-        # It's a soft hyphen here also
-        embed.set_footer(text=footer or '­', icon_url=footer_icon)
+    @with_signature(
+        color       = Par(Hex, Hex(0x222222), 'The left-side border color as a hexadecimal value.'),
+        title       = Par(str, None, 'The title.', required=False),
+        link        = Par(url, None, 'A link opened by clicking the title.', required=False),
+        author      = Par(str, None, 'A name presented as the author\'s.', required=False),
+        author_icon = Par(url, None, 'Link to the author\'s portrait.', required=False),
+        thumb       = Par(url, None, 'Link to an image shown as a thumbnail.', required=False),
+        image       = Par(url, None, 'Link to an image shown in big.', required=False),
+        footer      = Par(str, None, 'The footer text.', required=False),
+        footer_icon = Par(url, None, 'Link to the footer icon.', required=False),
+        timestamp   = Par(int, None, 'A timestamp representing the date that shows up in the footer.', required=False),
+    )
+    @staticmethod
+    async def spout_function(bot, message, values, color, title, author, author_icon, link, thumb, image, footer, footer_icon, timestamp):
+        ''' Outputs text as the body of a Discord embed box.'''
+        embed = Embed(title=title, description='\n'.join(values), color=color, url=link)
 
-    await message.channel.send(embed=embed)
+        if timestamp is not None:
+            embed.timestamp = datetime.fromtimestamp(timestamp, tz=timezone.utc)
+        if image is not None:
+            embed.set_image(url=image)
+        if thumb is not None:
+            embed.set_thumbnail(url=thumb)
+        if author or author_icon:
+            # This is not the empty string (↓↓), it's a soft hyphen to force icon to show up even when the name is empty.
+            embed.set_author(name=author or '­', icon_url=author_icon)
+        if footer or footer_icon:
+            # It's a soft hyphen here also
+            embed.set_footer(text=footer or '­', icon_url=footer_icon)
+
+        await message.channel.send(embed=embed)
 
 
 @spout_from_func({
