@@ -77,7 +77,11 @@ class Signature(dict):
 def with_signature(**kwargs: dict[str, Par]):
     ''' Creates a Signature from the given kwargs and stores it on the given function. '''
     def _with_signature(f: Callable):
-        f.pipe_signature = Signature(kwargs)
+        signature = Signature(kwargs)
+        if hasattr(f, '__func__'):
+            f.__func__.pipe_signature = signature
+        else:
+            f.pipe_signature = signature 
         return f
     return _with_signature
 

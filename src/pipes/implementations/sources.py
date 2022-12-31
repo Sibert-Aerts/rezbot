@@ -4,7 +4,7 @@ from functools import wraps
 
 from discord.ext.commands import Bot
 
-from ..signature import Signature, Par, get_signature
+from ..signature import Signature, Par, get_signature, with_signature
 from ..pipe import Source, Sources
 from resource.variables import VariableStore
 
@@ -79,6 +79,43 @@ def source_from_func(signature: dict[str, Par]=None, /, *, command=False, **kwar
     return _source_from_func
 
 # TODO: Copy @pipe_from_class to make @source_from_class
+
+def source_from_class(cls: type):
+    '''
+    Makes a Source out of a class by reading its definition, and either the class' or the method's docstring.
+    ```py
+    # Fields:
+    name: str
+    plural: str=None
+    aliases: list[str]=None
+    depletable: bool=False
+    command: bool=False
+
+    # Methods:
+    @staticmethod
+    @with_signature(...)
+    async def source_function(items: list[str], ...) -> list[str]: ...
+            
+    @staticmethod
+    def may_use(user: discord.User) -> bool: ...
+    ```
+    '''
+    def get(key, default=None):
+        return getattr(cls, key, default)
+
+    source = Source(
+        get_signature(cls.source_function),
+        cls.source_function,
+        name=cls.name,
+        plural=get('plural'),
+        doc=cls.__doc__ or cls.source_function.__doc__,
+        category=_CATEGORY,
+        pass_message=True,
+        aliases=get('aliases'),
+        depletable=get('depletable', False),
+        may_use=get('may_use'),
+    )
+    sources.add(source, get('command', False))
 
 
 # Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.

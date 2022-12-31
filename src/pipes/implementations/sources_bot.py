@@ -1,5 +1,5 @@
-from .sources import source_from_func, set_category, SourceResources
-from ..signature import Par
+from .sources import source_from_func, source_from_class, set_category, SourceResources
+from ..signature import Par, with_signature
 
 
 #####################################################
@@ -13,11 +13,16 @@ async def output_source(message):
     return SourceResources.previous_pipeline_output[message.channel]
 
 
-@source_from_func({
-    'name'    : Par(str, None, 'The variable name'),
-    'default' : Par(str, None, 'The default value in case the variable isn\'t assigned (None to throw an error if it isn\'t assigned)', required=False)
-}, command=True)
-async def get_source(name, default):
-    '''Loads variables stored using the "set" pipe'''
-    return SourceResources.variables.get(name, None if default is None else [default])
+@source_from_class
+class SourceGet:
+    name = 'get'
+    command = True
 
+    @with_signature(
+        name    = Par(str, None, 'The variable name'),
+        default = Par(str, None, 'The default value in case the variable isn\'t assigned (None to throw an error if it isn\'t assigned)', required=False)
+    )
+    @staticmethod
+    async def source_function(message, *, name, default):
+        '''Loads variables stored using the "set" pipe'''
+        return SourceResources.variables.get(name, None if default is None else [default])
