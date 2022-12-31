@@ -1,9 +1,9 @@
-from typing import Optional, TypeVar, Callable
+import asyncio
+from typing import Awaitable, Iterable, Optional, TypeVar, Callable
 from pyparsing import ParseException, ParseResults
 
 from .grammar import argumentList
 from .logger import ErrorLog
-from utils import util
 
 # Make all the signature_types types available through this import
 from .signature_types import *
@@ -48,7 +48,7 @@ class Par:
         if self.required:
             out.append(', REQUIRED')
         elif self.default is not None:
-            out.append(f', default: `{repr(self.default)}`')
+            out.append(f', default: `{self.default}`')
         out.append(')')
         return ''.join(out)
 
@@ -137,11 +137,20 @@ class DefaultArg(Arg):
         self.value = value
 
 class Arguments:
+    args: dict[str, Arg]
+    defaults: list[str]
+    predetermined: bool
+    predetermined_args: dict[str] = None
+
     def __init__(self, args: dict[str, Arg]):
         self.args = args
+        self.defaults = [p for p in args if isinstance(args[p], DefaultArg)]
         self.predetermined = all(args[p].predetermined for p in args)
         if self.predetermined:
-            self.args = { param: args[param].value for param in args }
+            # Special case: Every single arg is already predetermined; we can build the value dict now already.
+            values = EvaluatedArguments((p, args[p].value) for p in args)
+            values.defaults = self.defaults
+            self.predetermined_args = values
 
     @staticmethod
     def from_string(string: str, sig: Signature=None, greedy=True) -> tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
@@ -242,12 +251,25 @@ class Arguments:
     async def determine(self, message, context=None) -> tuple[dict[str], ErrorLog]:
         ''' Returns a parsed {parameter: argument} dict ready for use. '''
         errors = ErrorLog()
-        if self.predetermined: return self.args, errors
+        if self.predetermined: return self.predetermined_args, errors
         
-        futures = {param: self.args[param].determine(message, context, errors) for param in self.args}
-        values = await util.gather_dict(futures)
+        futures = [self.args[p].determine(message, context, errors) for p in self.args]
+        values = await EvaluatedArguments.from_gather(self.args, futures)
+        values.defaults = self.defaults
         return values, errors
 
+class EvaluatedArguments(dict):
+    '''dict-subclass representing {arg: value} pairs, but with useful meta-info and methods bolted on.'''
+    defaults: list[str]
+
+    @staticmethod
+    async def from_gather(keys: Iterable[str], futures: Iterable[Awaitable]):
+        values = await asyncio.gather(*futures)
+        return EvaluatedArguments(zip(keys, values))
+
+    def __str__(self):
+        '''Shows only the non-default arguments.'''
+        return ' '.join(f'`{p}`={self[p]}' for p in self if p not in self.defaults)
 
 
 # This lyne ys down here dve to dependencyes cyrcvlaire

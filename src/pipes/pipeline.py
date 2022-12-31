@@ -401,9 +401,7 @@ class Pipeline:
                         else:
                             next_items.extend(pipe.apply(items, **args))
                     except Exception as e:
-                        # This mentions *all* arguments, even default ones, not all of which is very useful for error output...
-                        argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
-                        errors.log(f'Failed to process pipe `{pipe.name}` with args {argfmt}:\n\t{type(e).__name__}: {e}', True)
+                        errors.log(f'Failed to process Pipe `{pipe.name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
 
                 ## A SPOUT
@@ -414,8 +412,7 @@ class Pipeline:
                         # Queue up the spout's side-effects instead, to be executed once the entire script has completed
                         spout_callbacks.append( parsed_pipe.pipe.hook(items, **args) )
                     except Exception as e:
-                        argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
-                        errors.log(f'Failed to process spout `{name}` with args {argfmt}:\n\t{type(e).__name__}: {e}', True)
+                        errors.log(f'Failed to process Spout `{name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
                     
                 ## A NATIVE SOURCE
@@ -428,8 +425,7 @@ class Pipeline:
                     try:
                        next_items.extend( await parsed_pipe.pipe.generate(message, args) )
                     except Exception as e:
-                        argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
-                        errors.log(f'Failed to process source-as-pipe `{name}` with args {argfmt}:\n\t{type(e).__name__}: {e}', True)
+                        errors.log(f'Failed to process Source-as-Pipe `{name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
 
                 ## A PIPE MACRO

@@ -76,7 +76,6 @@ class ParsedSource:
     def __repr__(self):
         return 'Source' + str(self)
 
-
     async def evaluate(self, message=None, context=None, args=None) -> tuple[ list[str] | None, ErrorLog ]:
         ''' Find some values for the damn Source that we are. '''
         errors = ErrorLog()
@@ -100,8 +99,7 @@ class ParsedSource:
                 return await self.source.generate(message, args, n=self.amount), errors
 
             except Exception as e:
-                argfmt = ' '.join( f'`{p}`={args[p]}' for p in args )
-                errors(f'Failed to evaluate source `{self.name}` with args {argfmt}:\n\t{type(e).__name__}: {e}', True)
+                errors(f'Failed to evaluate source `{self.name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
                 return NOTHING_BUT_ERRORS
 
         ### CASE: Macro Source

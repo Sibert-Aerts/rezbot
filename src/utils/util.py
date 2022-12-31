@@ -1,11 +1,11 @@
 import asyncio
 import re
-from typing import Any, Coroutine, List, Tuple, TypeVar
+from typing import Awaitable, Iterable, TypeVar
 
 T = TypeVar('T')
 U = TypeVar('U')
 
-def mins(items: List[T], key=None, min_min: float=None) -> List[T]:
+def mins(items: list[T], key=None, min_min: float=None) -> list[T]:
     '''
     Returns the list of all items i whose key(i) is equal to the minimum for all items.
     If min_min is given, it completely ignores items whose key() are less than min_min.
@@ -52,10 +52,14 @@ def format_doc(**kwargs):
         return func
     return _format_doc
 
-async def gather_dict(d: dict):
+async def gather_dict(d: dict[T, Awaitable[U]]) -> dict[T, U]:
     '''Asyncronously turns a dict of coroutines into a dict of awaited values.'''
-    values = await asyncio.gather(*d.values())
-    return {k: v for (k, v) in zip(d, values)}
+    return await dict_from_gather(d, d.values())
+
+async def dict_from_gather(keys: Iterable[T], futures: Iterable[Awaitable[U]]) -> dict[T, U]:
+    '''Asyncronously turns a list of keys and a list of coroutines into a dict of awaited values.'''
+    values = await asyncio.gather(*futures)
+    return dict(zip(keys, values))
 
 def normalize_name(name: str):
     '''Normalizes a user-entered name to a lowercase name of only alphanumeric/underscore chars.'''
