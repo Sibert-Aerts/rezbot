@@ -111,6 +111,7 @@ def pipe_from_class(cls: type):
         may_use=get('may_use'),
     )
     pipes.add(pipe, get('command', False))
+    return cls
 
 
 #####################################################
@@ -125,4 +126,5 @@ from . import pipes_datamuse
 from . import pipes_language
 from . import pipes_openai
 from . import pipes_encoding
+from . import pipes_conversion
 from . import pipes_maths

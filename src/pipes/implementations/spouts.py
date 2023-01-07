@@ -73,6 +73,7 @@ def spout_from_class(cls: type):
         may_use=get('may_use'),
     )
     spouts.add(spout, get('command', False))
+    return cls
 
 #####################################################
 #                  Spouts : EMBEDS                  #

@@ -116,6 +116,7 @@ def source_from_class(cls: type):
         may_use=get('may_use'),
     )
     sources.add(source, get('command', False))
+    return cls
 
 
 # Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.
