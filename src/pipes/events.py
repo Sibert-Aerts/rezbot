@@ -59,7 +59,7 @@ class OnMessage(Event):
 
     def set_trigger(self, pattern: str):
         self.patternstr = pattern
-        self.pattern = re.compile(pattern)
+        self.pattern = re.compile(pattern, re.S)
 
     def test(self, message):
         '''Test whether or not the given message should trigger the Event's execution.'''
