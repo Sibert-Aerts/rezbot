@@ -1,4 +1,5 @@
 from datetime import timezone
+from discord import Message
 
 from .sources import source_from_func, get_which, set_category, SourceResources
 from ..signature import Par, Option, Multi, regex, parse_bool
@@ -26,9 +27,13 @@ def messages_get_what(messages, what):
 
 
 @source_from_func(pass_message=True, plural='those')
-async def that_source(message):
-    '''The previous message in the channel.'''
-    msg = [ msg async for msg in message.channel.history(limit=2) ][1]
+async def that_source(message: Message):
+    '''The previous message in the channel, or the message being replied to.'''
+    if message.reference and message.reference.message_id:
+        msg_id = message.reference.message_id
+        msg = await message.channel.fetch_message(msg_id)        
+    else:
+        msg = [ msg async for msg in message.channel.history(limit=2) ][1]
     return [msg.content]
 
 
