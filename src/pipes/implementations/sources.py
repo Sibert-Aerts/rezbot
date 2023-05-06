@@ -29,14 +29,14 @@ def multi_source(func):
 def get_which(get_what):
     '''
     Takes a function
-        get_what(items:List[X], what:T) -> results:List[Y]
+        get_what(items: Iterator[X], what: T) -> results: list[Y]
     where `items` and `results` have equal length (i.e. one result per item)
     and extends it to
-        get_which(items:List[X], which:List[T]) -> results:List[Y]
+        get_which(items: Iterator[X], which: Iterator[T]) -> results: list[Y]
     and results has length (#items × #which) ordered so that it's first the attributes of item 1, then the attributes of item 2, etc.
     '''
     def _get_which(item, which):
-        w = [ get_what(item, what) for what in which ]
+        w = ( get_what(item, what) for what in which )
         return [x for y in zip(*w) for x in y]
     return _get_which
 

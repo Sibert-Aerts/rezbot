@@ -1,5 +1,5 @@
 from datetime import timezone
-from discord import Message
+import discord
 
 from .sources import source_from_func, get_which, set_category, SourceResources
 from ..signature import Par, Option, Multi, regex, parse_bool
@@ -17,24 +17,26 @@ MESSAGE_WHAT = Option('content', 'id', 'timestamp', 'author_id')
 @get_which
 def messages_get_what(messages, what):
     if what == MESSAGE_WHAT.content:
-        return [msg.content for msg in messages]
+        return (msg.content for msg in messages)
     if what == MESSAGE_WHAT.id:
-        return [str(msg.id) for msg in messages]
+        return (str(msg.id) for msg in messages)
     if what == MESSAGE_WHAT.timestamp:
-        return [str(int((msg.created_at.replace(tzinfo=timezone.utc)).timestamp())) for msg in messages]
+        return (str(int((msg.created_at.replace(tzinfo=timezone.utc)).timestamp())) for msg in messages)
     if what == MESSAGE_WHAT.author_id:
-        return [str(msg.author.id) for msg in messages]
+        return (str(msg.author.id) for msg in messages)
 
 
-@source_from_func(pass_message=True, plural='those')
-async def that_source(message: Message):
+@source_from_func({
+    'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT))
+}, pass_message=True, plural='those')
+async def that_source(message: discord.Message, what):
     '''The previous message in the channel, or the message being replied to.'''
     if message.reference and message.reference.message_id:
         msg_id = message.reference.message_id
         msg = await message.channel.fetch_message(msg_id)        
     else:
         msg = [ msg async for msg in message.channel.history(limit=2) ][1]
-    return [msg.content]
+    return messages_get_what([msg], what)
 
 
 @source_from_func({
@@ -87,19 +89,19 @@ async def previous_message_source(message, n, i, what, by):
 
 MEMBER_WHAT = Option('nickname', 'username', 'id', 'avatar', 'activity', 'color')
 @get_which
-def members_get_what(members, what):
+def members_get_what(members: list[discord.Member], what):
     if what == MEMBER_WHAT.nickname:
-        return [member.display_name for member in members]
+        return (member.display_name for member in members)
     elif what == MEMBER_WHAT.username:
-        return [member.name for member in members]
+        return (member.name for member in members)
     elif what == MEMBER_WHAT.id:
-        return [str(member.id) for member in members]
+        return (str(member.id) for member in members)
     elif what == MEMBER_WHAT.avatar:
-        return [str(member.avatar) for member in members]
+        return (str(member.avatar) for member in members)
     elif what == MEMBER_WHAT.activity:
-        return [str(member.activities[0]) if member.activities else '' for member in members]
+        return (str(member.activities[0]) if member.activities else '' for member in members)
     elif what == MEMBER_WHAT.color:
-        return [str(member.color) for member in members]
+        return (str(member.color) for member in members)
 
 @source_from_func({
     'what': Par(Multi(MEMBER_WHAT), 'nickname', '/'.join(MEMBER_WHAT))
@@ -116,42 +118,43 @@ async def me_source(message, what):
     'name': Par(regex, None, 'A pattern that should match their nickname or username.', required=False),
     # 'rank': ...?
 }, pass_message=True, depletable=True)
-async def member_source(message, n, what, id, name):
+async def member_source(message: discord.Message, n, what, id, name):
     '''The name (or other attribute) of a random Server member meeting the filters.'''
     members = message.guild.members
 
     # Filter if necessary
     if id:
-        members = filter(lambda m: m.id == id, members)
+        members = [m for m in members if m.id == id]
     if name:
-        members = filter(lambda m: re.search(name, m.display_name) or re.search(name, m.name), members)
+        members = [m for m in members if name.search(m.display_name) or name.search(m.name)]
 
     # Take a random sample
-    members = list(members)
     members = sample(members, n)
 
     return members_get_what(members, what)
 
 #### CHANNEL ########################################
 
-CHANNEL_WHAT = Option('name', 'topic', 'id', 'category', 'mention')
+CHANNEL_WHAT = Option('name', 'id', 'topic', 'category', 'mention', 'is_nsfw')
 
 @source_from_func({
     'what': Par(CHANNEL_WHAT, 'name', '/'.join(CHANNEL_WHAT)),
 }, pass_message=True)
-async def channel_source(message, what):
+async def channel_source(message: discord.Message, what):
     '''The name (or other attribute) of the current channel.'''
     channel = message.channel
     if what == CHANNEL_WHAT.name:
-        return [channel.name]
+        return [channel.name or '']
     if what == CHANNEL_WHAT.id:
         return [str(channel.id)]
     if what == CHANNEL_WHAT.topic:
         return [channel.topic or '']
     if what == CHANNEL_WHAT.category:
-        return [channel.category.name] if channel.category else []
+        return [channel.category and channel.category.name or '']
     if what == CHANNEL_WHAT.mention:
         return [channel.mention]
+    if what == CHANNEL_WHAT.is_nsfw:
+        return [str(channel.nsfw)]
 
 #### SERVER ########################################
 
@@ -194,6 +197,7 @@ async def custom_emoji_source(message, n, name, search, id, here):
     elif id is not None:
         emojis = [e for e in emojis if e.id == id]
     elif search is not None:
-        emojis = [e for e in emojis if search.lower() in e.name.lower()]
+        search = search.lower()
+        emojis = [e for e in emojis if search in e.name.lower()]
 
     return [ str(emoji) for emoji in sample(emojis, n) ]
