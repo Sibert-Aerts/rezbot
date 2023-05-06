@@ -25,6 +25,9 @@ class ChoiceTree:
         What ChoiceTree does is parse such expressions, and using the distributivity rule ( [a|b]c == ab|ac )
             it simplifies the expression to a sum of products.
     '''
+    
+    # ================ Classes
+
     class Text:
         def __init__(self, text):
             self.text = text if text == '' else ''.join(text.asList())
@@ -117,21 +120,25 @@ class ChoiceTree:
         def current(self):
             return ''.join(c.current() for c in self.vals)
 
-    escapedSymbol = Char('~').suppress() + Char('[|]')
-    escapedEsc = Literal('~~')
-    soleEsc = Char('~')
+    # ================ Grammar
+
+    escaped_symbol = Char('~').suppress() + Char('[|]')
+    escaped_esc = Literal('~~')
+    sole_esc = Char('~')
     lbr = Literal('[').suppress()
     rbr = Literal(']').suppress()
     div = Literal('|').suppress()
     _text = Regex(r'[^\[\|\]~]+') # any sequence of characters not containing '[', ']', '|' or '~'
 
-    text = pGroup( OneOrMore( escapedSymbol|escapedEsc|soleEsc|_text ) ).setParseAction(lambda t: ChoiceTree.Text(t[0]))
+    text = pGroup( OneOrMore( escaped_symbol|escaped_esc|sole_esc|_text ) ).set_parse_action(lambda t: ChoiceTree.Text(t[0]))
     group = Forward()
-    choice = pGroup( lbr + group + ZeroOrMore( div + group ) + rbr ).setParseAction(lambda t: ChoiceTree.Choice(t[0]))
-    empty = Empty().setParseAction(lambda t: ChoiceTree.Text(''))
-    group <<= pGroup( OneOrMore( text|choice ) | empty ).setParseAction(lambda t: ChoiceTree.Group(t[0])).leaveWhitespace()
+    choice = pGroup( lbr + group + ZeroOrMore( div + group ) + rbr ).set_parse_action(lambda t: ChoiceTree.Choice(t[0]))
+    empty = Empty().set_parse_action(lambda t: ChoiceTree.Text(''))
+    group <<= pGroup( OneOrMore( text|choice ) | empty ).leave_whitespace().set_parse_action(lambda t: ChoiceTree.Group(t[0]))
 
-    def __init__(self, text, parse_flags=False, add_brackets=False, leave_escapes=False):
+    # ================ Methods
+
+    def __init__(self, text, parse_flags=False, add_brackets=False):
         self.flag_random = False
         if parse_flags:
             if text[:3] == '[?]':
@@ -140,7 +147,7 @@ class ChoiceTree:
 
         if add_brackets: text = '[' + text + ']'
 
-        self.root: ChoiceTree.Group = ChoiceTree.group.parseString(text)[0]
+        self.root: ChoiceTree.Group = ChoiceTree.group.parse_string(text)[0]
         self.count = self.root.count
 
     def __iter__(self):

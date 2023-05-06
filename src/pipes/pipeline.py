@@ -362,7 +362,7 @@ class Pipeline:
 
                     continue
 
-                ## CASE: The pipe is a ParsedPipe: something of the form "name [argumentList]"
+                ## CASE: The pipe is a ParsedPipe: something of the form "name [argument_list]"
                 name = parsed_pipe.name
 
                 #### Determine the arguments (if needed)

@@ -2,7 +2,7 @@ import asyncio
 from typing import Awaitable, Iterable, Optional, TypeVar, Callable
 from pyparsing import ParseException, ParseResults
 
-from .grammar import argumentList
+from . import grammar
 from .logger import ErrorLog
 
 # Make all the signature_types types available through this import
@@ -67,6 +67,7 @@ class Par:
             raise ArgumentError(f'Parameter `{self.name}` is not allowed to be "{raw}".')
         return val
 
+
 class Signature(dict):
     ''' dict-derived class representing a set of parameters for a single function. '''
     def __init__(self, params):
@@ -74,10 +75,13 @@ class Signature(dict):
         for param in params:
             params[param].name = param
 
-def with_signature(**kwargs: dict[str, Par]):
-    ''' Creates a Signature from the given kwargs and stores it on the given function. '''
+
+def with_signature(arg=None, **kwargs: dict[str, Par]):
+    ''' Creates a Signature from the given dict or kwargs and stores it on the given function. '''
+    if arg and kwargs:
+        raise ValueError("with_signature should either specify one arg, or a set of kwargs, not both.")
     def _with_signature(f: Callable):
-        signature = Signature(kwargs)
+        signature = Signature(arg or kwargs)
         if hasattr(f, '__func__'):
             f.__func__.pipe_signature = signature
         else:
@@ -85,13 +89,14 @@ def with_signature(**kwargs: dict[str, Par]):
         return f
     return _with_signature
 
-def get_signature(f: Callable, *args):
+
+def get_signature(f: Callable, default=None):
     ''' Retrieves a Signature stored by `@with_signature`, or a default value if given, or an empty Signature. '''
     sig = getattr(f, 'pipe_signature', None)
     if sig is not None:
         return sig
-    elif args:
-        return args[0]
+    elif default is not None:
+        return default
     else:
         return Signature({})
 
@@ -134,11 +139,13 @@ class Arg:
             errors.log(e, True)
             return None
 
+
 class DefaultArg(Arg):
     ''' Special-case Arg representing a default argument. '''
     def __init__(self, value):
         self.predetermined = True
         self.value = value
+
 
 class Arguments:
     args: dict[str, Arg]
@@ -159,11 +166,10 @@ class Arguments:
     @staticmethod
     def from_string(string: str, sig: Signature=None, greedy=True) -> tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
         try:
-            parsed = argumentList.parseString(string, parseAll=True)
+            parsed = grammar.argument_list.parse_string(string, parseAll=True)
         except ParseException as e:
             return None, None, ErrorLog().log_parse_exception(e)
-        else:
-            return Arguments.from_parsed(parsed, sig, greedy=greedy)
+        return Arguments.from_parsed(parsed, sig, greedy=greedy)
 
     @staticmethod
     def from_parsed(argList: ParseResults, signature: Signature=None, greedy: bool=True) -> tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
@@ -189,7 +195,7 @@ class Arguments:
                     start_index = value.end_index
                     args[param] = value
             else:
-                remainder += list(arg['implicitArg'])
+                remainder += list(arg['implicit_arg'])
 
         remainder = TemplatedString.from_parsed(remainder)
         
@@ -261,6 +267,7 @@ class Arguments:
         values = await EvaluatedArguments.from_gather(self.args, futures)
         values.defaults = self.defaults
         return values, errors
+
 
 class EvaluatedArguments(dict):
     '''dict-subclass representing {arg: value} pairs, but with useful meta-info and methods bolted on.'''

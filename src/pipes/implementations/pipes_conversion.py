@@ -23,7 +23,7 @@ class PipeCurrency:
 
     _converter = None
 
-    @with_signature(**{
+    @with_signature({
         'from': Par(Currency, None, 'Currency to convert from'),
         'to':   Par(Currency, None, 'Currency to convert to'),
     })

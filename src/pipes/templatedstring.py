@@ -5,7 +5,7 @@ import discord
 
 from .processor import PipelineProcessor
 from .pipeline import Pipeline
-from .grammar import templatedString
+from . import grammar
 from .context import Context, ContextError
 from .signature import ArgumentError, Arguments
 from .implementations.sources import sources
@@ -56,7 +56,7 @@ class ParsedSource:
 
     @staticmethod
     def from_parsed(parsed: ParseResults):
-        name = parsed['sourceName'].lower()
+        name = parsed['source_name'].lower()
 
         if 'amount' in parsed:
             amt = parsed['amount']
@@ -197,11 +197,11 @@ class TemplatedString:
         pieces = []
 
         for piece in parsed:
-            if 'stringBit' in piece:
+            if 'string_bit' in piece:
                 if not pieces or not isinstance(pieces[-1], str):
-                    pieces.append(piece['stringBit'])
+                    pieces.append(piece['string_bit'])
                 else:
-                    pieces[-1] += piece['stringBit']
+                    pieces[-1] += piece['string_bit']
 
             elif 'source' in piece:
                 source = ParsedSource.from_parsed(piece['source'])
@@ -218,7 +218,8 @@ class TemplatedString:
     
     @staticmethod
     def from_string(string: str):
-        return TemplatedString.from_parsed(templatedString.parseString(string, parseAll=True))
+        parsed = grammar.templated_string.parse_string(string, parseAll=True)
+        return TemplatedString.from_parsed(parsed)
 
     def __str__(self):
         return ''.join(str(x) for x in self.pieces)
@@ -311,6 +312,7 @@ class TemplatedString:
 
         return out, errors
 
+    # ================ Specific use cases, wrapped into a single method
 
     @staticmethod
     async def evaluate_string(string: str, message: discord.Message=None, context: Context=None, force_single=False) -> tuple[list[str] | None, ErrorLog]:
@@ -320,16 +322,15 @@ class TemplatedString:
         If forceSingle=False, a pure "{source}" string may generate more (or less!) than 1 value.
         '''
         try:
-            templatedString = TemplatedString.from_string(string)
-
+            template = TemplatedString.from_string(string)
         except ParseException as e:
             return None, ErrorLog().log_parse_exception(e)
 
-        if not force_single and templatedString.is_source:
-            vals, errs = await templatedString.source.evaluate(message, context)
+        if not force_single and template.is_source:
+            vals, errs = await template.source.evaluate(message, context)
             return vals, errs
         else:
-            val, errs = await templatedString.evaluate(message, context)
+            val, errs = await template.evaluate(message, context)
             return [val], errs
 
     @staticmethod
@@ -353,7 +354,6 @@ class TemplatedString:
         for origin_str in expanded:
             try:
                 origin = TemplatedString.from_string(origin_str)
-
             except ParseException as e:
                 errors.log_parse_exception(e)
 
