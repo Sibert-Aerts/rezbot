@@ -7,7 +7,7 @@ import permissions
 from utils.choicetree import ChoiceTree
 
 # More import statements at the end of the file, due to circular dependencies.
-import pipes.groupmodes as groupmodes
+from . import groupmodes
 from .logger import ErrorLog
 
 
@@ -406,24 +406,26 @@ class Pipeline:
 
                 ## A SPOUT
                 elif parsed_pipe.type == ParsedPipe.SPOUT:
+                    spout: Spout = parsed_pipe.pipe
                     # As a rule, spouts do not affect the values
                     next_items.extend(items)
                     try:
                         # Queue up the spout's side-effects instead, to be executed once the entire script has completed
-                        spout_callbacks.append( parsed_pipe.pipe.hook(items, **args) )
+                        spout_callbacks.append( spout.hook(items, **args) )
                     except Exception as e:
                         errors.log(f'Failed to process Spout `{name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
                     
                 ## A NATIVE SOURCE
                 elif parsed_pipe.type == ParsedPipe.NATIVE_SOURCE:
+                    source: Source = parsed_pipe.pipe
                     # Sources don't accept input values: Discard them but warn about it if nontrivial input is being discarded.
                     # This is just a style warning, if it turns out this is annoying then it should be removed.
                     if items and not (len(items) == 1 and not items[0]):
                         errors.log(f'Source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
 
                     try:
-                       next_items.extend( await parsed_pipe.pipe.generate(message, args) )
+                       next_items.extend( await source.generate(message, args) )
                     except Exception as e:
                         errors.log(f'Failed to process Source-as-Pipe `{name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS

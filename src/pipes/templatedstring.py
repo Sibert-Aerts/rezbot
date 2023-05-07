@@ -97,7 +97,6 @@ class ParsedSource:
         if self.type == ParsedSource.NATIVE_SOURCE:
             try:
                 return await self.source.generate(message, args, n=self.amount), errors
-
             except Exception as e:
                 errors(f'Failed to evaluate source `{self.name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
                 return NOTHING_BUT_ERRORS

@@ -106,7 +106,7 @@ def get_signature(f: Callable, default=None):
 #####################################################
 
 class Arg:
-    ''' Object representing a TemplatedString assigned to a specific parameter. '''
+    ''' Object representing a parsed TemplatedString assigned to a specific parameter. '''
     param: Par | None
     name: str
     string: 'TemplatedString'
@@ -148,6 +148,7 @@ class DefaultArg(Arg):
 
 
 class Arguments:
+    ''' A set of parsed Args, meta-information, and the utility to determine them all into a single dict. '''
     args: dict[str, Arg]
     defaults: list[str]
     predetermined: bool
@@ -159,9 +160,8 @@ class Arguments:
         self.predetermined = all(args[p].predetermined for p in args)
         if self.predetermined:
             # Special case: Every single arg is already predetermined; we can build the value dict now already.
-            values = EvaluatedArguments((p, args[p].value) for p in args)
-            values.defaults = self.defaults
-            self.predetermined_args = values
+            self.predetermined_args = EvaluatedArguments((p, args[p].value) for p in args)
+            self.predetermined_args.defaults = self.defaults
 
     @staticmethod
     def from_string(string: str, sig: Signature=None, greedy=True) -> tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
