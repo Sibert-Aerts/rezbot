@@ -179,11 +179,11 @@ async def server_source(message, what):
 
 
 @source_from_func({
-    'n': Par(int, 1, 'The number of emojis'),
-    'id': Par(int, None, 'An exact emoji ID to match.', required=False),
-    'name': Par(str, None, 'An exact name to match.', required=False),
+    'n':      Par(int, 1, 'The number of emojis'),
+    'id':     Par(int, None, 'An exact emoji ID to match.', required=False),
+    'name':   Par(str, None, 'An exact name to match.', required=False),
     'search': Par(str, None, 'A string to search for in the name.', required=False),
-    'here': Par(parse_bool, True, 'Whether to restrict to this server\'s emoji.'),
+    'here':   Par(parse_bool, True, 'Whether to restrict to this server\'s emoji.'),
 }, pass_message=True, depletable=True)
 async def custom_emoji_source(message, n, name, search, id, here):
     '''The server's custom emojis.'''

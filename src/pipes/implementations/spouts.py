@@ -5,12 +5,12 @@ from discord import Embed
 from discord.errors import HTTPException
 from discord.ext.commands import Bot
 
-from ..signature import Par, Signature, get_signature, Hex, url, with_signature
+from ..signature import Par, Signature, get_signature, Hex, url, with_signature, parse_bool
 from ..pipe import Spout, Spouts
 from .sources import SourceResources
 from ..events import events
 from resource.upload import uploads
-from utils.util import parse_bool
+import utils.rand as rand
 
 
 #######################################################
@@ -184,18 +184,33 @@ async def react_spout(bot, message, values, emote):
             raise e
 
 
-@spout_from_func({
-    'sticker': Par(str, None, 'Name or ID of the sticker.'),
-})
-async def sticker_spout(bot: Bot, message: discord.Message, values: list[str], sticker: str):
-    ''' Sends a message with a sticker attached. '''
-    guild_stickers = list(message.guild.stickers)
+@spout_from_func
+@with_signature(
+    sticker = Par(str, None, 'Name or ID of the sticker.'),
+    here    = Par(parse_bool, True, 'Whether to restrict to this server\'s stickers.'),
+)
+async def sticker_spout(bot: Bot, message: discord.Message, values: list[str], sticker: str, here :bool):
+    ''' Sends a message with a sticker attached. '''    
+    if here:
+        stickers = list(message.guild.stickers)
+    else:
+        stickers = [s for guild in SourceResources.bot.guilds for s in guild.stickers]
+
     name_or_id = sticker
     sticker = None
-    try:
-        sticker = bot.get_sticker(int(name_or_id))
-    except:
-        sticker = next((s for s in guild_stickers if s.name == name_or_id), None)
+
+    # Try ID match
+    try: sticker = bot.get_sticker(int(name_or_id))
+    except: pass
+    # Try exact name match
+    if sticker is None:
+        sticker = next((s for s in stickers if s.name == name_or_id), None)
+    # Try name search match
+    if sticker is None:
+        search = name_or_id.lower()
+        stickers = [s for s in stickers if search in s.name.lower()]
+        if stickers: sticker = rand.choose(stickers)
+
     if sticker is None:
         raise ValueError(f'Unknown sticker "{name_or_id}".')
     await message.channel.send(stickers=[sticker])
