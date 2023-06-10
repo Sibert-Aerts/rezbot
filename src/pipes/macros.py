@@ -32,14 +32,14 @@ class MacroSig:
 class Macro:
     def __init__(self, kind, name, code, authorName, authorId, desc=None, visible=True, command=False):
         self.version = 4
-        self.kind = kind
-        self.name = name
-        self.code = code
-        self.authorName = authorName
-        self.authorId = authorId
-        self.desc = desc
-        self.visible = visible
-        self.command = command
+        self.kind: str = kind
+        self.name: str = name
+        self.code: str = code
+        self.authorName: str = authorName
+        self.authorId: int = authorId
+        self.desc: str = desc
+        self.visible: bool = visible
+        self.command: bool = command
         self.signature = {}
 
     def v3_to_v4(self, kind):

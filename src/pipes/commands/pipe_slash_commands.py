@@ -135,8 +135,7 @@ class PipeSlashCommands(MyCommands):
         try:
             scriptoid, _ = choice_to_scriptoid(scriptoid_name)
         except:
-            await reply(f'Command failed, likely due to nonexistent scriptoid.', ephemeral=True)
-            return
+            return await reply(f'Command failed, likely due to nonexistent scriptoid.', ephemeral=True)            
 
         # Get embed
         embed = scriptoid.embed(interaction)
@@ -324,13 +323,11 @@ class PipeSlashCommands(MyCommands):
         
         name = normalize_name(name)
         if name in natives or name in macros:
-            await reply(f'A {macro_type} called `{name}` already exists, try the `/macro edit` command.')
-            return
+            return await reply(f'A {macro_type} called `{name}` already exists, try the `/macro edit` command.')
 
         check = macro_check_map[macros.kind]
         if not force and not await check(code, reply):
-            await interaction.channel.send('Run the command again with `force: True` to save it anyway.')
-            return
+            return await interaction.channel.send('Run the command again with `force: True` to save it anyway.')            
 
         macro = Macro(macros.kind, name, code, author.name, author.id, desc=description, visible=not hidden)
         macros[name] = macro
@@ -360,17 +357,13 @@ class PipeSlashCommands(MyCommands):
         try:
             macro, macros = choice_to_scriptoid(macro_choice, Macro)
         except:
-            await reply(f'Command failed, likely due to nonexistent Macro.', ephemeral=True)
-            return
-
+            return await reply(f'Command failed, likely due to nonexistent Macro.', ephemeral=True)
         if not macro.authorised(author):
-            await reply('You are not authorised to modify that Macro. Try defining a new one instead.')
-            return
+            return await reply('You are not authorised to modify that Macro. Try defining a new one instead.', ephemeral=True)
 
         check = macro_check_map[macros.kind]
         if not force and code and not await check(code, reply):
-            await interaction.channel.send('Run the command again with `force: True` to save it anyway.')
-            return
+            return await interaction.channel.send('Run the command again with `force: True` to save it anyway.')
 
         if code is not None:
             macro.code = code
@@ -394,12 +387,9 @@ class PipeSlashCommands(MyCommands):
         try:
             macro, macros = choice_to_scriptoid(macro_choice, Macro)
         except:
-            await reply(f'Command failed, likely due to nonexistent Macro.', ephemeral=True)
-            return
-
+            return await reply(f'Command failed, likely due to nonexistent Macro.', ephemeral=True)
         if not macro.authorised(author):
-            await reply('You are not authorised to modify that Macro.')
-            return
+            return await reply('You are not authorised to modify that Macro.')
 
         del macros[macro.name]
         await reply(f'Successfully deleted {macros.kind} Macro `{macro.name}`.')
@@ -424,15 +414,16 @@ class PipeSlashCommands(MyCommands):
         ''' Add, overwrite or delete a parameter on a Macro. '''
         reply = interaction.response.send_message
         author = interaction.user
-        
-        param = normalize_name(param)
+
         try:
             macro, macros = choice_to_scriptoid(macro_choice, Macro)
+            param = normalize_name(param)
         except:
             return await reply(f'Command failed, likely due to nonexistent Macro.', ephemeral=True)
-
         if not macro.authorised(author):
             return await reply(f'You are not authorised to modify {macro.kind} Macro {macro.name}.', ephemeral=True)
+        if not param:
+            return await reply(f'Please use a valid parameter name.', ephemeral=True)
 
         existed = (param in macro.signature)
         if not delete:
@@ -502,8 +493,7 @@ class PipeSlashCommands(MyCommands):
 
         name = normalize_name(name)
         if name in events:
-            await reply(f'An Event called `{name}` already exists, try the `/event edit` command.')
-            return
+            return await reply(f'An Event called `{name}` already exists, try the `/event edit` command.')
             
         # TODO: Check event script code before saving
 
@@ -532,16 +522,14 @@ class PipeSlashCommands(MyCommands):
         try:
             event, _ = choice_to_scriptoid(event_choice, Event)
         except:
-            await reply(f'Command failed, likely due to nonexistent Event.', ephemeral=True)
-            return
+            return await reply(f'Command failed, likely due to nonexistent Event.', ephemeral=True)
 
         # TODO: Check event code for errors
 
         if event_type is not None:
             EventType = event_type_map[event_type]
             if trigger is None:
-                await reply(f'When changing Event Type, the trigger must be given as well.')
-                return
+                return await reply(f'When changing Event Type, the trigger must be given as well.')
             new_event = EventType(event.name, interaction.channel, event.script, trigger)
             new_event.channels = event.channels
             event = new_event
@@ -565,8 +553,7 @@ class PipeSlashCommands(MyCommands):
         try:
             event, _ = choice_to_scriptoid(event_choice, Event)
         except:
-            await reply(f'Command failed, likely due to nonexistent Event.', ephemeral=True)
-            return
+            return await reply(f'Command failed, likely due to nonexistent Event.', ephemeral=True)
 
         del events[event.name]
         await reply(f'Successfully deleted Event `{event.name}`.')
@@ -577,20 +564,21 @@ class PipeSlashCommands(MyCommands):
         try:
             event, _ = choice_to_scriptoid(event_choice, Event)
         except:
-            await reply(f'Command failed, likely due to nonexistent Event.', ephemeral=True)
-            return
+            return await reply(f'Command failed, likely due to nonexistent Event.', ephemeral=True)
 
         if enable:
             if interaction.channel.id in event.channels:
                 await reply(f'Event {event.name} is already enabled in {interaction.channel.mention}.')
             else:                
                 event.channels.append(interaction.channel.id)
+                events.write()
                 await reply(f'Event {event.name} has been enabled in {interaction.channel.mention}.')
         else:
             if interaction.channel.id not in event.channels:
                 await reply(f'Event {event.name} is already disabled in {interaction.channel.mention}.')
             else:                
                 event.channels.remove(interaction.channel.id)
+                events.write()
                 await reply(f'Event {event.name} has been disabled in {interaction.channel.mention}.')
 
     @event_group.command(name='enable')
