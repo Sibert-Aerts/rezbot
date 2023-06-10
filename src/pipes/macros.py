@@ -72,7 +72,7 @@ class Macro:
         else: embed.set_footer(text=self.authorName)
     
         return embed
-        
+
     def apply_args(self, args: dict):
         # Load the defaults
         defaults = {s: self.signature[s].default for s in self.signature}

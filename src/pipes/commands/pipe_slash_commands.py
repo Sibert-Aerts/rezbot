@@ -2,10 +2,12 @@ import itertools
 from typing import Callable, Literal, Type
 
 from discord.ext import commands
-from discord import app_commands, Interaction
+from discord import app_commands, Interaction, utils
 from discord.app_commands import Choice
 
-from ..pipe import Pipe, Source, Spout, Pipes, Sources, Spouts
+from ..commands.views.macro_views import MacroView
+
+from ..pipe import Pipeoid, Pipe, Source, Spout, Pipes, Sources, Spouts
 from ..implementations.pipes import pipes
 from ..implementations.sources import sources
 from ..implementations.spouts import spouts
@@ -44,10 +46,10 @@ event_type_map: dict[str, Type[OnMessage|OnReaction]] = {
 # ===================================== Autocomplete utility ======================================
 
 
-def scriptoid_to_choice(scriptoid: Pipe|Macro|Event, channel=None):
+def scriptoid_to_choice(scriptoid: Pipeoid|Macro|Event, channel=None):
     # This could be class methods but it's only used in this one file
     # and it is much nicer to have all the implementations laid out right here.    
-    if isinstance(scriptoid, Pipe):
+    if isinstance(scriptoid, Pipeoid):
         # name  = 'pipe_name (PipeType)'
         # value = 'PipeType:pipe_name'
         type_name = type(scriptoid).__name__
@@ -70,6 +72,8 @@ def scriptoid_to_choice(scriptoid: Pipe|Macro|Event, channel=None):
         name = f'{scriptoid.name} ({type_name} Event, {xabled})'
         value = 'Event:' + scriptoid.name
         return Choice(name=name, value=value)
+    
+    raise NotImplementedError(repr(scriptoid), repr(type(scriptoid)))
 
 def choice_to_scriptoid(value: str, expect_type=None):
     '''Performs the inverse lookup of scriptoid_to_choice, given a Choice's value.'''
@@ -87,7 +91,7 @@ def choice_to_scriptoid(value: str, expect_type=None):
 
 async def autocomplete_scriptoid(interaction: Interaction, name: str):
     name = name.lower()
-    results = []
+    results: list[Choice] = []
     scriptoids = itertools.chain(*(p.values() for p in scriptoid_type_map.values()))
     for scriptoid in scriptoids:
         if name in scriptoid.name:
@@ -98,7 +102,7 @@ async def autocomplete_scriptoid(interaction: Interaction, name: str):
 
 async def autocomplete_macro(interaction: Interaction, name: str):
     name = name.lower()
-    results = []
+    results: list[Choice] = []
     for macro in itertools.chain(pipe_macros.values(), source_macros.values()):
         if name in macro.name:
             results.append(scriptoid_to_choice(macro))
@@ -133,18 +137,21 @@ class PipeSlashCommands(MyCommands):
         ''' Look up info on a specific Pipe, Source, Spout, Macro or Event. '''        
         reply = interaction.response.send_message
         try:
-            scriptoid, _ = choice_to_scriptoid(scriptoid_name)
+            scriptoid, scriptoids = choice_to_scriptoid(scriptoid_name)
         except:
             return await reply(f'Command failed, likely due to nonexistent scriptoid.', ephemeral=True)            
 
         # Get embed
         embed = scriptoid.embed(interaction)
+        view = utils.MISSING
 
         # Take credit for native scriptoids
-        if isinstance(scriptoid, Pipe):
+        if isinstance(scriptoid, Pipeoid):
             embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar)
+        if isinstance(scriptoid, Macro):
+            view = MacroView(interaction, scriptoid, scriptoids)
 
-        await reply(embed=embed)
+        await reply(embed=embed, view=view)
 
 
     # ============================================ Native scriptoid Listing ===========================================
@@ -331,7 +338,7 @@ class PipeSlashCommands(MyCommands):
 
         macro = Macro(macros.kind, name, code, author.name, author.id, desc=description, visible=not hidden)
         macros[name] = macro
-        await reply(f'Successfully defined a new {macro_type} macro.', embed=macro.embed(interaction))
+        await reply(f'Successfully defined a new {macro_type} macro.', embed=macro.embed(interaction), view=MacroView(interaction, macro, macros))
 
     @macro_group.command(name='edit')
     @app_commands.describe(
@@ -373,7 +380,7 @@ class PipeSlashCommands(MyCommands):
             macro.visible = not hidden
 
         macros.write()
-        await reply(f'Successfully edited the {macro.kind} Macro.', embed=macro.embed(interaction))
+        await reply(f'Successfully edited the {macro.kind} Macro.', embed=macro.embed(interaction), view=MacroView(interaction, macro, macros))
 
     @macro_group.command(name='delete')
     @app_commands.describe(macro_choice="The Macro to delete")
