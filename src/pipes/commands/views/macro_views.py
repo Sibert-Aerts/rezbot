@@ -8,14 +8,14 @@ from pipes.macros import Macro, Macros
 class EditMacroModal(ui.Modal):
     """Modal for editing a macro's code and description fields."""
     # TODO: If discord ever adds checkboxes, dropdowns, etc. to modals, allow editing other fields
+    desc_input = ui.TextInput(label='Description', style=TextStyle.long, required=False)
+    code_input = ui.TextInput(label='Code', style=TextStyle.long)
 
     def __init__(self, macro: Macro=None, **kwargs):
-        super().__init__(title=f'Edit code for {macro.name}', **kwargs)
+        super().__init__(title=f'Edit {macro.kind} Macro {macro.name}'[:52], **kwargs)
         self.macro = macro
-        self.desc_input = ui.TextInput(label='Description', default=macro.desc, style=TextStyle.long)
-        self.add_item(self.desc_input)
-        self.code_input = ui.TextInput(label='Code', default=macro.code, style=TextStyle.long)
-        self.add_item(self.code_input)
+        self.desc_input.default = macro.desc
+        self.code_input.default = macro.code
         self.confirmed = False
 
     async def on_submit(self, interaction: Interaction):
@@ -33,17 +33,17 @@ class MacroView(ui.View):
         self.original_interaction = original_interaction
         self.macro: Macro = macro
         self.macros: Macros = macros
-        self._update_toggle_hide()
+        self._on_change_visible()
 
     # =========================================== Utility ==========================================
 
     async def _remove_self(self):
         await self.original_interaction.edit_original_response(view=None)
 
-    def _update_toggle_hide(self):
+    def _on_change_visible(self):
         visible = self.macro.visible
-        self.button_toggle_hide.label = 'Visible' if visible else 'Hidden'
-        self.button_toggle_hide.style = ButtonStyle.secondary if visible else ButtonStyle.gray
+        self.button_toggle_hide.label = 'Hide' if visible else 'Unhide'
+        self.button_toggle_hide.style = ButtonStyle.gray if visible else ButtonStyle.primary
 
     # ========================================== Handlers ==========================================
 
@@ -59,7 +59,7 @@ class MacroView(ui.View):
 
     # =========================================== Buttons ==========================================
 
-    @ui.button(label='Edit', row=0, style=ButtonStyle.secondary, emoji='✏')
+    @ui.button(label='Edit', row=0, style=ButtonStyle.primary, emoji='✏')
     async def button_edit(self, interaction: Interaction, button: ui.Button):
         """Opens Modal to edit the Macro."""
         edit_macro_modal = EditMacroModal(self.macro)
@@ -73,7 +73,7 @@ class MacroView(ui.View):
         """Toggles whether the Macro is hidden, appearance is variable."""
         self.macro.visible = not self.macro.visible
         self.macros.write()
-        self._update_toggle_hide()
+        self._on_change_visible()
         await interaction.response.edit_message(embed=self.macro.embed(interaction), view=self)
 
     @ui.button(row=0, style=ButtonStyle.danger, emoji='✖')

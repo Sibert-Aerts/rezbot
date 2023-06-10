@@ -5,8 +5,6 @@ from discord.ext import commands
 from discord import app_commands, Interaction, utils
 from discord.app_commands import Choice
 
-from ..commands.views.macro_views import MacroView
-
 from ..pipe import Pipeoid, Pipe, Source, Spout, Pipes, Sources, Spouts
 from ..implementations.pipes import pipes
 from ..implementations.sources import sources
@@ -17,6 +15,9 @@ from .macro_commands import check_pipe_macro, check_source_macro
 from mycommands import MyCommands
 import utils.texttools as texttools
 from utils.util import normalize_name
+
+from .views.macro_views import MacroView
+from .views.event_views import EventView
 
 '''
 A module providing a collection of slash commands for interacting with scripting/pipes/macros/events.
@@ -148,8 +149,11 @@ class PipeSlashCommands(MyCommands):
         # Take credit for native scriptoids
         if isinstance(scriptoid, Pipeoid):
             embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar)
+        # Add Views to Macros and Events
         if isinstance(scriptoid, Macro):
             view = MacroView(interaction, scriptoid, scriptoids)
+        if isinstance(scriptoid, Event):
+            view = EventView(interaction, scriptoid, scriptoids)
 
         await reply(embed=embed, view=view)
 
@@ -506,7 +510,7 @@ class PipeSlashCommands(MyCommands):
 
         event = EventType(name, interaction.channel, code, trigger)
         events[name] = event
-        await reply(f'Successfully defined a new Event.', embed=event.embed(interaction))
+        await reply(f'Successfully defined a new Event.', embed=event.embed(interaction), view=EventView(interaction, event, events))
 
     @event_group.command(name='edit')
     @app_commands.describe(
@@ -547,7 +551,7 @@ class PipeSlashCommands(MyCommands):
             event.script = code
 
         events.write()
-        await reply(f'Successfully edited the Event.', embed=event.embed(interaction))
+        await reply(f'Successfully edited the Event.', embed=event.embed(interaction), view=EventView(interaction, event, events))
 
     @event_group.command(name='delete')
     @app_commands.describe(event_choice='The Event to delete')

@@ -1,7 +1,7 @@
 import re
 import os
 import pickle
-from discord import Embed
+from discord import Embed, Guild
 
 from utils.texttools import block_format
 from .pipeline import Pipeline
@@ -17,10 +17,10 @@ def DIR(filename=''):
 
 class Event:
     def __init__(self, name, channel, script):
-        self.name = name
-        self.version = 2
-        self.channels = [channel.id]
-        self.script = script
+        self.name: str = name
+        self.version: int = 2
+        self.channels: list[int] = [channel.id]
+        self.script: str = script
 
     def update(self, script):
         self.script = script
@@ -31,6 +31,11 @@ class Event:
     def is_enabled(self, channel):
         # TODO: distinguish threads/channels?
         return channel.id in self.channels
+
+    def disable_in_guild(self, guild: Guild):
+        # Throw out all Channels belonging to the given guild
+        guild_channels = [c.id for c in guild.channels]
+        self.channels = [c for c in self.channels if not c in guild_channels]
 
     def embed(self, ctx):
         desc = '{}abled in this channel'.format( 'En' if self.is_enabled(ctx.channel) else 'Dis' )
@@ -47,6 +52,7 @@ class Event:
 
 
 class OnMessage(Event):
+    patternstr: str
     pattern: re.Pattern
 
     def __init__(self, name, channel, script, pattern):
@@ -56,6 +62,9 @@ class OnMessage(Event):
     def update(self, script, pattern):
         super().update(script)
         self.set_trigger(pattern)
+
+    def get_trigger_str(self):
+        return self.patternstr
 
     def set_trigger(self, pattern: str):
         self.patternstr = pattern
@@ -83,6 +92,9 @@ class OnReaction(Event):
     def update(self, script: str, emotes: str):
         super().update(script)
         self.set_trigger(emotes)
+
+    def get_trigger_str(self):
+        return ''.join(self.emotes)
 
     def set_trigger(self, emotes: str):
         self.emotes = re.split('\s*,\s*', emotes)
