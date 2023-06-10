@@ -1,6 +1,7 @@
 from discord import ui, ButtonStyle, Interaction
 from discord.interactions import Interaction
 
+
 class ConfirmView(ui.View):
     """Generic Confirm/Cancel functionality."""
     def __init__(self):

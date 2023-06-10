@@ -5,19 +5,18 @@ from discord.ext import commands
 from discord import app_commands, Interaction, utils
 from discord.app_commands import Choice
 
-from ..pipe import Pipeoid, Pipe, Source, Spout, Pipes, Sources, Spouts
-from ..implementations.pipes import pipes
-from ..implementations.sources import sources
-from ..implementations.spouts import spouts
-from ..macros import Macros, Macro, MacroSig, pipe_macros, source_macros
-from ..events import Event, Events, OnMessage, OnReaction, events
-from .macro_commands import check_pipe_macro, check_source_macro
+from pipes.pipe import Pipeoid, Pipe, Source, Spout, Pipes, Sources, Spouts
+from pipes.implementations.pipes import pipes
+from pipes.implementations.sources import sources
+from pipes.implementations.spouts import spouts
+from pipes.macros import Macros, Macro, MacroSig, pipe_macros, source_macros
+from pipes.events import Event, Events, OnMessage, OnReaction, events
+from macro_commands import check_pipe_macro, check_source_macro
 from mycommands import MyCommands
 import utils.texttools as texttools
 from utils.util import normalize_name
 
-from .views.macro_views import MacroView
-from .views.event_views import EventView
+from pipes.views import MacroView, EventView
 
 '''
 A module providing a collection of slash commands for interacting with scripting/pipes/macros/events.
