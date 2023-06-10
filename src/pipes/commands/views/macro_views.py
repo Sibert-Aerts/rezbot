@@ -71,10 +71,9 @@ class MacroView(ui.View):
     @ui.button(row=0)
     async def button_toggle_hide(self, interaction: Interaction, button: ui.Button):
         """Toggles whether the Macro is hidden, appearance is variable."""
-        macro = self.macro
-        macro.visible = not macro.visible
-
+        self.macro.visible = not self.macro.visible
         self.macros.write()
+        self._update_toggle_hide()
         await interaction.response.edit_message(embed=self.macro.embed(interaction), view=self)
 
     @ui.button(row=0, style=ButtonStyle.danger, emoji='✖')
