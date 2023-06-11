@@ -3,7 +3,7 @@ from pyparsing import ParseException, ParseResults
 
 import discord
 
-from .processor import PipelineProcessor
+from .processor import PipelineWithOrigin
 from .pipeline import Pipeline
 from . import grammar
 from .context import Context, ContextError
@@ -109,8 +109,8 @@ class ParsedSource:
                 errors.log(e, True, context=self.name)
                 return NOTHING_BUT_ERRORS
 
-            #### Fast-tracked version of PipelineProcessor.execute_script:
-            origin, code = PipelineProcessor.split(code)
+            #### Fast-tracked version of PipelineWithOrigin.execute:
+            origin, code = PipelineWithOrigin.split(code)
 
             ## STEP 1: Get the values from the Macro's origin            
             values, origin_errors = await TemplatedString.evaluate_origin(origin, message, context)

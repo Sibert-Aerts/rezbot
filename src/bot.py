@@ -43,8 +43,8 @@ discord.utils.setup_logging()
 bot = commands.Bot(command_prefix=command_prefix, case_insensitive=True, intents=intents)
 
 # Initialise own managers
-patternProcessor = patterns.Patterns(bot)
-scriptProcessor = PipelineProcessor(bot, pipe_prefix)
+pattern_processor = patterns.Patterns(bot)
+pipeline_processor = PipelineProcessor(bot, pipe_prefix)
 
 @bot.event
 async def on_ready():
@@ -72,14 +72,14 @@ async def on_message(message: discord.Message):
         return
 
     # See if it looks like a script, if it does: run the script and don't do anything else
-    if await scriptProcessor.process_script(message):
+    if await pipeline_processor.process_script(message):
         return
 
     # Try for patterns and custom Events if it doesn't look like a command
     if message.content[:len(command_prefix)] != command_prefix:
-        await scriptProcessor.on_message(message)
+        await pipeline_processor.on_message(message)
         if (not message.guild or message.guild.id not in patterns_blacklist) and message.channel.id not in patterns_blacklist:
-            await patternProcessor.process_patterns(message)
+            await pattern_processor.process_patterns(message)
 
     # Try for commands
     await bot.process_commands(message)
@@ -90,7 +90,7 @@ async def on_raw_reaction_add(payload: discord.RawReactionActionEvent):
     guild = bot.get_guild(payload.guild_id)
     if not guild: return
     channel = guild.get_channel_or_thread(payload.channel_id)
-    await scriptProcessor.on_reaction(channel, str(payload.emoji), payload.user_id, payload.message_id)
+    await pipeline_processor.on_reaction(channel, str(payload.emoji), payload.user_id, payload.message_id)
 
 
 @bot.event

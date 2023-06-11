@@ -9,7 +9,7 @@ from discord.ext.commands import Bot
 
 from pipes.signature import Par, Signature, get_signature, Hex, url, with_signature, parse_bool, Option
 from pipes.pipe import Spout, Spouts
-from pipes.processor import PipelineProcessor, PipelineWithOrigin
+from pipes.processor import PipelineWithOrigin
 from pipes.events import events
 from resource.upload import uploads
 from pipes.context import Context
@@ -326,7 +326,7 @@ class ButtonSpout:
         async def callback(self, interaction: Interaction):
             context = Context(items=self.values)
             await interaction.response.defer()
-            await PipelineProcessor.execute_pipeline_with_origin(self.script, self.bot, interaction.message, context=context, name='Scripted button')
+            await self.script.execute(self.bot, interaction.message, context=context, name='Scripted button')
 
     class View(discord.ui.View):
         def __init__(self, button: discord.ui.Button, **kwargs):

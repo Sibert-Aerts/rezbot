@@ -8,7 +8,7 @@ from pipes.views import MacroView
 
 from ..pipe import Pipes
 from ..pipeline import Pipeline
-from ..processor import PipelineProcessor
+from ..processor import PipelineWithOrigin
 from ..implementations.pipes import pipes
 from ..implementations.sources import sources
 from ..macros import Macro, MacroSig, Macros, pipe_macros, source_macros
@@ -31,7 +31,7 @@ async def check_pipe_macro(code, reply):
 
 async def check_source_macro(code, reply):
     ''' Statically analyses source macro code for errors or warnings. '''
-    _, code = PipelineProcessor.split(code)
+    _, code = PipelineWithOrigin.split(code)
     return await check_pipe_macro(code, reply)
     
 

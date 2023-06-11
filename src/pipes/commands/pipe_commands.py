@@ -1,6 +1,6 @@
 from discord.ext import commands
 
-from pipes.processor import PipelineProcessor
+from pipes.processor import PipelineWithOrigin
 from pipes.pipe import Pipe, Source, Spout
 from pipes.implementations.pipes import pipes
 from pipes.implementations.sources import sources, SourceResources
@@ -221,7 +221,7 @@ async def setup(bot: commands.Bot):
             try:
                 # Apply the pipe to what remains of the command string
                 results = pipe.apply([text], **args)
-                await PipelineProcessor.send_print_values(ctx.channel, [results])
+                await PipelineWithOrigin.send_print_values(ctx.channel, [results])
 
             except Exception as e:
                 err.log(f'With args {args}:\n\t{type(e).__name__}: {e}', True)
@@ -261,7 +261,7 @@ async def setup(bot: commands.Bot):
             try:
                 # Apply the source with the given arguments
                 results = await source.generate(ctx.message, args)
-                await PipelineProcessor.send_print_values(ctx.channel, [results])
+                await PipelineWithOrigin.send_print_values(ctx.channel, [results])
     
             except Exception as e:
                 err.log(f'With args {args}:\n\t{type(e).__name__}: {e}', True)

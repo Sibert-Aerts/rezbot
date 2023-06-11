@@ -1,3 +1,9 @@
+
+'''
+The PipelineWithOrigin class essentially represents a Rezbot script that may be executed.
+The PipelineProcessor class provides the primary interface through which Rezbot Scripts are executed.
+'''
+
 import re
 
 from lru import LRU
@@ -7,9 +13,6 @@ from discord import Client, Message, TextChannel
 from .logger import ErrorLog
 import utils.texttools as texttools
 
-'''
-The PipelineProcessor class provides the primary interface through which Rezbot Scripts are executed.
-'''
 
 
 class TerminalError(Exception):
@@ -18,65 +21,42 @@ class TerminalError(Exception):
 
 class PipelineWithOrigin:
     '''
-    Class representing a complete "Rezbot script", overwrought name to indicate is is nothing more than:
+    Class representing a complete "Rezbot script" that may be executed:
         * An origin (str) which may be expanded and evaluated.
         * A Pipeline which may be applied to that result.
-    '''
 
+    These occur from:
+        * Manual script invocation (messages starting with >>)
+        * Source Macros, Events
+        * (Rarely) as arguments passed to Pipes in a Pipeline (meta-recursion?)
+    '''
     # Static LRU cache holding up to 40 parsed instances... probably don't need any more
     script_cache: dict['PipelineWithOrigin'] = LRU(40)
+
+    # ======================================== Constructors ========================================
 
     def __init__(self, origin: str, pipeline: 'Pipeline'):
         self.origin = origin
         self.pipeline = pipeline
 
     @classmethod
-    def from_string(cls, script: str):
-        # No need to re-parse the same script
+    def from_string(cls, script: str) -> 'PipelineWithOrigin':
+        ## No need to re-parse the same script
         if script in PipelineWithOrigin.script_cache:
             return PipelineWithOrigin.script_cache[script]
 
-        # Parse
-        origin, pipeline_str = PipelineProcessor.split(script)
+        ## Parse
+        origin, pipeline_str = PipelineWithOrigin.split(script)
         # NOTE/TODO: Parsing Pipeline() here may fail, but it won't raise an error,
         #   pipeline.parser_errors will simply be flagged as 'terminal'.
         pipeline = Pipeline(pipeline_str)
 
-        # Instantiate, cache, return
+        ## Instantiate, cache, return
         pwo = PipelineWithOrigin(origin, pipeline)
         PipelineWithOrigin.script_cache[script] = pwo
         return pwo
 
-
-class PipelineProcessor:
-    ''' Singleton class providing some global state and methods essential to the bot's scripting integration. '''
-
-    def __init__(self, bot, prefix):
-        self.bot = bot
-        self.prefix = prefix
-        SourceResources.bot = bot
-
-    async def on_message(self, message):
-        '''Check if an incoming message triggers any custom Events.'''
-        for event in events.values():
-            if not isinstance(event, OnMessage): continue
-            m = event.test(message)
-            if m:
-                # If m is not just a bool, but a regex match object, fill the context up with the match groups, otherwise with the entire message.
-                if m is not True:
-                    items = [group or '' for group in m.groups()] or [message.content]
-                else:
-                    items = [message.content]
-                context = Context(items=items)
-                await self.execute_script(event.script, self.bot, message, context, name='Event: ' + event.name)
-
-    async def on_reaction(self, channel, emoji, user_id, msg_id):
-        '''Check if an incoming reaction triggers any custom Events.'''
-        for event in events.values():
-            if isinstance(event, OnReaction) and event.test(channel, emoji):
-                message = await channel.fetch_message(msg_id)
-                context = Context(items=[emoji, str(user_id)])
-                await self.execute_script(event.script, self.bot, message, context, name='Event: ' + event.name)
+    # =================================== Static utility methods ===================================
 
     @staticmethod
     def split(script: str) -> tuple[str, str]:
@@ -156,16 +136,19 @@ class PipelineProcessor:
             )
             await channel.send(embed=newErrors.embed(name=name))
 
-    @classmethod
-    async def execute_script(cls, script: str, bot: Client, message: Message, context=None, name=None):
-        pipeline_wo = PipelineWithOrigin.from_string(script)
-        return await cls.execute_pipeline_with_origin(pipeline_wo, bot, message, context=context, name=name)
+    # ====================================== Execution method ======================================
 
-    @classmethod
-    async def execute_pipeline_with_origin(cls, pipeline_wo: PipelineWithOrigin, bot: Client, message: Message, context=None, name=None):
-        # TODO: Pull this into PipelineWithOrigin, obviously
+    async def execute(self, bot: Client, message: Message, context: 'Context'=None, name: str=None):
+        '''
+        This function connects the three major steps of executing a script:
+            * Evaluating the origin
+            * Running the result through the pipeline
+            * Performing any Spout callbacks
+
+        All while handling and communicating any errors that may arise during that process.
+        '''
         errors = ErrorLog()
-        pipeline, origin = pipeline_wo.pipeline, pipeline_wo.origin
+        pipeline, origin = self.pipeline, self.origin
 
         try:
             ### STEP 1: GET STARTING VALUES
@@ -187,7 +170,7 @@ class PipelineProcessor:
             # TODO: auto-print if the last pipe was not a spout, or something
             if not spout_callbacks or any( callback is spouts['print'].spout_function for (callback, _, _) in spout_callbacks ):
                 printValues.append(values)
-                await cls.send_print_values(message.channel, printValues)
+                await self.send_print_values(message.channel, printValues)
 
             ## Perform all Spouts (TODO: MAKE THIS BETTER)
             for callback, args, values in spout_callbacks:
@@ -199,21 +182,61 @@ class PipelineProcessor:
 
             ## Post warning output to the channel if any
             if errors:
-                await cls.send_error_log(message.channel, errors, name)
+                await self.send_error_log(message.channel, errors, name)
 
         except TerminalError:
             ## A TerminalError indicates that whatever problem we encountered was caught, logged, and we halted voluntarily.
             # Nothing more to be done than posting log contents to the channel.
             print('Script execution halted due to error.')
-            await cls.send_error_log(message.channel, errors, name)
+            await self.send_error_log(message.channel, errors, name)
             
         except Exception as e:
             ## An actual error has occurred in executing the script that we did not catch.
             # No script, no matter how poorly formed or thought-out, should be able to trigger this; if this occurs it's a Rezbot bug.
             print('Script execution halted unexpectedly!')
             errors.log(f'🛑 **Unexpected pipeline error:**\n {type(e).__name__}: {e}', terminal=True)
-            await cls.send_error_log(message.channel, errors, name)
+            await self.send_error_log(message.channel, errors, name)
             raise e
+
+
+class PipelineProcessor:
+    ''' Singleton class providing some global config, methods and hooks to the Bot. '''
+
+    def __init__(self, bot, prefix):
+        self.bot = bot
+        self.prefix = prefix
+        bot.pipeline_processor = self
+        SourceResources.bot = bot
+
+    # ========================================= Event hooks ========================================
+
+    async def on_message(self, message):
+        '''Check if an incoming message triggers any custom Events.'''
+        for event in events.values():
+            if not isinstance(event, OnMessage): continue
+            m = event.test(message)
+            if m:
+                # If m is not just a bool, but a regex match object, fill the context up with the match groups, otherwise with the entire message.
+                if m is not True:
+                    items = [group or '' for group in m.groups()] or [message.content]
+                else:
+                    items = [message.content]
+                context = Context(items=items)
+                await self.execute_script(event.script, message, context, name='Event: ' + event.name)
+
+    async def on_reaction(self, channel, emoji, user_id, msg_id):
+        '''Check if an incoming reaction triggers any custom Events.'''
+        for event in events.values():
+            if isinstance(event, OnReaction) and event.test(channel, emoji):
+                message = await channel.fetch_message(msg_id)
+                context = Context(items=[emoji, str(user_id)])
+                await self.execute_script(event.script, message, context, name='Event: ' + event.name)
+
+    # ====================================== Script execution ======================================
+    
+    async def execute_script(self, script: str, message: Message, context: 'Context'=None, name: str=None):
+        pipeline_with_origin = PipelineWithOrigin.from_string(script)
+        return await pipeline_with_origin.execute(self.bot, message, context=context, name=name)
 
     async def process_script(self, message: Message):
         '''This is the starting point for all script execution.'''
@@ -242,7 +265,7 @@ class PipelineProcessor:
         ##### NORMAL SCRIPT EXECUTION:
         else:
             async with message.channel.typing():
-                await self.execute_script(script, self.bot, message)
+                await self.execute_script(script, message)
 
         return True
 
