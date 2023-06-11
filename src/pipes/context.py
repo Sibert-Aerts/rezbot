@@ -60,6 +60,9 @@ class ItemScope:
 
 
 class Context:
+    '''
+    An object providing context to the execution/evaluation of a Rezbot script.
+    '''
     parent: 'Context | None'
 
     # ======== Important execution context values

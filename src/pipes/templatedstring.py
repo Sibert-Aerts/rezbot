@@ -30,7 +30,7 @@ class ParsedItem:
 
     def evaluate(self, context: Context=None) -> str:
         if context:
-            return context.get_parsed_item(self.carrots, self.index, self.bang)
+            return context.get_item(self.carrots, self.index, self.bang)
         return str(self)
 
 
@@ -96,7 +96,7 @@ class ParsedSource:
         ### CASE: Native Source
         if self.type == ParsedSource.NATIVE_SOURCE:
             try:
-                return await self.source.generate(message, args, n=self.amount), errors
+                return await self.source.generate(context, args, n=self.amount), errors
             except Exception as e:
                 errors(f'Failed to evaluate source `{self.name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
                 return NOTHING_BUT_ERRORS

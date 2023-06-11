@@ -20,7 +20,7 @@ set_category('FILE')
     'query'     : Par(str, '', 'Optional search query'),
     'pattern'   : Par(regex, None, 'Optional search regex', required=False),
 }, command=True, depletable=True, plural=False)
-async def txt_source(file, n, sequential, sentences, query, pattern):
+async def txt_source(ctx, file, n, sequential, sentences, query, pattern):
     '''Lines from an uploaded text file. Check >files for a list of files.'''
     if file == 'random':
         file = random.choice(list(uploads.files.keys()))
@@ -41,7 +41,7 @@ async def txt_source(file, n, sequential, sentences, query, pattern):
     'length': Par(int, 0, 'The maximum length of the generated sentence (0 for unlimited)'),
     'start' : Par(str, None, 'One or two starting words to continue a sentence from (NOTE: EXTREMELY FINNICKY)', required=False)
 }, command=True, plural=False)
-async def markov_source(file, n, length, start):
+async def markov_source(ctx, file, n, length, start):
     '''Randomly generated markov chains based on an uploaded file. Check >files for a list of files.'''
     file = uploads[file]
     return file.get_markov_lines(n, length, start)
@@ -53,7 +53,7 @@ async def markov_source(file, n, length, start):
     'uniform': Par(parse_bool, False, 'Whether to pick pieces uniformly or based on their frequency'),
     'n'      : Par(int, 1, 'The number of pieces')
 }, depletable=True, plural='pos')
-async def pos_source(file, tag, uniform, n):
+async def pos_source(ctx, file, tag, uniform, n):
     '''
         Pieces Of Sentence from a given text file that match a given grammatical POS tag.
 

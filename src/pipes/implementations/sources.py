@@ -5,8 +5,10 @@ from typing import TypeVar
 
 from discord.ext.commands import Bot
 
-from ..signature import Signature, Par, get_signature, with_signature
-from ..pipe import Source, Sources
+# Unused imports are so other addons can import them from here
+from pipes.signature import Signature, Par, get_signature, with_signature
+from pipes.pipe import Source, Sources
+from pipes.context import Context
 from resource.variables import VariableStore
 
 
@@ -56,7 +58,6 @@ def source_from_func(signature: dict[str, Par]=None, /, *, command=False, **kwar
     * command: If True, source becomes usable as a standalone bot command (default: False)
 
     Source-specific keyword arguments:
-    * pass_message: If True, function receives the discord Message as its first argument (default: False)
     * plural: The source's name pluralised, to use as an alias (default: name + 's')
     * depletable: If True, it is allowed to request "ALL" of a source. (e.g. "{all words}" instead of just "{10 words}"),
     in this case `n` will be passed as -1 (default: False)
@@ -95,7 +96,7 @@ def source_from_class(cls: type[T]) -> type[T]:
     # Methods:
     @with_signature(...)
     @staticmethod
-    async def source_function(items: list[str], ...) -> list[str]: ...
+    async def source_function(ctx: Context, items: list[str], ...) -> list[str]: ...
 
     @staticmethod
     def may_use(user: discord.User) -> bool: ...
@@ -111,7 +112,6 @@ def source_from_class(cls: type[T]) -> type[T]:
         plural=get('plural'),
         doc=cls.__doc__ or cls.source_function.__doc__,
         category=_CATEGORY,
-        pass_message=True,
         aliases=get('aliases'),
         depletable=get('depletable', False),
         may_use=get('may_use'),

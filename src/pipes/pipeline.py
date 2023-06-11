@@ -425,7 +425,7 @@ class Pipeline:
                         errors.log(f'Source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
 
                     try:
-                       next_items.extend( await source.generate(message, args) )
+                       next_items.extend( await source.generate(context, args) )
                     except Exception as e:
                         errors.log(f'Failed to process Source-as-Pipe `{name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS

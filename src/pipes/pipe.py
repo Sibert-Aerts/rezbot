@@ -1,11 +1,11 @@
 from collections import defaultdict
 import inspect
 from textwrap import dedent
-import traceback
 import discord
 from discord import Embed
 
 from .signature import Signature
+from .context import Context
 from typing import Callable, Any, Generic, TypeVar
 
 
@@ -96,15 +96,12 @@ class Source(Pipeoid):
     Represents something which generates strings in a script.
     '''
     source_function: Callable[..., list[str]]
-    # TODO: Get rid of pass_message
-    pass_message: bool
     depletable: bool
     plural: str | None = None
 
-    def __init__(self, signature: Signature, function: Callable[..., list[str]], *, plural: str=None, pass_message=False, depletable=False, **kwargs):
+    def __init__(self, signature: Signature, function: Callable[..., list[str]], *, plural: str=None, depletable=False, **kwargs):
         super().__init__(signature=signature, **kwargs)
         self.source_function = function
-        self.pass_message = pass_message
         self.depletable = depletable
 
         if plural:
@@ -114,7 +111,7 @@ class Source(Pipeoid):
         if self.plural and self.plural != self.name:
             self.aliases.insert(0, self.plural)
 
-    def generate(self, message, args: dict[str, Any], n=None):
+    def generate(self, context: Context, args: dict[str, Any], n=None):
         ''' Call the Source to produce items using a parsed dict of arguments. '''
         if n:
             # Handle the `n` that may be given using the {n sources} notation
@@ -123,15 +120,7 @@ class Source(Pipeoid):
                 else: raise ValueError('Requested `all` items but the source is not depletable.')
             if 'n' in args: args['n'] = int(n)
             elif 'N' in args: args['N'] = int(n)
-        if self.pass_message:
-            return self.source_function(message, **args)
-        else:
-            return self.source_function(**args)
-
-    def __call__(self, *args, **kwargs):
-        traceback.print_stack(limit=3)
-        print('Deprecation Warning: Source.__call__')
-        return self.generate(*args, **kwargs)
+        return self.source_function(context, **args)
 
     def embed(self, ctx=None):
         embed = super().embed(ctx=ctx)

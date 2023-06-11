@@ -1,7 +1,7 @@
 from datetime import timezone
 import discord
 
-from .sources import source_from_func, get_which, set_category, SourceResources
+from .sources import source_from_func, get_which, set_category, SourceResources, Context
 from ..signature import Par, Option, Multi, regex, parse_bool
 
 from utils.texttools import *
@@ -28,9 +28,10 @@ def messages_get_what(messages, what):
 
 @source_from_func({
     'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT))
-}, pass_message=True, plural='those')
-async def that_source(message: discord.Message, what):
+}, plural='those')
+async def that_source(ctx: Context, what):
     '''The previous message in the channel, or the message being replied to.'''
+    message = ctx.message
     if message.reference and message.reference.message_id:
         msg_id = message.reference.message_id
         msg = await message.channel.fetch_message(msg_id)        
@@ -42,14 +43,14 @@ async def that_source(message: discord.Message, what):
 @source_from_func({
     'n': Par(int, 1, 'The number of next messages to wait for.', lambda n: n < 1000),
     'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT))
-}, pass_message=True)
-async def next_message_source(message, n, what):
+})
+async def next_message_source(ctx: Context, n, what):
     '''The next message to be sent in the channel.'''
     messages = []
 
     def check(msg):
         # ignore (most) messages that the bot normally ignores
-        return msg.channel == message.channel \
+        return msg.channel == ctx.message.channel \
             and not msg.author.bot \
             and msg.content[:len(SourceResources.bot.command_prefix)] != SourceResources.bot.command_prefix
 
@@ -60,10 +61,10 @@ async def next_message_source(message, n, what):
 
 @source_from_func({
     'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT))
-}, pass_message=True)
-async def message_source(message, what):
+})
+async def message_source(ctx: Context, what):
     '''The message which triggered script execution. Useful in Event scripts.'''
-    return messages_get_what([message], what)
+    return messages_get_what([ctx.message], what)
 
 
 @source_from_func({
@@ -71,15 +72,15 @@ async def message_source(message, what):
     'i': Par(int, 1, 'From which previous message to start counting. (0 for the message that triggers the script itself)', lambda i: i <= 10000),
     'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
     'by': Par(int, 0, 'A user id, if given will filter the results down to only that users\' messages within the range of messages (if any).'),
-}, pass_message=True)
-async def previous_message_source(message, n, i, what, by):
+})
+async def previous_message_source(ctx: Context, n, i, what, by):
     '''
     A generalization of {that} and {message} that allows more messages and going further back.
     
     The N messages in this channel, counting backwards from the Ith previous message.
     i.e. N messages, ordered newest to oldest, with the newest being the Ith previous message.
     '''
-    messages = [ msg async for msg in message.channel.history(limit=n+i) ][i:i+n]
+    messages = [ msg async for msg in ctx.message.channel.history(limit=n+i) ][i:i+n]
     if by: messages = [m for m in messages if m.author.id == by]
 
     return messages_get_what(messages, what)
@@ -105,10 +106,12 @@ def members_get_what(members: list[discord.Member], what):
 
 @source_from_func({
     'what': Par(Multi(MEMBER_WHAT), 'nickname', '/'.join(MEMBER_WHAT))
-}, pass_message=True)
-async def me_source(message, what):
+})
+async def me_source(ctx: Context, what):
     '''The name (or other attribute) of the user invoking the script or event.'''
-    return members_get_what([message.author], what)
+    if not ctx.activator:
+        raise Exception('No known "me" in the current context.')
+    return members_get_what([ctx.activator], what)
 
 
 @source_from_func({
@@ -117,10 +120,10 @@ async def me_source(message, what):
     'id'  : Par(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
     'name': Par(regex, None, 'A pattern that should match their nickname or username.', required=False),
     # 'rank': ...?
-}, pass_message=True, depletable=True)
-async def member_source(message: discord.Message, n, what, id, name):
+}, depletable=True)
+async def member_source(ctx: Context, n, what, id, name):
     '''The name (or other attribute) of a random Server member meeting the filters.'''
-    members = message.guild.members
+    members = ctx.message.guild.members
 
     # Filter if necessary
     if id:
@@ -139,10 +142,10 @@ CHANNEL_WHAT = Option('name', 'id', 'topic', 'category', 'mention', 'is_nsfw')
 
 @source_from_func({
     'what': Par(CHANNEL_WHAT, 'name', '/'.join(CHANNEL_WHAT)),
-}, pass_message=True)
-async def channel_source(message: discord.Message, what):
+})
+async def channel_source(ctx: Context, what):
     '''The name (or other attribute) of the current channel.'''
-    channel = message.channel
+    channel = ctx.message.channel
     if what == CHANNEL_WHAT.name:
         return [channel.name or '']
     if what == CHANNEL_WHAT.id:
@@ -162,10 +165,10 @@ SERVER_WHAT = Option('name', 'description', 'icon', 'member_count', 'id')
 
 @source_from_func({
     'what': Par(SERVER_WHAT, SERVER_WHAT.name, '/'.join(SERVER_WHAT)),
-}, pass_message=True)
-async def server_source(message, what):
+})
+async def server_source(ctx: Context, what):
     '''The name (or other attribute) of the current server.'''
-    server = message.guild
+    server = ctx.message.guild
     if what == SERVER_WHAT.name:
         return [server.name]
     if what == SERVER_WHAT.description:
@@ -184,11 +187,11 @@ async def server_source(message, what):
     'name':   Par(str, None, 'An exact name to match.', required=False),
     'search': Par(str, None, 'A string to search for in the name.', required=False),
     'here':   Par(parse_bool, True, 'Whether to restrict to this server\'s emoji.'),
-}, pass_message=True, depletable=True)
-async def custom_emoji_source(message, n, name, search, id, here):
+}, depletable=True)
+async def custom_emoji_source(ctx: Context, n, name, search, id, here):
     '''The server's custom emojis.'''
     if here:
-        emojis = message.guild.emojis
+        emojis = ctx.message.guild.emojis
     else:
         emojis = [e for guild in SourceResources.bot.guilds for e in guild.emojis]
 

@@ -63,7 +63,7 @@ def _wikipedia_get_what(page, what, n):
     'what': Par(Multi(WIKIPEDIA_WHAT), 'summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
     'n' : Par(int, 1, 'The number of random pages to fetch')
 })
-async def wikipedia_random_source(what, language, lines, n):
+async def wikipedia_random_source(ctx, what, language, lines, n):
     '''
     Fetches information from one or more random Wikipedia pages.
     '''
@@ -96,7 +96,7 @@ async def wikipedia_random_source(what, language, lines, n):
     'what': Par(Multi(WIKIPEDIA_WHAT), 'summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
     'n'   : Par(int, 1, 'The number of (what) you want, for summary/content this means number of sentences.')
 }, depletable=True)
-async def wikipedia_source(page, what, language, n):
+async def wikipedia_source(ctx, page, what, language, n):
     '''
     Fetches various information from a Wikipedia page.
     
@@ -109,6 +109,6 @@ async def wikipedia_source(page, what, language, n):
 @source_from_func({
     'query': Par(str, None, 'The search query')
 })
-async def wikipedia_search_source(query):
+async def wikipedia_search_source(ctx, query):
     '''Returns the top Wikipedia search results for the query.'''
     return wikipedia.search(query)

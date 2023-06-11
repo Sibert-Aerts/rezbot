@@ -21,7 +21,7 @@ set_category('ETC')
     'n'  : Par(int, 1, 'The amount of rolls')
 }, command=True)
 @multi_source
-async def roll_source(min, max):
+async def roll_source(ctx, min, max):
     '''A dice roll between min and max.'''
     return str(random.randint(min, max))
 
@@ -31,7 +31,7 @@ async def roll_source(min, max):
     'end':   Par(int, None, 'The end of the range (not included in the range!)'),
     'step':  Par(int, 1, 'The step size')
 })
-async def range_source(start, end, step):
+async def range_source(ctx, start, end, step):
     ''' The complete range of numbers from start to end with a given step size.
     More precisely:
     The list [start, start + step, start + 2*step, ..., x ] so that x is "one step short" of reaching/passing end'''
@@ -45,7 +45,7 @@ async def range_source(start, end, step):
     'parse': Par(str, None, 'A datetime string to parse and reformat, leave empty to use the current time.', required=False),
     'pformat': Par(str, '%Y/%m/%d %H:%M:%S', 'The format according to which to parse `parse`.'),
 })
-async def datetime_source(format, utc, timestamp, parse, pformat):
+async def datetime_source(ctx, format, utc, timestamp, parse, pformat):
     '''
     The current date and time formatted to be human readable.
     The `utc` parameter determines timezone and daylight savings offsets.
@@ -71,7 +71,7 @@ async def datetime_source(format, utc, timestamp, parse, pformat):
     'parse': Par(str, None, 'A datetime string to parse and reformat, leave empty to use the current time.', required=False),
     'pformat': Par(str, '%Y/%m/%d %H:%M:%S', 'The format according to which to parse `parse`.'),
     })
-async def timestamp_source(utc, parse, pformat):
+async def timestamp_source(ctx, utc, parse, pformat):
     '''
     A date and time as a UNIX timestamp, representing seconds since 1970/01/01 00:00:00 UTC.
     The UNIX timestamp is independent of timezones.
@@ -88,7 +88,7 @@ async def timestamp_source(utc, parse, pformat):
     'pattern': Par(regex, None, 'The pattern to look for', required=False),
     'n'      : Par(int, 1, 'The number of sampled words.')
 }, depletable=True)
-async def word_source(pattern, n):
+async def word_source(ctx, pattern, n):
     '''Random dictionary words, optionally matching a pattern.'''
     if pattern:
         items = [w for w in allWords if pattern.search(w)]
@@ -104,7 +104,7 @@ EMOJI_LIST = list(emoji.EMOJI_DATA)
     'oldest' : Par(float, 0.6, 'How old the emoji can be, inclusive.'),
     'newest' : Par(float, 15, 'How new the emoji can be, inclusive.'),
 }, command=True)
-async def emoji_source(n, oldest, newest):
+async def emoji_source(ctx, n, oldest, newest):
     '''
     Random emoji.
     

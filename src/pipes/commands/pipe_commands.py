@@ -2,6 +2,7 @@ from discord.ext import commands
 
 from pipes.processor import PipelineWithOrigin
 from pipes.pipe import Pipe, Source, Spout
+from pipes.context import Context
 from pipes.implementations.pipes import pipes
 from pipes.implementations.sources import sources, SourceResources
 from pipes.implementations.spouts import spouts
@@ -260,7 +261,8 @@ async def setup(bot: commands.Bot):
 
             try:
                 # Apply the source with the given arguments
-                results = await source.generate(ctx.message, args)
+                context = Context(author=ctx.author, activator=ctx.author, message=ctx.message)
+                results = await source.generate(context, args)
                 await PipelineWithOrigin.send_print_values(ctx.channel, [results])
     
             except Exception as e:
