@@ -1,15 +1,15 @@
 import discord
 from discord.ext import commands
 
-from ..processor import PipelineProcessor
-from ..pipe import Pipe, Source, Spout
-from ..implementations.pipes import pipes
-from ..implementations.sources import sources, SourceResources
-from ..implementations.spouts import spouts
-from ..macros import pipe_macros, source_macros
-from ..signature import Arguments
-from ..events import events
-from ..logger import ErrorLog
+from pipes.processor import PipelineProcessor
+from pipes.pipe import Pipe, Source, Spout
+from pipes.implementations.pipes import pipes
+from pipes.implementations.sources import sources, SourceResources
+from pipes.implementations.spouts import spouts
+from pipes.macros import pipe_macros, source_macros
+from pipes.signature import Arguments
+from pipes.events import events
+from pipes.views import MacroView, EventView
 from mycommands import MyCommands
 import utils.texttools as texttools
 import utils.util as util
@@ -29,7 +29,7 @@ class PipeCommands(MyCommands):
     # ========================== Pipeoid lookup (message-commands) ==========================
 
     @commands.command(aliases=['pipe'], hidden=True)
-    async def pipes(self, ctx, name=''):
+    async def pipes(self, ctx: commands.Context, name=''):
         '''Print a list of all pipes and their descriptions, or details on a specific pipe.'''
         name = name.lower()
         uname = name.upper()
@@ -42,8 +42,10 @@ class PipeCommands(MyCommands):
 
         ## Info on a pipe macro or source macro
         elif name != '' and name in pipe_macros or name in source_macros:
-            embed = (pipe_macros if name in pipe_macros	else source_macros)[name].embed(ctx)
-            await ctx.send(embed=embed)
+            macros = pipe_macros if name in pipe_macros	else source_macros
+            macro = macros[name]
+            view = MacroView(macro, macros)
+            view.set_message(await ctx.send(embed=macro.embed(ctx), view=view))
 
         ## List pipes in a specific category
         elif uname != '' and uname in pipes.categories:
@@ -98,7 +100,9 @@ class PipeCommands(MyCommands):
 
         # Info on a macro source
         elif name != '' and name in source_macros:
-            await ctx.send(embed=source_macros[name].embed(ctx))
+            source_macro = source_macros[name]
+            view = MacroView(source_macro, source_macros)
+            view.set_message(await ctx.send(embed=source_macro.embed(ctx), view=view))
 
         # Sources in a specific category
         elif uname != '' and uname in sources.categories:
@@ -172,7 +176,7 @@ class PipeCommands(MyCommands):
     ### PUT IN OWN FILE STUPID
 
     @commands.command(aliases=['event'], hidden=True)
-    async def events(self, ctx, name=''):
+    async def events(self, ctx: commands.Context, name=''):
         ''' List all Events, active status and triggers. '''
         if not events:
             await ctx.send('No events registered.')
@@ -197,7 +201,9 @@ class PipeCommands(MyCommands):
             if name not in events:
                 await ctx.send('Event not found.')
                 return
-            await ctx.send(embed=events[name].embed(ctx))
+            event = events[name]
+            view = EventView(event, events, ctx.channel)
+            view.set_message(await ctx.send(embed=event.embed(ctx), view=view))
 
     @commands.command(aliases=['enable_events'], hidden=True)
     @commands.guild_only()

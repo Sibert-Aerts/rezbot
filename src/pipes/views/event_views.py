@@ -1,4 +1,4 @@
-from discord import ui, ButtonStyle, TextStyle, Interaction
+from discord import Message, ui, ButtonStyle, TextStyle, Interaction
 from discord.interactions import Interaction
 
 from .generic_views import ConfirmView
@@ -33,20 +33,26 @@ class EditEventModal(ui.Modal):
 
 class EventView(ui.View):
     '''View which is to be added to a message containing the Event's embed.'''
-    def __init__(self, original_interaction: Interaction, event: Event, events: Events, timeout=600, **kwargs):
+    def __init__(self, event: Event, events: Events, channel, timeout=600, **kwargs):
         super().__init__(timeout=timeout, **kwargs)
-        self.original_interaction = original_interaction
+        self.channel = channel
+        self.message = None
         self.event: Event = event
         self.events: Events = events
         self._on_change_enable()
 
+    def set_message(self, message: Message):
+        self.message = message
+        self.channel = message.channel
+
     # =========================================== Utility ==========================================
 
     async def _remove_self(self):
-        await self.original_interaction.edit_original_response(view=None)
+        if self.message:
+            await self.message.edit(view=None)
 
     def _on_change_enable(self):
-        enabled = self.original_interaction.channel.id in self.event.channels
+        enabled = self.channel.id in self.event.channels
         self.button_toggle_enable.label = 'Disable here' if enabled else 'Enable here'
         self.button_toggle_enable.style = ButtonStyle.gray if enabled else ButtonStyle.primary
 
@@ -72,11 +78,11 @@ class EventView(ui.View):
     @ui.button(row=0)
     async def button_toggle_enable(self, interaction: Interaction, button: ui.Button):
         '''Toggles whether the Event is enabled, appearance is variable.'''
-        enabled = self.original_interaction.channel.id in self.event.channels
+        enabled = self.channel.id in self.event.channels
         if enabled:
-            self.event.channels.remove(self.original_interaction.channel.id)
+            self.event.channels.remove(self.channel.id)
         else:
-            self.event.channels.append(self.original_interaction.channel.id)
+            self.event.channels.append(self.channel.id)
         self.events.write()
         self._on_change_enable()
         await interaction.response.edit_message(embed=self.event.embed(interaction), view=self)

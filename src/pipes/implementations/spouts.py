@@ -330,9 +330,9 @@ class ButtonSpout:
 
     @with_signature(
         script  = Par(PipelineWithOrigin.from_string, default=None, desc='The script to trigger when the button is pressed.'),
-        label   = Par(str, default=None, desc='The label.'),
-        style   = Par(ButtonStyleOption, default='primary', desc='The button style, one of primary/secondary/success/danger/link.'),
-        emoji   = Par(str, default=None, required=False, desc='An emoji to show before the label.'),
+        label   = Par(str, default=None, desc='The label'),
+        emoji   = Par(str, default=None, required=False, desc='The button\'s emoji'),
+        style   = Par(ButtonStyleOption, default='primary', desc='The button\'s style: primary/secondary/success/danger.'),
         timeout = Par(int, default=600, desc='Seconds until the button stops working.'),
     )
     @staticmethod

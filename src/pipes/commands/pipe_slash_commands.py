@@ -150,11 +150,14 @@ class PipeSlashCommands(MyCommands):
             embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar)
         # Add Views to Macros and Events
         if isinstance(scriptoid, Macro):
-            view = MacroView(interaction, scriptoid, scriptoids)
+            view = MacroView(scriptoid, scriptoids)
         if isinstance(scriptoid, Event):
-            view = EventView(interaction, scriptoid, scriptoids)
+            view = EventView(scriptoid, scriptoids, interaction.channel)
 
         await reply(embed=embed, view=view)
+
+        if view:
+            view.set_message(await interaction.original_response())
 
 
     # ============================================ Native scriptoid Listing ===========================================
@@ -341,7 +344,8 @@ class PipeSlashCommands(MyCommands):
 
         macro = Macro(macros.kind, name, code, author.name, author.id, desc=description, visible=not hidden)
         macros[name] = macro
-        await reply(f'Successfully defined a new {macro_type} macro.', embed=macro.embed(interaction), view=MacroView(interaction, macro, macros))
+        view = MacroView(macro, macros)
+        view.set_message(await reply(f'Successfully defined a new {macro_type} macro.', embed=macro.embed(interaction), view=view))
 
     @macro_group.command(name='edit')
     @app_commands.describe(
@@ -383,7 +387,8 @@ class PipeSlashCommands(MyCommands):
             macro.visible = not hidden
 
         macros.write()
-        await reply(f'Successfully edited the {macro.kind} Macro.', embed=macro.embed(interaction), view=MacroView(interaction, macro, macros))
+        view = MacroView(macro, macros)
+        view.set_message(await reply(f'Successfully edited the {macro.kind} Macro.', embed=macro.embed(interaction), view=view))
 
     @macro_group.command(name='delete')
     @app_commands.describe(macro_choice="The Macro to delete")
@@ -509,7 +514,8 @@ class PipeSlashCommands(MyCommands):
 
         event = EventType(name, interaction.channel, code, trigger)
         events[name] = event
-        await reply(f'Successfully defined a new Event.', embed=event.embed(interaction), view=EventView(interaction, event, events))
+        view = EventView(event, events, interaction.channel)
+        view.set_message(await reply(f'Successfully defined a new Event.', embed=event.embed(interaction), view=view))
 
     @event_group.command(name='edit')
     @app_commands.describe(
@@ -550,7 +556,8 @@ class PipeSlashCommands(MyCommands):
             event.script = code
 
         events.write()
-        await reply(f'Successfully edited the Event.', embed=event.embed(interaction), view=EventView(interaction, event, events))
+        view = EventView(event, events, interaction.channel)
+        view.set_message(reply(f'Successfully edited the Event.', embed=event.embed(interaction), view=view))
 
     @event_group.command(name='delete')
     @app_commands.describe(event_choice='The Event to delete')

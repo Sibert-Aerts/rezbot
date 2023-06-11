@@ -4,6 +4,8 @@ from typing import Callable
 import discord
 from discord.ext import commands
 
+from pipes.views import MacroView
+
 from ..pipe import Pipes
 from ..pipeline import Pipeline
 from ..processor import PipelineProcessor
@@ -78,8 +80,11 @@ class MacroCommands(MyCommands):
             return
 
         author = message.author
-        macros[name] = Macro(macros.kind, name, code, author.name, author.id, visible=visible)
-        await channel.send('Defined a new {} macro called `{}` as {}'.format(what, name, texttools.block_format(code)))
+        macro = macros[name] = Macro(macros.kind, name, code, author.name, author.id, visible=visible)
+
+        view = MacroView(macro, macros)
+        # TODO: macro.embed(ctx) bluhhh make it work
+        view.set_message(await channel.send('Defined a new macro.', embed=macro.embed(), view=view))
 
     @commands.command(aliases=['redef'], hidden=True)
     async def redefine(self, ctx, what, name):
@@ -90,23 +95,26 @@ class MacroCommands(MyCommands):
         channel = message.channel
         what = what.lower()
         try: macros, _, _, check = typedict[what]
-        except: await self.what_complain(channel); return
+        except: return await self.what_complain(channel)
 
         name = normalize_name(name)
         if name not in macros:
-            await self.not_found_complain(channel, what); return
+            return await self.not_found_complain(channel, what)
+        macro = macros[name]
 
-        if not macros[name].authorised(message.author):
-            await self.permission_complain(channel); return
+        if not macro.authorised(message.author):
+            return await self.permission_complain(channel)
 
         if not force and not await check(code, channel.send):
             MacroCommands.FORCE_MACRO_CACHE = ('edit', message, what, name, code)
             await channel.send('Reply `>force_macro` to save it anyway.')
             return
 
-        macros[name].code = code
+        macro.code = code
         macros.write()
-        await channel.send('Redefined {} `{}` as {}'.format(what, name, texttools.block_format(code)))
+        view = MacroView(macro, macros)
+        # TODO: macro.embed(ctx)
+        view.set_message(await channel.send('Redefined the Macro.', embed=macro.embed(), view=view))
 
     @commands.command(aliases=['desc'], hidden=True)
     async def describe(self, ctx, what, name):
@@ -117,18 +125,21 @@ class MacroCommands(MyCommands):
         channel = message.channel
         what = what.lower()
         try: macros, *_ = typedict[what]
-        except: await self.what_complain(channel); return
+        except: return await self.what_complain(channel)
 
         name = normalize_name(name)
         if name not in macros:
-            await self.not_found_complain(channel, what); return
+            return await self.not_found_complain(channel, what)
+        macro = macros[name]
 
-        if macros[name].desc and not macros[name].authorised(message.author):
-            await self.permission_complain(channel); return
+        if not macro.authorised(message.author):
+            return await self.permission_complain(channel)
 
-        macros[name].desc = desc
+        macro.desc = desc
         macros.write()
-        await channel.send('Described {} `{}` as `{}`'.format(what, name, desc))
+        view = MacroView(macro, macros)
+        # TODO: macro.embed(ctx)
+        view.set_message(await channel.send('Updated the Macro\'s description.', embed=macro.embed(), view=view))
 
     @commands.command(aliases=['unhide'], hidden=True)
     async def hide(self, ctx, what, name):
@@ -225,7 +236,9 @@ class MacroCommands(MyCommands):
 
         # Info on a specific macro
         if name != '' and name in macros:
-            await ctx.send(embed=macros[name].embed(ctx))
+            macro = macros[name]
+            view = MacroView(macro, macros)
+            view.set_message(await ctx.send(embed=macro.embed(ctx), view=view))
 
         # Info on all of them
         else:

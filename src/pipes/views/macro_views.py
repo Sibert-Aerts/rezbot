@@ -1,4 +1,4 @@
-from discord import ui, ButtonStyle, TextStyle, Interaction
+from discord import Message, ui, ButtonStyle, TextStyle, Interaction
 from discord.interactions import Interaction
 
 from .generic_views import ConfirmView
@@ -28,18 +28,21 @@ class EditMacroModal(ui.Modal):
 
 class MacroView(ui.View):
     '''View which is to be added to a message containing the Macro's embed.'''
-    def __init__(self, original_interaction: Interaction, macro: Macro, macros: Macros, timeout=600, **kwargs):
+    def __init__(self, macro: Macro, macros: Macros, timeout=600, **kwargs):
         super().__init__(timeout=timeout, **kwargs)
-        self.original_interaction = original_interaction
+        self.message = None
         self.macro: Macro = macro
         self.macros: Macros = macros
         self._on_change_visible()
 
+    def set_message(self, message: Message):
+        self.message = message
+
     # =========================================== Utility ==========================================
 
     async def _remove_self(self):
-        if self.original_interaction:
-            await self.original_interaction.edit_original_response(view=None)
+        if self.message:
+            await self.message.edit(view=None)
 
     def _on_change_visible(self):
         visible = self.macro.visible
