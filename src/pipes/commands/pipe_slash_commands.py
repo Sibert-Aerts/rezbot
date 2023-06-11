@@ -11,7 +11,7 @@ from pipes.implementations.sources import sources
 from pipes.implementations.spouts import spouts
 from pipes.macros import Macros, Macro, MacroSig, pipe_macros, source_macros
 from pipes.events import Event, Events, OnMessage, OnReaction, events
-from macro_commands import check_pipe_macro, check_source_macro
+from .macro_commands import check_pipe_macro, check_source_macro
 from mycommands import MyCommands
 import utils.texttools as texttools
 from utils.util import normalize_name

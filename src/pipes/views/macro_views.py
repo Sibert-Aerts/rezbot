@@ -1,7 +1,7 @@
 from discord import ui, ButtonStyle, TextStyle, Interaction
 from discord.interactions import Interaction
 
-from generic_views import ConfirmView
+from .generic_views import ConfirmView
 from pipes.macros import Macro, Macros
 
 

@@ -1,6 +1,7 @@
 import asyncio
 from collections import defaultdict
 from functools import wraps
+from typing import TypeVar
 
 from discord.ext.commands import Bot
 
@@ -78,9 +79,9 @@ def source_from_func(signature: dict[str, Par]=None, /, *, command=False, **kwar
     if func: return _source_from_func(func)
     return _source_from_func
 
-# TODO: Copy @pipe_from_class to make @source_from_class
+T = TypeVar('T')
 
-def source_from_class(cls: type):
+def source_from_class(cls: type[T]) -> type[T]:
     '''
     Makes a Source out of a class by reading its definition, and either the class' or the method's docstring.
     ```py

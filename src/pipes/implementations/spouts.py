@@ -1,17 +1,21 @@
 from datetime import datetime, timezone
+from typing import TypeVar
 
 import discord
-from discord import Embed
+from discord import Embed, Message, Client, Interaction, ButtonStyle
+import discord.ui
 from discord.errors import HTTPException
 from discord.ext.commands import Bot
 
-from ..signature import Par, Signature, get_signature, Hex, url, with_signature, parse_bool
-from ..pipe import Spout, Spouts
-from .sources import SourceResources
-from ..events import events
+from pipes.signature import Par, Signature, get_signature, Hex, url, with_signature, parse_bool, Option
+from pipes.pipe import Spout, Spouts
+from pipes.processor import PipelineProcessor, PipelineWithOrigin
+from pipes.events import events
 from resource.upload import uploads
+from pipes.context import Context
 import utils.rand as rand
 
+from .sources import SourceResources
 
 #######################################################
 #                     Decorations                     #
@@ -42,7 +46,9 @@ def spout_from_func(signature: dict[str, Par]=None, /, *, command=False, **kwarg
     if func: return _spout_from_func(func)
     return _spout_from_func
 
-def spout_from_class(cls: type):
+T = TypeVar('T')
+
+def spout_from_class(cls: type[T]) -> type[T]:
     '''
     Makes a Spout out of a class by reading its definition, and either the class' or the method's docstring.
     ```py
@@ -302,3 +308,37 @@ async def disable_event_spout(bot, message, values, name):
     event = events[name]
     if message.channel.id in event.channels:
         event.channels.remove(message.channel.id)
+
+
+
+@spout_from_class
+class ButtonSpout:
+    name = 'button'
+    
+    ButtonStyleOption = Option('primary', 'secondary', 'success', 'danger', 'link', name='ButtonStyle', stringy=True)
+    
+    class Button(discord.ui.Button):
+        def set_spout_args(self, bot: Client, values: list[str], script: PipelineWithOrigin):
+            self.bot = bot
+            self.values = values
+            self.script = script
+
+        async def callback(self, interaction: Interaction):
+            context = Context(items=self.values)
+            await interaction.response.defer()
+            await PipelineProcessor.execute_pipeline_with_origin(self.script, self.bot, interaction.message, context=context, name='Scripted button')
+
+    @with_signature(
+        script  = Par(PipelineWithOrigin.from_string, default=None, desc='The script to trigger when the button is pressed.'),
+        label   = Par(str, default=None, desc='The label.'),
+        style   = Par(ButtonStyleOption, default='primary', desc='The button style, one of primary/secondary/success/danger/link.'),
+        emoji   = Par(str, default=None, required=False, desc='An emoji to show before the label.'),
+        timeout = Par(int, default=600, desc='Seconds until the button stops working.'),
+    )
+    @staticmethod
+    async def spout_function(bot: Client, message: Message, values: list[str], *, script, label, style, emoji, timeout):
+        view = discord.ui.View(timeout=timeout)
+        button = ButtonSpout.Button(label=label, emoji=emoji, style=getattr(ButtonStyle, style))
+        button.set_spout_args(bot, values, script)
+        view.add_item(button)
+        await message.channel.send(view=view)

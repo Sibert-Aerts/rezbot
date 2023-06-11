@@ -1,6 +1,6 @@
 import re
 from functools import wraps
-from typing import Callable
+from typing import Callable, TypeVar
 
 from ..signature import Signature, Par, with_signature, get_signature
 from ..pipe import Pipe, Pipes
@@ -80,7 +80,9 @@ def pipe_from_func(signature: dict[str, Par]=None, /, *, command=False, **kwargs
     if func: return _pipe_from_func(func)
     return _pipe_from_func
 
-def pipe_from_class(cls: type):
+T = TypeVar('T')
+
+def pipe_from_class(cls: type[T]) -> type[T]:
     '''
     Makes a Pipe out of a class by reading its definition, and either the class' or the method's docstring.
     ```py

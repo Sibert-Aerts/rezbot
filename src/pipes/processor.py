@@ -1,7 +1,7 @@
 import re
 
 from lru import LRU
-import discord
+from discord import Client, Message, TextChannel
 
 # More import statements at the bottom of the file, due to circular dependencies.
 from .logger import ErrorLog
@@ -16,14 +16,44 @@ class TerminalError(Exception):
     '''Special error that serves as a signal to end script execution but contains no information.'''
 
 
+class PipelineWithOrigin:
+    '''
+    Class representing a complete "Rezbot script", overwrought name to indicate is is nothing more than:
+        * An origin (str) which may be expanded and evaluated.
+        * A Pipeline which may be applied to that result.
+    '''
+
+    # Static LRU cache holding up to 40 parsed instances... probably don't need any more
+    script_cache: dict['PipelineWithOrigin'] = LRU(40)
+
+    def __init__(self, origin: str, pipeline: 'Pipeline'):
+        self.origin = origin
+        self.pipeline = pipeline
+
+    @classmethod
+    def from_string(cls, script: str):
+        # No need to re-parse the same script
+        if script in PipelineWithOrigin.script_cache:
+            return PipelineWithOrigin.script_cache[script]
+
+        # Parse
+        origin, pipeline_str = PipelineProcessor.split(script)
+        # NOTE/TODO: Parsing Pipeline() here may fail, but it won't raise an error,
+        #   pipeline.parser_errors will simply be flagged as 'terminal'.
+        pipeline = Pipeline(pipeline_str)
+
+        # Instantiate, cache, return
+        pwo = PipelineWithOrigin(origin, pipeline)
+        PipelineWithOrigin.script_cache[script] = pwo
+        return pwo
+
+
 class PipelineProcessor:
     ''' Singleton class providing some global state and methods essential to the bot's scripting integration. '''
 
     def __init__(self, bot, prefix):
         self.bot = bot
         self.prefix = prefix
-        # LRU cache holding up to 40 items... probably don't need any more
-        self.script_cache = LRU(40)
         SourceResources.bot = bot
 
     async def on_message(self, message):
@@ -38,14 +68,15 @@ class PipelineProcessor:
                 else:
                     items = [message.content]
                 context = Context(items=items)
-                await self.execute_script(event.script, message, context, name='Event: ' + event.name)
+                await self.execute_script(event.script, self.bot, message, context, name='Event: ' + event.name)
 
     async def on_reaction(self, channel, emoji, user_id, msg_id):
         '''Check if an incoming reaction triggers any custom Events.'''
         for event in events.values():
             if isinstance(event, OnReaction) and event.test(channel, emoji):
                 message = await channel.fetch_message(msg_id)
-                await self.execute_script(event.script, message, Context(items=[emoji, str(user_id)]), name='Event: ' + event.name)
+                context = Context(items=[emoji, str(user_id)])
+                await self.execute_script(event.script, self.bot, message, context, name='Event: ' + event.name)
 
     @staticmethod
     def split(script: str) -> tuple[str, str]:
@@ -73,7 +104,7 @@ class PipelineProcessor:
         return script.strip(), ''
 
     @staticmethod
-    async def send_print_values(channel: discord.TextChannel, values: list[list[str]]):
+    async def send_print_values(channel: TextChannel, values: list[list[str]]):
         ''' Nicely print the output in rows and columns and even with little arrows.'''
 
         # Don't apply any formatting if the output is just a single cel.
@@ -113,7 +144,7 @@ class PipelineProcessor:
             await channel.send(block)
 
     @staticmethod
-    async def send_error_log(channel: discord.TextChannel, errors: ErrorLog, name: str):
+    async def send_error_log(channel: TextChannel, errors: ErrorLog, name: str):
         try:
             await channel.send(embed=errors.embed(name=name))
         except:
@@ -125,19 +156,16 @@ class PipelineProcessor:
             )
             await channel.send(embed=newErrors.embed(name=name))
 
-    async def execute_script(self, script: str, message: discord.Message, context=None, name=None):
-        errors = ErrorLog()
+    @classmethod
+    async def execute_script(cls, script: str, bot: Client, message: Message, context=None, name=None):
+        pipeline_wo = PipelineWithOrigin.from_string(script)
+        return await cls.execute_pipeline_with_origin(pipeline_wo, bot, message, context=context, name=name)
 
-        ### STEP 0: PRE-PROCESSING
-        ## Check if we have executed this exact script recently
-        if script in self.script_cache:
-            # Fetch the previous pre-processing results from cache
-            origin, pipeline = self.script_cache[script]
-        else:
-            # Perform very safe, basic pre-processing (parsing) and cache it
-            origin, pipeline = PipelineProcessor.split(script)
-            pipeline = Pipeline(pipeline)
-            self.script_cache[script] = (origin, pipeline)
+    @classmethod
+    async def execute_pipeline_with_origin(cls, pipeline_wo: PipelineWithOrigin, bot: Client, message: Message, context=None, name=None):
+        # TODO: Pull this into PipelineWithOrigin, obviously
+        errors = ErrorLog()
+        pipeline, origin = pipeline_wo.pipeline, pipeline_wo.origin
 
         try:
             ### STEP 1: GET STARTING VALUES
@@ -159,35 +187,35 @@ class PipelineProcessor:
             # TODO: auto-print if the last pipe was not a spout, or something
             if not spout_callbacks or any( callback is spouts['print'].spout_function for (callback, _, _) in spout_callbacks ):
                 printValues.append(values)
-                await self.send_print_values(message.channel, printValues)
+                await cls.send_print_values(message.channel, printValues)
 
             ## Perform all Spouts (TODO: MAKE THIS BETTER)
             for callback, args, values in spout_callbacks:
                 try:
-                    await callback(self.bot, message, values, **args)
+                    await callback(bot, message, values, **args)
                 except Exception as e:
                     errors(f'Failed to execute spout `{callback.__name__}`:\n\t{type(e).__name__}: {e}', True)
                     break
 
             ## Post warning output to the channel if any
             if errors:
-                await self.send_error_log(message.channel, errors, name)
+                await cls.send_error_log(message.channel, errors, name)
 
         except TerminalError:
             ## A TerminalError indicates that whatever problem we encountered was caught, logged, and we halted voluntarily.
             # Nothing more to be done than posting log contents to the channel.
             print('Script execution halted due to error.')
-            await self.send_error_log(message.channel, errors, name)
+            await cls.send_error_log(message.channel, errors, name)
             
         except Exception as e:
             ## An actual error has occurred in executing the script that we did not catch.
             # No script, no matter how poorly formed or thought-out, should be able to trigger this; if this occurs it's a Rezbot bug.
             print('Script execution halted unexpectedly!')
             errors.log(f'🛑 **Unexpected pipeline error:**\n {type(e).__name__}: {e}', terminal=True)
-            await self.send_error_log(message.channel, errors, name)
+            await cls.send_error_log(message.channel, errors, name)
             raise e
 
-    async def process_script(self, message: discord.Message):
+    async def process_script(self, message: Message):
         '''This is the starting point for all script execution.'''
         text = message.content
 
@@ -214,7 +242,7 @@ class PipelineProcessor:
         ##### NORMAL SCRIPT EXECUTION:
         else:
             async with message.channel.typing():
-                await self.execute_script(script, message)
+                await self.execute_script(script, self.bot, message)
 
         return True
 
