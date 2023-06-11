@@ -314,6 +314,7 @@ async def disable_event_spout(bot, message, values, name):
 @spout_from_class
 class ButtonSpout:
     name = 'button'
+    command = True
     
     ButtonStyleOption = Option('primary', 'secondary', 'success', 'danger', name='ButtonStyle', stringy=True)
     
