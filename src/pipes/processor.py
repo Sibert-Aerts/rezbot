@@ -199,7 +199,7 @@ class PipelineWithOrigin:
 class PipelineProcessor:
     ''' Singleton class providing some global config, methods and hooks to the Bot. '''
 
-    def __init__(self, bot, prefix):
+    def __init__(self, bot: Client, prefix: str):
         self.bot = bot
         self.prefix = prefix
         bot.pipeline_processor = self
@@ -207,26 +207,37 @@ class PipelineProcessor:
 
     # ========================================= Event hooks ========================================
 
-    async def on_message(self, message):
+    async def on_message(self, message: Message):
         '''Check if an incoming message triggers any custom Events.'''
         for event in events.values():
             if not isinstance(event, OnMessage): continue
-            m = event.test(message)
-            if m:
+            match = event.test(message)
+            if match:
                 # If m is not just a bool, but a regex match object, fill the context up with the match groups, otherwise with the entire message.
-                if m is not True:
-                    items = [group or '' for group in m.groups()] or [message.content]
+                if match is not True:
+                    items = [group or '' for group in match.groups()] or [message.content]
                 else:
                     items = [message.content]
-                context = Context(items=items)
+                context = Context(
+                    author=None, # TODO: Track Event.author idiot
+                    activator=message.author,
+                    message=message,
+                    items=items,
+                )
                 await self.execute_script(event.script, message, context, name='Event: ' + event.name)
 
-    async def on_reaction(self, channel, emoji, user_id, msg_id):
+    async def on_reaction(self, channel: TextChannel, emoji: str, user_id: int, msg_id: int):
         '''Check if an incoming reaction triggers any custom Events.'''
         for event in events.values():
             if isinstance(event, OnReaction) and event.test(channel, emoji):
                 message = await channel.fetch_message(msg_id)
-                context = Context(items=[emoji, str(user_id)])
+                member = channel.guild.get_member(user_id)
+                context = Context(
+                    author=None, # TODO: Track Event.author idiot
+                    activator=member,
+                    message=message,
+                    items=[emoji, str(user_id)], # Old way of conveying the reacting user
+                )
                 await self.execute_script(event.script, message, context, name='Event: ' + event.name)
 
     # ====================================== Script execution ======================================
@@ -262,7 +273,12 @@ class PipelineProcessor:
         ##### NORMAL SCRIPT EXECUTION:
         else:
             async with message.channel.typing():
-                await self.execute_script(script, message)
+                context = Context(
+                    author=message.author,
+                    activator=message.author,
+                    message=message,
+                )
+                await self.execute_script(script, message, context=context)
 
         return True
 

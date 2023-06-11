@@ -324,8 +324,14 @@ class ButtonSpout:
             self.script = script
 
         async def callback(self, interaction: Interaction):
-            context = Context(items=self.values)
             await interaction.response.defer()
+            context = Context(
+                author=None, # TODO: pass context to spout, then use context.author here
+                activator=interaction.user,
+                message=interaction.message,
+                interaction=interaction,
+                items=self.values
+            )
             await self.script.execute(self.bot, interaction.message, context=context, name='Scripted button')
 
     class View(discord.ui.View):
