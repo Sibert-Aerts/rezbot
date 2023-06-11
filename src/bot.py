@@ -111,9 +111,15 @@ async def on_command_error(ctx, error):
 async def main():
     async with bot:
         await bot.load_extension('botcommands')
+        # Old text-based commants
         await bot.load_extension('pipes.commands.pipe_commands')
-        await bot.load_extension('pipes.commands.pipe_slash_commands')
         await bot.load_extension('pipes.commands.macro_commands')
+        await bot.load_extension('pipes.commands.event_commands')
+        # New slash commands
+        await bot.load_extension('pipes.commands.pipe_slash_commands')
+        await bot.load_extension('pipes.commands.macro_slash_commands')
+        await bot.load_extension('pipes.commands.event_slash_commands')
+        
         await bot.load_extension('resource.youtubecaps.commands')
         await bot.load_extension('resource.upload.commands')
         await bot.start(bot_token)

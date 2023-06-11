@@ -315,7 +315,7 @@ async def disable_event_spout(bot, message, values, name):
 class ButtonSpout:
     name = 'button'
     
-    ButtonStyleOption = Option('primary', 'secondary', 'success', 'danger', 'link', name='ButtonStyle', stringy=True)
+    ButtonStyleOption = Option('primary', 'secondary', 'success', 'danger', name='ButtonStyle', stringy=True)
     
     class Button(discord.ui.Button):
         def set_spout_args(self, bot: Client, values: list[str], script: PipelineWithOrigin):
