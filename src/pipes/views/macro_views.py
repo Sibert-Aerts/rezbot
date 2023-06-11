@@ -28,7 +28,7 @@ class EditMacroModal(ui.Modal):
 
 class MacroView(ui.View):
     '''View which is to be added to a message containing the Macro's embed.'''
-    def __init__(self, macro: Macro, macros: Macros, timeout=600, **kwargs):
+    def __init__(self, macro: Macro, macros: Macros, timeout=3600, **kwargs):
         super().__init__(timeout=timeout, **kwargs)
         self.message = None
         self.macro: Macro = macro

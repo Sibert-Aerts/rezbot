@@ -1,11 +1,11 @@
 import re
 import os
 import pickle
-from discord import Embed, Guild
+from discord import Embed, Guild, TextChannel
 
 from utils.texttools import block_format
-from .pipeline import Pipeline
-from .processor import PipelineProcessor
+from pipes.pipeline import Pipeline
+from pipes.processor import PipelineProcessor
 
 # Save events to the same directory as macros... because they're essentially macros.
 def DIR(filename=''):
@@ -37,12 +37,15 @@ class Event:
         guild_channels = [c.id for c in guild.channels]
         self.channels = [c for c in self.channels if not c in guild_channels]
 
-    def embed(self, ctx):
-        desc = '{}abled in this channel'.format( 'En' if self.is_enabled(ctx.channel) else 'Dis' )
+    def embed(self, ctx=None, channel: TextChannel=None):
+        channel = channel or ctx.channel
+        guild = channel.guild
+
+        desc = '{}abled in this channel'.format( 'En' if self.is_enabled(channel) else 'Dis' )
         embed = Embed(title='Event: ' + self.name, description=desc, color=0x7628cc)
         
         ### List of the current server's channels it's enabled in
-        channels = [ ch.mention for ch in ctx.guild.text_channels if ch.id in self.channels ]
+        channels = [ ch.mention for ch in guild.text_channels if ch.id in self.channels ]
         embed.add_field(name='Enabled channels', value=', '.join(channels) or 'None', inline=True)
 
         ## Script
@@ -77,8 +80,8 @@ class OnMessage(Event):
     def __str__(self):
         return '**{}**: ON MESSAGE `{}`'.format(self.name, self.patternstr)
 
-    def embed(self, ctx):
-        embed = super().embed(ctx)
+    def embed(self, ctx=None, **kwargs):
+        embed = super().embed(ctx, **kwargs)
         return embed.insert_field_at(0, name='On message', value='`%s`' % self.patternstr, inline=True)
         
 
@@ -106,8 +109,8 @@ class OnReaction(Event):
     def __str__(self):
         return '**{}**: ON REACTION `{}`'.format(self.name, ','.join(self.emotes))
 
-    def embed(self, ctx):
-        embed = super().embed(ctx)
+    def embed(self, ctx=None, **kwargs):
+        embed = super().embed(ctx, **kwargs)
         return embed.insert_field_at(0, name='On reaction', value=','.join(self.emotes), inline=True)
 
 ###############################################################
@@ -169,7 +172,7 @@ class Events:
                     return True
                 event.update(script, trigger)
             else:
-                self.events[name] = eventType(name, channel, script, trigger)
+                event = self.events[name] = eventType(name, channel, script, trigger)
             self.write()
 
         except Exception as e:
@@ -179,7 +182,9 @@ class Events:
 
         else:
             ## Mission complete
-            await channel.send( ('New event "%s" registered.' if mode == 'NEW' else 'Event "%s" updated.') % name )
+            msg = f'New event `{name}` registered.' if mode == 'NEW' else 'Event `{name}` updated.'
+            view = EventView(event, self, channel)
+            view.add_item(await channel.send(msg, embed=event.embed(channel=channel), view=view))
             return True
 
     def write(self):
@@ -213,5 +218,10 @@ class Events:
     def __len__(self):
         return len(self.events)
 
+
 events = Events(DIR, 'events.p')
 'The canonical object managing all Event instances, responsible for serialising and deserialising them.'
+
+
+# Circular dependency
+from pipes.views import EventView

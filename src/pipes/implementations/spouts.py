@@ -328,17 +328,29 @@ class ButtonSpout:
             await interaction.response.defer()
             await PipelineProcessor.execute_pipeline_with_origin(self.script, self.bot, interaction.message, context=context, name='Scripted button')
 
+    class View(discord.ui.View):
+        def __init__(self, button: discord.ui.Button, **kwargs):
+            super().__init__(**kwargs)
+            self.button = button
+            self.add_item(button)
+
+        def set_message(self, message):
+            self.message = message
+
+        async def on_timeout(self):
+            self.button.disabled = True
+            await self.message.edit(view=self)
+
     @with_signature(
         script  = Par(PipelineWithOrigin.from_string, default=None, desc='The script to trigger when the button is pressed.'),
         label   = Par(str, default=None, desc='The label'),
         emoji   = Par(str, default=None, required=False, desc='The button\'s emoji'),
         style   = Par(ButtonStyleOption, default='primary', desc='The button\'s style: primary/secondary/success/danger.'),
-        timeout = Par(int, default=600, desc='Seconds until the button stops working.'),
+        timeout = Par(int, default=3600, desc='Amount of seconds the button stays alive while not being clicked.'),
     )
     @staticmethod
     async def spout_function(bot: Client, message: Message, values: list[str], *, script, label, style, emoji, timeout):
-        view = discord.ui.View(timeout=timeout)
         button = ButtonSpout.Button(label=label, emoji=emoji, style=getattr(ButtonStyle, style))
         button.set_spout_args(bot, values, script)
-        view.add_item(button)
-        await message.channel.send(view=view)
+        view = ButtonSpout.View(button, timeout=timeout)
+        view.set_message(await message.channel.send(view=view))

@@ -33,7 +33,7 @@ class EditEventModal(ui.Modal):
 
 class EventView(ui.View):
     '''View which is to be added to a message containing the Event's embed.'''
-    def __init__(self, event: Event, events: Events, channel, timeout=600, **kwargs):
+    def __init__(self, event: Event, events: Events, channel, timeout=3600, **kwargs):
         super().__init__(timeout=timeout, **kwargs)
         self.channel = channel
         self.message = None
