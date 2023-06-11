@@ -102,7 +102,7 @@ class Macros:
         self.DIR = DIR
         self.kind = kind
         self.filename = filename
-        self.pipeline_cache = LRU(20)
+        self.pipeline_cache = LRU(60)
         try:
             if not os.path.exists(DIR()): os.mkdir(DIR())
             self.macros = pickle.load(open(DIR(filename), 'rb+'))

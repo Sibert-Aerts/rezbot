@@ -29,11 +29,12 @@ async def check_pipe_macro(code, reply):
         await reply('Encountered warnings while parsing macro:', embeds=[errors.embed()])
         return True
 
+
 async def check_source_macro(code, reply):
     ''' Statically analyses source macro code for errors or warnings. '''
     _, code = PipelineWithOrigin.split(code)
     return await check_pipe_macro(code, reply)
-    
+
 
 typedict: dict[str, tuple[Macros, bool, Pipes, Callable]] = {
     'pipe':         (pipe_macros, True,  pipes, check_pipe_macro),

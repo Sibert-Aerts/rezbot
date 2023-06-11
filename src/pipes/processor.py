@@ -14,7 +14,6 @@ from .logger import ErrorLog
 import utils.texttools as texttools
 
 
-
 class TerminalError(Exception):
     '''Special error that serves as a signal to end script execution but contains no information.'''
 
@@ -42,18 +41,16 @@ class PipelineWithOrigin:
     @classmethod
     def from_string(cls, script: str) -> 'PipelineWithOrigin':
         ## No need to re-parse the same script
-        if script in PipelineWithOrigin.script_cache:
-            return PipelineWithOrigin.script_cache[script]
+        if script in cls.script_cache:
+            return cls.script_cache[script]
 
         ## Parse
-        origin, pipeline_str = PipelineWithOrigin.split(script)
-        # NOTE/TODO: Parsing Pipeline() here may fail, but it won't raise an error,
-        #   pipeline.parser_errors will simply be flagged as 'terminal'.
+        origin, pipeline_str = cls.split(script)
         pipeline = Pipeline(pipeline_str)
 
         ## Instantiate, cache, return
         pwo = PipelineWithOrigin(origin, pipeline)
-        PipelineWithOrigin.script_cache[script] = pwo
+        cls.script_cache[script] = pwo
         return pwo
 
     # =================================== Static utility methods ===================================

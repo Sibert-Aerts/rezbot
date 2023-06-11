@@ -109,7 +109,7 @@ class ParsedSource:
                 errors.log(e, True, context=self.name)
                 return NOTHING_BUT_ERRORS
 
-            #### Fast-tracked version of PipelineWithOrigin.execute:
+            #### Fast-tracked, no-side-effect version of PipelineWithOrigin.execute:
             origin, code = PipelineWithOrigin.split(code)
 
             ## STEP 1: Get the values from the Macro's origin            

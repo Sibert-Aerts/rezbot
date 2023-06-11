@@ -4,7 +4,6 @@ import pickle
 from discord import Embed, Guild, TextChannel
 
 from utils.texttools import block_format
-from pipes.pipeline import Pipeline
 from pipes.processor import PipelineWithOrigin
 
 # Save events to the same directory as macros... because they're essentially macros.
@@ -154,8 +153,8 @@ class Events:
             return True
 
         ## Statically analyse the script for parsing errors and warnings
-        _, pipeline = PipelineWithOrigin.split(script)
-        errors = Pipeline(pipeline).parser_errors
+        pipeline_with_origin = PipelineWithOrigin.from_string(script)
+        errors = pipeline_with_origin.pipeline.parser_errors
         if errors.terminal:
             await channel.send('Failed to save event due to parsing errors:', embed=errors.embed())
             return True

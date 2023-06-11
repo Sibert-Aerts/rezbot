@@ -1,7 +1,7 @@
 import re
 from typing import Union
 
-import discord
+from discord import Message
 
 import permissions
 from utils.choicetree import ChoiceTree
@@ -268,7 +268,7 @@ class Pipeline:
 
         return parsedPipes
 
-    def check_items(self, values: list[str], message: discord.Message):
+    def check_items(self, values: list[str], message: Message):
         '''Raises an error if the user is asking too much of the bot.'''
         # TODO: this could stand to be smarter/more oriented to the type of operation you're trying to do, or something, maybe...?
         # meditate on this...
@@ -277,7 +277,7 @@ class Pipeline:
         if chars > MAXCHARS and not permissions.has(message.author.id, permissions.owner):
             raise PipelineError(f'Attempted to process a flow of {chars} total characters at once, try staying under {MAXCHARS}.')
 
-    async def apply(self, items: list[str], message: discord.Message, parent_context: 'Context'=None) -> tuple[ list[str], list[list[str]], ErrorLog, list ]:
+    async def apply(self, items: list[str], message: Message, parent_context: 'Context'=None) -> tuple[ list[str], list[list[str]], ErrorLog, list ]:
         '''Apply the pipeline to a list of items the denoted amount of times.'''
         errors = ErrorLog()
         NOTHING_BUT_ERRORS = (None, None, errors, None)
@@ -297,7 +297,7 @@ class Pipeline:
 
         return items, print_values, errors, spoutCallbacks
 
-    async def apply_iteration(self, items: list[str], message: discord.Message, parent_context: 'Context'=None) -> tuple[ list[str], list[list[str]], ErrorLog, list ]:
+    async def apply_iteration(self, items: list[str], message: Message, parent_context: 'Context'=None) -> tuple[ list[str], list[list[str]], ErrorLog, list ]:
         '''Apply the pipeline to a list of items a single time.'''
         ## This is the big method where everything happens.
 
