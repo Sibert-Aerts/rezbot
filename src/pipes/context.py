@@ -1,4 +1,4 @@
-from discord import Message, Member, Interaction
+from discord import Message, Member, Interaction, TextChannel
 
 ## BIG TODO: Integrate Errorlogs, message and all other ExecutionState into this thing? or something.
 
@@ -12,7 +12,7 @@ class ItemScope:
     to_be_ignored: set[str]
     to_be_removed: set[str]
 
-    def __init__(self, parent: 'Context'=None, items: list[str]=None):
+    def __init__(self, parent: 'ItemScope'=None, items: list[str]=None):
         self.items = items or []
         self.parent = parent
         self.to_be_ignored = set()
@@ -69,12 +69,18 @@ class Context:
 
     author: Member = None
     'Whoever wrote the code currently being executed, if known.'
+
     activator: Member = None
     'Whoever is causing the current code to be executed, if anyone (?).'
+
     message: Message = None
     'The "subject", possibly triggering, message of the current execution, if applicable (?)'
+
     interaction: Interaction = None
     'The triggering interaction of the current execution, if any.'
+
+    channel: TextChannel = None
+    'The channel of either the subject message or interaction, if any.'
 
     # ======== Execution state we rolled into this object for convenience
 
@@ -94,20 +100,25 @@ class Context:
         self.parent = parent
 
         if parent:
-            for attr in ('author', 'activator', 'message', 'interaction'):
+            for attr in ('author', 'activator', 'message', 'interaction', 'channel'):
                 setattr(self, attr, getattr(parent, attr, None))
 
         self.author = author or self.author
         self.activator = activator or self.activator
         self.message = message or self.message
         self.interaction = interaction or self.interaction
+        self.channel = (
+            (self.message and self.message.channel)
+            or (self.interaction and self.interaction.channel)
+            or self.channel
+        )
 
         if parent:
             self.item_scope = ItemScope(parent.item_scope)
         else:
             self.item_scope = ItemScope(items=items)
 
-    # ==================================== ItemContext API Proxy ===================================
+    # ======================================= ItemContext API ======================================
 
     def set_items(self, items: list[str]):
         self.item_scope.set_items(items)

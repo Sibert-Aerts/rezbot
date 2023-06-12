@@ -50,7 +50,7 @@ async def next_message_source(ctx: Context, n, what):
 
     def check(msg):
         # ignore (most) messages that the bot normally ignores
-        return msg.channel == ctx.message.channel \
+        return msg.channel == ctx.channel \
             and not msg.author.bot \
             and msg.content[:len(SourceResources.bot.command_prefix)] != SourceResources.bot.command_prefix
 
@@ -80,7 +80,7 @@ async def previous_message_source(ctx: Context, n, i, what, by):
     The N messages in this channel, counting backwards from the Ith previous message.
     i.e. N messages, ordered newest to oldest, with the newest being the Ith previous message.
     '''
-    messages = [ msg async for msg in ctx.message.channel.history(limit=n+i) ][i:i+n]
+    messages = [ msg async for msg in ctx.channel.history(limit=n+i) ][i:i+n]
     if by: messages = [m for m in messages if m.author.id == by]
 
     return messages_get_what(messages, what)
@@ -145,7 +145,7 @@ CHANNEL_WHAT = Option('name', 'id', 'topic', 'category', 'mention', 'is_nsfw')
 })
 async def channel_source(ctx: Context, what):
     '''The name (or other attribute) of the current channel.'''
-    channel = ctx.message.channel
+    channel = ctx.channel
     if what == CHANNEL_WHAT.name:
         return [channel.name or '']
     if what == CHANNEL_WHAT.id:

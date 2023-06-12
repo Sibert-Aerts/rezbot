@@ -10,7 +10,7 @@ set_category('BOT')
 @source_from_func
 async def output_source(ctx: Context):
     '''The entire set of output from the previous script that ran.'''
-    return SourceResources.previous_pipeline_output[ctx.message.channel]
+    return SourceResources.previous_pipeline_output[ctx.channel]
 
 
 @source_from_class

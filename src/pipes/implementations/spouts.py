@@ -120,7 +120,7 @@ class SpoutEmbed:
             # It's a soft hyphen here also
             embed.set_footer(text=footer or '­', icon_url=footer_icon)
 
-        await ctx.message.channel.send(embed=embed)
+        await ctx.channel.send(embed=embed)
 
 
 @spout_from_func({
@@ -141,7 +141,7 @@ async def tweet_spout(bot, ctx, values, name, handle, icon, retweets, likes, tim
         embed.add_field(name='Retweets', value=retweets)
     if likes:
         embed.add_field(name='Likes', value=likes)
-    await ctx.message.channel.send(embed=embed)
+    await ctx.channel.send(embed=embed)
 
 
 #####################################################
@@ -160,7 +160,7 @@ async def send_message_spout(bot, ctx: Context, values):
     Sends input as a Discord message.
     If multiple lines of input are given, they're joined with line breaks.
     '''
-    await ctx.message.channel.send('\n'.join(values))
+    await ctx.channel.send('\n'.join(values))
 
 
 @spout_from_func({
@@ -173,7 +173,7 @@ async def reply_spout(bot, ctx: Context, values, *, id, mention):
     If multiple lines of input are given, they're joined with line breaks.
     '''
     if id > 0:
-        message = await ctx.message.channel.fetch_message(id)
+        message = await ctx.channel.fetch_message(id)
     else:
         message = ctx.message
     await message.reply('\n'.join(values), mention_author=mention)
@@ -222,7 +222,7 @@ async def sticker_spout(bot: Bot, ctx: Context, values: list[str], sticker: str,
 
     if sticker is None:
         raise ValueError(f'Unknown sticker "{name_or_id}".')
-    await ctx.message.channel.send(stickers=[sticker])
+    await ctx.channel.send(stickers=[sticker])
 
 
 #####################################################
@@ -309,8 +309,8 @@ async def disable_event_spout(bot, ctx: Context, values, name):
     if name not in events:
         raise ValueError('Event %s does not exist!' % name)
     event = events[name]
-    if ctx.message.channel.id in event.channels:
-        event.channels.remove(ctx.message.channel.id)
+    if ctx.channel.id in event.channels:
+        event.channels.remove(ctx.channel.id)
 
 
 @spout_from_class
@@ -367,4 +367,4 @@ class ButtonSpout:
         button = ButtonSpout.Button(label=label, emoji=emoji, style=getattr(ButtonStyle, style))
         button.set_spout_args(bot, ctx, values, script)
         view = ButtonSpout.View(button, timeout=timeout)
-        view.set_message(await ctx.message.channel.send(view=view))
+        view.set_message(await ctx.channel.send(view=view))

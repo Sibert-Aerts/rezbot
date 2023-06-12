@@ -189,13 +189,13 @@ class PipelineWithOrigin:
             errors = ErrorLog()
 
             ## Put the thing there
-            SourceResources.previous_pipeline_output[context.message.channel] = end_values
+            SourceResources.previous_pipeline_output[context.channel] = end_values
 
             ## Print the output!
             # TODO: auto-print if the last pipe was not a spout, or something
             if not spout_callbacks or any( callback is spouts['print'].spout_function for (callback, _, _) in spout_callbacks ):
                 print_values.append(end_values)
-                await self.send_print_values(context.message.channel, print_values)
+                await self.send_print_values(context.channel, print_values)
 
             ## Perform all Spouts (TODO: MAKE THIS BETTER)
             for callback, args, values in spout_callbacks:
