@@ -72,7 +72,7 @@ async def on_message(message: discord.Message):
         return
 
     # See if it looks like a script, if it does: run the script and don't do anything else
-    if await pipeline_processor.process_script(message):
+    if await pipeline_processor.interpret_incoming_message(message):
         return
 
     # Try for patterns and custom Events if it doesn't look like a command

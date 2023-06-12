@@ -10,7 +10,8 @@ from lru import LRU
 from discord import Client, Message, TextChannel
 
 # More import statements at the bottom of the file, due to circular dependencies.
-from .logger import ErrorLog
+from pipes.logger import ErrorLog
+from pipes.context import Context
 import utils.texttools as texttools
 
 
@@ -135,7 +136,7 @@ class PipelineWithOrigin:
 
     # ====================================== Execution method ======================================
 
-    async def execute(self, bot: Client, message: Message, context: 'Context'=None, name: str=None):
+    async def execute(self, bot: Client, message: Message, context: Context=None, name: str=None):
         '''
         This function connects the three major steps of executing a script:
             * Evaluating the origin
@@ -154,28 +155,12 @@ class PipelineWithOrigin:
             if errors.terminal: raise TerminalError()
 
             ### STEP 2: APPLY PIPELINE TO STARTING VALUES
-            values, printValues, pl_errors, spout_callbacks = await pipeline.apply(values, message, context)
+            values, print_values, pl_errors, spout_callbacks = await pipeline.apply(values, message, context)
             errors.extend(pl_errors)
             if errors.terminal: raise TerminalError()
 
             ### STEP 3: JOB'S DONE, PERFORM SIDE-EFFECTS!
-
-            ## Put the thing there
-            SourceResources.previous_pipeline_output[message.channel] = values
-
-            ## Print the output!
-            # TODO: auto-print if the last pipe was not a spout, or something
-            if not spout_callbacks or any( callback is spouts['print'].spout_function for (callback, _, _) in spout_callbacks ):
-                printValues.append(values)
-                await self.send_print_values(message.channel, printValues)
-
-            ## Perform all Spouts (TODO: MAKE THIS BETTER)
-            for callback, args, values in spout_callbacks:
-                try:
-                    await callback(bot, message, values, **args)
-                except Exception as e:
-                    errors(f'Failed to execute spout `{callback.__name__}`:\n\t{type(e).__name__}: {e}', True)
-                    break
+            await self.perform_side_effects(bot, context, spout_callbacks, print_values, values)
 
             ## Post warning output to the channel if any
             if errors:
@@ -194,6 +179,33 @@ class PipelineWithOrigin:
             errors.log(f'🛑 **Unexpected pipeline error:**\n {type(e).__name__}: {e}', terminal=True)
             await self.send_error_log(message.channel, errors, name)
             raise e
+
+    async def perform_side_effects(self, bot: Client, context: Context, spout_callbacks, print_values, end_values) -> ErrorLog:
+            '''
+            This function performs the side-effects of executing a script:
+                * Storing the output values somewhere
+                * Making sure all encountered Spouts' effects happen
+            '''
+            errors = ErrorLog()
+
+            ## Put the thing there
+            SourceResources.previous_pipeline_output[context.message.channel] = end_values
+
+            ## Print the output!
+            # TODO: auto-print if the last pipe was not a spout, or something
+            if not spout_callbacks or any( callback is spouts['print'].spout_function for (callback, _, _) in spout_callbacks ):
+                print_values.append(end_values)
+                await self.send_print_values(context.message.channel, print_values)
+
+            ## Perform all Spouts (TODO: MAKE THIS BETTER)
+            for callback, args, values in spout_callbacks:
+                try:
+                    await callback(bot, context, values, **args)
+                except Exception as e:
+                    errors(f'Failed to execute spout `{callback.__name__}`:\n\t{type(e).__name__}: {e}', True)
+                    break
+
+            return errors
 
 
 class PipelineProcessor:
@@ -241,19 +253,18 @@ class PipelineProcessor:
                 await self.execute_script(event.script, message, context, name='Event: ' + event.name)
 
     # ====================================== Script execution ======================================
-    
-    async def execute_script(self, script: str, message: Message, context: 'Context'=None, name: str=None):
+
+    async def execute_script(self, script: str, message: Message, context: Context=None, name: str=None):
         pipeline_with_origin = PipelineWithOrigin.from_string(script)
         return await pipeline_with_origin.execute(self.bot, message, context=context, name=name)
 
-    async def process_script(self, message: Message):
-        '''This is the starting point for all script execution.'''
-        text = message.content
+    async def interpret_incoming_message(self, message: Message):
+        '''Starting point for executiong scripts directly from a message, or for the 'script-like' Macro/Event definition syntax.'''
 
         # Test for the script prefix and remove it (pipe_prefix in config.ini, default: '>>')
-        if not text.startswith(self.prefix):
+        if not message.content.startswith(self.prefix):
             return False
-        script = text[len(self.prefix):]
+        script = message.content[len(self.prefix):]
 
         ## Check if it's a script or some kind of script-like command
         if re.match(r'\s*(NEW|EDIT|DESC).*::', script, re.I):
@@ -268,7 +279,7 @@ class PipelineProcessor:
             ##### ERROR:
             # Our script clearly resembles a script-like command but isn't one!
             else:
-                await message.channel.send('Error: Poorly formed command.')
+                await message.channel.send('Error: Poorly formed script-like command.')
 
         ##### NORMAL SCRIPT EXECUTION:
         else:
@@ -288,6 +299,5 @@ from .pipeline import Pipeline
 from .implementations.spouts import spouts
 from .implementations.sources import SourceResources
 from .events import events, OnMessage, OnReaction
-from .context import Context
 from .templatedstring import TemplatedString
 from .commands.macro_commands import parse_macro_command
