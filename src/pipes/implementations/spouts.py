@@ -326,6 +326,8 @@ class ButtonSpout:
 
         async def callback(self, interaction: Interaction):
             await interaction.response.defer()
+            if not self.script:
+                return
             context = Context(
                 author=None, # TODO: pass context to spout, then use context.author here
                 activator=interaction.user,
@@ -333,7 +335,7 @@ class ButtonSpout:
                 interaction=interaction,
                 items=self.values
             )
-            await self.script.execute(self.bot, interaction.message, context=context, name='Scripted button')
+            await self.script.execute(self.bot, interaction.message, context=context, name='button script')
 
     class View(discord.ui.View):
         def __init__(self, button: discord.ui.Button, **kwargs):
@@ -349,14 +351,16 @@ class ButtonSpout:
             await self.message.edit(view=self)
 
     @with_signature(
-        script  = Par(PipelineWithOrigin.from_string, default=None, desc='The script to trigger when the button is pressed.'),
-        label   = Par(str, default=None, desc='The label'),
-        emoji   = Par(str, default=None, required=False, desc='The button\'s emoji'),
+        script  = Par(PipelineWithOrigin.from_string, required=False, desc='Script to execute when the button is pressed.'),
+        label   = Par(str, required=False, desc='The label'),
+        emoji   = Par(str, required=False, desc='The button\'s emoji'),
         style   = Par(ButtonStyleOption, default='primary', desc='The button\'s style: primary/secondary/success/danger.'),
-        timeout = Par(int, default=3600, desc='Amount of seconds the button stays alive while not being clicked.'),
+        timeout = Par(int, default=3600, desc='Amount of seconds the button stays alive without being clicked.'),
     )
     @staticmethod
     async def spout_function(bot: Client, message: Message, values: list[str], *, script, label, style, emoji, timeout):
+        if not label and not emoji:
+            raise ValueError('A button should have at least a `label` or `emoji`.')
         button = ButtonSpout.Button(label=label, emoji=emoji, style=getattr(ButtonStyle, style))
         button.set_spout_args(bot, values, script)
         view = ButtonSpout.View(button, timeout=timeout)
