@@ -332,13 +332,17 @@ class ButtonSpout:
             if not self.script:
                 return
             context = Context(
+                origin=Context.Origin(
+                    name='button script',
+                    type=Context.Origin.Type.VIEW_CALLBACK,
+                ),
                 author=self.original_context.author,
                 activator=interaction.user,
                 message=interaction.message,
                 interaction=interaction,
                 items=self.values
             )
-            await self.script.execute(self.bot, interaction.message, context=context, name='button script')
+            await self.script.execute(self.bot, interaction.message, context)
 
     class View(discord.ui.View):
         def __init__(self, button: discord.ui.Button, **kwargs):

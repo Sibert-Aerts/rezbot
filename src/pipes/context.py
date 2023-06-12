@@ -1,12 +1,14 @@
 from discord import Message, Member, Interaction, TextChannel
 
-## BIG TODO: Integrate Errorlogs, message and all other ExecutionState into this thing? or something.
 
 class ContextError(ValueError):
     '''Special error used by the Context class when a context string cannot be fulfilled.'''
 
 
 class ItemScope:
+    '''
+    An object representing a "scope" of items during a script's execution.
+    '''
     items: list[str]
     parent: 'ItemScope | None'
     to_be_ignored: set[str]
@@ -59,13 +61,48 @@ class ItemScope:
         return ignored, items
 
 
+
+
+    
+
 class Context:
     '''
     An object providing context to the execution/evaluation of a Rezbot script.
     '''
+    # ======== Owned types
+
+    class Origin:
+        '''
+        An object storing information related to how and why a script's execution was initiated.
+        '''    
+        class Type:
+            UNKNOWN = object()
+            DIRECT = object()
+            COMMAND = object()
+            EVENT = object()
+            VIEW_CALLBACK = object()
+
+        name: str
+        type: Type
+        event: 'Event'
+
+        def __init__(
+                self,
+                name: str=None,
+                type: 'Context.Origin.Type'=Type.UNKNOWN,
+                event: 'Event'=None,
+            ):
+            self.name = name
+            self.type = type
+            self.event = event
+
+    # ======== Context state
+
     parent: 'Context | None'
 
     # ======== Important execution context values
+
+    origin: Origin = None
 
     author: Member = None
     'Whoever wrote the code currently being executed, if known.'
@@ -86,10 +123,12 @@ class Context:
 
     item_scope: ItemScope
 
+
     def __init__(
         self,
         parent: 'Context'=None,
         *,
+        origin: Origin=None,
         author: Member=None,
         activator: Member=None,
         message: Message=None,
@@ -100,9 +139,10 @@ class Context:
         self.parent = parent
 
         if parent:
-            for attr in ('author', 'activator', 'message', 'interaction', 'channel'):
+            for attr in ('origin', 'author', 'activator', 'message', 'interaction', 'channel'):
                 setattr(self, attr, getattr(parent, attr, None))
 
+        self.origin = origin or self.origin or Context.Origin()
         self.author = author or self.author
         self.activator = activator or self.activator
         self.message = message or self.message
@@ -113,10 +153,7 @@ class Context:
             or self.channel
         )
 
-        if parent:
-            self.item_scope = ItemScope(parent.item_scope)
-        else:
-            self.item_scope = ItemScope(items=items)
+        self.item_scope = ItemScope(parent.item_scope if parent else None, items=items)
 
     # ======================================= ItemContext API ======================================
 

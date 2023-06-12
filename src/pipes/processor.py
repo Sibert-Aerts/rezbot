@@ -136,7 +136,7 @@ class PipelineWithOrigin:
 
     # ====================================== Execution method ======================================
 
-    async def execute(self, bot: Client, message: Message, context: Context=None, name: str=None):
+    async def execute(self, bot: Client, message: Message, context: 'Context'):
         '''
         This function connects the three major steps of executing a script:
             * Evaluating the origin
@@ -164,23 +164,23 @@ class PipelineWithOrigin:
 
             ## Post warning output to the channel if any
             if errors:
-                await self.send_error_log(message.channel, errors, name)
+                await self.send_error_log(message.channel, errors, context.origin.name)
 
         except TerminalError:
             ## A TerminalError indicates that whatever problem we encountered was caught, logged, and we halted voluntarily.
             # Nothing more to be done than posting log contents to the channel.
             print('Script execution halted due to error.')
-            await self.send_error_log(message.channel, errors, name)
+            await self.send_error_log(message.channel, errors, context.origin.name)
             
         except Exception as e:
             ## An actual error has occurred in executing the script that we did not catch.
             # No script, no matter how poorly formed or thought-out, should be able to trigger this; if this occurs it's a Rezbot bug.
             print('Script execution halted unexpectedly!')
             errors.log(f'🛑 **Unexpected pipeline error:**\n {type(e).__name__}: {e}', terminal=True)
-            await self.send_error_log(message.channel, errors, name)
+            await self.send_error_log(message.channel, errors, context.origin.name)
             raise e
 
-    async def perform_side_effects(self, bot: Client, context: Context, spout_callbacks, print_values, end_values) -> ErrorLog:
+    async def perform_side_effects(self, bot: Client, context: 'Context', spout_callbacks, print_values, end_values) -> ErrorLog:
             '''
             This function performs the side-effects of executing a script:
                 * Storing the output values somewhere
@@ -231,12 +231,17 @@ class PipelineProcessor:
                 else:
                     items = [message.content]
                 context = Context(
+                    origin=Context.Origin(
+                        name='Event: ' + event.name,
+                        type=Context.Origin.Type.EVENT,
+                        event=event,
+                    ),
                     author=None, # TODO: Track Event.author idiot
                     activator=message.author,
                     message=message,
                     items=items,
                 )
-                await self.execute_script(event.script, message, context, name='Event: ' + event.name)
+                await self.execute_script(event.script, message, context)
 
     async def on_reaction(self, channel: TextChannel, emoji: str, user_id: int, msg_id: int):
         '''Check if an incoming reaction triggers any custom Events.'''
@@ -245,18 +250,23 @@ class PipelineProcessor:
                 message = await channel.fetch_message(msg_id)
                 member = channel.guild.get_member(user_id)
                 context = Context(
+                    origin=Context.Origin(
+                        name='Event: ' + event.name,
+                        type=Context.Origin.Type.EVENT,
+                        event=event,
+                    ),
                     author=None, # TODO: Track Event.author idiot
                     activator=member,
                     message=message,
                     items=[emoji, str(user_id)], # Old way of conveying the reacting user
                 )
-                await self.execute_script(event.script, message, context, name='Event: ' + event.name)
+                await self.execute_script(event.script, message, context)
 
     # ====================================== Script execution ======================================
 
-    async def execute_script(self, script: str, message: Message, context: Context=None, name: str=None):
+    async def execute_script(self, script: str, message: Message, context: 'Context'):
         pipeline_with_origin = PipelineWithOrigin.from_string(script)
-        return await pipeline_with_origin.execute(self.bot, message, context=context, name=name)
+        return await pipeline_with_origin.execute(self.bot, message, context)
 
     async def interpret_incoming_message(self, message: Message):
         '''Starting point for executiong scripts directly from a message, or for the 'script-like' Macro/Event definition syntax.'''
@@ -285,19 +295,20 @@ class PipelineProcessor:
         else:
             async with message.channel.typing():
                 context = Context(
+                    origin=Context.Origin(type=Context.Origin.Type.DIRECT),
                     author=message.author,
                     activator=message.author,
                     message=message,
                 )
-                await self.execute_script(script, message, context=context)
+                await self.execute_script(script, message, context)
 
         return True
 
 
 # These lynes be down here dve to dependencyes cyrcvlaire
-from .pipeline import Pipeline
-from .implementations.spouts import spouts
-from .implementations.sources import SourceResources
-from .events import events, OnMessage, OnReaction
-from .templatedstring import TemplatedString
-from .commands.macro_commands import parse_macro_command
+from pipes.pipeline import Pipeline
+from pipes.implementations.spouts import spouts
+from pipes.implementations.sources import SourceResources
+from pipes.events import events, OnMessage, OnReaction
+from pipes.templatedstring import TemplatedString
+from pipes.commands.macro_commands import parse_macro_command
