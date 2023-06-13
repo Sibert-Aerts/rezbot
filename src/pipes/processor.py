@@ -136,7 +136,7 @@ class PipelineWithOrigin:
 
     # ====================================== Execution method ======================================
 
-    async def execute(self, bot: Client, message: Message, context: 'Context'):
+    async def execute(self, bot: Client, context: 'Context'):
         '''
         This function connects the three major steps of executing a script:
             * Evaluating the origin
@@ -150,12 +150,12 @@ class PipelineWithOrigin:
 
         try:
             ### STEP 1: GET STARTING VALUES
-            values, origin_errors = await TemplatedString.evaluate_origin(origin, message, context)
+            values, origin_errors = await TemplatedString.evaluate_origin(origin, context)
             errors.extend(origin_errors, 'script origin')
             if errors.terminal: raise TerminalError()
 
             ### STEP 2: APPLY PIPELINE TO STARTING VALUES
-            values, print_values, pl_errors, spout_callbacks = await pipeline.apply(values, message, context)
+            values, print_values, pl_errors, spout_callbacks = await pipeline.apply(values, context)
             errors.extend(pl_errors)
             if errors.terminal: raise TerminalError()
 
@@ -164,20 +164,20 @@ class PipelineWithOrigin:
 
             ## Post warning output to the channel if any
             if errors:
-                await self.send_error_log(message.channel, errors, context.origin.name)
+                await self.send_error_log(context.channel, errors, context.origin.name)
 
         except TerminalError:
             ## A TerminalError indicates that whatever problem we encountered was caught, logged, and we halted voluntarily.
             # Nothing more to be done than posting log contents to the channel.
             print('Script execution halted due to error.')
-            await self.send_error_log(message.channel, errors, context.origin.name)
+            await self.send_error_log(context.channel, errors, context.origin.name)
             
         except Exception as e:
             ## An actual error has occurred in executing the script that we did not catch.
             # No script, no matter how poorly formed or thought-out, should be able to trigger this; if this occurs it's a Rezbot bug.
             print('Script execution halted unexpectedly!')
             errors.log(f'🛑 **Unexpected pipeline error:**\n {type(e).__name__}: {e}', terminal=True)
-            await self.send_error_log(message.channel, errors, context.origin.name)
+            await self.send_error_log(context.channel, errors, context.origin.name)
             raise e
 
     async def perform_side_effects(self, bot: Client, context: 'Context', spout_callbacks, print_values, end_values) -> ErrorLog:
@@ -241,7 +241,7 @@ class PipelineProcessor:
                     message=message,
                     items=items,
                 )
-                await self.execute_script(event.script, message, context)
+                await self.execute_script(event.script, context)
 
     async def on_reaction(self, channel: TextChannel, emoji: str, user_id: int, msg_id: int):
         '''Check if an incoming reaction triggers any custom Events.'''
@@ -258,15 +258,15 @@ class PipelineProcessor:
                     author=None, # TODO: Track Event.author idiot
                     activator=member,
                     message=message,
-                    items=[emoji, str(user_id)], # Old way of conveying the reacting user
+                    items=[emoji, str(user_id)], # Old way of conveying which uses reacted
                 )
-                await self.execute_script(event.script, message, context)
+                await self.execute_script(event.script, context)
 
     # ====================================== Script execution ======================================
 
-    async def execute_script(self, script: str, message: Message, context: 'Context'):
+    async def execute_script(self, script: str, context: 'Context'):
         pipeline_with_origin = PipelineWithOrigin.from_string(script)
-        return await pipeline_with_origin.execute(self.bot, message, context)
+        return await pipeline_with_origin.execute(self.bot, context)
 
     async def interpret_incoming_message(self, message: Message):
         '''Starting point for executiong scripts directly from a message, or for the 'script-like' Macro/Event definition syntax.'''
@@ -300,7 +300,7 @@ class PipelineProcessor:
                     activator=message.author,
                     message=message,
                 )
-                await self.execute_script(script, message, context)
+                await self.execute_script(script, context)
 
         return True
 

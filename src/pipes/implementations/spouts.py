@@ -342,7 +342,7 @@ class ButtonSpout:
                 interaction=interaction,
                 items=self.values
             )
-            await self.script.execute(self.bot, interaction.message, context)
+            await self.script.execute(self.bot, context)
 
     class View(discord.ui.View):
         def __init__(self, button: discord.ui.Button, **kwargs):

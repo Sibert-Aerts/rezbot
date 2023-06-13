@@ -1,5 +1,9 @@
-from discord import Message, Member, Interaction, TextChannel
+from discord import Message, Member, Interaction, TextChannel, Client
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from pipes.events import Event
+    from pipes.macros import Macro
 
 class ContextError(ValueError):
     '''Special error used by the Context class when a context string cannot be fulfilled.'''
@@ -61,10 +65,6 @@ class ItemScope:
         return ignored, items
 
 
-
-
-    
-
 class Context:
     '''
     An object providing context to the execution/evaluation of a Rezbot script.
@@ -81,6 +81,7 @@ class Context:
             COMMAND = object()
             EVENT = object()
             VIEW_CALLBACK = object()
+            EVALUATE_SOURCES_PIPE = object()
 
         name: str
         type: Type
@@ -100,9 +101,12 @@ class Context:
 
     parent: 'Context | None'
 
-    # ======== Important execution context values
+    # ======== Parent-inherited execution context values
 
     origin: Origin = None
+
+    bot: Client = None
+    'The bot\'s client.' # TODO: This is rarely filled in
 
     author: Member = None
     'Whoever wrote the code currently being executed, if known.'
@@ -118,8 +122,12 @@ class Context:
 
     channel: TextChannel = None
     'The channel of either the subject message or interaction, if any.'
+    
+    # ======== Scope-transient context values
 
-    # ======== Execution state we rolled into this object for convenience
+    macro: 'Macro' = None
+
+    # ======== Execution state we rolled into this object for "convenience"
 
     item_scope: ItemScope
 
@@ -129,20 +137,24 @@ class Context:
         parent: 'Context'=None,
         *,
         origin: Origin=None,
+        bot: Client=None,
         author: Member=None,
         activator: Member=None,
         message: Message=None,
         interaction: Interaction=None,
+
+        macro: 'Macro'=None,
 
         items: list[str]=None,
     ):
         self.parent = parent
 
         if parent:
-            for attr in ('origin', 'author', 'activator', 'message', 'interaction', 'channel'):
+            for attr in ('origin', 'bot', 'author', 'activator', 'message', 'interaction', 'channel'):
                 setattr(self, attr, getattr(parent, attr, None))
 
         self.origin = origin or self.origin or Context.Origin()
+        self.bot = bot or self.bot
         self.author = author or self.author
         self.activator = activator or self.activator
         self.message = message or self.message
@@ -153,7 +165,21 @@ class Context:
             or self.channel
         )
 
-        self.item_scope = ItemScope(parent.item_scope if parent else None, items=items)
+        self.macro = macro
+
+        # TODO: Maybe bad idea that this is inside Context, I'm definitely not wrapping my mind around it very well
+        if items is None:
+            self.item_scope = ItemScope(parent.item_scope if parent else None)
+        else:
+            self.item_scope = ItemScope(items=items)
+
+    def into_macro(self, macro: 'Macro'):
+        '''Create a new Context for execution inside the given Macro.'''
+        author = None
+        if macro.authorId and self.channel:
+            author = self.channel.guild.get_member(macro.authorId)
+        return Context(self, author=author, macro=macro)
+
 
     # ======================================= ItemContext API ======================================
 

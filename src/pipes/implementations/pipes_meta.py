@@ -1,6 +1,7 @@
 from .pipes import pipe_from_func, many_to_one, set_category
 from ..signature import Par
 from ..logger import ErrorLog
+from .. context import Context
 from ..templatedstring import TemplatedString
 from utils.util import parse_bool
 
@@ -36,13 +37,25 @@ def format2_pipe(input, f):
 })
 async def evaluate_sources_pipe(items, force_single: bool):
     '''
-    Evaluates sources in the literal strings it receives.
+    Evaluates Sources in the literal strings it receives.
+
+    Evaluation of these Sources is constrained for safety reasons. 
     '''
     errors = ErrorLog()
+    # NOTE: This carries over NONE of the existing context
+    context = Context(
+        origin=Context.Origin(
+            name='evaluate sources',
+            type=Context.Origin.Type.EVALUATE_SOURCES_PIPE,
+        ),
+        activator=None,
+        author=None,
+        message=None,        
+    )
     output = []
     try:
         for item in items:
-            values, errs = await TemplatedString.evaluate_string(item, None, None, force_single=force_single)
+            values, errs = await TemplatedString.evaluate_string(item, context, force_single=force_single)
             if values: output.extend(values)
             errors.extend(errs)
     except:

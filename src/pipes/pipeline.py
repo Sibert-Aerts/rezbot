@@ -268,16 +268,16 @@ class Pipeline:
 
         return parsedPipes
 
-    def check_items(self, values: list[str], message: Message):
+    def check_items(self, values: list[str], context: 'Context'):
         '''Raises an error if the user is asking too much of the bot.'''
         # TODO: this could stand to be smarter/more oriented to the type of operation you're trying to do, or something, maybe...?
         # meditate on this...
         MAXCHARS = 10000
         chars = sum(len(i) for i in values)
-        if chars > MAXCHARS and not permissions.has(message.author.id, permissions.owner):
+        if chars > MAXCHARS and not permissions.has(context.author.id, permissions.owner):
             raise PipelineError(f'Attempted to process a flow of {chars} total characters at once, try staying under {MAXCHARS}.')
 
-    async def apply(self, items: list[str], message: Message, parent_context: 'Context'=None) -> tuple[ list[str], list[list[str]], ErrorLog, list ]:
+    async def apply(self, items: list[str], parent_context: 'Context') -> tuple[ list[str], list[list[str]], ErrorLog, list ]:
         '''Apply the pipeline to a list of items the denoted amount of times.'''
         errors = ErrorLog()
         NOTHING_BUT_ERRORS = (None, None, errors, None)
@@ -288,7 +288,7 @@ class Pipeline:
         print_values = []
         spoutCallbacks = []
         for _ in range(self.iterations):
-            iterItems, iterPrintValues, iterErrors, iterSpoutCallbacks = await self.apply_iteration(items, message, parent_context)
+            iterItems, iterPrintValues, iterErrors, iterSpoutCallbacks = await self.apply_iteration(items, parent_context)
             errors.extend(iterErrors)
             if errors.terminal: return NOTHING_BUT_ERRORS
             items = iterItems
@@ -297,7 +297,7 @@ class Pipeline:
 
         return items, print_values, errors, spoutCallbacks
 
-    async def apply_iteration(self, items: list[str], message: Message, parent_context: 'Context'=None) -> tuple[ list[str], list[list[str]], ErrorLog, list ]:
+    async def apply_iteration(self, items: list[str], parent_context: 'Context') -> tuple[ list[str], list[list[str]], ErrorLog, list ]:
         '''Apply the pipeline to a list of items a single time.'''
         ## This is the big method where everything happens.
 
@@ -316,7 +316,7 @@ class Pipeline:
         spout_callbacks = []
         loose_items = items
 
-        self.check_items(loose_items, message)
+        self.check_items(loose_items, context)
 
         ### This loop iterates over the pipeline's segments as they are applied in sequence. (first > second > third)
         for group_mode, parsed_pipes in self.parsed_segments:
@@ -350,7 +350,7 @@ class Pipeline:
 
                 ## CASE: The pipe is itself an inlined Pipeline (recursion!)
                 if isinstance(parsed_pipe, Pipeline):
-                    items, pl_print_values, pl_errors, pl_spout_callbacks = await parsed_pipe.apply(items, message, group_context)
+                    items, pl_print_values, pl_errors, pl_spout_callbacks = await parsed_pipe.apply(items, group_context)
                     errors.extend(pl_errors, 'braces')
                     if errors.terminal: return NOTHING_BUT_ERRORS
                     next_items.extend(items)
@@ -367,7 +367,7 @@ class Pipeline:
 
                 #### Determine the arguments (if needed)
                 if parsed_pipe.arguments is not None:
-                    args, arg_errors = await parsed_pipe.arguments.determine(message, group_context)
+                    args, arg_errors = await parsed_pipe.arguments.determine(group_context)
                     errors.extend(arg_errors, context=name)
 
                 # Check if something went wrong while determining arguments
@@ -392,8 +392,8 @@ class Pipeline:
                 ## A NATIVE PIPE
                 elif parsed_pipe.type == ParsedPipe.NATIVE_PIPE:
                     pipe: Pipe = parsed_pipe.pipe
-                    if not pipe.may_use(message.author):
-                        errors.log(f'User lacks permission to use Pipe `{pipe.name}`.', True)
+                    if not pipe.may_use(context.author):
+                        errors.log(f'User lacks permission to use Pipe `{name}`.', True)
                         return NOTHING_BUT_ERRORS
                     try:
                         if pipe.is_coroutine:
@@ -401,7 +401,7 @@ class Pipeline:
                         else:
                             next_items.extend(pipe.apply(items, **args))
                     except Exception as e:
-                        errors.log(f'Failed to process Pipe `{pipe.name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
+                        errors.log(f'Failed to process Pipe `{name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
 
                 ## A SPOUT
@@ -432,20 +432,22 @@ class Pipeline:
 
                 ## A PIPE MACRO
                 elif name in pipe_macros:
+                    macro = pipe_macros[name]
+                    macro_ctx = context.into_macro(macro)
                     try:
-                        code = pipe_macros[name].apply_args(args)
+                        code = macro.apply_args(args)
                     except ArgumentError as e:
                         errors.log(e, True, context=name)
                         return NOTHING_BUT_ERRORS
 
                     ## Load the cached pipeline if we already parsed this code once before
                     if code in pipe_macros.pipeline_cache:
-                        macro = pipe_macros.pipeline_cache[code]
+                        macro_pl = pipe_macros.pipeline_cache[code]
                     else:
-                        macro = Pipeline(code)
-                        pipe_macros.pipeline_cache[code] = macro
+                        macro_pl = Pipeline(code)
+                        pipe_macros.pipeline_cache[code] = macro_pl
 
-                    newvals, macro_print_values, macro_errors, macro_spout_callbacks = await macro.apply(items, message)
+                    newvals, macro_print_values, macro_errors, macro_spout_callbacks = await macro_pl.apply(items, macro_ctx)
                     errors.extend(macro_errors, name)
                     if errors.terminal: return NOTHING_BUT_ERRORS
 
@@ -458,17 +460,18 @@ class Pipeline:
 
                 ## A SOURCE MACRO
                 elif name in source_macros:
-                    if items and not (len(items) == 1 and not items[0]):
-                        errors.log(f'Macro-source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
+                    macro = source_macros[name]
+                    macro_ctx = group_context.into_macro(macro)
 
+                    # TODO: Something silly going on here with these arguments?
                     source_macro = ParsedSource(name, None, None)
-                    newVals, src_errs = await source_macro.evaluate(message, group_context, args)
+                    new_vals, src_errs = await source_macro.evaluate(macro_ctx, args)
                     errors.steal(src_errs, context='source-as-pipe')
 
-                    if newVals is None or errors.terminal:
+                    if new_vals is None or errors.terminal:
                         errors.terminal = True
                         return NOTHING_BUT_ERRORS
-                    next_items.extend(newVals)
+                    next_items.extend(new_vals)
 
                 ## UNKNOWN NAME
                 else:
@@ -479,7 +482,7 @@ class Pipeline:
             if new_printed_items:
                 printed_items.append(new_printed_items)
 
-            self.check_items(loose_items, message)
+            self.check_items(loose_items, context)
 
         return loose_items, printed_items, errors, spout_callbacks
 

@@ -1,8 +1,6 @@
 import asyncio
 from pyparsing import ParseException, ParseResults
 
-import discord
-
 from .processor import PipelineWithOrigin
 from .pipeline import Pipeline
 from . import grammar
@@ -28,10 +26,8 @@ class ParsedItem:
     def __repr__(self):
         return 'Item' + str(self)
 
-    def evaluate(self, context: Context=None) -> str:
-        if context:
-            return context.get_item(self.carrots, self.index, self.bang)
-        return str(self)
+    def evaluate(self, context: Context) -> str:
+        return context.get_item(self.carrots, self.index, self.bang)
 
 
 class ParsedSource:
@@ -76,7 +72,7 @@ class ParsedSource:
     def __repr__(self):
         return 'Source' + str(self)
 
-    async def evaluate(self, message=None, context=None, args=None) -> tuple[ list[str] | None, ErrorLog ]:
+    async def evaluate(self, context: Context, args=None) -> tuple[ list[str] | None, ErrorLog ]:
         ''' Find some values for the damn Source that we are. '''
         errors = ErrorLog()
         if self.pre_errors: errors.extend(self.pre_errors)
@@ -89,7 +85,7 @@ class ParsedSource:
 
         if args is None:
             ## Determine the arguments
-            args, argErrors = await self.args.determine(message, context)
+            args, argErrors = await self.args.determine(context)
             errors.extend(argErrors, self.name)
             if errors.terminal: return NOTHING_BUT_ERRORS
 
@@ -103,8 +99,10 @@ class ParsedSource:
 
         ### CASE: Macro Source
         elif self.name in source_macros:
+            macro = source_macros[self.name]
+            macro_ctx = context.into_macro(macro)
             try:
-                code = source_macros[self.name].apply_args(args)
+                code = macro.apply_args(args)
             except ArgumentError as e:
                 errors.log(e, True, context=self.name)
                 return NOTHING_BUT_ERRORS
@@ -113,7 +111,7 @@ class ParsedSource:
             origin, code = PipelineWithOrigin.split(code)
 
             ## STEP 1: Get the values from the Macro's origin            
-            values, origin_errors = await TemplatedString.evaluate_origin(origin, message, context)
+            values, origin_errors = await TemplatedString.evaluate_origin(origin, macro_ctx)
             errors.extend(origin_errors, self.name)
             if errors.terminal: return NOTHING_BUT_ERRORS
 
@@ -126,7 +124,7 @@ class ParsedSource:
 
             ## STEP 3: apply
             # TODO: Actually use the "amount" somehow
-            values, _, pl_errors, _ = await pipeline.apply(values, message)
+            values, _, pl_errors, _ = await pipeline.apply(values, macro_ctx)
             errors.extend(pl_errors, self.name)
             return values, errors
 
@@ -266,7 +264,7 @@ class TemplatedString:
 
             return TemplatedString(implicit).unquote(), TemplatedString(remainder)
 
-    async def evaluate(self, message, context: Context=None) -> tuple[str, ErrorLog]:
+    async def evaluate(self, context: Context) -> tuple[str, ErrorLog]:
         ''' Evaluate the TemplatedString into a string '''
         errors = ErrorLog()
         errors.extend(self.pre_errors)
@@ -290,7 +288,7 @@ class TemplatedString:
 
             elif isinstance(piece, ParsedSource) and not errors.terminal:
                 results.append(FUTURE)
-                futures.append(piece.evaluate(message, context))
+                futures.append(piece.evaluate(context))
 
         source_results = await asyncio.gather(*futures)
 
@@ -314,7 +312,7 @@ class TemplatedString:
     # ================ Specific use cases, wrapped into a single method
 
     @staticmethod
-    async def evaluate_string(string: str, message: discord.Message=None, context: Context=None, force_single=False) -> tuple[list[str] | None, ErrorLog]:
+    async def evaluate_string(string: str, context: Context, force_single=False) -> tuple[list[str] | None, ErrorLog]:
         '''
         Takes a raw source string, evaluates {sources} and returns the list of values.
         
@@ -326,14 +324,14 @@ class TemplatedString:
             return None, ErrorLog().log_parse_exception(e)
 
         if not force_single and template.is_source:
-            vals, errs = await template.source.evaluate(message, context)
+            vals, errs = await template.source.evaluate(context)
             return vals, errs
         else:
-            val, errs = await template.evaluate(message, context)
+            val, errs = await template.evaluate(context)
             return [val], errs
 
     @staticmethod
-    async def evaluate_origin(origin_str: str, message: discord.Message=None, context: Context=None) -> tuple[list[str] | None, ErrorLog]:
+    async def evaluate_origin(origin_str: str, context: Context) -> tuple[list[str] | None, ErrorLog]:
         '''Takes a raw source string, expands it if necessary, evaluates {sources} in each one and returns the list of values.'''
         values = []
         expand = True
@@ -358,11 +356,11 @@ class TemplatedString:
 
             else:
                 if origin.is_source:
-                    vals, errs = await origin.source.evaluate(message, context)
+                    vals, errs = await origin.source.evaluate(context)
                     errors.extend(errs)
                     if not errors.terminal: values.extend(vals)
                 else:
-                    val, errs = await origin.evaluate(message, context)
+                    val, errs = await origin.evaluate(context)
                     errors.extend(errs)
                     if not errors.terminal: values.append(val)
 

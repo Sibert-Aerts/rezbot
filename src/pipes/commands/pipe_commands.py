@@ -203,15 +203,24 @@ async def setup(bot: commands.Bot):
     def pipe_to_func(pipe: Pipe):
         async def func(ctx: commands.Context):
             text = util.strip_command(ctx)
-
+            execution_context = Context(
+                origin=Context.Origin(
+                    name=pipe.name,
+                    type=Context.Origin.Type.COMMAND,
+                ),
+                bot=ctx.bot,
+                author=ctx.author,
+                activator=ctx.author,
+                message=ctx.message,
+            )
             # Parse and process arguments from the command string
             args, text, err = Arguments.from_string(text, pipe.signature, greedy=False)
             err.name = f'`{pipe.name}`'
             if err.terminal: return await ctx.send(embed=err.embed())
-            args, err2 = await args.determine(ctx.message)
+            args, err2 = await args.determine(execution_context)
             err.extend(err2, 'arguments'); 
             if text is not None:
-                text, err3 = await text.evaluate(ctx.message)
+                text, err3 = await text.evaluate(execution_context)
                 err.extend(err3, 'input string')
             if err.terminal: return await ctx.send(embed=err.embed())
 
@@ -245,13 +254,22 @@ async def setup(bot: commands.Bot):
 
     def source_to_func(source: Source):
         async def func(ctx: commands.Context):
-            text = util.strip_command(ctx)
-
+            text = util.strip_command(ctx)            
+            execution_context = Context(
+                origin=Context.Origin(
+                    name=source.name,
+                    type=Context.Origin.Type.COMMAND,
+                ),
+                bot=ctx.bot,
+                author=ctx.author,
+                activator=ctx.author,
+                message=ctx.message,
+            )
             # Parse and process arguments from the command string
             args, _, err = Arguments.from_string(text, source.signature, greedy=True)
             err.name = f'`{source.name}`'
             if err.terminal: return await ctx.send(embed=err.embed())
-            args, err2 = await args.determine(ctx.message)
+            args, err2 = await args.determine(execution_context)
             err.extend(err2, 'arguments')
             if err.terminal: return await ctx.send(embed=err.embed())
 
@@ -261,8 +279,7 @@ async def setup(bot: commands.Bot):
 
             try:
                 # Apply the source with the given arguments
-                context = Context(author=ctx.author, activator=ctx.author, message=ctx.message)
-                results = await source.generate(context, args)
+                results = await source.generate(execution_context, args)
                 await PipelineWithOrigin.send_print_values(ctx.channel, [results])
     
             except Exception as e:
@@ -287,13 +304,22 @@ async def setup(bot: commands.Bot):
     def spout_to_func(spout: Spout):
         async def func(ctx: commands.Context):
             text = util.strip_command(ctx)
-
+            execution_context = Context(
+                origin=Context.Origin(
+                    name=spout.name,
+                    type=Context.Origin.Type.COMMAND,
+                ),
+                bot=ctx.bot,
+                author=ctx.author,
+                activator=ctx.author,
+                message=ctx.message,
+            )
             # Parse and process arguments from the command string
             args, text, err = Arguments.from_string(text, spout.signature, greedy=False)
             err.name = f'`{spout.name}`'
             if err.terminal: return await ctx.send(embed=err.embed())
-            args, err2 = await args.determine(ctx.message)
-            text, err3 = await text.evaluate(ctx.message)
+            args, err2 = await args.determine(execution_context)
+            text, err3 = await text.evaluate(execution_context)
             err.extend(err2, 'arguments'); err.extend(err3, 'input string')
             if err.terminal: return await ctx.send(embed=err.embed())
             
