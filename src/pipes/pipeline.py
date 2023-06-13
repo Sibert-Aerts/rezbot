@@ -392,7 +392,7 @@ class Pipeline:
                 ## A NATIVE PIPE
                 elif parsed_pipe.type == ParsedPipe.NATIVE_PIPE:
                     pipe: Pipe = parsed_pipe.pipe
-                    if not pipe.may_use(context.author):
+                    if not context.activator or not pipe.may_use(context.activator):
                         errors.log(f'User lacks permission to use Pipe `{name}`.', True)
                         return NOTHING_BUT_ERRORS
                     try:
