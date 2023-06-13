@@ -80,7 +80,7 @@ class Context:
             DIRECT = object()
             COMMAND = object()
             EVENT = object()
-            VIEW_CALLBACK = object()
+            INTERACTION_CALLBACK = object()
             EVALUATE_SOURCES_PIPE = object()
 
         name: str
