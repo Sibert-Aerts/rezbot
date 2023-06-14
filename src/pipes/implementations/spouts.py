@@ -325,15 +325,16 @@ class ButtonSpout:
     ButtonStyleOption = Option('primary', 'secondary', 'success', 'danger', name='ButtonStyle', stringy=True)
     
     class Button(discord.ui.Button):
-        def set_spout_args(self, bot: Client, ctx: Context, values: list[str], script: PipelineWithOrigin, defer: bool):
+        def set_spout_args(self, bot: Client, ctx: Context, script: PipelineWithOrigin, defer: bool):
             # NOTE: These values may hang around for a while, be wary of memory leaks
             self.bot = bot
             self.original_context = ctx
-            self.values = values
             self.script = script
             self.defer = defer
 
         async def callback(self, interaction: Interaction):
+            if not self.bot.should_listen_to_user(interaction.user):
+                return
             if self.defer:
                 await interaction.response.defer()
             if not self.script:
@@ -347,7 +348,6 @@ class ButtonSpout:
                 activator=interaction.user,
                 message=interaction.message,
                 interaction=interaction,
-                items=self.values
             )
             await self.script.execute(self.bot, context)
 
@@ -373,11 +373,11 @@ class ButtonSpout:
         defer   = Par(parse_bool, default=True, desc='Whether to instantly defer (=close) the Interaction generated, set to False if you want to respond yourself.'),
     )
     @staticmethod
-    async def spout_function(bot: Client, ctx: Context, values: list[str], *, script, label, style, emoji, timeout, defer):
+    async def spout_function(bot: Client, ctx: Context, values, *, script, label, style, emoji, timeout, defer):
         if not label and not emoji:
             raise ValueError('A button should have at least a `label` or `emoji`.')
         button = ButtonSpout.Button(label=label, emoji=emoji, style=getattr(ButtonStyle, style))
-        button.set_spout_args(bot, ctx, values, script, defer)
+        button.set_spout_args(bot, ctx, script, defer)
         view = ButtonSpout.View(button, timeout=timeout)
         view.set_message(await ctx.channel.send(view=view))
 
@@ -400,6 +400,8 @@ class ModalSpout:
             self.defer = defer
 
         async def on_submit(self, interaction: Interaction):
+            if not self.bot.should_listen_to_user(interaction.user):
+                return
             if self.defer:
                 await interaction.response.defer()
             if not self.script:
@@ -423,21 +425,26 @@ class ModalSpout:
         label    = Par(str, default='Text', desc='The text field\'s label'),
         default  = Par(str, required=False, desc='The text field\'s default content'),
         required = Par(parse_bool, default=False, desc='If the text field is required'),
-        min_length = Par(int, default=False, desc='Minimum number of characters required to enter'),
-        max_length = Par(int, default=False, desc='Maximum number of characters required to enter'),
         defer   = Par(parse_bool, default=True, desc='Whether to instantly defer (=close) the Interaction generated, set to False if you want to respond yourself.'),
     )
     @staticmethod
-    async def spout_function(bot: Client, ctx: Context, values, *, script, title, label, default, required, min_length, max_length, defer):
+    async def spout_function(bot: Client, ctx: Context, values, *, script, title, label, default, required, defer):
         if not ctx.interaction:
             raise ValueError('This spout can only be used when an Interaction is present, e.g. from pressing a button.')
         if ctx.interaction.response.is_done():
             raise ValueError('This Interaction has already been responded to.')
 
+        # Create our Modal and give it a single text input
         modal = ModalSpout.Modal(title=title)
         modal.set_spout_args(bot, ctx, script, defer)
-        modal.text_input = discord.ui.TextInput(label=label, default=default, required=required, min_length=min_length, max_length=max_length)
+        modal.text_input = discord.ui.TextInput(
+            label=label,
+            style=discord.TextStyle.paragraph,
+            default=default,
+            required=required
+        )
         modal.add_item(modal.text_input)
+    
         await ctx.interaction.response.send_modal(modal)
 
 
@@ -453,6 +460,8 @@ class ModalButtonSpout:
     
     class Button(discord.ui.Button):
         async def callback(self, interaction: Interaction):
+            if not self.bot.should_listen_to_user(interaction.user):
+                return
             await interaction.response.send_modal(self.modal)
 
     @with_signature(
@@ -465,18 +474,25 @@ class ModalButtonSpout:
         input_label = Par(str, default='Text', desc='The text field\'s label'),
         default  = Par(str, required=False, desc='The text field\'s default content'),
         required = Par(parse_bool, default=False, desc='If the text field is required'),
-        min_length = Par(int, default=False, desc='Minimum number of characters required to enter'),
-        max_length = Par(int, default=False, desc='Maximum number of characters required to enter'),
         defer = Par(parse_bool, default=True, desc='Whether to instantly defer (=close) the Interaction generated, set to False if you want to respond yourself.'),
     )
     @staticmethod
-    async def spout_function(bot: Client, ctx: Context, values, *, script, title, button_label, button_style, emoji, timeout, input_label, default, required, min_length, max_length, defer):
+    async def spout_function(bot: Client, ctx: Context, values, *, script, title, button_label, button_style, emoji, timeout, input_label, default, required, defer):
+        # Modal that will (repeatedly) be served by the button
         modal = ModalSpout.Modal(title=title)
         modal.set_spout_args(bot, ctx, script, defer)
-        modal.text_input = discord.ui.TextInput(label=input_label, default=default, required=required, min_length=min_length, max_length=max_length)
+        modal.text_input = discord.ui.TextInput(
+            label=input_label,
+            default=default,
+            required=required,
+            style=discord.TextStyle.paragraph,
+        )
         modal.add_item(modal.text_input)
 
+        # Button that will serve the modal
         button = ModalButtonSpout.Button(label=button_label, emoji=emoji, style=getattr(ButtonStyle, button_style))
         button.modal = modal
+
+        # Use the generic single-button View
         view = ButtonSpout.View(button, timeout=timeout)
         view.set_message(await ctx.channel.send(view=view))
