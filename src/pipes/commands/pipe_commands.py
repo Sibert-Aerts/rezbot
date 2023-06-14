@@ -146,6 +146,7 @@ class PipeCommands(MyCommands):
     async def spouts(self, ctx, name=''):
         '''Print a list of all spouts and their descriptions, or details on a specific source.'''
         name = name.lower()
+        # TODO: Use categories now, copy frop >pipes
 
         # Info on a specific spout
         if name != '' and name in spouts or name in pipes:

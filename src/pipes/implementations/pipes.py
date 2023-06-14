@@ -54,11 +54,11 @@ def word_to_word(func):
 pipes = Pipes()
 'The canonical object storing/indexing all `Pipe` instances.'
 
-_CATEGORY = 'NONE'
+_PIPE_CATEGORY = 'NONE'
 
 def set_category(category: str):
-    global _CATEGORY
-    _CATEGORY = category
+    global _PIPE_CATEGORY
+    _PIPE_CATEGORY = category
 
 def pipe_from_func(signature: dict[str, Par]=None, /, *, command=False, **kwargs):
     '''Makes a Pipe out of a function.'''
@@ -67,13 +67,13 @@ def pipe_from_func(signature: dict[str, Par]=None, /, *, command=False, **kwargs
         (func, signature) = (signature, None)
 
     def _pipe_from_func(func: Callable):
-        global pipes, _CATEGORY
+        global pipes, _PIPE_CATEGORY
         # Name is the function name with the _pipe bit cropped off
         name = func.__name__.rsplit('_', 1)[0].lower()
         doc = func.__doc__
         # Signature may be set using @with_signature, given directly, or not given at all
         sig = get_signature(func, Signature(signature or {}))    
-        pipe = Pipe(sig, func, name=name, doc=doc, category=_CATEGORY, **kwargs)
+        pipe = Pipe(sig, func, name=name, doc=doc, category=_PIPE_CATEGORY, **kwargs)
         pipes.add(pipe, command)
         return func
 
@@ -108,7 +108,7 @@ def pipe_from_class(cls: type[T]) -> type[T]:
         cls.pipe_function,
         name=cls.name,
         doc=cls.__doc__ or cls.pipe_function.__doc__,
-        category=_CATEGORY,
+        category=_PIPE_CATEGORY,
         aliases=get('aliases'),
         may_use=get('may_use'),
     )

@@ -75,7 +75,6 @@ class PipeSlashCommands(MyCommands):
             else:
                 infos.append(f'{what.capitalize()}s:\n')
 
-
             col_width = len(max((p.name for p in scriptoids_to_display), key=len)) + 3
             for pipe in scriptoids_to_display:
                 info = pipe.name
@@ -126,9 +125,11 @@ class PipeSlashCommands(MyCommands):
         await self._list_scriptoids(interaction, sources, 'source', category)
 
     @app_commands.command()
-    async def spouts(self, interaction: Interaction):
+    @app_commands.describe(category="The specific category of Spouts to list")
+    @app_commands.choices(category=[Choice(name=cat, value=cat) for cat in spouts.categories])
+    async def spouts(self, interaction: Interaction, category: str=None):
         ''' Display a list of native Spouts, which can be used in scripts. '''
-        await self._list_scriptoids(interaction, spouts, 'spout', None)
+        await self._list_scriptoids(interaction, spouts, 'spout', category)
 
 
 # Load the bot cog
