@@ -156,6 +156,10 @@ class ModalButtonSpout:
     command = True
     
     class Button(ui.Button):
+        def set_config(self, bot, modal):
+            self.bot = bot
+            self.modal = modal
+
         async def callback(self, interaction: Interaction):
             if not self.bot.should_listen_to_user(interaction.user):
                 return
@@ -188,8 +192,40 @@ class ModalButtonSpout:
 
         # Button that will serve the modal
         button = ModalButtonSpout.Button(label=button_label, emoji=emoji, style=getattr(ButtonStyle, button_style))
-        button.modal = modal
+        button.set_config(bot, modal)
 
         # Use the generic single-button View
         view = ButtonSpout.View(button, timeout=timeout)
         view.set_message(await ctx.channel.send(view=view))
+
+
+@spout_from_func
+async def whisper_spout(bot: Client, ctx: Context, values: list[str]):
+    '''
+    Sends input as an ephemeral (invisible) Discord message, requires an active Interaction.
+    If multiple lines of input are given, they're joined with line breaks.
+    '''
+    if not ctx.interaction:
+        raise ValueError('This spout can only be used when an Interaction is present, e.g. from pressing a button.')
+    if ctx.interaction.response.is_done():
+        raise ValueError('This Interaction has already been responded to.')
+    
+    content = '\n'.join(values)
+    await ctx.interaction.response.send_message(content, ephemeral=True)
+
+
+@spout_from_func
+@with_signature(
+    thinking = Par(parse_bool, default=False, desc='If true, shows a symbolic "thinking" message, is silent otherwise.'),
+    whisper = Par(parse_bool, default=False, desc='If true, the thinking message shows as a whisper'),
+)
+async def defer_spout(bot: Client, ctx: Context, values: list[str], *, thinking, whisper):
+    '''
+    "Defers" the active Interaction, preventing Discord from showing an "Interaction failed!" message.
+    '''
+    if not ctx.interaction:
+        raise ValueError('This spout can only be used when an Interaction is present, e.g. from pressing a button.')
+    if ctx.interaction.response.is_done():
+        raise ValueError('This Interaction has already been responded to.')
+
+    await ctx.interaction.response.defer(ephemeral=whisper, thinking=thinking)

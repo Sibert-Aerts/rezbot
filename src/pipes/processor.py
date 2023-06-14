@@ -122,9 +122,9 @@ class PipelineWithOrigin:
             await channel.send(block)
 
     @staticmethod
-    async def send_error_log(channel: TextChannel, errors: ErrorLog, name: str):
+    async def send_error_log(context: Context, errors: ErrorLog):
         try:
-            await channel.send(embed=errors.embed(name=name))
+            await context.channel.send(embed=errors.embed(name=context.origin.name))
         except:
             newErrors = ErrorLog()
             newErrors.terminal = errors.terminal
@@ -132,7 +132,7 @@ class PipelineWithOrigin:
                 f'🙈 {"Error" if errors.terminal else "Warning"} log too big to reasonably display...'
                 '\nDoes your script perhaps contain an infinite recursion?'
             )
-            await channel.send(embed=newErrors.embed(name=name))
+            await context.channel.send(embed=newErrors.embed(name=context.origin.name))
 
     # ====================================== Execution method ======================================
 
@@ -160,24 +160,25 @@ class PipelineWithOrigin:
             if errors.terminal: raise TerminalError()
 
             ### STEP 3: JOB'S DONE, PERFORM SIDE-EFFECTS!
-            await self.perform_side_effects(bot, context, spout_callbacks, print_values, values)
+            side_errors = await self.perform_side_effects(bot, context, spout_callbacks, print_values, values)
+            errors.extend(side_errors)
 
             ## Post warning output to the channel if any
             if errors:
-                await self.send_error_log(context.channel, errors, context.origin.name)
+                await self.send_error_log(context, errors)
 
         except TerminalError:
             ## A TerminalError indicates that whatever problem we encountered was caught, logged, and we halted voluntarily.
             # Nothing more to be done than posting log contents to the channel.
             print('Script execution halted due to error.')
-            await self.send_error_log(context.channel, errors, context.origin.name)
+            await self.send_error_log(context, errors)
             
         except Exception as e:
             ## An actual error has occurred in executing the script that we did not catch.
             # No script, no matter how poorly formed or thought-out, should be able to trigger this; if this occurs it's a Rezbot bug.
             print('Script execution halted unexpectedly!')
             errors.log(f'🛑 **Unexpected pipeline error:**\n {type(e).__name__}: {e}', terminal=True)
-            await self.send_error_log(context.channel, errors, context.origin.name)
+            await self.send_error_log(context, errors)
             raise e
 
     async def perform_side_effects(self, bot: Client, context: 'Context', spout_callbacks, print_values, end_values) -> ErrorLog:
