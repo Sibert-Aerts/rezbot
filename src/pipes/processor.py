@@ -221,8 +221,11 @@ class PipelineProcessor:
 
     async def on_message(self, message: Message):
         '''Check if an incoming message triggers any custom Events.'''
+    
+        # TODO: for even in events.active_on_reaction_events... This shouldn't re-filter the events each time
         for event in events.values():
-            if not isinstance(event, OnMessage): continue
+            if not isinstance(event, OnMessage):
+                continue
             match = event.test(message)
             if match:
                 # If m is not just a bool, but a regex match object, fill the context up with the match groups, otherwise with the entire message.
@@ -245,10 +248,21 @@ class PipelineProcessor:
 
     async def on_reaction(self, channel: TextChannel, emoji: str, user_id: int, msg_id: int):
         '''Check if an incoming reaction triggers any custom Events.'''
+        # For efficiency we only fetch the message/member once we know that this is
+        #   a reaction that we actually care about
+        message = member = None
+
+        # TODO: for even in events.active_on_reaction_events... This shouldn't re-filter the events each time
         for event in events.values():
             if isinstance(event, OnReaction) and event.test(channel, emoji):
-                message = await channel.fetch_message(msg_id)
-                member = channel.guild.get_member(user_id)
+                if message is None:
+                    message = await channel.fetch_message(msg_id)
+                if member is None:
+                    member = channel.guild.get_member(user_id)
+                    # Only once we fetch the member can we test if we have them muted, to call the whole thing off
+                    if not self.bot.should_listen_to_user(member):
+                        return
+
                 context = Context(
                     origin=Context.Origin(
                         name='Event: ' + event.name,
@@ -258,7 +272,7 @@ class PipelineProcessor:
                     author=None, # TODO: Track Event.author idiot
                     activator=member,
                     message=message,
-                    items=[emoji, str(user_id)], # Old way of conveying which uses reacted
+                    items=[emoji, str(user_id)], # Legacy way of conveying who reacted
                 )
                 await self.execute_script(event.script, context)
 
