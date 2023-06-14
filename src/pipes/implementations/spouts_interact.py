@@ -83,7 +83,7 @@ class ButtonSpout:
 class ModalSpout:
     '''
     Opens a Discord UI Modal with a text prompt, and calls back with the value entered into the prompt.
-    Can only be used when a non-finished Discord Interaction is in Context, e.g. in a non-deferred button press callback.
+    Can only be used when an active Discord Interaction is in Context (e.g. during a non-deferred `button` callback).
     Callback script will have an Interaction in its Context (if not deferred).
     '''
     name = 'modal'
@@ -95,6 +95,10 @@ class ModalSpout:
             self.original_context = ctx
             self.script = script
             self.defer = defer
+
+        def set_text_input(self, text_input):
+            self.text_input = text_input
+            self.add_item(text_input)
 
         async def on_submit(self, interaction: Interaction):
             if not self.bot.should_listen_to_user(interaction.user):
@@ -134,14 +138,13 @@ class ModalSpout:
         # Create our Modal and give it a single text input
         modal = ModalSpout.Modal(title=title)
         modal.set_spout_args(bot, ctx, script, defer)
-        modal.text_input = ui.TextInput(
+        modal.set_text_input(ui.TextInput(
             label=label,
             style=TextStyle.paragraph,
             default=default,
             required=required
-        )
-        modal.add_item(modal.text_input)
-    
+        ))
+
         await ctx.interaction.response.send_modal(modal)
 
 
@@ -156,14 +159,14 @@ class ModalButtonSpout:
     command = True
     
     class Button(ui.Button):
-        def set_config(self, bot, modal):
+        def set_config(self, bot, make_modal):
             self.bot = bot
-            self.modal = modal
+            self.make_modal = make_modal
 
         async def callback(self, interaction: Interaction):
             if not self.bot.should_listen_to_user(interaction.user):
                 return
-            await interaction.response.send_modal(self.modal)
+            await interaction.response.send_modal(self.make_modal())
 
     @with_signature(
         script = Par(PipelineWithOrigin.from_string, required=False, desc='Script to execute when the button is pressed.'),
@@ -180,19 +183,20 @@ class ModalButtonSpout:
     @staticmethod
     async def spout_function(bot: Client, ctx: Context, values, *, script, title, button_label, button_style, emoji, timeout, input_label, default, required, defer):
         # Modal that will (repeatedly) be served by the button
-        modal = ModalSpout.Modal(title=title)
-        modal.set_spout_args(bot, ctx, script, defer)
-        modal.text_input = ui.TextInput(
-            label=input_label,
-            default=default,
-            required=required,
-            style=TextStyle.paragraph,
-        )
-        modal.add_item(modal.text_input)
+        def make_modal():
+            modal = ModalSpout.Modal(title=title)
+            modal.set_spout_args(bot, ctx, script, defer)
+            modal.set_text_input(ui.TextInput(
+                label=input_label,
+                default=default,
+                required=required,
+                style=TextStyle.paragraph,
+            ))
+            return modal
 
         # Button that will serve the modal
         button = ModalButtonSpout.Button(label=button_label, emoji=emoji, style=getattr(ButtonStyle, button_style))
-        button.set_config(bot, modal)
+        button.set_config(bot, make_modal)
 
         # Use the generic single-button View
         view = ButtonSpout.View(button, timeout=timeout)
@@ -229,3 +233,27 @@ async def defer_spout(bot: Client, ctx: Context, values: list[str], *, thinking,
         raise ValueError('This Interaction has already been responded to.')
 
     await ctx.interaction.response.defer(ephemeral=whisper, thinking=thinking)
+
+
+@spout_from_func
+@with_signature(
+    remove_view = Par(parse_bool, default=False, desc='If true, removes the View (i.e. buttons) from the message.'),
+)
+async def edit_original_response_spout(bot: Client, ctx: Context, values: list[str], *, remove_view):
+    '''
+    Edit a resolved Interaction's original response message.
+    
+    In case the current Interaction has been responded to with a message via `defer thinking=True` or `whisper`, it will edit that message.
+
+    In case the current Interaction has been responded to without a message (e.g. `button`, `modal`, or `defer thinking=False`),
+    it will edit the *most recent* bot message in the chain of Interactions (e.g. the message containing the button that opened the modal.)
+    '''
+    if not ctx.interaction:
+        raise ValueError('This spout can only be used when an Interaction is present, e.g. from pressing a button.')
+    if not ctx.interaction.response.is_done():
+        raise ValueError('This Interaction has not yet been responded to.')
+    
+    content = '\n'.join(values)
+    kwargs = {}
+    if remove_view: kwargs['view'] = None
+    await ctx.interaction.edit_original_response(content=content, **kwargs)

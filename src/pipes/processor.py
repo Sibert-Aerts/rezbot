@@ -35,9 +35,10 @@ class PipelineWithOrigin:
 
     # ======================================== Constructors ========================================
 
-    def __init__(self, origin: str, pipeline: 'Pipeline'):
+    def __init__(self, origin: str, pipeline: 'Pipeline', script_str: str=None):
         self.origin = origin
         self.pipeline = pipeline
+        self.script_str = script_str
 
     @classmethod
     def from_string(cls, script: str) -> 'PipelineWithOrigin':
@@ -50,11 +51,18 @@ class PipelineWithOrigin:
         pipeline = Pipeline(pipeline_str)
 
         ## Instantiate, cache, return
-        pwo = PipelineWithOrigin(origin, pipeline)
+        pwo = PipelineWithOrigin(origin, pipeline, script)
         cls.script_cache[script] = pwo
         return pwo
 
     # =================================== Static utility methods ===================================
+
+    def __repr__(self):
+        if self.script_str:
+            script = self.script_str
+            script = script if len(script) < 50 else script[:47] + '...'
+            return f'RezbotScript({script})'
+        return f'RezbotScript(id={id(self)})'
 
     @staticmethod
     def split(script: str) -> tuple[str, str]:
