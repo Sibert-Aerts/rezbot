@@ -4,7 +4,7 @@ import pickle
 from discord import Embed, Guild, TextChannel
 
 from utils.texttools import block_format
-from pipes.processor import PipelineWithOrigin
+from pipes.pipeline_with_origin import PipelineWithOrigin
 
 # Save events to the same directory as macros... because they're essentially macros.
 def DIR(filename=''):

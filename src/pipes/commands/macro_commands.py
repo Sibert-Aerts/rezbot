@@ -6,12 +6,12 @@ from discord.ext import commands
 
 from pipes.views import MacroView
 
-from ..pipe import Pipes
-from ..pipeline import Pipeline
-from ..processor import PipelineWithOrigin
-from ..implementations.pipes import pipes
-from ..implementations.sources import sources
-from ..macros import Macro, MacroSig, Macros, pipe_macros, source_macros
+from pipes.pipe import Pipes
+from pipes.pipeline import Pipeline
+from pipes.pipeline_with_origin import PipelineWithOrigin
+from pipes.implementations.pipes import pipes
+from pipes.implementations.sources import sources
+from pipes.macros import Macro, MacroSig, Macros, pipe_macros, source_macros
 import utils.texttools as texttools
 from utils.util import normalize_name
 from mycommands import MyCommands

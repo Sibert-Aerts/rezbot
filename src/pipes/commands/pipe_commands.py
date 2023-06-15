@@ -1,6 +1,6 @@
 from discord.ext import commands
 
-from pipes.processor import PipelineWithOrigin
+from pipes.pipeline_with_origin import PipelineWithOrigin
 from pipes.pipe import Pipe, Source, Spout
 from pipes.context import Context
 from pipes.implementations.pipes import pipes

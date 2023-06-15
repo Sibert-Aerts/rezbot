@@ -122,6 +122,7 @@ def source_from_class(cls: type[T]) -> type[T]:
 
 # Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.
 class SourceResources:
+    # TODO: Put some of these in Context I guess
     bot: Bot = None
     previous_pipeline_output = defaultdict(list)
     variables = VariableStore('variables.json')

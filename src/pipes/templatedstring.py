@@ -1,16 +1,10 @@
 import asyncio
 from pyparsing import ParseException, ParseResults
 
-from .processor import PipelineWithOrigin
-from .pipeline import Pipeline
-from . import grammar
-from .context import Context, ContextError
-from .signature import ArgumentError, Arguments
-from .implementations.sources import sources
-from .macros import source_macros
-from .logger import ErrorLog
-
 from utils.choicetree import ChoiceTree
+from pipes.logger import ErrorLog
+from pipes.context import Context, ContextError
+import pipes.grammar as grammar
 
 
 class ParsedItem:
@@ -34,9 +28,9 @@ class ParsedSource:
     ''' Class representing a Source inside a TemplatedString. '''
     NATIVE_SOURCE = object()
     MACRO_SOURCE  = object()
-    UNKNOWN      = object()
+    UNKNOWN       = object()
 
-    def __init__(self, name: str, args: Arguments, amount: str | int | None):
+    def __init__(self, name: str, args: 'Arguments', amount: str | int | None):
         self.name = name.lower()
         self.amount = amount
         self.args = args
@@ -365,3 +359,11 @@ class TemplatedString:
                     if not errors.terminal: values.append(val)
 
         return values, errors
+
+
+# þeſe lynes art doƿn here due to dependencys circulaire
+from pipes.pipeline_with_origin import PipelineWithOrigin
+from pipes.pipeline import Pipeline
+from pipes.signature import ArgumentError, Arguments
+from pipes.implementations.sources import sources
+from pipes.macros import source_macros

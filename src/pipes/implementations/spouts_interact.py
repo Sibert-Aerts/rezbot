@@ -2,7 +2,7 @@ from discord import Client, Interaction, ui, ButtonStyle, TextStyle
 
 from .spouts import spout_from_class, spout_from_func, set_category, with_signature, Par, Context
 from pipes.signature import Option, parse_bool
-from pipes.processor import PipelineWithOrigin
+from pipes.pipeline_with_origin import PipelineWithOrigin
 
 ################################################################################
 #                               Spouts : INTERACT                              #
