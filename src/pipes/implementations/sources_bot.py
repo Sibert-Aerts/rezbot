@@ -29,7 +29,7 @@ class SourceGet:
     @staticmethod
     async def source_function(ctx: Context, *, name, default, required):
         default = [default] if default is not None else [] if not required else None
-        return SourceResources.variables.get(name, default=None)
+        return SourceResources.variables.get(name, default)
 
 
 @source_from_class
