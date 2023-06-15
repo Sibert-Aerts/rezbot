@@ -190,7 +190,8 @@ class PipelineWithOrigin:
             errors = ErrorLog()
 
             ## Put the thing there
-            SourceResources.previous_pipeline_output[context.channel] = end_values
+            if context.origin.type == Context.Origin.Type.DIRECT:
+                SourceResources.previous_pipeline_output[context.channel] = end_values
 
             ## Print the output!
             # TODO: auto-print if the last pipe was not a spout, or something

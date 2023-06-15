@@ -33,7 +33,7 @@ class ParsedPipe:
         self.argstr = args[0] if args else ''
 
         self.errors = ErrorLog()
-        self.arguments: Arguments|None = None
+        self.arguments: Arguments | None = None
         
         ## (Attempt to) determine what kind of pipe it is ahead of time
         if self.name in ['', 'nop', 'print']:
@@ -421,8 +421,9 @@ class Pipeline:
                     source: Source = parsed_pipe.pipe
                     # Sources don't accept input values: Discard them but warn about it if nontrivial input is being discarded.
                     # This is just a style warning, if it turns out this is annoying then it should be removed.
-                    if items and not (len(items) == 1 and not items[0]):
-                        errors.log(f'Source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
+                    # NOTE: This turned out to be annoying
+                    # if items and not (len(items) == 1 and not items[0]):
+                    #     errors.log(f'Source-as-pipe `{name}` received nonempty input; either use all items as arguments or explicitly `remove` unneeded items.')
 
                     try:
                        next_items.extend( await source.generate(context, args) )
@@ -433,8 +434,11 @@ class Pipeline:
                 ## A PIPE MACRO
                 elif name in pipe_macros:
                     macro = pipe_macros[name]
-                    macro_ctx = context.into_macro(macro)
                     try:
+                        # NEWFANGLED: Get the set of arguments and put them in Context
+                        args = macro.apply_signature(args)
+                        macro_ctx = context.into_macro(macro, args)
+                        # DEPRECATED: Insert arguments into Macro string
                         code = macro.apply_args(args)
                     except ArgumentError as e:
                         errors.log(e, True, context=name)
@@ -461,11 +465,10 @@ class Pipeline:
                 ## A SOURCE MACRO
                 elif name in source_macros:
                     macro = source_macros[name]
-                    macro_ctx = group_context.into_macro(macro)
 
                     # TODO: Something silly going on here with these arguments?
-                    source_macro = ParsedSource(name, None, None)
-                    new_vals, src_errs = await source_macro.evaluate(macro_ctx, args)
+                    temp_parsed_source = ParsedSource(name, None, None)
+                    new_vals, src_errs = await temp_parsed_source.evaluate(macro_ctx, args)
                     errors.steal(src_errs, context='source-as-pipe')
 
                     if new_vals is None or errors.terminal:

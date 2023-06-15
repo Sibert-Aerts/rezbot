@@ -72,18 +72,20 @@ class Macro:
         else: embed.set_footer(text=self.authorName)
     
         return embed
-
-    def apply_args(self, args: dict):
-        # Load the defaults
-        defaults = {s: self.signature[s].default for s in self.signature}
-        args = {**defaults, **args}
-
+    
+    def apply_signature(self, args: dict[str, str]) -> dict[str, str]:
+        '''Use the Macro's signature to insert default arguments and check for missing arguments.'''
+        # Important: Do not modify args
+        result_args = {s: self.signature[s].default for s in self.signature if s not in args}
+        result_args.update(args)
         # Ensure no required arguments are missing
         missing = [s for s in args if args[s] is None]
         if missing:
             raise ArgumentError(f'Missing required parameter{"s" if len(missing)>1 else ""}: {" ".join("`%s`"%p for p in missing)}')
+        return result_args
 
-        # Insert arguments into macro code
+    def apply_args(self, args: dict) -> str:
+        '''Insert arguments into macro code by replacing instances of '$arg$' with its value in `args`.'''
         code = self.code
         for arg in args:
             code = code.replace('$'+arg+'$', args[arg])

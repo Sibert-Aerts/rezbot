@@ -2,12 +2,28 @@
 
 (In no particular order)
 
+
+
+
+* **NEW HOTNESS: VIEWS/BUTTONS**
+
+    * Probably useful to have some kind of generic RezbotView base class
+
+    * Way to coalesce multiple buttons into a single View, perhaps onto a single message
+    * Spouts that make use of the Interaction that may exist in the ctx
+
+    * When bot dies (through >die or otherwise?) close (= run ontimeout) ALL UI Views
+
+
+
 * **General:**
     * Ability to disable specific features (commands, patterns, pipes) in specific channels/servers
     * rewrite `help` to spam less
     * come up with a name for the scripting language
 
 * **SCRIPTING:**
+
+    * Objects need a ".full_name" or something e.g. `Pipe: convert`, `Pipe Macro: smoog`, `OnMessage Event: spinkus`
 
     * **Script analysis:**
         * Warn if certain parallel pipes are unreachable for the given groupmode
@@ -17,14 +33,15 @@
         * Possibly warn about unused pieces of argstring (e.g. `{txt file=heck hell}` warns about `hell` being there for no reason)
 
     * **Sources:**
-        * (Nothing)
+        * `creates_min: int` and `creates_max: int|None` attributes, idk, would be fun
+            * `creates: int` which sets both at once
 
     * **Pipes:**
         * (Nothing)
 
     * **TemplatedString:**
-        *  ⚠⚠⚠ Implicit item indexing doesn't work for combination implicit and explicit args!!!!!!! ⚠⚠⚠
-
+        * Implicit item indexing doesn't work for combination implicit and explicit args
+            * `param={} {}` gives `param={1} {0}` instead of `param={0} {1}` (because internally it's all the same as `implicitparam={0} param={1}`
         * Implicit item indexing doesn't work exactly as expected with nested sources
             * `{} {word pattern={}} {}` gives `{0} {word pattern={0}} {1}` instead of `{0} {word pattern={1}} {2}`
 
@@ -34,13 +51,6 @@
         * Allow structured files (json)
 
     * **Macros:**
-        * Instead of working as macros using the nasty `$paramName$` syntax, make a source `{arg paramName}`
-            * More efficiency: "macros" now get to be actually parsed and cached at time of definition
-            * Less inconsistency: string macros allowed for ugly parsing nonsense, e.g. `p=$param$` and then `param="one two"` doesn't work due to the space!
-            * Generalises to Events; `ON MESSAGE ^!praise (.*)` would allow acces to capture group `(.*)` by using `{arg 1}`
-                * `ON MESSAGE ^!praise (?P<name>.*)` would allow acces to capture group `name` by using `{arg name}`
-                * `ON COMMAND !praise name` would allow acces to argument `name` by using `{arg name}`
-
         * Way of easily turning macros into commands
         * Custom namespaces for macros and events
             * Decreases clutter of the global macros/events lists
@@ -62,6 +72,7 @@
 
     * **EVENTS:**
         * more types of conditions: MESSAGE CONTAINS (regex), USER IS (username/id), TIME IS (?), logical operations?? ????
+        * `ON COMMAND !praise name` would allow acces to argument `name` by using `{arg name}`?
 
     * **GROUP MODES:**
         * #a:b,c:d,e:f [pipe1|pipe2|pipe3]           should work as is obvious
@@ -73,7 +84,7 @@
         * Furthermore, don't reference items as 0 or 1, but as {0} or {1} for uniformity, and maybe just full-on obey Context ignore/remove logic
         * Allow logical operations and clauses
         * Evaluating sources or even pipes inside condition expressions? e.g. instead of `*[count|] > {0="1"} [...]` something like `{count="1"} [...]`
-    
+
     * **PARSING BUGS:**
         * `>> foo > bar x=( > baz` doesn't understand the ( should be a character and not a parenthesis (circumventable by writing `x="("`)
         * `>> foo > bar x='"' > baz` similarly, the " is interpreted as opening a string that is never closed, circumvented by adding a closing " afterwards but that's stupid

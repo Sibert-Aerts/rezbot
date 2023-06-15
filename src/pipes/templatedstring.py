@@ -3,7 +3,7 @@ from pyparsing import ParseException, ParseResults
 
 from utils.choicetree import ChoiceTree
 from pipes.logger import ErrorLog
-from pipes.context import Context, ContextError
+from pipes.context import Context, ItemScopeError
 import pipes.grammar as grammar
 
 
@@ -94,8 +94,11 @@ class ParsedSource:
         ### CASE: Macro Source
         elif self.name in source_macros:
             macro = source_macros[self.name]
-            macro_ctx = context.into_macro(macro)
             try:
+                # NEWFANGLED: Get the set of arguments and put them in Context
+                args = macro.apply_signature(args)
+                macro_ctx = context.into_macro(macro, args)
+                # DEPRECATED: Insert arguments into Macro string
                 code = macro.apply_args(args)
             except ArgumentError as e:
                 errors.log(e, True, context=self.name)
@@ -277,7 +280,7 @@ class TemplatedString:
             elif isinstance(piece, ParsedItem):
                 try:
                     results.append(piece.evaluate(context))
-                except ContextError as e:
+                except ItemScopeError as e:
                     errors.log(str(e), True)
 
             elif isinstance(piece, ParsedSource) and not errors.terminal:

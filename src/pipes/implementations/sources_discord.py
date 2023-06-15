@@ -2,7 +2,8 @@ from datetime import timezone
 import discord
 
 from .sources import source_from_func, get_which, set_category, SourceResources, Context
-from ..signature import Par, Option, Multi, regex, parse_bool
+from pipes.signature import Par, Option, Multi, regex, parse_bool
+from pipes.context import ContextError
 
 from utils.texttools import *
 
@@ -110,7 +111,7 @@ def members_get_what(members: list[discord.Member], what):
 async def me_source(ctx: Context, what):
     '''The name (or other attribute) of the user invoking the script or event.'''
     if not ctx.activator:
-        raise Exception('No known "me" in the current context.')
+        raise ContextError('No known "me" in the current context.')
     return members_get_what([ctx.activator], what)
 
 

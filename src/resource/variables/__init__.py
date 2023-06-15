@@ -1,7 +1,7 @@
 import os
 import re
 import json
-from typing import Any, Optional, List
+from typing import Any, List
 
 def this_dir(filename=''):
     return os.path.join(os.path.dirname(__file__), filename)

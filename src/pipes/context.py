@@ -6,8 +6,12 @@ if TYPE_CHECKING:
     from pipes.events import Event
     from pipes.macros import Macro
 
+
+class ItemScopeError(ValueError):
+    '''Special error used by the ItemScope class when an item does not exist.'''
+
 class ContextError(ValueError):
-    '''Special error used by the Context class when a context string cannot be fulfilled.'''
+    '''Special error to be used when the current Context does not allow a certain operation.'''
 
 
 class ItemScope:
@@ -34,14 +38,14 @@ class ItemScope:
         ctx = self
         # For each ^ go up a context
         for _ in range(carrots):
-            if ctx.parent is None: raise ContextError('Out of scope: References a parent context beyond scope!')
+            if ctx.parent is None: raise ItemScopeError('Out of scope: References a parent context beyond scope!')
             ctx = ctx.parent
 
         count = len(ctx.items)
         # Make sure the index fits in the context's range of items
-        if index >= count: raise ContextError('Out of range: References item {} out of only {} items.'.format(index, count))
+        if index >= count: raise ItemScopeError('Out of range: References item {} out of only {} items.'.format(index, count))
         if index < 0: index += count
-        if index < 0: raise ContextError('Out of range: Negative index {} for only {} items.'.format(index-count, count))
+        if index < 0: raise ItemScopeError('Out of range: Negative index {} for only {} items.'.format(index-count, count))
 
         # Only flag items to be ignored if we're in the current context (idk how it would work with higher contexts)
         if ctx is self:
@@ -102,7 +106,7 @@ class Context:
 
     parent: 'Context | None'
 
-    # ======== Parent-inherited execution context values
+    # ======== Parent-inherited context values
 
     origin: Origin = None
 
@@ -124,9 +128,13 @@ class Context:
     channel: TextChannel = None
     'The channel of either the subject message or interaction, if any.'
     
-    # ======== Scope-transient context values
+    # == Macro context values
 
     macro: 'Macro' = None
+    'Inside a Macro call, the Macro that is being called'
+
+    arguments: dict[str, str] = None
+    'Arguments passed into the current Event or Macro, accessible through {arg param_name}'
 
     # ======== Execution state we rolled into this object for "convenience"
 
@@ -145,13 +153,15 @@ class Context:
         interaction: Interaction=None,
 
         macro: 'Macro'=None,
+        arguments: 'Macro'=None,
 
         items: list[str]=None,
     ):
         self.parent = parent
 
+        # If a parent Context is given, use most of its properties as defaults
         if parent:
-            for attr in ('origin', 'bot', 'author', 'activator', 'message', 'interaction', 'channel'):
+            for attr in ('origin', 'bot', 'author', 'activator', 'message', 'interaction', 'channel', 'macro', 'arguments'):
                 setattr(self, attr, getattr(parent, attr, None))
 
         self.origin = origin or self.origin or Context.Origin()
@@ -166,7 +176,8 @@ class Context:
             or self.channel
         )
 
-        self.macro = macro
+        self.macro = macro or self.macro
+        self.arguments = arguments or self.arguments
 
         # TODO: Maybe bad idea that this is inside Context, I'm definitely not wrapping my mind around it very well
         if items is None:
@@ -174,12 +185,12 @@ class Context:
         else:
             self.item_scope = ItemScope(items=items)
 
-    def into_macro(self, macro: 'Macro'):
+    def into_macro(self, macro: 'Macro', arguments: dict[str, str]):
         '''Create a new Context for execution inside the given Macro.'''
         author = None
         if macro.authorId and self.channel:
             author = self.channel.guild.get_member(macro.authorId)
-        return Context(self, author=author, macro=macro)
+        return Context(self, author=author, macro=macro, arguments=arguments)
 
 
     # ======================================= ItemContext API ======================================

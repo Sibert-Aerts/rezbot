@@ -30,13 +30,22 @@ class PipelineProcessor:
         for event in events.values():
             if not isinstance(event, OnMessage):
                 continue
-            match = event.test(message)
+            match: re.Match = event.test(message)
             if match:
-                # If m is not just a bool, but a regex match object, fill the context up with the match groups, otherwise with the entire message.
-                if match is not True:
-                    items = [group or '' for group in match.groups()] or [message.content]
+                if match is not True and (groups := match.groups(default='')):
+                    # If match is indeed a regex Match object with regex Match Groups in it:
+                    #   Fill the starting items with the groups in order of appearance (LEGACY, do not change numbering!)
+                    #   Fill the arguments with each group, mapped both by index ({arg i} == match[i]) and by name ({arg name} == match[name]). 
+                    items = list(groups)
+                    arguments = {str(i+1): m for i, m in enumerate(groups)}
+                    arguments['0'] = match[0]
+                    arguments.update(match.groupdict(default=''))
                 else:
+                    # Otherwise: Item 0 and argument 0 are simply the full message.
+                    #  I don't think this one ever actually happens, since the only OnMessage trigger is a regex, but who knows.
                     items = [message.content]
+                    arguments = {'0': message.content}
+
                 context = Context(
                     origin=Context.Origin(
                         name='Event: ' + event.name,
@@ -47,6 +56,7 @@ class PipelineProcessor:
                     activator=message.author,
                     message=message,
                     items=items,
+                    arguments=arguments,
                 )
                 await self.execute_script(event.script, context)
 
@@ -77,6 +87,7 @@ class PipelineProcessor:
                     activator=member,
                     message=message,
                     items=[emoji, str(user_id)], # Legacy way of conveying who reacted
+                    arguments = {'emoji': emoji},
                 )
                 await self.execute_script(event.script, context)
 

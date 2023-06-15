@@ -132,8 +132,8 @@ class Events:
             print(e)
             print('Failed to load events from "{}"!'.format(DIR(filename)))
 
-    command_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w[\w.]+) ON (MESSAGE|REACT(?:ION)?) (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I | re.S )
-    #                                  ^^^^^^^^         ^^^^^^^^      ^^^^^^^^^^^^^^^^^^^^^   ^^^          ^^
+    command_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w[\w.]+) ON ?(MESSAGE|REACT(?:ION)?) (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I | re.S )
+    #                                  ^^^^^^^^         ^^^^^^^^       ^^^^^^^^^^^^^^^^^^^^^   ^^^          ^^
 
     async def parse_command(self, string, channel):
         m = re.match(self.command_pattern, string)
@@ -183,7 +183,7 @@ class Events:
             ## Mission complete
             msg = f'New event `{name}` registered.' if mode == 'NEW' else 'Event `{name}` updated.'
             view = EventView(event, self, channel)
-            view.add_item(await channel.send(msg, embed=event.embed(channel=channel), view=view))
+            view.set_message(await channel.send(msg, embed=event.embed(channel=channel), view=view))
             return True
 
     def write(self):
