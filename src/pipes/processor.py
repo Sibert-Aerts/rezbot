@@ -34,12 +34,12 @@ class PipelineProcessor:
             if match:
                 if match is not True and (groups := match.groups(default='')):
                     # If match is indeed a regex Match object with regex Match Groups in it:
-                    #   Fill the starting items with the groups in order of appearance (LEGACY, do not change numbering!)
-                    #   Fill the arguments with each group, mapped both by index ({arg i} == match[i]) and by name ({arg name} == match[name]). 
+                    #   Fill the starting items with the groups in order of appearance ({i} == match[i+1]) (LEGACY, do not change numbering!)
+                    #   Fill the arguments with each group, mapped both by index ({arg i} == match[i]) and by name ({arg name} == match[name]).
                     items = list(groups)
-                    arguments = {str(i+1): m for i, m in enumerate(groups)}
+                    arguments = {str(i+1): m for i, m in enumerate(match.groups())}
                     arguments['0'] = match[0]
-                    arguments.update(match.groupdict(default=''))
+                    arguments.update(match.groupdict())
                 else:
                     # Otherwise: Item 0 and argument 0 are simply the full message.
                     #  I don't think this one ever actually happens, since the only OnMessage trigger is a regex, but who knows.
@@ -87,7 +87,7 @@ class PipelineProcessor:
                     activator=member,
                     message=message,
                     items=[emoji, str(user_id)], # Legacy way of conveying who reacted
-                    arguments = {'emoji': emoji},
+                    arguments={'emoji': emoji},
                 )
                 await self.execute_script(event.script, context)
 

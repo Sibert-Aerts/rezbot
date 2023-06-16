@@ -56,7 +56,8 @@ class SourceArg:
         if not ctx.arguments:
             raise ContextError('No arguments exist in the current context.')
 
-        value = ctx.arguments.get(name, default)
+        value = ctx.arguments.get(name)
+        if value is None: value = default
 
         if value is None:
             # Be descriptive with our error
