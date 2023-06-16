@@ -84,8 +84,7 @@ class MacroCommands(MyCommands):
         macro = macros[name] = Macro(macros.kind, name, code, author.name, author.id, visible=visible)
 
         view = MacroView(macro, macros)
-        # TODO: macro.embed(ctx) bluhhh make it work
-        view.set_message(await channel.send('Defined a new macro.', embed=macro.embed(), view=view))
+        view.set_message(await channel.send('Defined a new macro.', embed=macro.embed(bot=self.bot, guild=message.guild), view=view))
 
     @commands.command(aliases=['redef'], hidden=True)
     async def redefine(self, ctx, what, name):
@@ -114,8 +113,7 @@ class MacroCommands(MyCommands):
         macro.code = code
         macros.write()
         view = MacroView(macro, macros)
-        # TODO: macro.embed(ctx)
-        view.set_message(await channel.send('Redefined the Macro.', embed=macro.embed(), view=view))
+        view.set_message(await channel.send('Redefined the Macro.', embed=macro.embed(bot=self.bot, guild=message.guild), view=view))
 
     @commands.command(aliases=['desc'], hidden=True)
     async def describe(self, ctx, what, name):
@@ -139,8 +137,7 @@ class MacroCommands(MyCommands):
         macro.desc = desc
         macros.write()
         view = MacroView(macro, macros)
-        # TODO: macro.embed(ctx)
-        view.set_message(await channel.send('Updated the Macro\'s description.', embed=macro.embed(), view=view))
+        view.set_message(await channel.send('Updated the Macro\'s description.', embed=macro.embed(bot=self.bot, guild=message.guild), view=view))
 
     @commands.command(aliases=['unhide'], hidden=True)
     async def hide(self, ctx, what, name):
@@ -232,14 +229,14 @@ class MacroCommands(MyCommands):
 
     # ========================== Macro listing ==========================
 
-    async def _macros(self, ctx, what, name):
+    async def _macros(self, ctx: commands.Context, what, name):
         macros, *_ = typedict[what]
 
         # Info on a specific macro
         if name != '' and name in macros:
             macro = macros[name]
             view = MacroView(macro, macros)
-            view.set_message(await ctx.send(embed=macro.embed(ctx), view=view))
+            view.set_message(await ctx.send(embed=macro.embed(bot=self.bot, guild=ctx.guild), view=view))
 
         # Info on all of them
         else:

@@ -77,7 +77,8 @@ class Pipeoid():
     def get_source_code_url(self):
         return None
 
-    def embed(self, ctx=None):
+    def embed(self, bot: discord.Client=None, **kwargs):
+        ''' Build an embed to display in Discord. '''
         title = str(self)
         if self.aliases:
             title += ' (' + ', '.join(self.aliases) + ')'
@@ -91,6 +92,10 @@ class Pipeoid():
         if self.signature:
             sig = '\n'.join(str(self.signature[s]) for s in self.signature)
             embed.add_field(name='Parameters', value=sig, inline=False)
+
+        if bot:
+            embed.set_footer(text=bot.user.name, icon_url=bot.user.avatar)
+
         return embed
 
 
@@ -149,8 +154,8 @@ class Source(Pipeoid):
     def get_source_code_url(self):
         return self._get_github_url(self.source_function)
 
-    def embed(self, ctx=None):
-        embed = super().embed(ctx=ctx)
+    def embed(self, **kwargs):
+        embed = super().embed(**kwargs)
         if self.depletable:
             embed.title += ' `depletable`'
         return embed

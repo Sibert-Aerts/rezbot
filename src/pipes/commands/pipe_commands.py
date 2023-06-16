@@ -35,8 +35,7 @@ class PipeCommands(MyCommands):
 
         ## Info on a specific pipe, spout or source
         if name != '' and name in pipes or name in spouts or name in sources:
-            embed = (pipes if name in pipes else spouts if name in spouts else sources)[name].embed()
-            embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar)
+            embed = (pipes if name in pipes else spouts if name in spouts else sources)[name].embed(bot=self.bot)
             await ctx.send(embed=embed)
 
         ## Info on a pipe macro or source macro
@@ -44,7 +43,8 @@ class PipeCommands(MyCommands):
             macros = pipe_macros if name in pipe_macros	else source_macros
             macro = macros[name]
             view = MacroView(macro, macros)
-            view.set_message(await ctx.send(embed=macro.embed(ctx), view=view))
+            embed = macro.embed(bot=self.bot, guild=ctx.guild)
+            view.set_message(await ctx.send(embed=embed, view=view))
 
         ## List pipes in a specific category
         elif uname != '' and uname in pipes.categories:
@@ -86,22 +86,21 @@ class PipeCommands(MyCommands):
             await ctx.send(texttools.block_format('\n'.join(infos)))
 
     @commands.command(aliases=['source'], hidden=True)
-    async def sources(self, ctx, name=''):
+    async def sources(self, ctx: commands.Context, name=''):
         '''Print a list of all sources and their descriptions, or details on a specific source.'''
         name = name.lower()
         uname = name.upper()
 
         # Info on a specific source
         if name != '' and name in sources:
-            embed = sources[name].embed()
-            embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar)
+            embed = sources[name].embed(bot=self.bot)
             await ctx.send(embed=embed)
 
         # Info on a macro source
         elif name != '' and name in source_macros:
             source_macro = source_macros[name]
             view = MacroView(source_macro, source_macros)
-            view.set_message(await ctx.send(embed=source_macro.embed(ctx), view=view))
+            view.set_message(await ctx.send(embed=source_macro.embed(bot=self.bot, guild=ctx.guild), view=view))
 
         # Sources in a specific category
         elif uname != '' and uname in sources.categories:
@@ -150,9 +149,7 @@ class PipeCommands(MyCommands):
 
         # Info on a specific spout
         if name != '' and name in spouts or name in pipes:
-            embed = (spouts if name in spouts else pipes)[name].embed()
-            # bot takes credit for native spouts
-            embed.set_footer(text=self.bot.user.name, icon_url=self.bot.user.avatar)
+            embed = (spouts if name in spouts else pipes)[name].embed(bot=self.bot)
             await ctx.send(embed=embed)
 
         # Info on all spouts

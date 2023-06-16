@@ -35,7 +35,7 @@ class PipeSlashCommands(MyCommands):
             return await reply(f'Command failed, likely due to nonexistent scriptoid.', ephemeral=True)            
 
         # Get embed
-        embed = scriptoid.embed(interaction)
+        embed = scriptoid.embed(bot=self.bot, channel=interaction.channel, guild=interaction.guild)
         view = utils.MISSING
 
         # Take credit for native scriptoids

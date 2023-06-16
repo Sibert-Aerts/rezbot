@@ -36,16 +36,15 @@ class Event:
         guild_channels = [c.id for c in guild.channels]
         self.channels = [c for c in self.channels if not c in guild_channels]
 
-    def embed(self, ctx=None, channel: TextChannel=None):
-        channel = channel or ctx.channel
-        guild = channel.guild
+    def embed(self, *, channel: TextChannel=None, **kwargs):
+        if channel:
+            desc = '{}abled in this channel'.format( 'En' if self.is_enabled(channel) else 'Dis' )
+        embed = Embed(title='Event: ' + self.name, description=channel and desc, color=0x7628cc)
 
-        desc = '{}abled in this channel'.format( 'En' if self.is_enabled(channel) else 'Dis' )
-        embed = Embed(title='Event: ' + self.name, description=desc, color=0x7628cc)
-        
-        ### List of the current server's channels it's enabled in
-        channels = [ ch.mention for ch in guild.text_channels if ch.id in self.channels ]
-        embed.add_field(name='Enabled channels', value=', '.join(channels) or 'None', inline=True)
+        if channel:
+            ### List of the current server's channels it's enabled in
+            channels = [ ch.mention for ch in channel.guild.text_channels if ch.id in self.channels ]
+            embed.add_field(name='Enabled channels', value=', '.join(channels) or 'None', inline=True)
 
         ## Script
         embed.add_field(name='Script', value=block_format(self.script), inline=False)
@@ -79,8 +78,8 @@ class OnMessage(Event):
     def __str__(self):
         return '**{}**: ON MESSAGE `{}`'.format(self.name, self.patternstr)
 
-    def embed(self, ctx=None, **kwargs):
-        embed = super().embed(ctx, **kwargs)
+    def embed(self, **kwargs):
+        embed = super().embed(**kwargs)
         return embed.insert_field_at(0, name='On message', value='`%s`' % self.patternstr, inline=True)
         
 
@@ -108,8 +107,8 @@ class OnReaction(Event):
     def __str__(self):
         return '**{}**: ON REACTION `{}`'.format(self.name, ','.join(self.emotes))
 
-    def embed(self, ctx=None, **kwargs):
-        embed = super().embed(ctx, **kwargs)
+    def embed(self, **kwargs):
+        embed = super().embed(**kwargs)
         return embed.insert_field_at(0, name='On reaction', value=','.join(self.emotes), inline=True)
 
 ###############################################################

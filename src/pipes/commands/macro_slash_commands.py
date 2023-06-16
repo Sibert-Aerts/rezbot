@@ -126,7 +126,8 @@ class MacroSlashCommands(MyCommands):
         macro = Macro(macros.kind, name, code, author.name, author.id, desc=description, visible=not hidden)
         macros[name] = macro
         view = MacroView(macro, macros)
-        view.set_message(await reply(f'Successfully defined a new {macro_type} macro.', embed=macro.embed(interaction), view=view))
+        embed = macro.embed(bot=self.bot, guild=interaction.guild)
+        view.set_message(await reply(f'Successfully defined a new {macro_type} macro.', embed=embed, view=view))
 
     @macro_group.command(name='edit')
     @app_commands.describe(
@@ -169,7 +170,8 @@ class MacroSlashCommands(MyCommands):
 
         macros.write()
         view = MacroView(macro, macros)
-        view.set_message(await reply(f'Successfully edited the {macro.kind} Macro.', embed=macro.embed(interaction), view=view))
+        embed = macro.embed(bot=self.bot, guild=interaction.guild)
+        view.set_message(await reply(f'Successfully edited the {macro.kind} Macro.', embed=embed, view=view))
 
     @macro_group.command(name='delete')
     @app_commands.describe(macro_choice="The Macro to delete")
@@ -232,7 +234,8 @@ class MacroSlashCommands(MyCommands):
 
         macros.write()
         verbed = 'deleted' if delete else 'overwrote' if existed else 'added'
-        await reply(f'Successfully {verbed} parameter `{param}` on {macro.kind} Macro {macro.name}.', embed=macro.embed(interaction))
+        embed = macro.embed(bot=self.bot, guild=interaction.guild)
+        await reply(f'Successfully {verbed} parameter `{param}` on {macro.kind} Macro {macro.name}.', embed=embed)
 
 
 # Load the bot cog

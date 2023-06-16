@@ -39,7 +39,7 @@ class EventCommands(MyCommands):
                 return
             event = events[name]
             view = EventView(event, events, ctx.channel)
-            view.set_message(await ctx.send(embed=event.embed(ctx), view=view))
+            view.set_message(await ctx.send(embed=event.embed(channel=ctx.channel), view=view))
 
     @commands.command(aliases=['enable_events'], hidden=True)
     @commands.guild_only()

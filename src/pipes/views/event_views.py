@@ -27,7 +27,7 @@ class EditEventModal(ui.Modal):
         if isinstance(self.event, (OnMessage, OnReaction)):
             self.event.update(self.script_input.value, self.trigger_input.value)
         # events.write() is called by the View
-        await interaction.response.edit_message(embed=self.event.embed(interaction))
+        await interaction.response.edit_message(embed=self.event.embed(channel=interaction.channel))
         self.confirmed = True
 
 
@@ -85,7 +85,7 @@ class EventView(ui.View):
             self.event.channels.append(self.channel.id)
         self.events.write()
         self._on_change_enable()
-        await interaction.response.edit_message(embed=self.event.embed(interaction), view=self)
+        await interaction.response.edit_message(embed=self.event.embed(channel=interaction.channel), view=self)
 
     @ui.button(row=0, label='Disable everywhere', style=ButtonStyle.gray)
     async def button_disable_everywhere(self, interaction: Interaction, button: ui.Button):
@@ -93,7 +93,7 @@ class EventView(ui.View):
         self.event.disable_in_guild(interaction.guild)
         self.events.write()
         self._on_change_enable()
-        await interaction.response.edit_message(embed=self.event.embed(interaction), view=self)
+        await interaction.response.edit_message(embed=self.event.embed(channel=interaction.channel), view=self)
 
     @ui.button(row=0, style=ButtonStyle.danger, emoji='✖')
     async def button_delete(self, interaction: Interaction, button: ui.Button):
