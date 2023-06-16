@@ -37,7 +37,7 @@ class Pipeoid():
         self.category = category
         self.signature = signature
         if doc:
-            self.doc = dedent(doc).lstrip()
+            self.doc = dedent(doc).strip()
             self.small_doc = self.doc.split('\n', 1)[0]
         if may_use:
             self.may_use = may_use
@@ -64,10 +64,32 @@ class Pipeoid():
             out += '\n'.join(f'• {s}: {self.signature[s]}' for s in self.signature)
         return out
 
+    def _get_github_url(self, func: 'function'):
+        while getattr(func, '__wrapped__', False):
+            func = func.__wrapped__
+        code = func.__code__
+        file_path = code.co_filename.replace('\\', '/')
+        line = code.co_firstlineno
+        if (i := file_path.find('/src/pipes/')) > 0:
+            return f'https://github.com/sibert-aerts/rezbot/blob/master{file_path[i:]}#L{line}'
+        return None
+
+    def get_source_code_url(self):
+        return None
+
     def embed(self, ctx=None):
-        embed = Embed(title=str(self), description=self.doc, color=0xfdca4b)
+        title = str(self)
+        if self.aliases:
+            title += ' (' + ', '.join(self.aliases) + ')'
+
+        description = self.doc or ''    
+        if (source_url := self.get_source_code_url()):
+            description += f'\n[(View source)]({source_url})'
+
+        embed = Embed(title=title, description=description, color=0xfdca4b)
+
         if self.signature:
-            sig = '\n'.join(f'__{s}:__ {self.signature[s]}' for s in self.signature)
+            sig = '\n'.join(str(self.signature[s]) for s in self.signature)
             embed.add_field(name='Parameters', value=sig, inline=False)
         return embed
 
@@ -90,6 +112,8 @@ class Pipe(Pipeoid):
         # TODO: Call may_use here?
         return self.pipe_function(items, **args)
 
+    def get_source_code_url(self):
+        return self._get_github_url(self.pipe_function)
 
 class Source(Pipeoid):
     '''
@@ -122,10 +146,11 @@ class Source(Pipeoid):
             elif 'N' in args: args['N'] = int(n)
         return self.source_function(context, **args)
 
+    def get_source_code_url(self):
+        return self._get_github_url(self.source_function)
+
     def embed(self, ctx=None):
         embed = super().embed(ctx=ctx)
-        if self.plural and self.plural != self.name:
-            embed.title += ' (' + self.plural + ')'
         if self.depletable:
             embed.title += ' `depletable`'
         return embed
@@ -141,13 +166,16 @@ class Spout(Pipeoid):
         super().__init__(signature=signature, **kwargs)
         self.spout_function = function
 
+    def get_source_code_url(self):
+        return self._get_github_url(self.spout_function)
+
     def hook(self, items: list[str], **args):
         # DOES NOT actually call the underlying function yet, but returns the tuple of items so it can be done later...
         return (self.spout_function, args, items)
 
 
 
-P = TypeVar("P")
+P = TypeVar('P', bound=Pipeoid)
 
 class PipeoidStore(Generic[P]):
     ''' A class for storing/mapping multiple Pipeoid instances. '''
@@ -189,10 +217,10 @@ class PipeoidStore(Generic[P]):
         return (name in self.by_name)
 
     def __len__(self):
-        return len(self.by_name)
+        return len(self.by_primary_name)
 
     def __iter__(self):
-        return (i for i in self.by_primary_name)
+        return self.by_primary_name.__iter__()
 
     def values(self): 
         return self.by_primary_name.values()

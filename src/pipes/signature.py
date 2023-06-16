@@ -25,7 +25,7 @@ class Par:
     name: str
     default: T
 
-    def __init__(self, type: Callable[[str], T], default: str | T=None, desc: str=None, check: Callable[[T], bool]=None, required: bool=None):
+    def __init__(self, type: Callable[[str], T], default: str | T=None, desc: str=None, check: Callable[[T], bool]=None, required: bool=True):
         '''
         Arguments:
             type: A "type" as described in signature_types.py; a callable (str -> T) with a __name__.
@@ -39,17 +39,21 @@ class Par:
         self.default = default if not isinstance(default, str) else type(default)
         self.desc = desc
         self.checkfun = check
-        self.required = required if required is not None else (default is None)
+        self.required = required and (default is None)
         
     def __str__(self):
-        out = []
+        ''' Make the representation string. '''
+        out = [f'* **{self.name}:**']
         if self.desc:
             out.append(' ' + self.desc)
-        out.append(' (' + self.type.__name__)
+        out.append(' (*' + self.type.__name__ + '*')
         if self.required:
             out.append(', REQUIRED')
-        elif self.default is not None:
-            out.append(f', default: `{self.default}`')
+        else:
+            if isinstance(self.default, str):
+                out.append(f', default: "{self.default}"')
+            else:
+                out.append(f', default: `{self.default}`')
         out.append(')')
         return ''.join(out)
 

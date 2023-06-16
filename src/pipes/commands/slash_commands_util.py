@@ -8,7 +8,7 @@ from pipes.pipe import Pipeoid, Pipe, Source, Spout, Pipes, Sources, Spouts
 from pipes.implementations.pipes import pipes
 from pipes.implementations.sources import sources
 from pipes.implementations.spouts import spouts
-from pipes.macros import Macros, Macro, MacroSig, pipe_macros, source_macros
+from pipes.macros import Macros, Macro, pipe_macros, source_macros
 from pipes.events import Event, Events, OnMessage, OnReaction, events
 from .macro_commands import check_pipe_macro, check_source_macro
 from utils.util import normalize_name

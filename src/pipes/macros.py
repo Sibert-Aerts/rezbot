@@ -13,19 +13,20 @@ def DIR(filename=''):
     return os.path.join(os.path.dirname(__file__), 'macros', filename)
 
 class MacroSig:
+    # NOTE: Serialized; do not rename.
     def __init__(self, name, default=None, desc=None):
         self.name = name
         self.default = default
         self.desc = desc
 
     def __str__(self):
-        out = '__' + self.name + ':__ '
+        out = '* **' + self.name + ':**'
         if self.desc:
-            out += self.desc
+            out += ' ' + self.desc or ''
         if self.default:
-            out += ' (Default: ' + self.default + ')'
+            out += ' (default: "' + self.default + '")'
         else:
-            out += ' **Required**'
+            out += ' (REQUIRED)'
         return out
 
 
@@ -40,7 +41,7 @@ class Macro:
         self.desc: str = desc
         self.visible: bool = visible
         self.command: bool = command
-        self.signature = {}
+        self.signature: dict[str, MacroSig] = {}
 
     def v3_to_v4(self, kind):
         if self.version != 3: return self
@@ -51,7 +52,7 @@ class Macro:
 
     def embed(self, ctx=None):
         title = self.name + (' `hidden`' if not self.visible else '')
-        embed = Embed(title=self.kind + ' Macro: ' + title, description=(self.desc or ''), color=0x06ff83)
+        embed = Embed(title=self.kind + ' Macro: ' + title, description=self.desc, color=0x06ff83)
 
         ### Parameter list
         if self.signature:

@@ -43,9 +43,9 @@ class PipeGPTComplete:
         return permissions.has(user.id, permissions.trusted)
 
     @with_signature(
-        n                 = Par(int, 1, 'The amount of completions to generate.'),
-        max_tokens        = Par(int, 50, 'The limit of tokens to generate per completion, includes prompt.'),
-        temperature       = Par(float, .7, 'Value between 0 and 1 determining how creative/unhinged the generation is.'),
+        n                 = Par(int, 1, 'The number of completions to generate.', check=lambda n: n <= 10),
+        max_tokens        = Par(int, 50, 'The limit of tokens to generate per completion, does not include prompt.'),
+        temperature       = Par(float, .7, 'Value between 0 and 2 determining how creative/unhinged the generation is.'),
         model             = Par(str, 'ada', 'The GPT model to use, generally: ada/babbage/curie/davinci.'),
         presence_penalty  = Par(float, 0, 'Value between -2 and 2, positive values discourage reusing already present words.'),
         frequency_penalty = Par(float, 0, 'Value between -2 and 2, positive values discourage reusing frequently used words.'),
