@@ -50,7 +50,9 @@ class Par:
         if self.required:
             out.append(', REQUIRED')
         else:
-            if isinstance(self.default, str):
+            if self.type == url:
+                out.append(f', default: "<{self.default}>"')
+            elif isinstance(self.default, str):
                 out.append(f', default: "{self.default}"')
             else:
                 out.append(f', default: `{self.default}`')

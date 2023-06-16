@@ -126,13 +126,13 @@ class PipelineWithOrigin:
         try:
             await context.channel.send(embed=errors.embed(name=context.origin.name))
         except:
-            newErrors = ErrorLog()
-            newErrors.terminal = errors.terminal
-            newErrors.log(
+            new_errors = ErrorLog()
+            new_errors.terminal = errors.terminal
+            new_errors.log(
                 f'🙈 {"Error" if errors.terminal else "Warning"} log too big to reasonably display...'
                 '\nDoes your script perhaps contain an infinite recursion?'
             )
-            await context.channel.send(embed=newErrors.embed(name=context.origin.name))
+            await context.channel.send(embed=new_errors.embed(name=context.origin.name))
 
     # ====================================== Execution method ======================================
 

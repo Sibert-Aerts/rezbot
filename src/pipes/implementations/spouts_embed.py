@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from discord import Embed
 
-from .spouts import spout_from_class, spout_from_func, set_category, Par, with_signature
+from .spouts import spout_from_class, spout_from_func, set_category, Par, with_signature, Context
 from pipes.signature import url, Hex
 
 
@@ -28,7 +28,7 @@ class SpoutEmbed:
         timestamp   = Par(int, None, 'A timestamp representing the date that shows up in the footer.', required=False),
     )
     @staticmethod
-    async def spout_function(bot, ctx, values, color, title, author, author_icon, link, thumb, image, footer, footer_icon, timestamp):
+    async def spout_function(bot, ctx: Context, *, values, color, title, author, author_icon, link, thumb, image, footer, footer_icon, timestamp):
         ''' Outputs text as the body of a Discord embed box.'''
         embed = Embed(title=title, description='\n'.join(values), color=color, url=link)
 
@@ -49,14 +49,14 @@ class SpoutEmbed:
 
 
 @spout_from_func({
-    'name':     Par(str, 'test_user', 'The account\'s display name.'),
-    'handle':   Par(str, 'test_user', 'The account\'s handle, (without the @).'),
+    'name':     Par(str, 'Twitter User', 'The account\'s display name.'),
+    'handle':   Par(str, 'twitter_user', 'The account\'s handle, (without the @).'),
     'icon':     Par(url, 'https://abs.twimg.com/sticky/default_profile_images/default_profile_400x400.png', 'URL linking to their profile picture.'),
     'retweets': Par(str, '', 'The number of retweets, hidden if empty.'),
     'likes':    Par(str, '', 'The number of likes, hidden if empty.'),
     'timestamp':Par(int, None, 'Time the tweet was sent, "now" if empty.', required=False),
 }, command=True)
-async def tweet_spout(bot, ctx, values, name, handle, icon, retweets, likes, timestamp):
+async def tweet_spout(bot, ctx: Context, *, values, name, handle, icon, retweets, likes, timestamp):
     ''' Outputs text as a fake tweet embed. '''
     embed = Embed(description='\n'.join(values), color=0x1da1f2)
     embed.set_author(name=f'{name} (@{handle})', url='https://twitter.com/'+handle, icon_url=icon)
