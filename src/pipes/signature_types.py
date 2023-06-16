@@ -84,20 +84,33 @@ class Option:
         def __repr__(self): return self.str
         def __str__(self): return self.str
 
-    def __init__(self, *options, name='option', case_sensitive=False, prefer_upper=False, stringy=False):
+    def __init__(self, *options, name='option', aliases: dict[str, list[str]]=None, case_sensitive=False, prefer_upper=False, stringy=False):
         self.__name__ = name
         self._case_sens = case_sensitive
         self._stringy = stringy
         self._pref_upp = prefer_upper
 
+        aliases = aliases or {}
+        make_case = lambda x: x.upper() if prefer_upper else x.lower()
         if not case_sensitive:
-            options = [opt.upper() if prefer_upper else opt.lower() for opt in options]
+            options = [make_case(opt) for opt in options]
+            aliases = {make_case(x): [make_case(y) for y in aliases[x]] for x in aliases}
+
         self._options = options
+        self._aliases = aliases
         for option in self._options:
             setattr(self, option, option if stringy else Option.Str(option))
+        for aliassed in self._aliases:
+            if not aliassed in self._options:
+                raise Exception(f'Alias to unknown value {aliassed}')
+            for alias in self._aliases[aliassed]:
+                if hasattr(self, alias):
+                    raise Exception(f'Alias would overwrite existing attribute or alias {alias}')
+                setattr(self, alias, getattr(self, aliassed))
         
     def __call__(self, text):
-        if not self._case_sens: text = text.upper() if self._pref_upp else text.lower()
+        if not self._case_sens:
+            text = text.upper() if self._pref_upp else text.lower()
         if hasattr(self, text):
             return getattr(self, text)
         if len(self._options) <= 8:
@@ -105,9 +118,17 @@ class Option:
         raise ValueError(f'Unknown {self.__name__} "{text}"')
 
     def __add__(self, other):
-        if isinstance(other, list):
-            return Option(*self._options, *other, name=self.__name__, case_sensitive=self._case_sens, stringy=self._stringy)
-        raise Exception('Option can only be added to list')
+        if not isinstance(other, list):
+            raise Exception('Option can only be added to list')
+        return Option(
+            *self._options,
+            *other,
+            name=self.__name__,
+            aliases=self._aliases,
+            case_sensitive=self._case_sens,
+            prefer_upper=self._pref_upp,
+            stringy=self._stringy,
+        )
 
     def __iter__(self):
         return self._options.__iter__()

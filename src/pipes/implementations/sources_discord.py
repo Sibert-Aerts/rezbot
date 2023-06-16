@@ -89,13 +89,18 @@ async def previous_message_source(ctx: Context, n, i, what, by):
 
 #### MEMBERS ########################################
 
-MEMBER_WHAT = Option('nickname', 'username', 'id', 'avatar', 'activity', 'color')
+MEMBER_WHAT = Option('name', 'global_name', 'username', 'mention', 'id', 'avatar', 'activity', 'color',
+    aliases={'name': ['display_name', 'nickname'], 'username': ['handle']})
 @get_which
 def members_get_what(members: list[discord.Member], what):
-    if what == MEMBER_WHAT.nickname:
+    if what == MEMBER_WHAT.display_name:
         return (member.display_name for member in members)
+    elif what == MEMBER_WHAT.global_name:
+        return (member.global_name or '' for member in members)
     elif what == MEMBER_WHAT.username:
         return (member.name for member in members)
+    elif what == MEMBER_WHAT.mention:
+        return (member.mention for member in members)
     elif what == MEMBER_WHAT.id:
         return (str(member.id) for member in members)
     elif what == MEMBER_WHAT.avatar:
@@ -107,7 +112,7 @@ def members_get_what(members: list[discord.Member], what):
 
 @source_from_func(aliases=['my'])
 @with_signature(
-    what = Par(Multi(MEMBER_WHAT), 'nickname', '/'.join(MEMBER_WHAT)),
+    what = Par(Multi(MEMBER_WHAT), 'name', '/'.join(MEMBER_WHAT)),
 )
 async def me_source(ctx: Context, what):
     '''The name (or other attribute) of the member invoking the script or event.'''
@@ -116,11 +121,11 @@ async def me_source(ctx: Context, what):
     return members_get_what([ctx.activator], what)
 
 
-@source_from_func(aliases=['their'])
+@source_from_func(aliases=['them', 'their'])
 @with_signature(
-    what = Par(Multi(MEMBER_WHAT), 'nickname', '/'.join(MEMBER_WHAT)),
+    what = Par(Multi(MEMBER_WHAT), 'name', '/'.join(MEMBER_WHAT)),
 )
-async def them_source(ctx: Context, what):
+async def they_source(ctx: Context, what):
     '''
     The name (or other attribute) of the member who is the 'subject' in the current context.
 
@@ -146,9 +151,9 @@ async def them_source(ctx: Context, what):
 @source_from_func(depletable=True)
 @with_signature(
     n    = Par(int, 1, 'The maximum number of members to return.'),
-    what = Par(Multi(MEMBER_WHAT), 'nickname', '/'.join(MEMBER_WHAT)),
+    what = Par(Multi(MEMBER_WHAT), 'name', '/'.join(MEMBER_WHAT)),
     id   = Par(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
-    name = Par(regex, None, 'A pattern that should match their nickname or username.', required=False),
+    name = Par(regex, None, 'A pattern that should match their one of their names.', required=False),
     # rank = Par(...)?
 )
 async def member_source(ctx: Context, n, what, id, name):
@@ -159,7 +164,10 @@ async def member_source(ctx: Context, n, what, id, name):
     if id:
         members = [m for m in members if m.id == id]
     if name:
-        members = [m for m in members if name.search(m.display_name) or name.search(m.name)]
+        members = [
+            m for m in members if
+            m.nick and name.search(m.nick) or m.global_name and name.search(m.global_name) or name.search(m.name)
+        ]
 
     # Take a random sample
     members = sample(members, n)
