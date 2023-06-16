@@ -2,7 +2,7 @@ from datetime import timezone
 import discord
 
 from .sources import source_from_func, get_which, set_category, SourceResources, Context
-from pipes.signature import Par, Option, Multi, regex, parse_bool
+from pipes.signature import Par, Option, Multi, regex, parse_bool, with_signature
 from pipes.context import ContextError
 
 from utils.texttools import *
@@ -35,7 +35,7 @@ async def that_source(ctx: Context, what):
     message = ctx.message
     if message.reference and message.reference.message_id:
         msg_id = message.reference.message_id
-        msg = await message.channel.fetch_message(msg_id)        
+        msg = await ctx.channel.fetch_message(msg_id)
     else:
         msg = [ msg async for msg in message.channel.history(limit=2) ][1]
     return messages_get_what([msg], what)
@@ -105,25 +105,54 @@ def members_get_what(members: list[discord.Member], what):
     elif what == MEMBER_WHAT.color:
         return (str(member.color) for member in members)
 
-@source_from_func({
-    'what': Par(Multi(MEMBER_WHAT), 'nickname', '/'.join(MEMBER_WHAT))
-})
+@source_from_func(aliases=['my'])
+@with_signature(
+    what = Par(Multi(MEMBER_WHAT), 'nickname', '/'.join(MEMBER_WHAT)),
+)
 async def me_source(ctx: Context, what):
-    '''The name (or other attribute) of the user invoking the script or event.'''
+    '''The name (or other attribute) of the member invoking the script or event.'''
     if not ctx.activator:
         raise ContextError('No known "me" in the current context.')
     return members_get_what([ctx.activator], what)
 
 
-@source_from_func({
-    'n'   : Par(int, 1, 'The maximum number of members to return.'),
-    'what': Par(Multi(MEMBER_WHAT), 'nickname', '/'.join(MEMBER_WHAT)),
-    'id'  : Par(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
-    'name': Par(regex, None, 'A pattern that should match their nickname or username.', required=False),
-    # 'rank': ...?
-}, depletable=True)
+@source_from_func(aliases=['their'])
+@with_signature(
+    what = Par(Multi(MEMBER_WHAT), 'nickname', '/'.join(MEMBER_WHAT)),
+)
+async def them_source(ctx: Context, what):
+    '''
+    The name (or other attribute) of the member who is the 'subject' in the current context.
+
+    In context of an OnReact Event, represents the author of the reacted-to message.
+    Otherwise, in a context where the triggering message is replying to another message, represents the replied message's author.
+    '''
+    them = None
+    if ctx.activator and ctx.message and ctx.activator != ctx.message.author:
+        # Case 1: Activator and message.author are not the same (e.g. in an OnReact event)
+        #   i.e. {them} is the same as {member id={message author_id}}
+        them = ctx.message.author
+    elif ctx.message.reference and ctx.message.reference.message_id:
+        # Case 2: Context message is replying to another message
+        #   i.e. {them} is the same as {member id={that author_id}}
+        msg_id = ctx.message.reference.message_id
+        msg = await ctx.channel.fetch_message(msg_id)
+        them = msg.author
+    else:
+        raise ContextError('No known "them" in the current context.')
+    return members_get_what([them], what)
+
+
+@source_from_func(depletable=True)
+@with_signature(
+    n    = Par(int, 1, 'The maximum number of members to return.'),
+    what = Par(Multi(MEMBER_WHAT), 'nickname', '/'.join(MEMBER_WHAT)),
+    id   = Par(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
+    name = Par(regex, None, 'A pattern that should match their nickname or username.', required=False),
+    # rank = Par(...)?
+)
 async def member_source(ctx: Context, n, what, id, name):
-    '''The name (or other attribute) of a random Server member meeting the filters.'''
+    '''The name (or other attribute) of a server member.'''
     members = ctx.message.guild.members
 
     # Filter if necessary
@@ -134,8 +163,8 @@ async def member_source(ctx: Context, n, what, id, name):
 
     # Take a random sample
     members = sample(members, n)
-
     return members_get_what(members, what)
+
 
 #### CHANNEL ########################################
 
@@ -159,6 +188,7 @@ async def channel_source(ctx: Context, what):
         return [channel.mention]
     if what == CHANNEL_WHAT.is_nsfw:
         return [str(channel.nsfw)]
+
 
 #### SERVER ########################################
 
