@@ -72,14 +72,21 @@ class ItemScope:
 
 class Context:
     '''
-    An object providing context to the execution/evaluation of a Rezbot script.
+    An object providing context downstream along the execution/evaluation of a Rezbot script.
     '''
     # ======== Owned types
 
     class Origin:
         '''
         An object storing information related to how and why a script's execution was initiated.
-        '''    
+        '''
+        # TODO: Does this need to be a sub-object? The reason I made the separation is that
+        #   every single sub-Context should not change any of the values contained within it;
+        #   i.e. they're a kind of 'higher context' than a single Context strictly represents.
+        # But does that need to be a different sub-object, isn't that just annoying?
+        # Also strictly speaking, most of the properties of Context don't actually ever need to change,
+        #   only `author` and that's only in the context of a Macro, so you could make that like macro_author,
+        #   or like a property that either returns macro.author or origin.author or whatev.
         class Type:
             UNKNOWN = object()
             DIRECT = object()
@@ -138,6 +145,8 @@ class Context:
 
     # ======== Execution state we rolled into this object for "convenience"
 
+    # TODO: Kick this guy back out, sure we're both "downstream", but this guy has different start and end points to its life cycle.
+    #   Let him live his own life and not interrupt with ours, even if that means one more variable we're passing around for a little bit of time.
     item_scope: ItemScope
 
 

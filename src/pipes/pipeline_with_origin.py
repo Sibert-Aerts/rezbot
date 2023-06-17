@@ -189,26 +189,32 @@ class PipelineWithOrigin:
                 * Making sure all encountered Spouts' effects happen
             '''
             errors = ErrorLog()
-            spout_callbacks = spout_state.callbacks
-            print_values = spout_state.print_values
 
             ## Put the thing there
             if context.origin.type == Context.Origin.Type.DIRECT:
                 SourceResources.previous_pipeline_output[context.channel] = end_values
 
-            ## Print the output!
-            # TODO: auto-print if the last pipe was not a spout, or something
-            if not spout_callbacks or any( callback is spouts['print'].spout_function for (callback, _, _) in spout_callbacks ):
-                print_values.append(end_values)
-                await self.send_print_values(context.channel, print_values)
+            ## Perform `print` if either: No other spout has been encountered all script OR if a print spout has been explicitly encountered
+            # TODO: This isn't perfect yet
+            if not spout_state.anything() or any(spout is spouts['print'] for spout, _, _ in spout_state.callbacks):
+                spout_state.print_values.append(end_values)
+                await self.send_print_values(context.channel, spout_state.print_values)
 
-            ## Perform all Spouts (TODO: MAKE THIS BETTER)
-            for callback, args, values in spout_callbacks:
+            ## Perform all simple style Spout callbacks
+            for spout, values, args in spout_state.callbacks:
                 try:
-                    await callback(bot, context, values, **args)
+                    await spout.spout_function(bot, context, values, **args)
                 except Exception as e:
-                    errors(f'Failed to execute spout `{callback.__name__}`:\n\t{type(e).__name__}: {e}', True)
-                    break
+                    errors.log(f'Failed to execute spout `{spout.name}`:\n\t{type(e).__name__}: {e}', True)
+                    return errors
+
+            ## Perform all aggregated-style Spout callbacks
+            for spout in spout_state.aggregated_spouts:
+                try:
+                    await spout.spout_function(bot, context, spout_state.aggregated[spout.name])
+                except Exception as e:
+                    errors.log(f'Failed to execute spout `{spout.name}`:\n\t{type(e).__name__}: {e}', True)
+                    return errors
 
             return errors
 

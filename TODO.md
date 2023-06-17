@@ -10,7 +10,6 @@
     * Probably useful to have some kind of generic RezbotView base class
         * When bot dies (through >die or otherwise?) close (= run ontimeout) ALL UI Views
 
-    * Way to coalesce multiple buttons into a single View, perhaps onto a single message
     * Multiple text inputs on a single modal?
         * label1, label2, label3, ...?
         * input_label1, input_label2, input_label3, ...?

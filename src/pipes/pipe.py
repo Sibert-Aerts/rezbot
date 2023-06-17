@@ -1,15 +1,21 @@
+'''
+This file contains the definitions for the base class Pipeoid and deriving classes Source, Pipe and Spout.
+These define the basic model and interface for those scripting entities.
+'''
+
 from collections import defaultdict
 import inspect
 from textwrap import dedent
 import discord
 from discord import Embed
 
-from .signature import Signature
-from .context import Context
+from pipes.signature import Signature
+from pipes.context import Context
+from pipes.spout_state import SpoutState
 from typing import Callable, Any, Generic, TypeVar
 
 
-class Pipeoid():
+class Pipeoid:
     '''
     Base class of Pipe, Source and Spout. 
     '''
@@ -120,6 +126,7 @@ class Pipe(Pipeoid):
     def get_source_code_url(self):
         return self._get_github_url(self.pipe_function)
 
+
 class Source(Pipeoid):
     '''
     Represents something which generates strings in a script.
@@ -165,19 +172,34 @@ class Spout(Pipeoid):
     '''
     Represents something which strictly performs side-effects in a script.
     '''
-    spout_function: Callable[..., None]
+    class Mode:
+        simple = object()
+        '''Spout which straightforwardly receives one set of values and args in its callback.'''
+        aggregated = object()
+        '''Spout which acts based on the complete SpoutState in its callback.'''
     
-    def __init__(self, signature: Signature, function: Callable[..., None], **kwargs):
+    spout_function: Callable[..., None]
+    mode: Mode = Mode.simple
+    
+    def __init__(self, signature: Signature, function: Callable[..., None], mode: Mode=None, **kwargs):
         super().__init__(signature=signature, **kwargs)
         self.spout_function = function
+        self.mode = mode or self.mode
 
     def get_source_code_url(self):
         return self._get_github_url(self.spout_function)
 
-    def hook(self, items: list[str], **args):
-        # DOES NOT actually call the underlying function yet, but returns the tuple of items so it can be done later...
-        return (self.spout_function, args, items)
+    def hook(self, spout_state: SpoutState, items: list[str], **args):
+        if self.mode == Spout.Mode.simple:
+            # Classic system: Spouts that are simply independent function calls at the end of execution
+            spout_state.add_simple_callback(self, items, args)
 
+        elif self.mode == Spout.Mode.aggregated:
+            # New system: Spouts can work on the aggregated data from multiple calls
+            spout_state.add_aggregated_callback(self, items, args)
+
+        else:
+            raise Exception(f'Spout {self.name} has invalid mode.')
 
 
 P = TypeVar('P', bound=Pipeoid)

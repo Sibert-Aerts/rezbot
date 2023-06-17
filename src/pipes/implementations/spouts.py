@@ -48,6 +48,7 @@ def spout_from_class(cls: type[T]) -> type[T]:
     name: str
     aliases: list[str]=None
     command: bool=False
+    mode: Spout.Mode=Spout.Mode.functional
 
     # Methods:
     @with_signature(...)
@@ -64,6 +65,7 @@ def spout_from_class(cls: type[T]) -> type[T]:
     spout = Spout(
         get_signature(cls.spout_function),
         cls.spout_function,
+        mode=get('mode'),
         name=cls.name,
         doc=cls.__doc__ or cls.spout_function.__doc__,
         category=_SPOUT_CATEGORY,

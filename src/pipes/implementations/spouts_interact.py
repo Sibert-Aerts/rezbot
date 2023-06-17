@@ -1,6 +1,7 @@
+from operator import itemgetter
 from discord import Client, Interaction, ui, ButtonStyle, TextStyle
 
-from .spouts import spout_from_class, spout_from_func, set_category, with_signature, Par, Context
+from .spouts import spout_from_class, spout_from_func, set_category, with_signature, Par, Context, Spout
 from pipes.signature import Option, parse_bool
 from pipes.pipeline_with_origin import PipelineWithOrigin
 
@@ -13,15 +14,17 @@ set_category('INTERACT')
 @spout_from_class
 class ButtonSpout:
     '''
-    Creates a message with a Discord UI Button, which may execute a callback script.
+    Creates a Discord UI Button which may execute a callback script.
     Callback script will have an Interaction in its Context (if not deferred).
     '''
     name = 'button'
     command = True
-    
+    mode = Spout.Mode.aggregated
+
     ButtonStyleOption = Option('primary', 'secondary', 'success', 'danger', name='ButtonStyle', stringy=True)
-    
+
     class Button(ui.Button):
+        '''Button which executes a given script on click.'''
         def set_spout_args(self, bot: Client, ctx: Context, script: PipelineWithOrigin, defer: bool):
             # NOTE: These values may hang around for a while, be wary of memory leaks
             self.bot = bot
@@ -49,16 +52,19 @@ class ButtonSpout:
             await self.script.execute(self.bot, context)
 
     class View(ui.View):
-        def __init__(self, button: ui.Button, **kwargs):
+        '''Simple view which shows several buttons and disables them on timeout.'''
+        def __init__(self, buttons: ui.Button, **kwargs):
             super().__init__(**kwargs)
-            self.button = button
-            self.add_item(button)
+            self.buttons = buttons
+            for button in buttons:
+                self.add_item(button)
 
         def set_message(self, message):
             self.message = message
 
         async def on_timeout(self):
-            self.button.disabled = True
+            for button in self.buttons:
+                button.disabled = True
             await self.message.edit(view=self)
 
     @with_signature(
@@ -70,13 +76,24 @@ class ButtonSpout:
         defer   = Par(parse_bool, default=True, desc='Whether to instantly defer (=close) the Interaction generated, set to False if you want to respond yourself.'),
     )
     @staticmethod
-    async def spout_function(bot: Client, ctx: Context, values, *, script, label, style, emoji, timeout, defer):
-        if not label and not emoji:
-            raise ValueError('A button should have at least a `label` or `emoji`.')
-        button = ButtonSpout.Button(label=label, emoji=emoji, style=getattr(ButtonStyle, style))
-        button.set_spout_args(bot, ctx, script, defer)
-        view = ButtonSpout.View(button, timeout=timeout)
-        view.set_message(await ctx.channel.send(view=view))
+    async def spout_function(bot: Client, ctx: Context, values_and_args_list: list[tuple[list[str], dict[str]]]):
+        timeouts = [a['timeout'] for _, a in values_and_args_list]
+        max_timeout = 0 if any(t==0 for t in timeouts) else max(*timeouts)
+
+        buttons = []
+        for _, args in values_and_args_list:
+            script, label, emoji, style, defer = itemgetter('script', 'label', 'emoji', 'style', 'defer')(args)
+            # TODO: This error should be emitted at hook time, not right now
+            if not label and not emoji:
+                raise ValueError('A button should have at least a `label` or `emoji`.')
+            button = ButtonSpout.Button(label=label, emoji=emoji, style=getattr(ButtonStyle, style))
+            button.set_spout_args(bot, ctx, script, defer)
+            buttons.append(button)
+
+        # Max. 25 buttons fit on one message
+        for i in range(0, len(buttons), 25):
+            view = ButtonSpout.View(buttons[i:i+25], timeout=max_timeout)
+            view.set_message(await ctx.channel.send(view=view))
 
 
 @spout_from_class

@@ -384,7 +384,7 @@ class Pipeline:
                 elif name == 'print':
                     next_items.extend(items)
                     new_printed_items.extend(items)
-                    spout_state.callbacks.append(spouts['print'].hook(items))
+                    spouts['print'].hook(spout_state, items)
 
                 ## A NATIVE PIPE
                 elif parsed_pipe.type == ParsedPipe.NATIVE_PIPE:
@@ -404,15 +404,11 @@ class Pipeline:
                 ## A SPOUT
                 elif parsed_pipe.type == ParsedPipe.SPOUT:
                     spout: Spout = parsed_pipe.pipe
+                    # Hook the spout into the SpoutState
+                    spout.hook(spout_state, items, **args)
                     # As a rule, spouts do not affect the values
                     next_items.extend(items)
-                    try:
-                        # Queue up the spout's side-effects instead, to be executed once the entire script has completed
-                        spout_state.callbacks.append( spout.hook(items, **args) )
-                    except Exception as e:
-                        errors.log(f'Failed to process Spout `{name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
-                        return NOTHING_BUT_ERRORS
-                    
+
                 ## A NATIVE SOURCE
                 elif parsed_pipe.type == ParsedPipe.NATIVE_SOURCE:
                     source: Source = parsed_pipe.pipe
