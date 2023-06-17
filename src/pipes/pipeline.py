@@ -1,14 +1,13 @@
 import re
 from typing import Union
 
-from discord import Message
-
 import permissions
 from utils.choicetree import ChoiceTree
 
 # More import statements at the end of the file, due to circular dependencies.
-from . import groupmodes
-from .logger import ErrorLog
+import pipes.groupmodes as groupmodes
+from pipes.logger import ErrorLog
+from pipes.spout_state import SpoutState
 
 
 class PipelineError(ValueError):
@@ -100,6 +99,8 @@ class Pipeline:
                 continue 
             parallel = self.parse_segment(segment)
             self.parsed_segments.append((groupMode, parallel))
+
+    # =========================================== Parsing ==========================================
 
     @classmethod
     def split_into_segments(cls, string: str):
@@ -268,6 +269,8 @@ class Pipeline:
 
         return parsedPipes
 
+    # ========================================= Application ========================================
+
     def check_items(self, values: list[str], context: 'Context'):
         '''Raises an error if the user is asking too much of the bot.'''
         # TODO: this could stand to be smarter/more oriented to the type of operation you're trying to do, or something, maybe...?
@@ -277,34 +280,32 @@ class Pipeline:
         if chars > MAXCHARS and not permissions.has(context.author.id, permissions.owner):
             raise PipelineError(f'Attempted to process a flow of {chars} total characters at once, try staying under {MAXCHARS}.')
 
-    async def apply(self, items: list[str], parent_context: 'Context') -> tuple[ list[str], list[list[str]], ErrorLog, list ]:
+    async def apply(self, items: list[str], parent_context: 'Context') -> tuple[ list[str], ErrorLog, SpoutState ]:
         '''Apply the pipeline to a list of items the denoted amount of times.'''
         errors = ErrorLog()
-        NOTHING_BUT_ERRORS = (None, None, errors, None)
-    
+        spout_state = SpoutState()
+
+        NOTHING_BUT_ERRORS = (None, errors, None)
         errors.extend(self.parser_errors)
         if errors.terminal: return NOTHING_BUT_ERRORS
 
-        print_values = []
-        spoutCallbacks = []
         for _ in range(self.iterations):
-            iterItems, iterPrintValues, iterErrors, iterSpoutCallbacks = await self.apply_iteration(items, parent_context)
-            errors.extend(iterErrors)
+            iter_items, iter_errors, iter_spout_state = await self.apply_iteration(items, parent_context)
+            errors.extend(iter_errors)
             if errors.terminal: return NOTHING_BUT_ERRORS
-            items = iterItems
-            print_values.extend(iterPrintValues)
-            spoutCallbacks.extend(iterSpoutCallbacks)
+            items = iter_items
+            spout_state.extend(iter_spout_state, extend_print=True)
 
-        return items, print_values, errors, spoutCallbacks
+        return items, errors, spout_state
 
-    async def apply_iteration(self, items: list[str], parent_context: 'Context') -> tuple[ list[str], list[list[str]], ErrorLog, list ]:
+    async def apply_iteration(self, items: list[str], parent_context: 'Context') -> tuple[ list[str], ErrorLog, SpoutState ]:
         '''Apply the pipeline to a list of items a single time.'''
         ## This is the big method where everything happens.
 
         errors = ErrorLog()
         # When a terminal error is encountered, cut script execution short and only return the error log
         # This suggestively named tuple is for such cases.
-        NOTHING_BUT_ERRORS = (None, None, errors, None)
+        NOTHING_BUT_ERRORS = (None, errors, None)
 
         # Turns out this pipeline just isn't even executable due to parsing errors! abort!
         if errors.terminal:
@@ -312,8 +313,7 @@ class Pipeline:
 
         # Set up some objects we'll likely need
         context = Context(parent_context)
-        printed_items = []
-        spout_callbacks = []
+        spout_state = SpoutState()
         loose_items = items
 
         self.check_items(loose_items, context)
@@ -350,15 +350,12 @@ class Pipeline:
 
                 ## CASE: The pipe is itself an inlined Pipeline (recursion!)
                 if isinstance(parsed_pipe, Pipeline):
-                    items, pl_print_values, pl_errors, pl_spout_callbacks = await parsed_pipe.apply(items, group_context)
+                    items, pl_errors, pl_spout_state = await parsed_pipe.apply(items, group_context)
                     errors.extend(pl_errors, 'braces')
                     if errors.terminal: return NOTHING_BUT_ERRORS
                     next_items.extend(items)
-                    spout_callbacks += pl_spout_callbacks
-
-                    # Special case where we can safely absorb print items into the whole
-                    if group_mode.is_singular():
-                        printed_items.extend(pl_print_values)
+                    # group_mode.is_singular is a special case where we can safely extend print values, otherwise they're discarded here
+                    spout_state.extend(pl_spout_state, extend_print=group_mode.is_singular())
 
                     continue
 
@@ -387,7 +384,7 @@ class Pipeline:
                 elif name == 'print':
                     next_items.extend(items)
                     new_printed_items.extend(items)
-                    spout_callbacks.append(spouts['print'].hook(items))
+                    spout_state.callbacks.append(spouts['print'].hook(items))
 
                 ## A NATIVE PIPE
                 elif parsed_pipe.type == ParsedPipe.NATIVE_PIPE:
@@ -411,7 +408,7 @@ class Pipeline:
                     next_items.extend(items)
                     try:
                         # Queue up the spout's side-effects instead, to be executed once the entire script has completed
-                        spout_callbacks.append( spout.hook(items, **args) )
+                        spout_state.callbacks.append( spout.hook(items, **args) )
                     except Exception as e:
                         errors.log(f'Failed to process Spout `{name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
@@ -451,16 +448,13 @@ class Pipeline:
                         macro_pl = Pipeline(code)
                         pipe_macros.pipeline_cache[code] = macro_pl
 
-                    newvals, macro_print_values, macro_errors, macro_spout_callbacks = await macro_pl.apply(items, macro_ctx)
+                    newvals, macro_errors, macro_spout_state = await macro_pl.apply(items, macro_ctx)
                     errors.extend(macro_errors, name)
                     if errors.terminal: return NOTHING_BUT_ERRORS
 
                     next_items.extend(newvals)
-                    spout_callbacks += macro_spout_callbacks
-
-                    # Special case where we can safely absorb print items into the whole
-                    if group_mode.is_singular():
-                        printed_items.extend(macro_print_values)
+                    # group_mode.is_singular is a special case where we can safely extend print values, otherwise they're discarded here
+                    spout_state.extend(macro_spout_state, extend_print=group_mode.is_singular())
 
                 ## A SOURCE MACRO
                 elif name in source_macros:
@@ -481,13 +475,13 @@ class Pipeline:
                     errors.log(f'Unknown pipe `{name}`.', True)
                     return NOTHING_BUT_ERRORS
 
-            loose_items = next_items
+            # Clean up after applying every group mode, prepare for the next pipeline segment
             if new_printed_items:
-                printed_items.append(new_printed_items)
-
+                spout_state.print_values.append(new_printed_items)
+            loose_items = next_items
             self.check_items(loose_items, context)
 
-        return loose_items, printed_items, errors, spout_callbacks
+        return loose_items, errors, spout_state
 
 
 # These lynes be down here dve to dependencyes cyrcvlaire

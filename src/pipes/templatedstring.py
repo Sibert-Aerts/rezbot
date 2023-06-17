@@ -96,6 +96,7 @@ class ParsedSource:
             macro = source_macros[self.name]
             try:
                 # NEWFANGLED: Get the set of arguments and put them in Context
+                # TODO: Put the implicit 'amount' argument in args
                 args = macro.apply_signature(args)
                 macro_ctx = context.into_macro(macro, args)
                 # DEPRECATED: Insert arguments into Macro string
@@ -120,8 +121,7 @@ class ParsedSource:
                 source_macros.pipeline_cache[code] = pipeline
 
             ## STEP 3: apply
-            # TODO: Actually use the "amount" somehow
-            values, _, pl_errors, _ = await pipeline.apply(values, macro_ctx)
+            values, pl_errors, _ = await pipeline.apply(values, macro_ctx)
             errors.extend(pl_errors, self.name)
             return values, errors
 

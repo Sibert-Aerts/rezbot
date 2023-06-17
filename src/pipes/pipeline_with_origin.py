@@ -4,6 +4,7 @@ from discord import Client, TextChannel
 # More import statements at the bottom of the file, due to circular dependencies.
 from pipes.logger import ErrorLog
 from pipes.context import Context
+from pipes.spout_state import SpoutState
 import utils.texttools as texttools
 
 
@@ -155,12 +156,12 @@ class PipelineWithOrigin:
             if errors.terminal: raise TerminalError()
 
             ### STEP 2: APPLY PIPELINE TO STARTING VALUES
-            values, print_values, pl_errors, spout_callbacks = await pipeline.apply(values, context)
+            values, pl_errors, spout_state = await pipeline.apply(values, context)
             errors.extend(pl_errors)
             if errors.terminal: raise TerminalError()
 
             ### STEP 3: JOB'S DONE, PERFORM SIDE-EFFECTS!
-            side_errors = await self.perform_side_effects(bot, context, spout_callbacks, print_values, values)
+            side_errors = await self.perform_side_effects(bot, context, spout_state, values)
             errors.extend(side_errors)
 
             ## Post warning output to the channel if any
@@ -181,13 +182,15 @@ class PipelineWithOrigin:
             await self.send_error_log(context, errors)
             raise e
 
-    async def perform_side_effects(self, bot: Client, context: 'Context', spout_callbacks, print_values, end_values) -> ErrorLog:
+    async def perform_side_effects(self, bot: Client, context: 'Context', spout_state: SpoutState, end_values) -> ErrorLog:
             '''
             This function performs the side-effects of executing a script:
                 * Storing the output values somewhere
                 * Making sure all encountered Spouts' effects happen
             '''
             errors = ErrorLog()
+            spout_callbacks = spout_state.callbacks
+            print_values = spout_state.print_values
 
             ## Put the thing there
             if context.origin.type == Context.Origin.Type.DIRECT:
