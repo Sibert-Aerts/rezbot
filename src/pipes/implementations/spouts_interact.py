@@ -78,7 +78,7 @@ class ButtonSpout:
     @staticmethod
     async def spout_function(bot: Client, ctx: Context, values_and_args_list: list[tuple[list[str], dict[str]]]):
         timeouts = [a['timeout'] for _, a in values_and_args_list]
-        max_timeout = 0 if any(t==0 for t in timeouts) else max(*timeouts)
+        max_timeout = 0 if any(t==0 for t in timeouts) else max(timeouts)
 
         buttons = []
         for _, args in values_and_args_list:
@@ -164,7 +164,7 @@ class ModalSpout:
 
         await ctx.interaction.response.send_modal(modal)
 
-
+# TODO: Make this one work aggregated too
 @spout_from_class
 class ModalButtonSpout:
     '''
