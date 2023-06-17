@@ -458,7 +458,7 @@ class Pipeline:
 
                     # TODO: Something silly going on here with these arguments?
                     temp_parsed_source = ParsedSource(name, None, None)
-                    new_vals, src_errs = await temp_parsed_source.evaluate(macro_ctx, args)
+                    new_vals, src_errs = await temp_parsed_source.evaluate(context, args)
                     errors.steal(src_errs, context='source-as-pipe')
 
                     if new_vals is None or errors.terminal:

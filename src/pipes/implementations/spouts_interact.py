@@ -215,8 +215,8 @@ class ModalButtonSpout:
         button = ModalButtonSpout.Button(label=button_label, emoji=emoji, style=getattr(ButtonStyle, button_style))
         button.set_config(bot, make_modal)
 
-        # Use the generic single-button View
-        view = ButtonSpout.View(button, timeout=timeout)
+        # Use the generic ButtonSpout View
+        view = ButtonSpout.View([button], timeout=timeout)
         view.set_message(await ctx.channel.send(view=view))
 
 
