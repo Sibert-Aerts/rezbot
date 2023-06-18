@@ -327,7 +327,7 @@ async def setup(bot: commands.Bot):
 
             try:
                 # Execute the spout with what remains of the argstr
-                await spout.spout_function(ctx.bot, ctx.message, [text], **args)
+                await spout.do_simple_callback(ctx.bot, ctx.message, [text], **args)
 
             except Exception as e:
                 err.log(f'With args {args}:\n\t{type(e).__name__}: {e}', True)
