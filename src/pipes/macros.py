@@ -59,7 +59,11 @@ class Macro:
             embed.add_field(name='Parameters', value=argstr, inline=False)
 
         ### Script box
-        embed.add_field(name='Script', value=texttools.block_format(self.code), inline=False)
+        script_disp = self.code
+        if len(script_disp) > 900:
+            # Embed fields have 1024 char limit
+            script_disp = script_disp[:900] + ' (...)'
+        embed.add_field(name='Script', value=texttools.block_format(script_disp), inline=False)
 
         ### Author credit footer
         author = None

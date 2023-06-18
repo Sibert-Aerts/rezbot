@@ -47,7 +47,11 @@ class Event:
             embed.add_field(name='Enabled channels', value=', '.join(channels) or 'None', inline=True)
 
         ## Script
-        embed.add_field(name='Script', value=block_format(self.script), inline=False)
+        script_disp = self.script
+        if len(script_disp) > 900:
+            # Embed fields have a 1024 char limit, but play it safe
+            script_disp = script_disp[:900] + ' (...)'
+        embed.add_field(name='Script', value=block_format(script_disp), inline=False)
 
         return embed
 
@@ -180,7 +184,7 @@ class Events:
 
         else:
             ## Mission complete
-            msg = f'New event `{name}` registered.' if mode == 'NEW' else 'Event `{name}` updated.'
+            msg = f'New event `{name}` registered.' if mode == 'NEW' else f'Event `{name}` updated.'
             view = EventView(event, self, channel)
             view.set_message(await channel.send(msg, embed=event.embed(channel=channel), view=view))
             return True

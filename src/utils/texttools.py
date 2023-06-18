@@ -23,7 +23,7 @@ allWords = [w for w in allWords if not w[:1].isupper() and not w[-2:] == "'s"]
 def block_format(s):
     ''' Format text into a code block. '''
     # put a zero-width space in there to prevent it from breaking our block
-    return '```\n{0}```'.format(s.replace('```','`­``'))
+    return '```\n{0}\n```'.format(s.replace('```','`­``'))
 
 
 def line_chunk_list(list, maxlength=100):
