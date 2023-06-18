@@ -84,7 +84,7 @@ class MacroCommands(MyCommands):
         macro = macros[name] = Macro(macros.kind, name, code, author.name, author.id, visible=visible)
 
         view = MacroView(macro, macros)
-        view.set_message(await channel.send('Defined a new macro.', embed=macro.embed(bot=self.bot, guild=message.guild), view=view))
+        view.set_message(await channel.send('Defined a new macro.', embed=macro.embed(bot=self.bot, channel=message.channel), view=view))
 
     @commands.command(aliases=['redef'], hidden=True)
     async def redefine(self, ctx, what, name):
@@ -113,13 +113,13 @@ class MacroCommands(MyCommands):
         macro.code = code
         macros.write()
         view = MacroView(macro, macros)
-        view.set_message(await channel.send('Redefined the Macro.', embed=macro.embed(bot=self.bot, guild=message.guild), view=view))
+        view.set_message(await channel.send('Redefined the Macro.', embed=macro.embed(bot=self.bot, channel=message.channel), view=view))
 
     @commands.command(aliases=['desc'], hidden=True)
     async def describe(self, ctx, what, name):
         await self._describe(ctx.message, what, name, re.split('\s+', ctx.message.content, 3)[3])
 
-    async def _describe(self, message, what, name, desc):
+    async def _describe(self, message: discord.Message, what, name, desc):
         '''Describe an existing macro.'''
         channel = message.channel
         what = what.lower()
@@ -137,7 +137,7 @@ class MacroCommands(MyCommands):
         macro.desc = desc
         macros.write()
         view = MacroView(macro, macros)
-        view.set_message(await channel.send('Updated the Macro\'s description.', embed=macro.embed(bot=self.bot, guild=message.guild), view=view))
+        view.set_message(await channel.send('Updated the Macro\'s description.', embed=macro.embed(bot=self.bot, channel=message.channel), view=view))
 
     @commands.command(aliases=['unhide'], hidden=True)
     async def hide(self, ctx, what, name):
@@ -236,7 +236,7 @@ class MacroCommands(MyCommands):
         if name != '' and name in macros:
             macro = macros[name]
             view = MacroView(macro, macros)
-            view.set_message(await ctx.send(embed=macro.embed(bot=self.bot, guild=ctx.guild), view=view))
+            view.set_message(await ctx.send(embed=macro.embed(bot=self.bot, channel=ctx.channel), view=view))
 
         # Info on all of them
         else:

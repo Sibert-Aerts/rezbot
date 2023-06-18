@@ -1,9 +1,9 @@
 import os
 import pickle
+from shutil import copyfile
 from lru import LRU
 
-from shutil import copyfile
-from discord import Embed, Guild, Client
+from discord import Embed, TextChannel, Client
 from .signature import ArgumentError
 import utils.texttools as texttools
 import permissions
@@ -49,7 +49,7 @@ class Macro:
         self.version = 4
         return self
 
-    def embed(self, bot: Client=None, guild: Guild=None, **kwargs):
+    def embed(self, bot: Client=None, channel: TextChannel=None, **kwargs):
         title = self.name + (' `hidden`' if not self.visible else '')
         embed = Embed(title=self.kind + ' Macro: ' + title, description=self.desc, color=0x06ff83)
 
@@ -67,8 +67,8 @@ class Macro:
 
         ### Author credit footer
         author = None
-        if guild:
-            author = guild.get_member(self.authorId)
+        if channel and channel.guild:
+            author = channel.guild.get_member(self.authorId)
         if not author and bot:
             author = bot.get_user(self.authorId)
 

@@ -43,7 +43,7 @@ class PipeCommands(MyCommands):
             macros = pipe_macros if name in pipe_macros	else source_macros
             macro = macros[name]
             view = MacroView(macro, macros)
-            embed = macro.embed(bot=self.bot, guild=ctx.guild)
+            embed = macro.embed(bot=self.bot, channel=ctx.channel)
             view.set_message(await ctx.send(embed=embed, view=view))
 
         ## List pipes in a specific category
@@ -100,7 +100,7 @@ class PipeCommands(MyCommands):
         elif name != '' and name in source_macros:
             source_macro = source_macros[name]
             view = MacroView(source_macro, source_macros)
-            view.set_message(await ctx.send(embed=source_macro.embed(bot=self.bot, guild=ctx.guild), view=view))
+            view.set_message(await ctx.send(embed=source_macro.embed(bot=self.bot, channel=ctx.channel), view=view))
 
         # Sources in a specific category
         elif uname != '' and uname in sources.categories:

@@ -16,11 +16,13 @@
 
     * View/Button/Slash command interfaces for browsing/managing uploaded files
 
+    * Slash command autocomplete is nice, but make it *try* interpreting a non-autocompleted input too, so you don't have to wait for it if you're certain
 
 * **General:**
     * Ability to disable specific features (commands, patterns, pipes) in specific channels/servers
     * rewrite `help` to spam less
     * come up with a name for the scripting language
+    * Global "existing name directory" so you can never have overlapping source/pipe/spout/event/macro names, even if they're unique within their category?
 
 * **SCRIPTING:**
 

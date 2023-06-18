@@ -1,4 +1,4 @@
-from discord import Message, ui, ButtonStyle, TextStyle, Interaction
+from discord import Message, Client, TextChannel, ui, ButtonStyle, TextStyle, Interaction
 from discord.interactions import Interaction
 
 from .generic_views import ConfirmView
@@ -8,11 +8,14 @@ from pipes.events import Event, Events, OnMessage, OnReaction
 class EditEventModal(ui.Modal):
     '''Modal for editing an Event.'''
     # TODO: If discord ever adds checkboxes, dropdowns, etc. to modals, allow editing other fields
-    script_input = ui.TextInput(label='Script', row=1, style=TextStyle.long)
+    desc_input = ui.TextInput(label='Description', row=1, style=TextStyle.long)
+    script_input = ui.TextInput(label='Script', row=2, style=TextStyle.long)
 
-    def __init__(self, event: Event=None, **kwargs):
+    def __init__(self, bot: Client=None, event: Event=None, **kwargs):
         super().__init__(title=f'Edit {event.name}'[:52], **kwargs)
+        self.bot = bot
         self.event = event
+        self.desc_input.default = event.desc
         self.script_input.default = event.script
 
         if isinstance(event, (OnMessage, OnReaction)):
@@ -25,16 +28,18 @@ class EditEventModal(ui.Modal):
 
     async def on_submit(self, interaction: Interaction):
         if isinstance(self.event, (OnMessage, OnReaction)):
+            self.event.desc = self.desc_input.value
             self.event.update(self.script_input.value, self.trigger_input.value)
         # events.write() is called by the View
-        await interaction.response.edit_message(embed=self.event.embed(channel=interaction.channel))
+        await interaction.response.edit_message(embed=self.event.embed(bot=self.bot, channel=interaction.channel))
         self.confirmed = True
 
 
 class EventView(ui.View):
     '''View which is to be added to a message containing the Event's embed.'''
-    def __init__(self, event: Event, events: Events, channel, timeout=86400, **kwargs):
+    def __init__(self, bot: Client, event: Event, events: Events, channel: TextChannel, timeout=86400, **kwargs):
         super().__init__(timeout=timeout, **kwargs)
+        self.bot = bot
         self.channel = channel
         self.message = None
         self.event: Event = event
@@ -69,7 +74,7 @@ class EventView(ui.View):
     @ui.button(label='Edit', row=0, style=ButtonStyle.primary, emoji='✏')
     async def button_edit(self, interaction: Interaction, button: ui.Button):
         '''Opens Modal to edit the Event.'''
-        edit_event_modal = EditEventModal(self.event)
+        edit_event_modal = EditEventModal(self.bot, self.event)
         await interaction.response.send_modal(edit_event_modal)
         await edit_event_modal.wait()
         if edit_event_modal.confirmed:
@@ -85,7 +90,7 @@ class EventView(ui.View):
             self.event.channels.append(self.channel.id)
         self.events.write()
         self._on_change_enable()
-        await interaction.response.edit_message(embed=self.event.embed(channel=interaction.channel), view=self)
+        await interaction.response.edit_message(embed=self.event.embed(bot=self.bot, channel=interaction.channel), view=self)
 
     @ui.button(row=0, label='Disable everywhere', style=ButtonStyle.gray)
     async def button_disable_everywhere(self, interaction: Interaction, button: ui.Button):
@@ -93,7 +98,7 @@ class EventView(ui.View):
         self.event.disable_in_guild(interaction.guild)
         self.events.write()
         self._on_change_enable()
-        await interaction.response.edit_message(embed=self.event.embed(channel=interaction.channel), view=self)
+        await interaction.response.edit_message(embed=self.event.embed(bot=self.bot, channel=interaction.channel), view=self)
 
     @ui.button(row=0, style=ButtonStyle.danger, emoji='✖')
     async def button_delete(self, interaction: Interaction, button: ui.Button):

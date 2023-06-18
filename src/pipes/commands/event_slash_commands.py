@@ -75,8 +75,8 @@ class EventSlashCommands(MyCommands):
 
         event = EventType(name, interaction.channel, code, trigger)
         events[name] = event
-        view = EventView(event, events, interaction.channel)
-        view.set_message(await reply(f'Successfully defined a new Event.', embed=event.embed(channel=interaction.channel), view=view))
+        view = EventView(self.bot, event, events, interaction.channel)
+        view.set_message(await reply(f'Successfully defined a new Event.', embed=event.embed(bot=self.bot, channel=interaction.channel), view=view))
 
     @event_group.command(name='edit')
     @app_commands.describe(
@@ -117,8 +117,8 @@ class EventSlashCommands(MyCommands):
             event.script = code
 
         events.write()
-        view = EventView(event, events, interaction.channel)
-        view.set_message(reply(f'Successfully edited the Event.', embed=event.embed(channel=interaction.channel), view=view))
+        view = EventView(self.bot, event, events, interaction.channel)
+        view.set_message(reply(f'Successfully edited the Event.', embed=event.embed(bot=self.bot, channel=interaction.channel), view=view))
 
     @event_group.command(name='delete')
     @app_commands.describe(event_choice='The Event to delete')

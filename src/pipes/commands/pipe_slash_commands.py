@@ -35,7 +35,7 @@ class PipeSlashCommands(MyCommands):
             return await reply(f'Command failed, likely due to nonexistent scriptoid.', ephemeral=True)            
 
         # Get embed
-        embed = scriptoid.embed(bot=self.bot, channel=interaction.channel, guild=interaction.guild)
+        embed = scriptoid.embed(bot=self.bot, channel=interaction.channel)
         view = utils.MISSING
 
         # Take credit for native scriptoids
@@ -45,7 +45,7 @@ class PipeSlashCommands(MyCommands):
         if isinstance(scriptoid, Macro):
             view = MacroView(scriptoid, scriptoids)
         if isinstance(scriptoid, Event):
-            view = EventView(scriptoid, scriptoids, interaction.channel)
+            view = EventView(self.bot, scriptoid, scriptoids, interaction.channel)
 
         await reply(embed=embed, view=view)
 

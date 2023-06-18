@@ -4,6 +4,7 @@ from discord.ext import commands
 from pipes.events import events
 from pipes.views import EventView
 from mycommands import MyCommands
+import permissions
 
 ###############################################################
 #            A module providing commands for pipes            #
@@ -38,8 +39,8 @@ class EventCommands(MyCommands):
                 await ctx.send('Event not found.')
                 return
             event = events[name]
-            view = EventView(event, events, ctx.channel)
-            view.set_message(await ctx.send(embed=event.embed(channel=ctx.channel), view=view))
+            view = EventView(self.bot, event, events, ctx.channel)
+            view.set_message(await ctx.send(embed=event.embed(bot=ctx.bot, channel=ctx.channel), view=view))
 
     @commands.command(aliases=['enable_events'], hidden=True)
     @commands.guild_only()
@@ -105,6 +106,7 @@ class EventCommands(MyCommands):
 
     @commands.command(aliases=['del_event'], hidden=True)
     @commands.guild_only()
+    @permissions.check(permissions.owner)
     async def delete_event(self, ctx, name):
         ''' Deletes the specified event entirely. '''
         if name not in events:
@@ -112,6 +114,21 @@ class EventCommands(MyCommands):
         e = events[name]
         del events[name]
         await ctx.send('Deleted event "{}"'.format(e.name))
+
+    @commands.command(aliases=['event_set_author'], hidden=True)
+    @commands.guild_only()
+    @permissions.check(permissions.owner)
+    async def set_event_author(self, ctx: commands.Context, name: str, author_id: int):
+        ''' Assigns an Event's author by ID. '''
+        if name not in events:
+            return await ctx.send(f'No event "{name}" found.')
+        event = events[name]
+        author = ctx.guild.get_member(author_id) or self.bot.get_user(author_id)
+        if not author:
+            return await ctx.send(f'Invalid author ID "{author_id}".')
+        event.author_id = author.id
+        events.write()
+        await ctx.send(f'Assigned {author.display_name} as author of event "{event.name}".')
 
     @commands.command(hidden=True)
     async def dump_events(self, ctx):

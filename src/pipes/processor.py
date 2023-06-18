@@ -45,14 +45,16 @@ class PipelineProcessor:
                     #  I don't think this one ever actually happens, since the only OnMessage trigger is a regex, but who knows.
                     items = [message.content]
                     arguments = {'0': message.content}
-
+                # Fetch Event's author
+                author = message.guild.get_member(event.author_id) or self.bot.get_user(event.author_id)
+                # Create execution context
                 context = Context(
                     origin=Context.Origin(
                         name='Event: ' + event.name,
                         type=Context.Origin.Type.EVENT,
                         event=event,
                     ),
-                    author=None, # TODO: Track Event.author idiot
+                    author=author,
                     activator=message.author,
                     message=message,
                     items=items,
@@ -76,14 +78,16 @@ class PipelineProcessor:
                     # Only once we fetch the member can we test if we have them muted, to call the whole thing off
                     if not self.bot.should_listen_to_user(member):
                         return
-
+                # Fetch Event's author
+                author = channel.guild.get_member(event.author_id) or self.bot.get_user(event.author_id)
+                # Create execution context
                 context = Context(
                     origin=Context.Origin(
                         name='Event: ' + event.name,
                         type=Context.Origin.Type.EVENT,
                         event=event,
                     ),
-                    author=None, # TODO: Track Event.author idiot
+                    author=author,
                     activator=member,
                     message=message,
                     items=[emoji, str(user_id)], # Legacy way of conveying who reacted
@@ -113,7 +117,7 @@ class PipelineProcessor:
                 pass
             ##### EVENT DEFINITION:
             # >> (NEW|EDIT) EVENT <name> ON MESSAGE <regex> :: <code>
-            elif await events.parse_command(script, message.channel):
+            elif await events.parse_command(self.bot, script, message):
                 pass
             ##### ERROR:
             # Our script clearly resembles a script-like command but isn't one!

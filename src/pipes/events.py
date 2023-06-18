@@ -1,8 +1,10 @@
 import re
 import os
 import pickle
-from discord import Embed, Guild, TextChannel
+from shutil import copyfile
+from discord import Embed, Guild, TextChannel, Message, Client
 
+from utils.util import normalize_name
 from utils.texttools import block_format
 from pipes.pipeline_with_origin import PipelineWithOrigin
 
@@ -15,11 +17,21 @@ def DIR(filename=''):
 ###############################################################
 
 class Event:
-    def __init__(self, name, channel, script):
+    def __init__(self, name, desc, author, channel, script):
+        self.version = 3
         self.name: str = name
-        self.version: int = 2
+        self.desc: str = desc
+        self.author_id: int = author.id
         self.channels: list[int] = [channel.id]
         self.script: str = script
+
+    def v2_to_v3(self):
+        if self.version != 2:
+            return self
+        self.version = 3
+        self.desc = None
+        self.author_id = 154597714619793408 # Rezuaq
+        return self
 
     def update(self, script):
         self.script = script
@@ -36,22 +48,37 @@ class Event:
         guild_channels = [c.id for c in guild.channels]
         self.channels = [c for c in self.channels if not c in guild_channels]
 
-    def embed(self, *, channel: TextChannel=None, **kwargs):
+    def embed(self, *, bot: Client=None, channel: TextChannel=None, **kwargs):
+        
+        ## Description
+        desc_lines = []
+        if self.desc:
+            desc_lines.append(self.desc)
         if channel:
-            desc = '{}abled in this channel'.format( 'En' if self.is_enabled(channel) else 'Dis' )
-        embed = Embed(title='Event: ' + self.name, description=channel and desc, color=0x7628cc)
+            desc_lines.append('{}abled in this channel'.format( 'En' if self.is_enabled(channel) else 'Dis' ))
 
+        embed = Embed(title='Event: ' + self.name, description='\n'.join(desc_lines), color=0x7628cc)
+
+        ### List of channels it's enabled in within this guild
         if channel:
-            ### List of the current server's channels it's enabled in
             channels = [ ch.mention for ch in channel.guild.text_channels if ch.id in self.channels ]
             embed.add_field(name='Enabled channels', value=', '.join(channels) or 'None', inline=True)
 
-        ## Script
+        ## Script box
         script_disp = self.script
         if len(script_disp) > 900:
             # Embed fields have a 1024 char limit, but play it safe
             script_disp = script_disp[:900] + ' (...)'
         embed.add_field(name='Script', value=block_format(script_disp), inline=False)
+
+        ### Author credit footer
+        author = None
+        if channel and channel.guild:
+            author = channel.guild.get_member(self.author_id)
+        if not author and bot:
+            author = bot.get_user(self.author_id)
+        if author:
+            embed.set_footer(text=author.display_name, icon_url=author.avatar)
 
         return embed
 
@@ -60,8 +87,8 @@ class OnMessage(Event):
     patternstr: str
     pattern: re.Pattern
 
-    def __init__(self, name, channel, script, pattern):
-        super().__init__(name, channel, script)
+    def __init__(self, name, desc, author, channel, script, pattern):
+        super().__init__(name, desc, author, channel, script)
         self.set_trigger(pattern)
 
     def update(self, script, pattern):
@@ -90,8 +117,8 @@ class OnMessage(Event):
 class OnReaction(Event):
     emotes: list[str]
 
-    def __init__(self, name, channel, script: str, emotes: str):
-        super().__init__(name, channel, script)
+    def __init__(self, name, desc, author, channel, script: str, emotes: str):
+        super().__init__(name, desc, author, channel, script)
         self.set_trigger(emotes)
 
     def update(self, script: str, emotes: str):
@@ -130,22 +157,47 @@ class Events:
         try:
             if not os.path.exists(DIR()): os.mkdir(DIR())
             self.events = pickle.load(open(DIR(filename), 'rb+'))
+            self.convert_v2_to_v3()
             print('{} events loaded from "{}"!'.format(len(self.events), filename))
         except Exception as e:
             print(e)
             print('Failed to load events from "{}"!'.format(DIR(filename)))
 
+    def convert_v2_to_v3(self):
+        FROM_VERSION = 2
+        TO_VERSION = 3
+        if not any(e for e in self.events if self.events[e].version != TO_VERSION): return
+        try:
+            copyfile(self.DIR(self.filename), self.DIR(self.filename + f'.v{FROM_VERSION}_backup'))
+            count = 0
+            for name in self.events:
+                event = self.events[name]
+                if event.version == FROM_VERSION:
+                    self.events[name] = event.v2_to_v3()
+                    count += 1
+                elif event.version != TO_VERSION:
+                    print('! ULTRA-OUTDATED EVENT COULD NOT BE CONVERTED:', name, event.version)
+        except Exception as e:
+            print(e)
+            print('Failed to convert events from "{}"!'.format(self.filename))
+        else:
+            self.write()
+            if count: print('{} events successfully converted and added from "{}"!'.format(count, self.filename))
+
+
     command_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w[\w.]+) ON ?(MESSAGE|REACT(?:ION)?) (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I | re.S )
     #                                  ^^^^^^^^         ^^^^^^^^       ^^^^^^^^^^^^^^^^^^^^^   ^^^          ^^
 
-    async def parse_command(self, string, channel):
+    async def parse_command(self, bot, string, message: Message):
         m = re.match(self.command_pattern, string)
         if m is None: return False
 
+        channel = message.channel
+
         mode, name, what, trigger, script = m.groups()
         mode = mode.upper()
-        eventType = {'M': OnMessage, 'R': OnReaction}[what[0].upper()]
-        name = name.lower()
+        EventType: type[OnMessage|OnReaction]  = {'M': OnMessage, 'R': OnReaction}[what[0].upper()]
+        name = normalize_name(name)
 
         ## Check for naming conflicts
         if name in self.events and mode == 'NEW':
@@ -164,29 +216,28 @@ class Events:
         elif errors:
             await channel.send('Encountered warnings while parsing event:', embed=errors.embed())
 
-        ## Register the event
+        ## Edit or create the event
         try:
             if mode == 'EDIT':
                 event = self.events[name]
-                if not isinstance(event, eventType):
-                    # Is this error lame? we .update() events so that the list of channels isn't lost but maybe it could happen differently
+                if not isinstance(event, EventType):
                     await channel.send(f'Event "{name}" cannot be edited to be a different type. Try deleting it first.')
                     return True
                 event.update(script, trigger)
             else:
-                event = self.events[name] = eventType(name, channel, script, trigger)
+                event = self.events[name] = EventType(name, None, message.author, channel, script, trigger)
             self.write()
 
         except Exception as e:
-            ## Failed to register event (most likely regex could not parse)
-            await channel.send('Failed to {} event:\n\t{}: {}'.format( 'register' if mode=='NEW' else 'update', type(e).__name__, e))
-            raise e
+            ## Failed to register event (e.g. OnMessage regex could not parse)
+            await channel.send('Failed to {} event:\n\t{}: {}'.format('register' if mode=='NEW' else 'update', type(e).__name__, e))
+            return True
 
         else:
             ## Mission complete
             msg = f'New event `{name}` registered.' if mode == 'NEW' else f'Event `{name}` updated.'
-            view = EventView(event, self, channel)
-            view.set_message(await channel.send(msg, embed=event.embed(channel=channel), view=view))
+            view = EventView(bot, event, self, channel)
+            view.set_message(await channel.send(msg, embed=event.embed(bot=bot, channel=channel), view=view))
             return True
 
     def write(self):

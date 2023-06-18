@@ -126,7 +126,7 @@ class MacroSlashCommands(MyCommands):
         macro = Macro(macros.kind, name, code, author.name, author.id, desc=description, visible=not hidden)
         macros[name] = macro
         view = MacroView(macro, macros)
-        embed = macro.embed(bot=self.bot, guild=interaction.guild)
+        embed = macro.embed(bot=self.bot, channel=interaction.channel)
         view.set_message(await reply(f'Successfully defined a new {macro_type} macro.', embed=embed, view=view))
 
     @macro_group.command(name='edit')
@@ -170,7 +170,7 @@ class MacroSlashCommands(MyCommands):
 
         macros.write()
         view = MacroView(macro, macros)
-        embed = macro.embed(bot=self.bot, guild=interaction.guild)
+        embed = macro.embed(bot=self.bot, channel=interaction.channel)
         view.set_message(await reply(f'Successfully edited the {macro.kind} Macro.', embed=embed, view=view))
 
     @macro_group.command(name='delete')
@@ -234,7 +234,7 @@ class MacroSlashCommands(MyCommands):
 
         macros.write()
         verbed = 'deleted' if delete else 'overwrote' if existed else 'added'
-        embed = macro.embed(bot=self.bot, guild=interaction.guild)
+        embed = macro.embed(bot=self.bot, channel=interaction.channel)
         await reply(f'Successfully {verbed} parameter `{param}` on {macro.kind} Macro {macro.name}.', embed=embed)
 
 

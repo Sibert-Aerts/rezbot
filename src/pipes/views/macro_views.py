@@ -22,7 +22,7 @@ class EditMacroModal(ui.Modal):
         self.macro.desc = self.desc_input.value
         self.macro.code = self.code_input.value
         # macros.write() is called by the View
-        await interaction.response.edit_message(embed=self.macro.embed(guild=interaction.guild))
+        await interaction.response.edit_message(embed=self.macro.embed(channel=interaction.channel))
         self.confirmed = True
 
 
@@ -78,7 +78,7 @@ class MacroView(ui.View):
         self.macro.visible = not self.macro.visible
         self.macros.write()
         self._on_change_visible()
-        await interaction.response.edit_message(embed=self.macro.embed(guild=interaction.guild), view=self)
+        await interaction.response.edit_message(embed=self.macro.embed(channel=interaction.channel), view=self)
 
     @ui.button(row=0, style=ButtonStyle.danger, emoji='✖')
     async def button_delete(self, interaction: Interaction, button: ui.Button):
