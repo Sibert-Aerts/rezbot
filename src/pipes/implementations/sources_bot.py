@@ -53,7 +53,7 @@ class SourceArg:
     )
     @staticmethod
     async def source_function(ctx: Context, *, name, default):
-        if not ctx.arguments:
+        if ctx.arguments is None:
             raise ContextError('No arguments exist in the current context.')
 
         value = ctx.arguments.get(name)
