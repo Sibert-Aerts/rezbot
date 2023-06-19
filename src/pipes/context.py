@@ -186,7 +186,7 @@ class Context:
         )
 
         self.macro = macro or self.macro
-        self.arguments = arguments or self.arguments
+        self.arguments = arguments if arguments is not None else self.arguments
 
         # TODO: Maybe bad idea that this is inside Context, I'm definitely not wrapping my mind around it very well
         if items is None:
