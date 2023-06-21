@@ -135,6 +135,22 @@ class EventCommands(MyCommands):
         ''' Uploads the source file containing all serialised Events, for backup/debug purposes. '''
         await ctx.send(file=discord.File(events.DIR(events.filename)))
 
+    @commands.command(hidden=True)
+    async def json_dump_events(self, ctx):
+        ''' Uploads the source file containing all serialised Events, for backup/debug purposes. '''
+        import json
+        result = []
+        for event in events.values():
+            d = {}
+            result.append(d)
+            for prop in ('version', 'name', 'desc', 'author_id', 'channels', 'script', 'patternstr', 'emotes'):
+                if hasattr(event, prop):
+                    d[prop] = getattr(event, prop)
+        with open(events.DIR('events_dump.json'), 'w+') as file:
+            json.dump(result, file)
+        with open(events.DIR('events_dump.json'), 'rb') as file:
+            await ctx.send(file=discord.File(file, 'events_dump.json'))
+
 
 # Load the bot cog
 async def setup(bot: commands.Bot):
