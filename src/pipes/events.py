@@ -25,12 +25,14 @@ class Event:
         self.channels: list[int] = [channel.id]
         self.script: str = script
 
-    def v2_to_v3(self):
-        if self.version != 2:
-            return self
-        self.version = 3
-        self.desc = None
-        self.author_id = 154597714619793408 # Rezuaq
+    def upgrade_version(self):
+        if self.version == 1:
+            # Didn't change any fields...
+            self.version = 2
+        if self.version == 2:
+            self.desc = None
+            self.author_id = 154597714619793408 # Rezuaq
+            self.version = 3
         return self
 
     def update(self, script):
@@ -157,26 +159,23 @@ class Events:
         try:
             if not os.path.exists(DIR()): os.mkdir(DIR())
             self.events = pickle.load(open(DIR(filename), 'rb+'))
-            self.convert_v2_to_v3()
+            self.attempt_version_upgrade()
             print('{} events loaded from "{}"!'.format(len(self.events), filename))
         except Exception as e:
             print(e)
             print('Failed to load events from "{}"!'.format(DIR(filename)))
 
-    def convert_v2_to_v3(self):
-        FROM_VERSION = 2
+    def attempt_version_upgrade(self):
         TO_VERSION = 3
         if not any(e for e in self.events if self.events[e].version != TO_VERSION): return
         try:
-            copyfile(self.DIR(self.filename), self.DIR(self.filename + f'.v{FROM_VERSION}_backup'))
+            copyfile(self.DIR(self.filename), self.DIR(self.filename + f'.v{TO_VERSION}_upgrade_backup'))
             count = 0
             for name in self.events:
                 event = self.events[name]
-                if event.version == FROM_VERSION:
-                    self.events[name] = event.v2_to_v3()
+                if event.version != TO_VERSION:
+                    self.events[name] = event.upgrade_version()
                     count += 1
-                elif event.version != TO_VERSION:
-                    print('! ULTRA-OUTDATED EVENT COULD NOT BE CONVERTED:', name, event.version)
         except Exception as e:
             print(e)
             print('Failed to convert events from "{}"!'.format(self.filename))
