@@ -4,6 +4,7 @@ import discord
 from .sources import source_from_func, get_which, set_category, SourceResources, Context
 from pipes.signature import Par, Option, Multi, regex, parse_bool, with_signature
 from pipes.context import ContextError
+from pipes.events import OnReaction
 
 from utils.texttools import *
 
@@ -133,8 +134,8 @@ async def they_source(ctx: Context, what):
     Otherwise, in a context where the triggering message is replying to another message, represents the replied message's author.
     '''
     them = None
-    if ctx.activator and ctx.message and ctx.activator != ctx.message.author:
-        # Case 1: Activator and message.author are not the same (e.g. in an OnReact event)
+    if ctx.origin.event and isinstance(ctx.origin.event, OnReaction):
+        # Case 1: OnReact Event: Message author.
         #   i.e. {them} is the same as {member id={message author_id}}
         them = ctx.message.author
     elif ctx.message.reference and ctx.message.reference.message_id:

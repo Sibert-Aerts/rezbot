@@ -8,7 +8,7 @@ from pipes.events import Event, Events, OnMessage, OnReaction
 class EditEventModal(ui.Modal):
     '''Modal for editing an Event.'''
     # TODO: If discord ever adds checkboxes, dropdowns, etc. to modals, allow editing other fields
-    desc_input = ui.TextInput(label='Description', row=1, style=TextStyle.long)
+    desc_input = ui.TextInput(label='Description', row=1, style=TextStyle.long, required=False)
     script_input = ui.TextInput(label='Script', row=2, style=TextStyle.long)
 
     def __init__(self, bot: Client=None, event: Event=None, **kwargs):
