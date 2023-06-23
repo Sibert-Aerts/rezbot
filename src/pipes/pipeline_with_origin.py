@@ -3,7 +3,7 @@ from discord import Client, TextChannel
 
 # More import statements at the bottom of the file, due to circular dependencies.
 from pipes.logger import ErrorLog
-from pipes.context import Context
+from pipes.context import Context, ItemScope
 from pipes.spout_state import SpoutState
 import utils.texttools as texttools
 
@@ -137,7 +137,7 @@ class PipelineWithOrigin:
 
     # ====================================== Execution method ======================================
 
-    async def execute(self, bot: Client, context: 'Context'):
+    async def execute(self, bot: Client, context: 'Context', scope: 'ItemScope'=None):
         '''
         This function connects the three major steps of executing a script:
             * Evaluating the origin
@@ -151,12 +151,12 @@ class PipelineWithOrigin:
 
         try:
             ### STEP 1: GET STARTING VALUES
-            values, origin_errors = await TemplatedString.evaluate_origin(origin, context)
+            values, origin_errors = await TemplatedString.evaluate_origin(origin, context, scope)
             errors.extend(origin_errors, 'script origin')
             if errors.terminal: raise TerminalError()
 
             ### STEP 2: APPLY PIPELINE TO STARTING VALUES
-            values, pl_errors, spout_state = await pipeline.apply(values, context)
+            values, pl_errors, spout_state = await pipeline.apply(values, context, scope)
             errors.extend(pl_errors)
             if errors.terminal: raise TerminalError()
 

@@ -4,7 +4,7 @@ from pyparsing import ParseException, ParseResults
 
 import pipes.grammar as grammar
 from pipes.logger import ErrorLog
-from pipes.context import Context
+from pipes.context import Context, ItemScope
 
 # Make all the signature_types types available through this import
 from .signature_types import *
@@ -133,10 +133,10 @@ class Arg:
             except ArgumentError as e:
                 errors.log(e, True)
 
-    async def determine(self, context: Context, errors: ErrorLog) -> T | None:
+    async def determine(self, context: Context, scope: ItemScope, errors: ErrorLog) -> T | None:
         if self.predetermined: return self.value
 
-        value, arg_errs = await self.string.evaluate(context)
+        value, arg_errs = await self.string.evaluate(context, scope)
         errors.steal(arg_errs, context='parameter `{}`'.format(self.name))
         if errors.terminal: return
         
@@ -265,12 +265,12 @@ class Arguments:
     def __repr__(self):
         return 'Args(' + ' '.join(self.args.keys()) + ')'
 
-    async def determine(self, context: Context) -> tuple[dict[str], ErrorLog]:
+    async def determine(self, context: Context, scope: ItemScope=None) -> tuple[dict[str], ErrorLog]:
         ''' Returns a parsed {parameter: argument} dict ready for use. '''
         errors = ErrorLog()
         if self.predetermined: return self.predetermined_args, errors
-        
-        futures = [self.args[p].determine(context, errors) for p in self.args]
+
+        futures = [self.args[p].determine(context, scope, errors) for p in self.args]
         values = await EvaluatedArguments.from_gather(self.args, futures)
         values.defaults = self.defaults
         return values, errors

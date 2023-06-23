@@ -280,7 +280,7 @@ class Pipeline:
         if chars > MAXCHARS and not permissions.has(context.origin.activator.id, permissions.owner):
             raise PipelineError(f'Attempted to process a flow of {chars} total characters at once, try staying under {MAXCHARS}.')
 
-    async def apply(self, items: list[str], parent_context: 'Context') -> tuple[ list[str], ErrorLog, SpoutState ]:
+    async def apply(self, items: list[str], context: 'Context', parent_scope: 'ItemScope'=None) -> tuple[ list[str], ErrorLog, SpoutState ]:
         '''Apply the pipeline to a list of items the denoted amount of times.'''
         errors = ErrorLog()
         spout_state = SpoutState()
@@ -290,7 +290,7 @@ class Pipeline:
         if errors.terminal: return NOTHING_BUT_ERRORS
 
         for _ in range(self.iterations):
-            iter_items, iter_errors, iter_spout_state = await self.apply_iteration(items, parent_context)
+            iter_items, iter_errors, iter_spout_state = await self.apply_iteration(items, context, parent_scope)
             errors.extend(iter_errors)
             if errors.terminal: return NOTHING_BUT_ERRORS
             items = iter_items
@@ -298,7 +298,7 @@ class Pipeline:
 
         return items, errors, spout_state
 
-    async def apply_iteration(self, items: list[str], parent_context: 'Context') -> tuple[ list[str], ErrorLog, SpoutState ]:
+    async def apply_iteration(self, items: list[str], context: 'Context', parent_scope: 'ItemScope'=None) -> tuple[ list[str], ErrorLog, SpoutState ]:
         '''Apply the pipeline to a list of items a single time.'''
         ## This is the big method where everything happens.
 
@@ -312,7 +312,7 @@ class Pipeline:
             return NOTHING_BUT_ERRORS
 
         # Set up some objects we'll likely need
-        context = Context(parent_context)
+        item_scope = ItemScope(parent_scope)
         spout_state = SpoutState()
         loose_items = items
 
@@ -325,10 +325,10 @@ class Pipeline:
 
             # Non-trivial groupmodes add a new context layer
             if group_mode.splits_trivially():
-                group_context = context
+                group_scope = item_scope
             else:
-                context.set_items(loose_items)
-                group_context = Context(context)
+                item_scope.set_items(loose_items)
+                group_scope = ItemScope(item_scope)
 
             try:
                 applied_group_mode = group_mode.apply(loose_items, parsed_pipes)
@@ -341,7 +341,7 @@ class Pipeline:
             # The implemenation of this arcane flowchart magicke is detailed in `./groupmodes.py`
             # In the absolute simplest (and most common) case, all values are simply sent to a single pipe, and this loop iterates exactly once.
             for items, parsed_pipe in applied_group_mode:
-                group_context.set_items(items)
+                group_scope.set_items(items)
 
                 ## CASE: `None` is how the groupmode assigns values to remain unaffected
                 if parsed_pipe is None:
@@ -350,7 +350,7 @@ class Pipeline:
 
                 ## CASE: The pipe is itself an inlined Pipeline (recursion!)
                 if isinstance(parsed_pipe, Pipeline):
-                    items, pl_errors, pl_spout_state = await parsed_pipe.apply(items, group_context)
+                    items, pl_errors, pl_spout_state = await parsed_pipe.apply(items, context, group_scope)
                     errors.extend(pl_errors, 'braces')
                     if errors.terminal: return NOTHING_BUT_ERRORS
                     next_items.extend(items)
@@ -364,13 +364,13 @@ class Pipeline:
 
                 #### Determine the arguments (if needed)
                 if parsed_pipe.arguments is not None:
-                    args, arg_errors = await parsed_pipe.arguments.determine(group_context)
+                    args, arg_errors = await parsed_pipe.arguments.determine(context, group_scope)
                     errors.extend(arg_errors, context=name)
 
                 # Check if something went wrong while determining arguments
                 if errors.terminal: return NOTHING_BUT_ERRORS                
                 # Handle certain items being ignoring/filtering depending on their use in arguments
-                ignored, items = group_context.extract_ignored()
+                ignored, items = group_scope.extract_ignored()
                 next_items.extend(ignored)
 
                 ###################################################
@@ -458,7 +458,7 @@ class Pipeline:
 
                     # TODO: Something silly going on here with these arguments?
                     temp_parsed_source = ParsedSource(name, None, None)
-                    new_vals, src_errs = await temp_parsed_source.evaluate(context, args)
+                    new_vals, src_errs = await temp_parsed_source.evaluate(context, group_scope, args)
                     errors.steal(src_errs, context='source-as-pipe')
 
                     if new_vals is None or errors.terminal:
@@ -485,7 +485,7 @@ from .implementations.pipes import pipes
 from .implementations.sources import sources
 from .implementations.spouts import spouts
 from .macros import pipe_macros, source_macros
-from .context import Context
+from .context import Context, ItemScope
 from .signature import ArgumentError, Arguments
 from .templatedstring import ParsedSource
 from .pipe import Pipe, Source, Spout

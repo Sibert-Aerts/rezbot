@@ -9,7 +9,7 @@ import re
 from discord import Client, Message, TextChannel
 
 # More import statements at the bottom of the file, due to circular dependencies.
-from pipes.context import Context
+from pipes.context import Context, ItemScope
 
 
 class PipelineProcessor:
@@ -58,10 +58,9 @@ class PipelineProcessor:
                     ),
                     author=author,
                     message=message,
-                    items=items,
                     arguments=arguments,
                 )
-                await self.execute_script(event.script, context)
+                await self.execute_script(event.script, context, ItemScope(items=items))
 
     async def on_reaction(self, channel: TextChannel, emoji: str, user_id: int, msg_id: int):
         '''Check if an incoming reaction triggers any custom Events.'''
@@ -91,16 +90,16 @@ class PipelineProcessor:
                     ),
                     author=author,
                     message=message,
-                    items=[emoji, str(user_id)], # Legacy way of conveying who reacted
                     arguments={'emoji': emoji},
                 )
-                await self.execute_script(event.script, context)
+                scope = ItemScope(items=[emoji, str(user_id)]) # Legacy way of conveying who reacted
+                await self.execute_script(event.script, context, scope)
 
     # ====================================== Script execution ======================================
 
-    async def execute_script(self, script: str, context: 'Context'):
+    async def execute_script(self, script: str, context: Context, scope: ItemScope=None):
         pipeline_with_origin = PipelineWithOrigin.from_string(script)
-        return await pipeline_with_origin.execute(self.bot, context)
+        return await pipeline_with_origin.execute(self.bot, context, scope)
 
     async def interpret_incoming_message(self, message: Message):
         '''Starting point for executiong scripts directly from a message, or for the 'script-like' Macro/Event definition syntax.'''

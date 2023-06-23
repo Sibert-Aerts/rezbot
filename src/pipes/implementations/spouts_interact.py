@@ -4,6 +4,7 @@ from discord import Client, Interaction, ui, ButtonStyle, TextStyle
 from .spouts import spout_from_class, spout_from_func, set_category, with_signature, Par, Context, Spout
 from pipes.signature import Option, parse_bool
 from pipes.pipeline_with_origin import PipelineWithOrigin
+from pipes.context import ItemScope
 
 ################################################################################
 #                               Spouts : INTERACT                              #
@@ -133,9 +134,9 @@ class ModalSpout:
                 author=self.original_context.author,
                 message=interaction.message,
                 interaction=interaction,
-                items=[self.text_input.value]
             )
-            await self.script.execute(self.bot, context)
+            scope = ItemScope([self.text_input.value])
+            await self.script.execute(self.bot, context, scope)
 
     @with_signature(
         script   = Par(PipelineWithOrigin.from_string, required=False, desc='Script to execute when the button is pressed.'),

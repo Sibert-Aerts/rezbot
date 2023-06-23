@@ -1,3 +1,18 @@
+'''
+ItemScope and Context are "sibling" classes representing downstream information in the execution of a Rezbot script.
+
+Downstream information meaning: Information from higher scopes/evaluations flowing down into nested scopes/evaluations, with limited info flowing back up.
+    (ie. ItemScope does in fact carry a little bit of info upstream, it's not strictly downstream!)
+
+Their 'lifespans' are quite different, though:
+
+A Context is created before script execution ever starts, and is carried all the way into the deepest leaves of a script's execution,
+    being used by Sources and Spouts (and soon Pipes?) to perform the fundamental actions that make Scripts useful.
+
+An ItemContext may be created ahead of execution, but often is only created (or deepened) during a Pipeline's execution,
+    and carries only as deep as (NB. recursive) TemplatedString evaluation.
+    Pipes, Sources and Spouts do not have access to items outside of their scope at all.
+'''
 from discord import Message, Member, Interaction, TextChannel, Client
 
 from typing import TYPE_CHECKING
@@ -19,38 +34,40 @@ class ItemScope:
     An object representing a "scope" of items during a script's execution.
     '''
     items: list[str]
-    parent: 'ItemScope | None'
+    parent: 'ItemScope' | None
     to_be_ignored: set[str]
     to_be_removed: set[str]
 
     def __init__(self, parent: 'ItemScope'=None, items: list[str]=None):
-        self.items = items or []
         self.parent = parent
+        self.items = items or []
         self.to_be_ignored = set()
         self.to_be_removed = set()
 
     def set_items(self, items: list[str]):
+        '''In-place replace this scope with a subsequent sibling to the same parent scope.'''
         self.items = items
         self.to_be_ignored = set()
         self.to_be_removed = set()
 
     def get_item(self, carrots: int, index: int, bang: bool) -> str:
-        ctx = self
-        # For each ^ go up a context
+        '''Retrieves a specific item from this scope or a parent's scope, and possibly marks it for ignoring/removal.'''
+        scope = self
+        # For each ^ go up a scope
         for _ in range(carrots):
-            if ctx.parent is None: raise ItemScopeError('Out of scope: References a parent context beyond scope!')
-            ctx = ctx.parent
+            if scope.parent is None: raise ItemScopeError('Out of scope: References a parent scope beyond scope.')
+            scope = scope.parent
 
-        count = len(ctx.items)
-        # Make sure the index fits in the context's range of items
+        count = len(scope.items)
+        # Make sure the index fits in the scope's range of items
         if index >= count: raise ItemScopeError('Out of range: References item {} out of only {} items.'.format(index, count))
         if index < 0: index += count
         if index < 0: raise ItemScopeError('Out of range: Negative index {} for only {} items.'.format(index-count, count))
 
-        # Only flag items to be ignored if we're in the current context (idk how it would work with higher contexts)
-        if ctx is self:
+        # Only flag items to be ignored if we're in the current scope (idk how it would work with higher scopes)
+        if scope is self:
             (self.to_be_ignored if bang else self.to_be_removed).add(index)
-        return ctx.items[index]
+        return scope.items[index]
 
     def extract_ignored(self) -> tuple[set[str], list[str]]:
         ### Merge the sets into a clear view:
@@ -141,13 +158,6 @@ class Context:
     arguments: dict[str, str] = None
     'Arguments passed into the current Event or Macro, accessible through {arg param_name}'
 
-    # ======== Execution state we rolled into this object for "convenience"
-
-    # TODO: Kick this guy back out, sure we're both "downstream", but this guy has different start and end points to its life cycle.
-    #   Let him live his own life and not interrupt with ours, even if that means one more variable we're passing around for a little bit of time.
-    item_scope: ItemScope
-
-
     def __init__(
         self,
         parent: 'Context'=None,
@@ -159,8 +169,6 @@ class Context:
 
         macro: 'Macro'=None,
         arguments: 'Macro'=None,
-
-        items: list[str]=None,
     ):
         self.parent = parent
 
@@ -182,27 +190,9 @@ class Context:
         self.macro = macro or self.macro
         self.arguments = arguments if arguments is not None else self.arguments
 
-        # TODO: Maybe bad idea that this is inside Context, I'm definitely not wrapping my mind around it very well
-        if items is None:
-            self.item_scope = ItemScope(parent.item_scope if parent else None)
-        else:
-            self.item_scope = ItemScope(items=items)
-
     def into_macro(self, macro: 'Macro', arguments: dict[str, str]):
         '''Create a new Context for execution inside the given Macro.'''
         author = None
         if macro.authorId and self.channel:
             author = self.channel.guild.get_member(macro.authorId)
         return Context(self, author=author, macro=macro, arguments=arguments)
-
-
-    # ======================================= ItemContext API ======================================
-
-    def set_items(self, items: list[str]):
-        self.item_scope.set_items(items)
-
-    def get_item(self, carrots: int, index: int, bang: bool):
-        return self.item_scope.get_item(carrots, index, bang)
-
-    def extract_ignored(self):
-        return self.item_scope.extract_ignored()

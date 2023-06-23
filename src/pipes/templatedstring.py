@@ -3,7 +3,7 @@ from pyparsing import ParseException, ParseResults
 
 from utils.choicetree import ChoiceTree
 from pipes.logger import ErrorLog
-from pipes.context import Context, ItemScopeError
+from pipes.context import Context, ItemScope, ItemScopeError
 import pipes.grammar as grammar
 
 
@@ -20,8 +20,9 @@ class ParsedItem:
     def __repr__(self):
         return 'Item' + str(self)
 
-    def evaluate(self, context: Context) -> str:
-        return context.get_item(self.carrots, self.index, self.bang)
+    def evaluate(self, scope: ItemScope) -> str:
+        if scope is None: raise ItemScopeError('No scope!')
+        return scope.get_item(self.carrots, self.index, self.bang)
 
 
 class ParsedSource:
@@ -66,7 +67,7 @@ class ParsedSource:
     def __repr__(self):
         return 'Source' + str(self)
 
-    async def evaluate(self, context: Context, args=None) -> tuple[ list[str] | None, ErrorLog ]:
+    async def evaluate(self, context: Context, scope: ItemScope, args=None) -> tuple[ list[str] | None, ErrorLog ]:
         ''' Find some values for the damn Source that we are. '''
         errors = ErrorLog()
         if self.pre_errors: errors.extend(self.pre_errors)
@@ -79,7 +80,7 @@ class ParsedSource:
 
         if args is None:
             ## Determine the arguments
-            args, argErrors = await self.args.determine(context)
+            args, argErrors = await self.args.determine(context, scope)
             errors.extend(argErrors, self.name)
             if errors.terminal: return NOTHING_BUT_ERRORS
 
@@ -169,7 +170,7 @@ class TemplatedString:
 
         # TODO: only make this show up if Items are actually intended to be added at some point(?)
         if explicit_item and implicit_item:
-            self.pre_errors.log('Do not mix empty {}\'s with numbered {}\'s"!', True)
+            self.pre_errors.log('Do not mix empty `{}`\'s with numbered `{}`\'s!', True)
 
         # For simplicity, an empty list is normalised to an empty string
         self.pieces = self.pieces or ['']
@@ -261,7 +262,7 @@ class TemplatedString:
 
             return TemplatedString(implicit).unquote(), TemplatedString(remainder)
 
-    async def evaluate(self, context: Context) -> tuple[str, ErrorLog]:
+    async def evaluate(self, context: Context, scope: ItemScope=None) -> tuple[str, ErrorLog]:
         ''' Evaluate the TemplatedString into a string '''
         errors = ErrorLog()
         errors.extend(self.pre_errors)
@@ -279,13 +280,14 @@ class TemplatedString:
 
             elif isinstance(piece, ParsedItem):
                 try:
-                    results.append(piece.evaluate(context))
+                    results.append(piece.evaluate(scope))
                 except ItemScopeError as e:
-                    errors.log(str(e), True)
+                    msg = f'Error filling in item `{piece}`:\n\tItemScopeError: {e}'
+                    errors.log(msg, True)
 
             elif isinstance(piece, ParsedSource) and not errors.terminal:
                 results.append(FUTURE)
-                futures.append(piece.evaluate(context))
+                futures.append(piece.evaluate(context, scope))
 
         source_results = await asyncio.gather(*futures)
 
@@ -309,7 +311,7 @@ class TemplatedString:
     # ================ Specific use cases, wrapped into a single method
 
     @staticmethod
-    async def evaluate_string(string: str, context: Context, force_single=False) -> tuple[list[str] | None, ErrorLog]:
+    async def evaluate_string(string: str, context: Context, scope: ItemScope, force_single=False) -> tuple[list[str] | None, ErrorLog]:
         '''
         Takes a raw source string, evaluates {sources} and returns the list of values.
         
@@ -321,14 +323,14 @@ class TemplatedString:
             return None, ErrorLog().log_parse_exception(e)
 
         if not force_single and template.is_source:
-            vals, errs = await template.source.evaluate(context)
+            vals, errs = await template.source.evaluate(context, scope)
             return vals, errs
         else:
-            val, errs = await template.evaluate(context)
+            val, errs = await template.evaluate(context, scope)
             return [val], errs
 
     @staticmethod
-    async def evaluate_origin(origin_str: str, context: Context) -> tuple[list[str] | None, ErrorLog]:
+    async def evaluate_origin(origin_str: str, context: Context, scope: ItemScope=None) -> tuple[list[str] | None, ErrorLog]:
         '''Takes a raw source string, expands it if necessary, evaluates {sources} in each one and returns the list of values.'''
         values = []
         expand = True
@@ -353,11 +355,11 @@ class TemplatedString:
 
             else:
                 if origin.is_source:
-                    vals, errs = await origin.source.evaluate(context)
+                    vals, errs = await origin.source.evaluate(context, scope)
                     errors.extend(errs)
                     if not errors.terminal: values.extend(vals)
                 else:
-                    val, errs = await origin.evaluate(context)
+                    val, errs = await origin.evaluate(context, scope)
                     errors.extend(errs)
                     if not errors.terminal: values.append(val)
 
