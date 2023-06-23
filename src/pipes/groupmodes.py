@@ -493,10 +493,8 @@ class AssignMode:
 
 class DefaultAssign(AssignMode):
     '''Assign mode that sends the n'th group to the (n%P)'th pipe with P the number of pipes.'''
-    def __init__(self, multiply):
-        self.multiply = multiply
-
-    def __str__(self): return super().__str__() + 'DEFAULT'
+    def __str__(self):
+        return super().__str__() + 'DEFAULT'
 
     def is_trivial(self):
         return not self.multiply
@@ -591,13 +589,13 @@ class Switch(AssignMode):
             return any(all(cond.check(values) for cond in conj) for conj in self.conds)
 
     def __init__(self, multiply, strictness, conditions):
-        self.multiply = multiply
+        super().__init__(multiply)
         self.strictness = strictness
         # TODO: Parse these more smartly
         self.conditions = [self.Condition(c.strip()) for c in conditions.split('|')]
 
     def __str__(self):
-        return '{}CONDITIONAL {{ {} }}'.format(super().__str__(), ' | '.join(str(c) for c in self.conditions))
+        return '{}SWITCH {{ {} }}'.format(super().__str__(), ' | '.join(str(c) for c in self.conditions))
 
     def apply(self, tuples: list[tuple[T, bool]], pipes: list[P]) -> list[tuple[T, P | None]]:
         #### Sends ALL VALUES as a single group to the FIRST pipe whose corresponding condition succeeds
@@ -638,10 +636,10 @@ class Switch(AssignMode):
                     elif self.strictness == 1:
                         pass # Throw this list of values away!
                     elif self.strictness == 2:
-                        print('VERY STRICT CONDITION ERROR:')
+                        print('VERY STRICT SWITCH ERROR:')
                         print('VALUES: ', values)
-                        print('CONDITIONS: ' + str(self))
-                        raise GroupModeError('Very strict condition error: Default case was reached!')
+                        print('CASES: ' + str(self))
+                        raise GroupModeError('Very strict switch error: Default case was reached!')
             return out
 
         else: ## Multiply
@@ -782,7 +780,7 @@ class SortBy:
 ################ GROUPMODE ################
 
 class GroupMode:
-    '''A class that combines multiple SplitModes and an AssignMode'''
+    '''A class that combines multiple SplitModes, MidModes and an AssignMode'''
     def __init__(self, split_modes: list[SplitMode], mid_modes: list[IfMode | SortBy | GroupBy], assign_mode: AssignMode):
         self.split_modes= split_modes
         self.mid_modes = mid_modes
@@ -792,10 +790,9 @@ class GroupMode:
         if self.splits_trivially() and self.assign_mode.is_trivial():
             return 'TRIVIAL'
         split_modes = ' > '.join(str(s) for s in self.split_modes)
-        if_mode = (' × ' + str(self.if_mode)) if self.if_mode else ''
-        group_by = (' × ' + str(self.group_by)) if self.group_by else ''
+        mid_modes = (' × ' + ' > '.join(str(s) for s in self.mid_modes))
         assign_mode = ' × ' + str(self.assign_mode)
-        return split_modes + if_mode + group_by + assign_mode
+        return split_modes + mid_modes + assign_mode
 
     def splits_trivially(self):
         return not self.split_modes
@@ -883,23 +880,18 @@ def parse(big_pipe: str):
     ### SPLITMODES (multiple consecutive ones!)
     while(True):
         ### MODE
-        m = row_pattern.match(cropped)
-        if m is not None:
+        if (m := row_pattern.match(cropped)) is not None:
             split_mode = Row
             value = m[1]
+        elif (m := op_pattern.match(cropped)) is not None:
+            split_mode = op_dict[m[1]]
+            value = m[2]
+        elif (m := int_pattern.match(cropped)) is not None:
+            split_mode = Interval
+            lval, rval = m.groups()
         else:
-            m = op_pattern.match(cropped)
-            if m is not None:
-                split_mode = op_dict[m[1]]
-                value = m[2]
-            else:
-                m = int_pattern.match(cropped)
-                if m is not None:
-                    split_mode = Interval
-                    lval, rval = m.groups()
-                else:
-                    ## No (more) SplitMode found; Stop the loop!
-                    break
+            ## No (more) SplitMode found; Stop the loop!
+            break
 
         ## One of the three regexes matched
         flag = m.group()
@@ -957,13 +949,11 @@ def parse(big_pipe: str):
     if m is not None:
         assign_mode = Switch(multiply, len(m[2]), m[1])
         cropped = cropped[m.end():]
+    elif (m := rand_pattern.match(cropped)) is not None:
+        assign_mode = Random(multiply)
+        cropped = cropped[m.end():]
     else:
-        m = rand_pattern.match(cropped)
-        if m is not None:
-            assign_mode = Random(multiply)
-            cropped = cropped[m.end():]
-        else:
-            assign_mode = DefaultAssign(multiply)
+        assign_mode = DefaultAssign(multiply)
 
     ### GROUPMODE
     group_mode = GroupMode(split_modes, mid_modes, assign_mode)

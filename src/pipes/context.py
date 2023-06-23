@@ -34,7 +34,7 @@ class ItemScope:
     An object representing a "scope" of items during a script's execution.
     '''
     items: list[str]
-    parent: 'ItemScope' | None
+    parent: 'ItemScope | None'
     to_be_ignored: set[str]
     to_be_removed: set[str]
 
