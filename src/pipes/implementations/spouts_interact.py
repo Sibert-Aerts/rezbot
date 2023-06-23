@@ -26,20 +26,27 @@ class ButtonSpout:
 
     class Button(ui.Button):
         '''Button which executes a given script on click.'''
-        def set_spout_args(self, bot: Client, ctx: Context, script: PipelineWithOrigin, defer: bool):
+        def set_spout_args(self, bot: Client, ctx: Context, script: PipelineWithOrigin, lockout: bool, defer: bool):
             # NOTE: These values may hang around for a while, be wary of memory leaks
             self.bot = bot
             self.original_context = ctx
             self.script = script
+            self.lockout = lockout
+            self.locked = False
             self.defer = defer
 
         async def callback(self, interaction: Interaction):
             if not self.bot.should_listen_to_user(interaction.user):
                 return
+            if self.locked:
+                await interaction.response.send_message('Someone else already clicked this button.', ephemeral=True)
+                return
             if self.defer:
                 await interaction.response.defer()
             if not self.script:
                 return
+            if self.lockout:
+                self.locked = True
             context = Context(
                 origin=Context.Origin(
                     name='button script',
@@ -51,6 +58,7 @@ class ButtonSpout:
                 interaction=interaction,
             )
             await self.script.execute(self.bot, context)
+            self.locked = False
 
     class View(ui.View):
         '''Simple view which shows several buttons and disables them on timeout.'''
@@ -74,6 +82,7 @@ class ButtonSpout:
         emoji   = Par(str, required=False, desc='The button\'s emoji'),
         style   = Par(ButtonStyleOption, default='primary', desc='The button\'s style: primary/secondary/success/danger.'),
         timeout = Par(int, default=86400, desc='Amount of seconds the button stays alive without being clicked.'),
+        lockout = Par(parse_bool, default=False, desc='Whether this button should wait for each click\'s script to complete before allowing another.'),
         defer   = Par(parse_bool, default=True, desc='Whether to instantly defer (=close) the Interaction generated, set to False if you want to respond yourself.'),
     )
     @staticmethod
@@ -83,12 +92,12 @@ class ButtonSpout:
 
         buttons = []
         for _, args in values_and_args_list:
-            script, label, emoji, style, defer = itemgetter('script', 'label', 'emoji', 'style', 'defer')(args)
+            script, label, emoji, style, lockout, defer = itemgetter('script', 'label', 'emoji', 'style', 'lockout', 'defer')(args)
             # TODO: This error should be emitted at hook time, not right now
             if not label and not emoji:
                 raise ValueError('A button should have at least a `label` or `emoji`.')
             button = ButtonSpout.Button(label=label, emoji=emoji, style=getattr(ButtonStyle, style))
-            button.set_spout_args(bot, ctx, script, defer)
+            button.set_spout_args(bot, ctx, script, lockout, defer)
             buttons.append(button)
 
         # Max. 25 buttons fit on one message
@@ -169,9 +178,9 @@ class ModalSpout:
 @spout_from_class
 class ModalButtonSpout:
     '''
-    Combines 'button' and 'modal' spouts.
-    Posts a message with a Discord button, which just opens a Discord modal, which then executes a callback script.
-    Callback script will have an Interaction in its Context (if not deferred).
+    Combines 'button' and 'modal' spouts for easier use.
+    Posts a message with a Discord button, which opens a Discord modal, which then executes a callback script.
+    Callback script will have an Interaction in its Context (if defer=False).
     '''
     name = 'modal_button'
     command = True
