@@ -147,6 +147,19 @@ async def they_source(ctx: Context, what):
     return members_get_what([them], what)
 
 
+@source_from_func
+@with_signature(
+    what = Par(Multi(MEMBER_WHAT), 'name', '/'.join(MEMBER_WHAT)),
+)
+async def bot_source(ctx: Context, what):
+    '''The name (or other attribute) of the bot's own Discord member.'''
+    bot = ctx.bot.user
+    if ctx.channel.guild:
+        # Member has more contextual info than just User
+        bot = ctx.channel.guild.get_member(bot.id)
+    return members_get_what([bot], what)
+
+
 @source_from_func(depletable=True)
 @with_signature(
     n    = Par(int, 1, 'The maximum number of members to return.'),
