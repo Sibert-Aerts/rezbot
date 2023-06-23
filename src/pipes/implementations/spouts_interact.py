@@ -26,9 +26,8 @@ class ButtonSpout:
 
     class Button(ui.Button):
         '''Button which executes a given script on click.'''
-        def set_spout_args(self, bot: Client, ctx: Context, script: PipelineWithOrigin, lockout: bool, defer: bool):
+        def set_spout_args(self, ctx: Context, script: PipelineWithOrigin, lockout: bool, defer: bool):
             # NOTE: These values may hang around for a while, be wary of memory leaks
-            self.bot = bot
             self.original_context = ctx
             self.script = script
             self.lockout = lockout
@@ -36,7 +35,7 @@ class ButtonSpout:
             self.defer = defer
 
         async def callback(self, interaction: Interaction):
-            if not self.bot.should_listen_to_user(interaction.user):
+            if not self.original_context.bot.should_listen_to_user(interaction.user):
                 return
             if self.locked:
                 await interaction.response.send_message('Someone else already clicked this button.', ephemeral=True)
@@ -57,7 +56,7 @@ class ButtonSpout:
                 message=interaction.message,
                 interaction=interaction,
             )
-            await self.script.execute(self.bot, context)
+            await self.script.execute(context)
             self.locked = False
 
     class View(ui.View):
@@ -86,7 +85,7 @@ class ButtonSpout:
         defer   = Par(parse_bool, default=True, desc='Whether to instantly defer (=close) the Interaction generated, set to False if you want to respond yourself.'),
     )
     @staticmethod
-    async def spout_function(bot: Client, ctx: Context, values_and_args_list: list[tuple[list[str], dict[str]]]):
+    async def spout_function(ctx: Context, values_and_args_list: list[tuple[list[str], dict[str]]]):
         timeouts = [a['timeout'] for _, a in values_and_args_list]
         max_timeout = 0 if any(t==0 for t in timeouts) else max(timeouts)
 
@@ -97,7 +96,7 @@ class ButtonSpout:
             if not label and not emoji:
                 raise ValueError('A button should have at least a `label` or `emoji`.')
             button = ButtonSpout.Button(label=label, emoji=emoji, style=getattr(ButtonStyle, style))
-            button.set_spout_args(bot, ctx, script, lockout, defer)
+            button.set_spout_args(ctx, script, lockout, defer)
             buttons.append(button)
 
         # Max. 25 buttons fit on one message
@@ -116,9 +115,8 @@ class ModalSpout:
     name = 'modal'
         
     class Modal(ui.Modal):
-        def set_spout_args(self, bot: Client, ctx: Context, script: PipelineWithOrigin, defer: bool):
+        def set_spout_args(self, ctx: Context, script: PipelineWithOrigin, defer: bool):
             # NOTE: These values may hang around for a while, be wary of memory leaks
-            self.bot = bot
             self.original_context = ctx
             self.script = script
             self.defer = defer
@@ -128,7 +126,7 @@ class ModalSpout:
             self.add_item(text_input)
 
         async def on_submit(self, interaction: Interaction):
-            if not self.bot.should_listen_to_user(interaction.user):
+            if not self.original_context.bot.should_listen_to_user(interaction.user):
                 return
             if self.defer:
                 await interaction.response.defer()
@@ -145,7 +143,7 @@ class ModalSpout:
                 interaction=interaction,
             )
             scope = ItemScope([self.text_input.value])
-            await self.script.execute(self.bot, context, scope)
+            await self.script.execute(context, scope)
 
     @with_signature(
         script   = Par(PipelineWithOrigin.from_string, required=False, desc='Script to execute when the button is pressed.'),
@@ -156,7 +154,7 @@ class ModalSpout:
         defer   = Par(parse_bool, default=True, desc='Whether to instantly defer (=close) the Interaction generated, set to False if you want to respond yourself.'),
     )
     @staticmethod
-    async def spout_function(bot: Client, ctx: Context, values, *, script, title, label, default, required, defer):
+    async def spout_function(ctx: Context, values, *, script, title, label, default, required, defer):
         if not ctx.interaction:
             raise ValueError('This spout can only be used when an Interaction is present, e.g. from pressing a button.')
         if ctx.interaction.response.is_done():
@@ -164,7 +162,7 @@ class ModalSpout:
 
         # Create our Modal and give it a single text input
         modal = ModalSpout.Modal(title=title)
-        modal.set_spout_args(bot, ctx, script, defer)
+        modal.set_spout_args(ctx, script, defer)
         modal.set_text_input(ui.TextInput(
             label=label,
             style=TextStyle.paragraph,
@@ -208,11 +206,11 @@ class ModalButtonSpout:
         defer = Par(parse_bool, default=True, desc='Whether to instantly defer (=close) the Interaction generated, set to False if you want to respond yourself.'),
     )
     @staticmethod
-    async def spout_function(bot: Client, ctx: Context, values, *, script, title, button_label, button_style, emoji, timeout, input_label, default, required, defer):
+    async def spout_function(ctx: Context, values, *, script, title, button_label, button_style, emoji, timeout, input_label, default, required, defer):
         # Modal that will (repeatedly) be served by the button
         def make_modal():
             modal = ModalSpout.Modal(title=title)
-            modal.set_spout_args(bot, ctx, script, defer)
+            modal.set_spout_args(ctx, script, defer)
             modal.set_text_input(ui.TextInput(
                 label=input_label,
                 default=default,
@@ -223,7 +221,7 @@ class ModalButtonSpout:
 
         # Button that will serve the modal
         button = ModalButtonSpout.Button(label=button_label, emoji=emoji, style=getattr(ButtonStyle, button_style))
-        button.set_config(bot, make_modal)
+        button.set_config(ctx.bot, make_modal)
 
         # Use the generic ButtonSpout View
         view = ButtonSpout.View([button], timeout=timeout)
@@ -231,7 +229,7 @@ class ModalButtonSpout:
 
 
 @spout_from_func
-async def whisper_spout(bot: Client, ctx: Context, values: list[str]):
+async def whisper_spout(ctx: Context, values: list[str]):
     '''
     Sends input as an ephemeral (invisible) Discord message, requires an active Interaction.
     If multiple lines of input are given, they're joined with line breaks.
@@ -250,7 +248,7 @@ async def whisper_spout(bot: Client, ctx: Context, values: list[str]):
     thinking = Par(parse_bool, default=False, desc='If true, shows a symbolic "thinking" message, is silent otherwise.'),
     whisper = Par(parse_bool, default=False, desc='If true, the thinking message shows as a whisper'),
 )
-async def defer_spout(bot: Client, ctx: Context, values: list[str], *, thinking, whisper):
+async def defer_spout(ctx: Context, values: list[str], *, thinking, whisper):
     '''
     "Defers" the active Interaction, preventing Discord from showing an "Interaction failed!" message.
     '''
@@ -266,7 +264,7 @@ async def defer_spout(bot: Client, ctx: Context, values: list[str], *, thinking,
 @with_signature(
     remove_view = Par(parse_bool, default=False, desc='If true, removes the View (i.e. buttons) from the message.'),
 )
-async def edit_original_response_spout(bot: Client, ctx: Context, values: list[str], *, remove_view):
+async def edit_original_response_spout(ctx: Context, values: list[str], *, remove_view):
     '''
     Edit a resolved Interaction's original response message.
     

@@ -12,7 +12,7 @@ import utils.rand as rand
 set_category('MESSAGE')
 
 @spout_from_func
-async def send_message_spout(bot, ctx: Context, values):
+async def send_message_spout(ctx: Context, values):
     '''
     Sends input as a Discord message.
     If multiple lines of input are given, they're joined with line breaks.
@@ -24,7 +24,7 @@ async def send_message_spout(bot, ctx: Context, values):
     'id':      Par(int, -1, 'The message ID to reply to, -1 for the script\'s subject message.'),
     'mention': Par(parse_bool, False, 'Whether the reply should mention the person being replied to.'),
 })
-async def reply_spout(bot, ctx: Context, values, *, id, mention):
+async def reply_spout(ctx: Context, values, *, id, mention):
     '''
     Sends input as a Discord message replying to another message.
     If multiple lines of input are given, they're joined with line breaks.
@@ -39,7 +39,7 @@ async def reply_spout(bot, ctx: Context, values, *, id, mention):
 @spout_from_func({
     'emote': Par(str, None, 'The emote that you\'d like to use to react. (Emoji or custom emote)'),
 })
-async def react_spout(bot, ctx: Context, values, emote):
+async def react_spout(ctx: Context, values, emote):
     ''' Reacts to the message using the specified emote. '''
     try:
         await ctx.message.add_reaction(emote)
@@ -55,7 +55,7 @@ async def react_spout(bot, ctx: Context, values, emote):
     sticker = Par(str, None, 'Name or ID of the sticker.'),
     here    = Par(parse_bool, True, 'Whether to restrict to this server\'s stickers.'),
 )
-async def sticker_spout(bot: Bot, ctx: Context, values: list[str], *, sticker: str, here :bool):
+async def sticker_spout(ctx: Context, values: list[str], *, sticker: str, here :bool):
     ''' Sends a message with a sticker attached. '''    
     if here:
         stickers = list(ctx.message.guild.stickers)
@@ -66,7 +66,7 @@ async def sticker_spout(bot: Bot, ctx: Context, values: list[str], *, sticker: s
     sticker = None
 
     # Try ID match
-    try: sticker = bot.get_sticker(int(name_or_id))
+    try: sticker = ctx.bot.get_sticker(int(name_or_id))
     except: pass
     # Try exact name match
     if sticker is None:
@@ -83,6 +83,6 @@ async def sticker_spout(bot: Bot, ctx: Context, values: list[str], *, sticker: s
 
 
 @spout_from_func
-async def delete_message_spout(bot, ctx: Context, values):
+async def delete_message_spout(ctx: Context, values):
     ''' Deletes the message which is the subject of the script's execution. '''
     await ctx.message.delete()

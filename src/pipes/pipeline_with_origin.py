@@ -137,7 +137,7 @@ class PipelineWithOrigin:
 
     # ====================================== Execution method ======================================
 
-    async def execute(self, bot: Client, context: 'Context', scope: 'ItemScope'=None):
+    async def execute(self, context: 'Context', scope: 'ItemScope'=None):
         '''
         This function connects the three major steps of executing a script:
             * Evaluating the origin
@@ -161,7 +161,7 @@ class PipelineWithOrigin:
             if errors.terminal: raise TerminalError()
 
             ### STEP 3: JOB'S DONE, PERFORM SIDE-EFFECTS!
-            side_errors = await self.perform_side_effects(bot, context, spout_state, values)
+            side_errors = await self.perform_side_effects(context, spout_state, values)
             errors.extend(side_errors)
 
             ## Post warning output to the channel if any
@@ -182,7 +182,7 @@ class PipelineWithOrigin:
             await self.send_error_log(context, errors)
             raise e
 
-    async def perform_side_effects(self, bot: Client, context: 'Context', spout_state: SpoutState, end_values) -> ErrorLog:
+    async def perform_side_effects(self, context: 'Context', spout_state: SpoutState, end_values) -> ErrorLog:
             '''
             This function performs the side-effects of executing a script:
                 * Storing the output values somewhere
@@ -203,7 +203,7 @@ class PipelineWithOrigin:
             ## Perform all simple style Spout callbacks
             for spout, values, args in spout_state.callbacks:
                 try:
-                    await spout.spout_function(bot, context, values, **args)
+                    await spout.spout_function(context, values, **args)
                 except Exception as e:
                     errors.log(f'Failed to execute spout `{spout.name}`:\n\t{type(e).__name__}: {e}', True)
                     return errors
@@ -211,7 +211,7 @@ class PipelineWithOrigin:
             ## Perform all aggregated-style Spout callbacks
             for spout in spout_state.aggregated_spouts:
                 try:
-                    await spout.spout_function(bot, context, spout_state.aggregated[spout.name])
+                    await spout.spout_function(context, spout_state.aggregated[spout.name])
                 except Exception as e:
                     errors.log(f'Failed to execute spout `{spout.name}`:\n\t{type(e).__name__}: {e}', True)
                     return errors

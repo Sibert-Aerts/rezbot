@@ -99,7 +99,7 @@ class PipelineProcessor:
 
     async def execute_script(self, script: str, context: Context, scope: ItemScope=None):
         pipeline_with_origin = PipelineWithOrigin.from_string(script)
-        return await pipeline_with_origin.execute(self.bot, context, scope)
+        return await pipeline_with_origin.execute(context, scope)
 
     async def interpret_incoming_message(self, message: Message):
         '''Starting point for executiong scripts directly from a message, or for the 'script-like' Macro/Event definition syntax.'''

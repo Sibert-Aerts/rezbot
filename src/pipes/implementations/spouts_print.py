@@ -8,7 +8,7 @@ set_category('PRINT')
 
 
 @spout_from_func
-async def print_spout(bot, ctx, values):
+async def print_spout(ctx, values):
     ''' Appends the values to the output message. (WIP: /any/ other spout suppresses print output right now!) '''
     # The actual implementation of "print" is hardcoded into the pipeline processor code
     # This definition is just here so it shows up in the list of spouts
@@ -16,7 +16,7 @@ async def print_spout(bot, ctx, values):
 
 
 @spout_from_func
-async def suppress_print_spout(bot, ctx, values):
+async def suppress_print_spout(ctx, values):
     '''
     (WIP) Prevents the default behaviour of printing output to a Discord message.
     Useful for Event scripts that silently modify variables, or that don't do anything in certain circumstances.

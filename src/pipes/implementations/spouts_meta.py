@@ -8,13 +8,13 @@ from pipes.events import events
 set_category('META')
 
 @spout_from_func({
+    # TODO: Default: ctx.event!
     'name': Par(str, None, 'The name of the event to be disabled.')
 })
-async def disable_event_spout(bot, ctx: Context, values, name):
+async def disable_event_spout(ctx: Context, values, name):
     ''' Disables the specified event. '''
     if name not in events:
         raise ValueError('Event %s does not exist!' % name)
     event = events[name]
     if ctx.channel.id in event.channels:
         event.channels.remove(ctx.channel.id)
-

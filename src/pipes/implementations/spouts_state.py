@@ -14,7 +14,7 @@ set_category('STATE')
     'name' :   Par(str, None, 'The variable name'),
     'persist': Par(parse_bool, False, 'Whether the variable should persist indefinitely.')
 }, command=True)
-async def set_spout(bot, ctx, values, name, persist):
+async def set_spout(ctx, values, name, persist):
     '''
     Stores the input as a variable with the given name.
     Variables can be retrieved via the `get` Source.
@@ -27,7 +27,7 @@ async def set_spout(bot, ctx, values, name, persist):
     'name' :  Par(str, None, 'The variable name'),
     'strict': Par(parse_bool, False, 'Whether an error should be raised if the variable does not exist.')
 }, command=True)
-async def delete_var_spout(bot, ctx, values, name, strict):
+async def delete_var_spout(ctx, values, name, strict):
     ''' Deletes the variable with the given name. '''
     try:
         SourceResources.variables.delete(name)
@@ -43,7 +43,7 @@ async def delete_var_spout(bot, ctx, values, name, strict):
     'editable': Par(parse_bool, False, 'Whether the file should be able to be modified at a later time.'),
     'categories': Par(str, '', 'Comma-separated, case insensitive list of categories the file should be filed under.')
 })
-async def new_file_spout(bot, ctx: Context, values, name, sequential, sentences, editable, categories):
+async def new_file_spout(ctx: Context, values, name, sequential, sentences, editable, categories):
     '''Writes the input to a new txt file.'''
     # Files are stored as raw txt's, but we want to make sure our list of strings remain distinguishable.
     # So we join the list of strings by a joiner that we determine for sure is NOT a substring of any of the strings,
