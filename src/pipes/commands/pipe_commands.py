@@ -205,10 +205,9 @@ async def setup(bot: commands.Bot):
                 origin=Context.Origin(
                     name=pipe.name,
                     type=Context.Origin.Type.COMMAND,
+                    activator=ctx.author,
                 ),
-                bot=ctx.bot,
                 author=ctx.author,
-                activator=ctx.author,
                 message=ctx.message,
             )
             # Parse and process arguments from the command string
@@ -257,10 +256,9 @@ async def setup(bot: commands.Bot):
                 origin=Context.Origin(
                     name=source.name,
                     type=Context.Origin.Type.COMMAND,
+                    activator=ctx.author,
                 ),
-                bot=ctx.bot,
                 author=ctx.author,
-                activator=ctx.author,
                 message=ctx.message,
             )
             # Parse and process arguments from the command string
@@ -306,10 +304,9 @@ async def setup(bot: commands.Bot):
                 origin=Context.Origin(
                     name=spout.name,
                     type=Context.Origin.Type.COMMAND,
+                    activator=ctx.author,
                 ),
-                bot=ctx.bot,
                 author=ctx.author,
-                activator=ctx.author,
                 message=ctx.message,
             )
             # Parse and process arguments from the command string

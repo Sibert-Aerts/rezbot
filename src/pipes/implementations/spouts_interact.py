@@ -43,9 +43,9 @@ class ButtonSpout:
                 origin=Context.Origin(
                     name='button script',
                     type=Context.Origin.Type.INTERACTION_CALLBACK,
+                    activator=interaction.user,
                 ),
                 author=self.original_context.author,
-                activator=interaction.user,
                 message=interaction.message,
                 interaction=interaction,
             )
@@ -128,9 +128,9 @@ class ModalSpout:
                 origin=Context.Origin(
                     name='modal script',
                     type=Context.Origin.Type.INTERACTION_CALLBACK,
+                    activator=interaction.user,
                 ),
                 author=self.original_context.author,
-                activator=interaction.user,
                 message=interaction.message,
                 interaction=interaction,
                 items=[self.text_input.value]

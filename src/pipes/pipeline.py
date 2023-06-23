@@ -277,7 +277,7 @@ class Pipeline:
         # meditate on this...
         MAXCHARS = 10000
         chars = sum(len(i) for i in values)
-        if chars > MAXCHARS and not permissions.has(context.author.id, permissions.owner):
+        if chars > MAXCHARS and not permissions.has(context.origin.activator.id, permissions.owner):
             raise PipelineError(f'Attempted to process a flow of {chars} total characters at once, try staying under {MAXCHARS}.')
 
     async def apply(self, items: list[str], parent_context: 'Context') -> tuple[ list[str], ErrorLog, SpoutState ]:
@@ -389,7 +389,7 @@ class Pipeline:
                 ## A NATIVE PIPE
                 elif parsed_pipe.type == ParsedPipe.NATIVE_PIPE:
                     pipe: Pipe = parsed_pipe.pipe
-                    if not context.activator or not pipe.may_use(context.activator):
+                    if not pipe.may_use(context.origin.activator):
                         errors.log(f'User lacks permission to use Pipe `{name}`.', True)
                         return NOTHING_BUT_ERRORS
                     try:

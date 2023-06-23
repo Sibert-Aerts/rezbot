@@ -47,8 +47,8 @@ async def evaluate_sources_pipe(items, force_single: bool):
         origin=Context.Origin(
             name='evaluate sources',
             type=Context.Origin.Type.EVALUATE_SOURCES_PIPE,
+            activator=None,
         ),
-        activator=None,
         author=None,
         message=None,        
     )

@@ -1,7 +1,7 @@
 from datetime import timezone
 import discord
 
-from .sources import source_from_func, get_which, set_category, SourceResources, Context
+from .sources import source_from_func, get_which, set_category, Context
 from pipes.signature import Par, Option, Multi, regex, parse_bool, with_signature
 from pipes.context import ContextError
 from pipes.events import OnReaction
@@ -54,10 +54,10 @@ async def next_message_source(ctx: Context, n, what):
         # ignore (most) messages that the bot normally ignores
         return msg.channel == ctx.channel \
             and not msg.author.bot \
-            and msg.content[:len(SourceResources.bot.command_prefix)] != SourceResources.bot.command_prefix
+            and msg.content[:len(ctx.bot.command_prefix)] != ctx.bot.command_prefix
 
     while len(messages) < n:
-        messages.append( await SourceResources.bot.wait_for('message', check=check) )
+        messages.append( await ctx.bot.wait_for('message', check=check) )
     return messages_get_what(messages, what)
 
 
@@ -117,9 +117,7 @@ def members_get_what(members: list[discord.Member], what):
 )
 async def me_source(ctx: Context, what):
     '''The name (or other attribute) of the member invoking the script or event.'''
-    if not ctx.activator:
-        raise ContextError('No known "me" in the current context.')
-    return members_get_what([ctx.activator], what)
+    return members_get_what([ctx.origin.activator], what)
 
 
 @source_from_func(aliases=['them', 'their'])
@@ -221,19 +219,20 @@ async def server_source(ctx: Context, what):
         return [str(server.id)]
 
 
-@source_from_func({
-    'n':      Par(int, 1, 'The number of emojis'),
-    'id':     Par(int, None, 'An exact emoji ID to match.', required=False),
-    'name':   Par(str, None, 'An exact name to match.', required=False),
-    'search': Par(str, None, 'A string to search for in the name.', required=False),
-    'here':   Par(parse_bool, True, 'Whether to restrict to this server\'s emoji.'),
-}, depletable=True)
+@source_from_func(depletable=True)
+@with_signature(
+    n =      Par(int, 1, 'The number of emojis'),
+    name =   Par(str, None, 'An exact name to match.', required=False),
+    search = Par(str, None, 'A string to search for in the name.', required=False),
+    id =     Par(int, None, 'An exact emoji ID to match.', required=False),
+    here =   Par(parse_bool, True, 'Whether to restrict to this server\'s emoji.'),
+)
 async def custom_emoji_source(ctx: Context, n, name, search, id, here):
-    '''The server's custom emojis.'''
+    '''Discord custom emoji.'''
     if here:
         emojis = ctx.message.guild.emojis
     else:
-        emojis = [e for guild in SourceResources.bot.guilds for e in guild.emojis]
+        emojis = [e for guild in ctx.bot.guilds for e in guild.emojis]
 
     if name is not None:
         emojis = [e for e in emojis if e.name == name]
@@ -243,4 +242,4 @@ async def custom_emoji_source(ctx: Context, n, name, search, id, here):
         search = search.lower()
         emojis = [e for e in emojis if search in e.name.lower()]
 
-    return [ str(emoji) for emoji in sample(emojis, n) ]
+    return [str(emoji) for emoji in sample(emojis, n)]

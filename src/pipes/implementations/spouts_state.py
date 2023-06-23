@@ -56,5 +56,5 @@ async def new_file_spout(bot, ctx: Context, values, name, sequential, sentences,
     else:
         joiner = '\n'
 
-    uploads.add_file(name, joiner.join(values), ctx.activator.display_name, ctx.activator.id,
+    uploads.add_file(name, joiner.join(values), ctx.origin.activator.display_name, ctx.origin.activator.id,
         editable=editable, splitter=joiner, sequential=sequential, sentences=sentences, categories=categories)

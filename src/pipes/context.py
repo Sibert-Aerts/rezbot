@@ -79,14 +79,8 @@ class Context:
     class Origin:
         '''
         An object storing information related to how and why a script's execution was initiated.
+        This information will never change, even as Contexts get nested, and as such is bundled in this sub-object.
         '''
-        # TODO: Does this need to be a sub-object? The reason I made the separation is that
-        #   every single sub-Context should not change any of the values contained within it;
-        #   i.e. they're a kind of 'higher context' than a single Context strictly represents.
-        # But does that need to be a different sub-object, isn't that just annoying?
-        # Also strictly speaking, most of the properties of Context don't actually ever need to change,
-        #   only `author` and that's only in the context of a Macro, so you could make that like macro_author,
-        #   or like a property that either returns macro.author or origin.author or whatev.
         class Type:
             UNKNOWN = object()
             DIRECT = object()
@@ -95,18 +89,25 @@ class Context:
             INTERACTION_CALLBACK = object()
             EVALUATE_SOURCES_PIPE = object()
 
-        name: str
-        type: Type
-        event: 'Event'
+        name: str # TODO: Get rid of? Should be interpretable from other info
+
+        type: Type =Type.UNKNOWN
+        'Enum denoting where the execution originated from.'
+        activator: Member = None
+        'Whoever caused this execution.'
+        event: 'Event' = None
+        'Event that triggered this execution, if any.'
 
         def __init__(
                 self,
                 name: str=None,
                 type: 'Context.Origin.Type'=Type.UNKNOWN,
+                activator: Member=None,
                 event: 'Event'=None,
             ):
             self.name = name
             self.type = type
+            self.activator = activator
             self.event = event
 
     # ======== Context state
@@ -118,13 +119,10 @@ class Context:
     origin: Origin = None
 
     bot: Client = None
-    'The bot\'s client.' # TODO: This is rarely filled in
+    'The bot\'s client, assigned statically at startup.'
 
     author: Member = None
     'Whoever wrote the code currently being executed, if known.'
-
-    activator: Member = None
-    'Whoever is causing the current code to be executed, if anyone (?).'
 
     message: Message = None
     'The "subject", possibly triggering, message of the current execution, if applicable (?)'
@@ -155,9 +153,7 @@ class Context:
         parent: 'Context'=None,
         *,
         origin: Origin=None,
-        bot: Client=None,
         author: Member=None,
-        activator: Member=None,
         message: Message=None,
         interaction: Interaction=None,
 
@@ -170,13 +166,11 @@ class Context:
 
         # If a parent Context is given, use most of its properties as defaults
         if parent:
-            for attr in ('origin', 'bot', 'author', 'activator', 'message', 'interaction', 'channel', 'macro', 'arguments'):
+            for attr in ('origin', 'author', 'message', 'interaction', 'channel', 'macro', 'arguments'):
                 setattr(self, attr, getattr(parent, attr, None))
 
         self.origin = origin or self.origin or Context.Origin()
-        self.bot = bot or self.bot
         self.author = author or self.author
-        self.activator = activator or self.activator
         self.message = message or self.message
         self.interaction = interaction or self.interaction
         self.channel = (

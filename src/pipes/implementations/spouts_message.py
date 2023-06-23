@@ -5,8 +5,6 @@ from .spouts import Par, Context, with_signature, spout_from_func, set_category
 from pipes.signature import parse_bool 
 import utils.rand as rand
 
-from .sources import SourceResources
-
 
 #####################################################
 #                 Spouts : MESSAGES                 #
@@ -57,12 +55,12 @@ async def react_spout(bot, ctx: Context, values, emote):
     sticker = Par(str, None, 'Name or ID of the sticker.'),
     here    = Par(parse_bool, True, 'Whether to restrict to this server\'s stickers.'),
 )
-async def sticker_spout(bot: Bot, ctx: Context, values: list[str], sticker: str, here :bool):
+async def sticker_spout(bot: Bot, ctx: Context, values: list[str], *, sticker: str, here :bool):
     ''' Sends a message with a sticker attached. '''    
     if here:
         stickers = list(ctx.message.guild.stickers)
     else:
-        stickers = [s for guild in SourceResources.bot.guilds for s in guild.stickers]
+        stickers = [s for guild in ctx.bot.guilds for s in guild.stickers]
 
     name_or_id = sticker
     sticker = None

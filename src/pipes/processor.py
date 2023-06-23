@@ -20,6 +20,7 @@ class PipelineProcessor:
         self.prefix = prefix
         bot.pipeline_processor = self
         SourceResources.bot = bot
+        Context.bot = bot
 
     # ========================================= Event hooks ========================================
 
@@ -51,11 +52,11 @@ class PipelineProcessor:
                 context = Context(
                     origin=Context.Origin(
                         name='Event: ' + event.name,
+                        activator=message.author,
                         type=Context.Origin.Type.EVENT,
                         event=event,
                     ),
                     author=author,
-                    activator=message.author,
                     message=message,
                     items=items,
                     arguments=arguments,
@@ -84,11 +85,11 @@ class PipelineProcessor:
                 context = Context(
                     origin=Context.Origin(
                         name='Event: ' + event.name,
+                        activator=member,
                         type=Context.Origin.Type.EVENT,
                         event=event,
                     ),
                     author=author,
-                    activator=member,
                     message=message,
                     items=[emoji, str(user_id)], # Legacy way of conveying who reacted
                     arguments={'emoji': emoji},
@@ -128,9 +129,12 @@ class PipelineProcessor:
         else:
             async with message.channel.typing():
                 context = Context(
-                    origin=Context.Origin(type=Context.Origin.Type.DIRECT),
+                    origin=Context.Origin(
+                        name=f'{message.author.display_name}\'s script',
+                        type=Context.Origin.Type.DIRECT,
+                        activator=message.author,    
+                    ),
                     author=message.author,
-                    activator=message.author,
                     message=message,
                 )
                 await self.execute_script(script, context)
