@@ -90,7 +90,7 @@ async def previous_message_source(ctx: Context, n, i, what, by):
 
 #### MEMBERS ########################################
 
-MEMBER_WHAT = Option('name', 'global_name', 'username', 'mention', 'id', 'avatar', 'activity', 'color',
+MEMBER_WHAT = Option('name', 'global_name', 'username', 'mention', 'id', 'avatar', 'activity', 'color', 'is_bot',
     aliases={'name': ['display_name', 'nickname'], 'username': ['handle']})
 @get_which
 def members_get_what(members: list[discord.Member], what):
@@ -110,6 +110,9 @@ def members_get_what(members: list[discord.Member], what):
         return (str(member.activities[0]) if member.activities else '' for member in members)
     elif what == MEMBER_WHAT.color:
         return (str(member.color) for member in members)
+    elif what == MEMBER_WHAT.is_bot:
+        return (str(member.bot) for member in members)
+    raise ValueError()
 
 @source_from_func(aliases=['my'])
 @with_signature(
