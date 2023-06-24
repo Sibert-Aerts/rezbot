@@ -1,5 +1,6 @@
 from pyparsing import Char, Literal, Regex, Group as pGroup, Forward, Empty, ZeroOrMore, OneOrMore, ParseResults, Word
 import functools
+from itertools import product
 import numpy as np
 
 class ChoiceTreeError(ValueError):
@@ -38,54 +39,36 @@ class ChoiceTree:
         def __init__(self, text: ParseResults):
             self.text = text if text == '' else ''.join(text.as_list())
             self.count = 1
-            self.reset()
 
         __str__ = __repr__ = lambda s: s.text
+        
+        def __iter__(self):
+            yield self.text
 
-        def next(self):
-            self.done = True
-            return self.text
+        def __len__(self):
+            return 1
 
         def random(self):
-            return self.text
-
-        def reset(self):
-            self.done = False
-
-        def current(self):
             return self.text
 
     class Choice:
         '''Conjunction of nodes [A|B|C]'''
         def __init__(self, vals: ParseResults):
             self.vals = vals.as_list()
-            self.count = sum(v.count for v in self.vals)
-            self.reset()
+            self.count = sum(len(v) for v in self.vals)
 
         __str__ = __repr__ = lambda s: '[{}]'.format('|'.join(str(v) for v in s.vals))
 
-        def next(self):
-            next = self.vals[self.i]
-            while next.done:
-                self.i += 1
-                next = self.vals[self.i]
-            out = next.next()
-            if next.done and self.i == len(self.vals) - 1:
-                self.done = True
-            return out
+        def __iter__(self):
+            for val in self.vals:
+                yield from val
+
+        def __len__(self):
+            return self.count
 
         def random(self):
             # Weighted based on the number of different possible branches each child has.
             return np.random.choice(self.vals, p=list(v.count/self.count for v in self.vals)).random()
-
-        def reset(self):
-            self.i = 0
-            self.done = (self.count <= 0)
-            for c in self.vals:
-                c.reset()
-
-        def current(self):
-            return self.vals[self.i].current()
 
     class Ordinal:
         '''
@@ -95,68 +78,38 @@ class ChoiceTree:
         '''
         def __init__(self, val: ParseResults):
             self.count = int(val[0])
-            self.reset()
-
-        def reset(self):
-            self.i = 0
-            self.done = (self.count <= 0)
 
         __str__ = __repr__ = lambda self: f'[{self.count}]'
 
-        def next(self):
-            self.i += 1
-            self.done = (self.count <= self.i)
-            return ''
+        def __iter__(self):
+            for _ in range(self.count):
+                yield ''
+
+        def __len__(self):
+            return self.count
         
         def random(self):
-            return ''
-        
-        def current(self):
             return ''
 
     class Group:
         '''Multiple choices and text strings attached end to end.'''
         def __init__(self, vals):
             self.vals = vals.as_list()
-            self.count = functools.reduce(lambda x, y: x*y, (c.count for c in self.vals), 1)
-            self.reset()
+            self.count = functools.reduce(lambda x, y: x*y, (len(c) for c in self.vals), 1)
 
         __str__ = __repr__ = lambda s: ''.join(str(v) for v in s.vals)
 
-        def next(self):
-            i = 0
-            out = []
-            while True:
-                out.append(self.vals[i].next())
-                if self.vals[i].done:
-                    if i == len(self.vals)-1:
-                        self.done = True
-                        break
-                    else:
-                        self.vals[i].reset()
-                else:
-                    break
-                i += 1
-            i += 1
+        def __iter__(self):            
+            for tup in product(*reversed(self.vals)):
+                yield ''.join(reversed(tup))
 
-            while i < len(self.vals):
-                out.append(self.vals[i].current())
-                i += 1
-
-            return ''.join(out)
+        def __len__(self):
+            return self.count
 
         def random(self):
             if self.count == 0:
                 raise EmptyChoiceTreeError()
             return ''.join(v.random() for v in self.vals)
-
-        def reset(self):
-            self.done = (self.count == 0)
-            for c in self.vals:
-                c.reset()
-
-        def current(self):
-            return ''.join(c.current() for c in self.vals)
 
     # ================ Grammar
 
@@ -186,16 +139,13 @@ class ChoiceTree:
                 self.flag_random = True
 
         if add_brackets: text = '[' + text + ']'
-
         self.root: ChoiceTree.Group = ChoiceTree.group.parse_string(text)[0]
 
     def __iter__(self):
         if self.flag_random:
             yield self.random()
             return
-        while not self.root.done:
-            yield self.root.next()
-        self.root.reset()
+        yield from self.root
 
     def random(self):
         return self.root.random()
