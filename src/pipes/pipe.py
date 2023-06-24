@@ -204,9 +204,9 @@ class Spout(Pipeoid):
     async def do_simple_callback(self, bot: discord.Client, context: Context, values: list[str], **args):
         '''Instantly performs a simple spout callback.'''
         if self.mode == Spout.Mode.simple:
-            await self.spout_function(bot, context, values, **args)
+            await self.spout_function(context, values, **args)
         elif self.mode == Spout.Mode.aggregated:
-            await self.spout_function(bot, context, [(values, args)])
+            await self.spout_function(context, [(values, args)])
 
 P = TypeVar('P', bound=Pipeoid)
 
