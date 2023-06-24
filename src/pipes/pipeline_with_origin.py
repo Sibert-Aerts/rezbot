@@ -173,7 +173,7 @@ class PipelineWithOrigin:
             # Nothing more to be done than posting log contents to the channel.
             print('Script execution halted due to error.')
             await self.send_error_log(context, errors)
-            
+
         except Exception as e:
             ## An actual error has occurred in executing the script that we did not catch.
             # No script, no matter how poorly formed or thought-out, should be able to trigger this; if this occurs it's a Rezbot bug.

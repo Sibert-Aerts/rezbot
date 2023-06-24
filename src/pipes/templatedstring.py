@@ -11,12 +11,12 @@ class ParsedItem:
     ''' Class representing an Item inside a TemplatedString. '''
     def __init__(self, item: ParseResults):
         self.carrots = len(item.get('carrots', ''))
-        self.explicitlyIndexed = ('index' in item)
+        self.explicitly_indexed = ('index' in item)
         self.index = int(item['index']) if 'index' in item else None
         self.bang = item.get('bang', '') == '!'
         
     def __str__(self):
-        return '{%s%s%s}' %( '^'*self.carrots, self.index if self.explicitlyIndexed else '', '!' if self.bang else '')
+        return '{%s%s%s}' %( '^'*self.carrots, self.index if self.explicitly_indexed else '', '!' if self.bang else '')
     def __repr__(self):
         return 'Item' + str(self)
 
@@ -138,7 +138,7 @@ class TemplatedString:
 
     pieces: list[str | ParsedSource | ParsedItem]
     pre_errors: ErrorLog
-    end_index: int
+    end_index: int = -1
 
     is_string = False
     string: str = None
@@ -147,34 +147,16 @@ class TemplatedString:
     is_item = False
     item: ParsedItem = None
 
-    def __init__(self, pieces: list[str | ParsedSource | ParsedItem], start_index: int=0):
+    def __init__(self, pieces: list[str | ParsedSource | ParsedItem], start_index: int=0, index_items=True):
         self.pieces = pieces
         self.pre_errors = ErrorLog()
-        
-        item_index = start_index; explicit_item = False; implicit_item = False
-        # TODO: this currently does not work as intended due to nesting:
-        # "{} {roll max={}} {}" == "{0} {roll max={0}} {1}"
-        for piece in pieces:
-            if isinstance(piece, ParsedSource):
-                # TODO
-                pass
-            elif isinstance(piece, ParsedItem):
-                if piece.explicitlyIndexed:
-                    explicit_item = True
-                else:
-                    implicit_item = True
-                    piece.index = item_index
-                    item_index += 1
 
-        self.end_index = item_index
-
-        # TODO: only make this show up if Items are actually intended to be added at some point(?)
-        if explicit_item and implicit_item:
-            self.pre_errors.log('Do not mix empty `{}`\'s with numbered `{}`\'s!', True)
+        if index_items:
+            self.index_items(start_index)
 
         # For simplicity, an empty list is normalised to an empty string
         self.pieces = self.pieces or ['']
-        
+
         ## Determine if we're a very simple kind of TemplatedString
         if len(self.pieces) == 1:
             self.is_string = isinstance(self.pieces[0], str)
@@ -185,6 +167,29 @@ class TemplatedString:
             
             self.is_item = isinstance(self.pieces[0], ParsedItem)
             if self.is_item: self.item = self.pieces[0]
+
+    def index_items(self, start_index):
+        '''Runs through all implicitly indexed items and assigns them increasing indices.'''
+        item_index = start_index
+        explicit_item, implicit_item = False, False
+        # TODO: this currently does not work as intended due to nesting:
+        # "{} {roll max={}} {}" == "{0} {roll max={0}} {1}"
+        for piece in self.pieces:
+            if isinstance(piece, ParsedSource):
+                # TODO
+                pass
+            elif isinstance(piece, ParsedItem):
+                if piece.explicitly_indexed:
+                    explicit_item = True
+                else:
+                    implicit_item = True
+                    piece.index = item_index
+                    item_index += 1
+
+        self.end_index = item_index
+
+        if explicit_item and implicit_item:
+            self.pre_errors.log('Do not mix empty `{}`\'s with numbered `{}`\'s!', True)
 
     @staticmethod
     def from_parsed(parsed: ParseResults=[], start_index=0):
@@ -213,7 +218,7 @@ class TemplatedString:
     
     @staticmethod
     def from_string(string: str):
-        parsed = grammar.templated_string.parse_string(string, parseAll=True)
+        parsed = grammar.absolute_templated_string.parse_string(string, parseAll=True)
         return TemplatedString.from_parsed(parsed)
 
     def __str__(self):
@@ -222,6 +227,13 @@ class TemplatedString:
         return 'TString"' + ''.join(x if isinstance(x, str) else repr(x) for x in self.pieces) + '"'
     def __bool__(self):
         return not (self.is_string and not self.pieces[0])
+
+    # ================ Manipulation
+
+    @staticmethod
+    def join(strings: list['TemplatedString']) -> 'TemplatedString':
+        ''' Joins the TemplatedStrings together as one long TemplatedString, without re-indexing implicit items. '''
+        return TemplatedString([piece for string in strings for piece in string.pieces], index_items=False)
 
     def unquote(self) -> 'TemplatedString':
         ''' Modifies the TemplatedString to remove wrapping string delimiters, if present. '''
@@ -234,7 +246,8 @@ class TemplatedString:
             elif pieces[0][:1] == pieces[-1][-1:] in ('"', "'", '/') and not (self.is_string and len(pieces[0]) < 2):
                 pieces[0] = pieces[0][1:]
                 pieces[-1] = pieces[-1][:-1]
-            if self.is_string: self.string: str = self.pieces[0]
+            if self.is_string:
+                self.string: str = self.pieces[0]
 
         return self
 
@@ -261,6 +274,8 @@ class TemplatedString:
                     implicit.append(piece)
 
             return TemplatedString(implicit).unquote(), TemplatedString(remainder)
+
+    # ================ Evaluation
 
     async def evaluate(self, context: Context, scope: ItemScope=None) -> tuple[str, ErrorLog]:
         ''' Evaluate the TemplatedString into a string '''
@@ -300,7 +315,7 @@ class TemplatedString:
                     items, src_errors = source_results[source_index]
                     errors.extend(src_errors)
                     if not errors.terminal:
-                        strings.append(items[0])
+                        strings.append(items[0] if items else '')
                     source_index += 1
                 else:
                     strings.append(result)            
@@ -308,7 +323,7 @@ class TemplatedString:
 
         return out, errors
 
-    # ================ Specific use cases, wrapped into a single method
+    # ================ Specific fast-tracked use cases
 
     @staticmethod
     async def evaluate_string(string: str, context: Context, scope: ItemScope, force_single=False) -> tuple[list[str] | None, ErrorLog]:

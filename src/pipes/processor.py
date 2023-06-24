@@ -10,6 +10,7 @@ from discord import Client, Message, TextChannel
 
 # More import statements at the bottom of the file, due to circular dependencies.
 from pipes.context import Context, ItemScope
+from pipes.logger import ErrorLog
 
 
 class PipelineProcessor:
@@ -98,8 +99,14 @@ class PipelineProcessor:
     # ====================================== Script execution ======================================
 
     async def execute_script(self, script: str, context: Context, scope: ItemScope=None):
-        pipeline_with_origin = PipelineWithOrigin.from_string(script)
-        return await pipeline_with_origin.execute(context, scope)
+        try:
+            pipeline_with_origin = PipelineWithOrigin.from_string(script)
+        except Exception as e:
+            errors = ErrorLog().log(f'🛑 **Unexpected script parsing error:**\n {type(e).__name__}: {e}', terminal=True)
+            await PipelineWithOrigin.send_error_log(context, errors)
+            raise e
+        else:
+            return await pipeline_with_origin.execute(context, scope)
 
     async def interpret_incoming_message(self, message: Message):
         '''Starting point for executiong scripts directly from a message, or for the 'script-like' Macro/Event definition syntax.'''

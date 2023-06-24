@@ -181,30 +181,31 @@ class Arguments:
     @staticmethod
     def from_parsed(argList: ParseResults, signature: Signature=None, greedy: bool=True) -> tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
         '''
-            Compiles an argList ParseResult into a ParsedArguments object.
-            If Signature is not given, will create a "naive" ParsedArguments object that Macros use.
+        Compiles an argList ParseResult into a ParsedArguments object.
+        If Signature is not given, will create a "naive" ParsedArguments object that Macros use.
         '''
         errors = ErrorLog()
 
         ## Step 1: Collect explicitly and implicitly assigned parameters
-        remainder = []
+        remainder_pieces = []
         args = {}
         start_index = 0
 
-        ## TODO: the running startIndex doesn't track the remainder/implicit string! yikes!!
         for arg in argList or []:
-            if 'paramName' in arg:
-                param = arg['paramName'].lower()
+            if 'param_name' in arg:
+                param = arg['param_name'].lower()
                 if param in args:
-                    errors.warn(f'Repeated assignment of parameter `{param}`')
-                else:
-                    value = TemplatedString.from_parsed(arg['value'], start_index)
-                    start_index = value.end_index
-                    args[param] = value
+                    errors.warn(f'Repeated assignment of parameter `{param}`.')
+                    continue
+                remainder_piece = TemplatedString.from_parsed(arg['value'], start_index)
+                start_index = remainder_piece.end_index
+                args[param] = remainder_piece
             else:
-                remainder += list(arg['implicit_arg'])
+                remainder_piece = TemplatedString.from_parsed(arg['implicit_arg'], start_index)
+                start_index = remainder_piece.end_index
+                remainder_pieces.append(remainder_piece)
 
-        remainder = TemplatedString.from_parsed(remainder)
+        remainder = TemplatedString.join(remainder_pieces)
         
         ## Step 2: Turn into Arg objects
         for param in list(args):

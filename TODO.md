@@ -43,8 +43,6 @@
         * (Nothing)
 
     * **TemplatedString:**
-        * Implicit item indexing doesn't work for combination implicit and explicit args
-            * `param={} {}` gives `param={1} {0}` instead of `param={0} {1}` (because internally it's all the same as `implicitparam={0} param={1}`
         * Implicit item indexing doesn't work exactly as expected with nested sources
             * `{} {word pattern={}} {}` gives `{0} {word pattern={0}} {1}` instead of `{0} {word pattern={1}} {2}`
 
@@ -59,19 +57,6 @@
             * Decreases clutter of the global macros/events lists
             * Can easily see related macros/events in one place
             * Easily enable/disable all events in a namespace at the same time
-
-    * **SPOUTS:**
-        * Split Spouts into (at least) 2 functions:
-            * collect( discord_ctx, spout_state, values, args ) → spout_state
-                Called each time the spout is encountered in a script, spout_state replaces SPOUT_CALLBACKS
-                and is a (spout-specific?) state object that the spout adds its own information to if it needs to
-
-                e.g. in the current model they just add a callback to spout_state
-
-            * callback( spout_state )
-                called (on each addressed spout? on EACH spout???) when the Script reaches its end, allowing each spout to sort out its collected state
-
-                e.g. in the current model they just execute each of their callbacks in spout_state
 
     * **EVENTS:**
         * more types of conditions: MESSAGE CONTAINS (regex), USER IS (username/id), TIME IS (?), logical operations?? ????
