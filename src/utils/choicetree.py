@@ -1,6 +1,11 @@
-from pyparsing import Char, Literal, Regex, Group as pGroup, Forward, Empty, ZeroOrMore, OneOrMore
+from pyparsing import Char, Literal, Regex, Group as pGroup, Forward, Empty, ZeroOrMore, OneOrMore, ParseResults, Word
 import functools
 import numpy as np
+
+class ChoiceTreeError(ValueError):
+    pass
+class EmptyChoiceTreeError(ChoiceTreeError):
+    pass
 
 class ChoiceTree:
     '''
@@ -29,8 +34,9 @@ class ChoiceTree:
     # ================ Classes
 
     class Text:
-        def __init__(self, text):
-            self.text = text if text == '' else ''.join(text.asList())
+        '''Text end node.'''
+        def __init__(self, text: ParseResults):
+            self.text = text if text == '' else ''.join(text.as_list())
             self.count = 1
             self.reset()
 
@@ -50,20 +56,22 @@ class ChoiceTree:
             return self.text
 
     class Choice:
-        def __init__(self, vals):
-            self.vals = vals.asList()
+        '''Conjunction of nodes [A|B|C]'''
+        def __init__(self, vals: ParseResults):
+            self.vals = vals.as_list()
             self.count = sum(v.count for v in self.vals)
             self.reset()
 
-        __str__ = __repr__ = lambda s: '[{}]'.format('|'.join([str(v) for v in s.vals]))
+        __str__ = __repr__ = lambda s: '[{}]'.format('|'.join(str(v) for v in s.vals))
 
         def next(self):
             next = self.vals[self.i]
-            out = next.next()
-            if next.done:
+            while next.done:
                 self.i += 1
-                if self.i == len(self.vals):
-                    self.done = True
+                next = self.vals[self.i]
+            out = next.next()
+            if next.done and self.i == len(self.vals) - 1:
+                self.done = True
             return out
 
         def random(self):
@@ -72,17 +80,45 @@ class ChoiceTree:
 
         def reset(self):
             self.i = 0
-            self.done = False
+            self.done = (self.count <= 0)
             for c in self.vals:
                 c.reset()
 
         def current(self):
             return self.vals[self.i].current()
 
+    class Ordinal:
+        '''
+        Special Choice node notation for (choice out of `n` empty strings), effectively acting as a multiplier/weight.
+        [1] does absolutely nothing, [2] behaves as [|], 3 as [||], etc.
+        [0] annihilates the current choice entirely, something unrepresentable otherwise.
+        '''
+        def __init__(self, val: ParseResults):
+            self.count = int(val[0])
+            self.reset()
+
+        def reset(self):
+            self.i = 0
+            self.done = (self.count <= 0)
+
+        __str__ = __repr__ = lambda self: f'[{self.count}]'
+
+        def next(self):
+            self.i += 1
+            self.done = (self.count <= self.i)
+            return ''
+        
+        def random(self):
+            return ''
+        
+        def current(self):
+            return ''
+
     class Group:
+        '''Multiple choices and text strings attached end to end.'''
         def __init__(self, vals):
-            self.vals = vals.asList()
-            self.count = functools.reduce(lambda x,y: x*y, (c.count for c in self.vals), 1)
+            self.vals = vals.as_list()
+            self.count = functools.reduce(lambda x, y: x*y, (c.count for c in self.vals), 1)
             self.reset()
 
         __str__ = __repr__ = lambda s: ''.join(str(v) for v in s.vals)
@@ -110,10 +146,12 @@ class ChoiceTree:
             return ''.join(out)
 
         def random(self):
+            if self.count == 0:
+                raise EmptyChoiceTreeError()
             return ''.join(v.random() for v in self.vals)
 
         def reset(self):
-            self.done = False
+            self.done = (self.count == 0)
             for c in self.vals:
                 c.reset()
 
@@ -129,12 +167,14 @@ class ChoiceTree:
     rbr = Literal(']').suppress()
     div = Literal('|').suppress()
     _text = Regex(r'[^\[\|\]~]+') # any sequence of characters not containing '[', ']', '|' or '~'
+    number = Word('0123456789')
 
-    text = pGroup( OneOrMore( escaped_symbol|escaped_esc|sole_esc|_text ) ).set_parse_action(lambda t: ChoiceTree.Text(t[0]))
+    text = pGroup( OneOrMore( escaped_symbol|escaped_esc|sole_esc|_text ) ).set_parse_action(lambda s, l, t: ChoiceTree.Text(t[0]))
     group = Forward()
-    choice = pGroup( lbr + group + ZeroOrMore( div + group ) + rbr ).set_parse_action(lambda t: ChoiceTree.Choice(t[0]))
-    empty = Empty().set_parse_action(lambda t: ChoiceTree.Text(''))
-    group <<= pGroup( OneOrMore( text|choice ) | empty ).leave_whitespace().set_parse_action(lambda t: ChoiceTree.Group(t[0]))
+    ordinal = pGroup( lbr + number + rbr).set_parse_action(lambda t: ChoiceTree.Ordinal(t[0]))
+    choice = pGroup( lbr + group + ZeroOrMore( div + group ) + rbr ).set_parse_action(lambda s, l, t: ChoiceTree.Choice(t[0]))
+    empty = Empty().set_parse_action(lambda s, l, t: ChoiceTree.Text(''))
+    group <<= pGroup( OneOrMore(text|ordinal|choice) | empty ).leave_whitespace().set_parse_action(lambda s, l, t: ChoiceTree.Group(t[0]))
 
     # ================ Methods
 
@@ -148,10 +188,11 @@ class ChoiceTree:
         if add_brackets: text = '[' + text + ']'
 
         self.root: ChoiceTree.Group = ChoiceTree.group.parse_string(text)[0]
-        self.count = self.root.count
 
     def __iter__(self):
-        if self.flag_random: yield self.random(); return
+        if self.flag_random:
+            yield self.random()
+            return
         while not self.root.done:
             yield self.root.next()
         self.root.reset()
@@ -159,6 +200,10 @@ class ChoiceTree:
     def random(self):
         return self.root.random()
 
+    def __len__(self):
+        if self.flag_random:
+            return 1
+        return self.root.count
 
 
 ## Some itty bitty tests
@@ -174,6 +219,28 @@ if __name__ == '__main__':
         'A~[B~|C~]',
         'A~[B|C~]',
         '[AAAA|BBBB[CCCCCCC|DDDDD]E[FFFF[GGGG|HHHH|]|JJJJ|]KKKKKK|LLLLL[MMMM|NNN]][OOOOOOOO|PPP[QQQQ|RRRRRR[SSSSSS|TTTTT[UUUU|VVVVV]]]',
+        'Five[5]',
+        '[Five[5]|Three[3]]',
+        '[Five[5]|Never[0]|Six[3][2]]',
+        '[[0]|[0]|[0]]Never',
+        'This one gets wiped[0]',
+        '[?][One|Two|Three]',
     ]
     for test in tests:
-        print(repr(test).ljust(20), ' → ', repr(list(ChoiceTree(test)))[1:-1])
+        strings = list(ChoiceTree(test, parse_flags=True))
+        print(repr(test).ljust(32), ' = ', ' + '.join(strings) if strings else '<nothing>')
+
+    print()
+    try:
+        ChoiceTree('[0]').random()
+        print('Assertion failed: Should have raised EmptyChoiceTreeError!')
+    except EmptyChoiceTreeError:
+        print('Assertion successful: Expected EmptyChoiceTreeError was raised.')
+
+
+    print()
+    prob_test = ChoiceTree('[A|B[10]|C[0]]')
+    prob_output = [prob_test.random() for _ in range(10000)]
+    print('Frequency table, expected: 10%/90%/0%')
+    for c in 'ABC':
+        print(f'{c}: {prob_output.count(c)/100}%')
