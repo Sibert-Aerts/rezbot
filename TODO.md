@@ -42,10 +42,6 @@
     * **Pipes:**
         * (Nothing)
 
-    * **TemplatedString:**
-        * Implicit item indexing doesn't work exactly as expected with nested sources
-            * `{} {word pattern={}} {}` gives `{0} {word pattern={0}} {1}` instead of `{0} {word pattern={1}} {2}`
-
     * **Uploaded files:**
         * "Append to file" spout (which creates a new file if it doesn't exist yet)
         * "replace specified line" spout

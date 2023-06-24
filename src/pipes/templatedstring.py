@@ -9,6 +9,11 @@ import pipes.grammar as grammar
 
 class ParsedItem:
     ''' Class representing an Item inside a TemplatedString. '''
+    carrots: int
+    index: int | None
+    bang: bool
+    explicitly_indexed: bool
+
     def __init__(self, item: ParseResults):
         self.carrots = len(item.get('carrots', ''))
         self.explicitly_indexed = ('index' in item)
@@ -30,6 +35,12 @@ class ParsedSource:
     NATIVE_SOURCE = object()
     MACRO_SOURCE  = object()
     UNKNOWN       = object()
+
+    name: str
+    amount: str | int | None
+    args: 'Arguments'
+    pre_errors: ErrorLog
+    type: object
 
     def __init__(self, name: str, args: 'Arguments', amount: str | int | None):
         self.name = name.lower()
@@ -66,6 +77,8 @@ class ParsedSource:
         return '{%s %s %s}' %( self.amount or '', self.name, repr(self.args) if self.args else '' )
     def __repr__(self):
         return 'Source' + str(self)
+
+    # ================ Evaluation
 
     async def evaluate(self, context: Context, scope: ItemScope, args=None) -> tuple[ list[str] | None, ErrorLog ]:
         ''' Find some values for the damn Source that we are. '''
@@ -152,7 +165,7 @@ class TemplatedString:
         self.pre_errors = ErrorLog()
 
         if index_items:
-            self.index_items(start_index)
+            self.assign_implicit_item_indices(start_index)
 
         # For simplicity, an empty list is normalised to an empty string
         self.pieces = self.pieces or ['']
@@ -167,29 +180,6 @@ class TemplatedString:
             
             self.is_item = isinstance(self.pieces[0], ParsedItem)
             if self.is_item: self.item = self.pieces[0]
-
-    def index_items(self, start_index):
-        '''Runs through all implicitly indexed items and assigns them increasing indices.'''
-        item_index = start_index
-        explicit_item, implicit_item = False, False
-        # TODO: this currently does not work as intended due to nesting:
-        # "{} {roll max={}} {}" == "{0} {roll max={0}} {1}"
-        for piece in self.pieces:
-            if isinstance(piece, ParsedSource):
-                # TODO
-                pass
-            elif isinstance(piece, ParsedItem):
-                if piece.explicitly_indexed:
-                    explicit_item = True
-                else:
-                    implicit_item = True
-                    piece.index = item_index
-                    item_index += 1
-
-        self.end_index = item_index
-
-        if explicit_item and implicit_item:
-            self.pre_errors.log('Do not mix empty `{}`\'s with numbered `{}`\'s!', True)
 
     @staticmethod
     def from_parsed(parsed: ParseResults=[], start_index=0):
@@ -220,6 +210,38 @@ class TemplatedString:
     def from_string(string: str):
         parsed = grammar.absolute_templated_string.parse_string(string, parseAll=True)
         return TemplatedString.from_parsed(parsed)
+
+    def assign_implicit_item_indices(self, start_index):
+        ''' Runs through all implicitly indexed items and assigns them increasing indices, or recursively adjusts existing ones. '''
+        item_index = start_index
+        explicit_item, implicit_item = False, False
+        # TODO: this currently does not work as intended due to nesting:
+        # "{} {roll max={}} {}" == "{0} {roll max={0}} {1}"
+        for piece in self.pieces:
+            if isinstance(piece, ParsedSource):
+                item_index = piece.args.adjust_implicit_item_indices(item_index)
+            elif isinstance(piece, ParsedItem):
+                if piece.explicitly_indexed:
+                    explicit_item = True
+                else:
+                    implicit_item = True
+                    piece.index = item_index
+                    item_index += 1
+
+        self.end_index = item_index
+
+        if explicit_item and implicit_item:
+            self.pre_errors.log('Do not mix empty `{}`\'s with numbered `{}`\'s!', True)
+
+    def adjust_implicit_item_indices(self, new_start_index):
+        ''' Recursively adjust all implicit item indices by a flat amount and return the new end index. '''
+        for piece in self.pieces:
+            if isinstance(piece, ParsedSource):
+                piece.args.adjust_implicit_item_indices(new_start_index)
+            elif isinstance(piece, ParsedItem) and not piece.explicitly_indexed:
+                piece.index += new_start_index
+        self.end_index += new_start_index
+        return self.end_index
 
     def __str__(self):
         return ''.join(str(x) for x in self.pieces)

@@ -263,6 +263,19 @@ class Arguments:
 
         return Arguments(args), remainder, errors
 
+    def adjust_implicit_item_indices(self, new_start_index: int):
+        '''
+        Upon creation of an Arguments object we assign indices to implicitly indexed items,
+        but if it turns out the object is nested inside a TemplatedString, the indices need to be adjusted,
+        and the resulting max. index needs to be conveyed to the containing TemplatedString.
+        '''
+        end_index = new_start_index
+        for arg in self.args.values():
+            if arg.predetermined: continue
+            index = arg.string.adjust_implicit_item_indices(new_start_index)
+            end_index = max(index, end_index)
+        return end_index
+
     def __repr__(self):
         return 'Args(' + ' '.join(self.args.keys()) + ')'
 
