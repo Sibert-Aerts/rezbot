@@ -151,6 +151,8 @@ class OnReaction(Event):
 class Events:
     '''Dict-like wrapper for loading/holding/saving Events, mostly copy-pasted from the one in macros.py'''
     events: dict[str, Event]
+    on_message_events: list[OnMessage]
+    on_reaction_events: list[OnReaction]
 
     def __init__(self, DIR, filename):
         self.events = {}
@@ -164,6 +166,7 @@ class Events:
         except Exception as e:
             print(e)
             print('Failed to load events from "{}"!'.format(DIR(filename)))
+        self.refresh_indexes()
 
     def attempt_version_upgrade(self):
         TO_VERSION = 3
@@ -183,6 +186,14 @@ class Events:
             self.write()
             if count: print('{} events successfully converted and added from "{}"!'.format(count, self.filename))
 
+    def refresh_indexes(self):
+        self.on_message_events = []
+        self.on_reaction_events = []
+        for event in self.events.values():
+            if isinstance(event, OnMessage):
+                self.on_message_events.append(event)
+            elif isinstance(event, OnReaction):
+                self.on_reaction_events.append(event)
 
     command_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w[\w.]+) ON ?(MESSAGE|REACT(?:ION)?) (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I | re.S )
     #                                  ^^^^^^^^         ^^^^^^^^       ^^^^^^^^^^^^^^^^^^^^^   ^^^          ^^
@@ -223,9 +234,9 @@ class Events:
                     await channel.send(f'Event "{name}" cannot be edited to be a different type. Try deleting it first.')
                     return True
                 event.update(script, trigger)
+                self.write()
             else:
-                event = self.events[name] = EventType(name, None, message.author, channel, script, trigger)
-            self.write()
+                event = self[name] = EventType(name, None, message.author, channel, script, trigger)
 
         except Exception as e:
             ## Failed to register event (e.g. OnMessage regex could not parse)
@@ -258,11 +269,13 @@ class Events:
     def __setitem__(self, name, val):
         self.events[name] = val
         self.write()
+        self.refresh_indexes()
         return val
 
     def __delitem__(self, name):
         del self.events[name]
         self.write()
+        self.refresh_indexes()
 
     def __bool__(self):
         return len(self.events) > 0

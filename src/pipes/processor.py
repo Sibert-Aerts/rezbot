@@ -27,15 +27,11 @@ class PipelineProcessor:
 
     async def on_message(self, message: Message):
         '''Check if an incoming message triggers any custom Events.'''
-    
-        # TODO: for even in events.active_on_reaction_events... This shouldn't re-filter the events each time
-        for event in events.values():
-            if not isinstance(event, OnMessage):
-                continue
+        for event in events.on_message_events:
             match: re.Match = event.test(message)
             if match:
                 if match is not True and (groups := match.groups(default='')):
-                    # If match is indeed a regex Match object with regex Match Groups in it:
+                    # If match is indeed a regex Match object with regex Match groups:
                     #   Fill the starting items with the groups in order of appearance ({i} == match[i+1]) (LEGACY, do not change numbering!)
                     #   Fill the arguments with each group, mapped both by index ({arg i} == match[i]) and by name ({arg name} == match[name]).
                     items = list(groups)
@@ -43,10 +39,9 @@ class PipelineProcessor:
                     arguments['0'] = match[0]
                     arguments.update(match.groupdict())
                 else:
-                    # Otherwise: Item 0 and argument 0 are simply the full message.
-                    #  I don't think this one ever actually happens, since the only OnMessage trigger is a regex, but who knows.
+                    # No Match groups: Item 0 is the message content (LEGACY!), arg 0 is the full match
                     items = [message.content]
-                    arguments = {'0': message.content}
+                    arguments = {'0': match[0]}
                 # Fetch Event's author
                 author = message.guild.get_member(event.author_id) or self.bot.get_user(event.author_id)
                 # Create execution context
@@ -68,33 +63,31 @@ class PipelineProcessor:
         # For efficiency we only fetch the message/member once we know that this is
         #   a reaction that we actually care about
         message = member = None
-
-        # TODO: for even in events.active_on_reaction_events... This shouldn't re-filter the events each time
-        for event in events.values():
-            if isinstance(event, OnReaction) and event.test(channel, emoji):
-                if message is None:
-                    message = await channel.fetch_message(msg_id)
-                if member is None:
-                    member = channel.guild.get_member(user_id)
-                    # Only once we fetch the member can we test if we have them muted, to call the whole thing off
-                    if not self.bot.should_listen_to_user(member):
-                        return
-                # Fetch Event's author
-                author = channel.guild.get_member(event.author_id) or self.bot.get_user(event.author_id)
-                # Create execution context
-                context = Context(
-                    origin=Context.Origin(
-                        name='Event: ' + event.name,
-                        activator=member,
-                        type=Context.Origin.Type.EVENT,
-                        event=event,
-                    ),
-                    author=author,
-                    message=message,
-                    arguments={'emoji': emoji},
-                )
-                scope = ItemScope(items=[emoji, str(user_id)]) # Legacy way of conveying who reacted
-                await self.execute_script(event.script, context, scope)
+        for event in events.on_reaction_events:
+            if not event.test(channel, emoji):
+                continue
+            if message is None or member is None:
+                message = await channel.fetch_message(msg_id)
+                member = channel.guild.get_member(user_id)
+                # Only once we fetch the member can we test if we have them muted, to call the whole thing off
+                if not self.bot.should_listen_to_user(member):
+                    return
+            # Fetch Event's author
+            author = channel.guild.get_member(event.author_id) or self.bot.get_user(event.author_id)
+            # Create execution context
+            context = Context(
+                origin=Context.Origin(
+                    name='Event: ' + event.name,
+                    activator=member,
+                    type=Context.Origin.Type.EVENT,
+                    event=event,
+                ),
+                author=author,
+                message=message,
+                arguments={'emoji': emoji},
+            )
+            scope = ItemScope(items=[emoji, str(user_id)]) # Legacy way of conveying who reacted
+            await self.execute_script(event.script, context, scope)
 
     # ====================================== Script execution ======================================
 
@@ -150,6 +143,6 @@ class PipelineProcessor:
 
 # These lynes be down here dve to dependencyes cyrcvlaire
 from pipes.pipeline_with_origin import PipelineWithOrigin
-from pipes.events import events, OnMessage, OnReaction
+from pipes.events import events
 from pipes.implementations.sources import SourceResources
 from pipes.commands.macro_commands import parse_macro_command
