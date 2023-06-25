@@ -99,16 +99,15 @@ class Context:
         This information will never change, even as Contexts get nested, and as such is bundled in this sub-object.
         '''
         class Type:
-            UNKNOWN = object()
             DIRECT = object()
             COMMAND = object()
             EVENT = object()
             INTERACTION_CALLBACK = object()
             EVALUATE_SOURCES_PIPE = object()
 
-        name: str # TODO: Get rid of? Should be interpretable from other info
-
-        type: Type =Type.UNKNOWN
+        name: str
+        'Human understandable name explaining who/what/where this execution originated from.'
+        type: Type
         'Enum denoting where the execution originated from.'
         activator: Member = None
         'Whoever caused this execution.'
@@ -117,11 +116,18 @@ class Context:
 
         def __init__(
                 self,
+                type: 'Context.Origin.Type',
+                *,
                 name: str=None,
-                type: 'Context.Origin.Type'=Type.UNKNOWN,
-                activator: Member=None,
+                activator: Member,
                 event: 'Event'=None,
             ):
+            # Default formatted names
+            if name is None:
+                if event:
+                    name = f'Event: {event.name}'
+                elif type == Context.Origin.Type.DIRECT:
+                    name = f'{activator.display_name}\'s script'
             self.name = name
             self.type = type
             self.activator = activator
@@ -170,14 +176,16 @@ class Context:
         macro: 'Macro'=None,
         arguments: 'Macro'=None,
     ):
+        if (not origin and not parent) or (origin and parent):
+            raise ValueError('Context must have either an Origin or a parent Context.')
         self.parent = parent
+        self.origin = origin or parent.origin
 
         # If a parent Context is given, use most of its properties as defaults
         if parent:
-            for attr in ('origin', 'author', 'message', 'interaction', 'channel', 'macro', 'arguments'):
+            for attr in ('author', 'message', 'interaction', 'channel', 'macro', 'arguments'):
                 setattr(self, attr, getattr(parent, attr, None))
 
-        self.origin = origin or self.origin or Context.Origin()
         self.author = author or self.author
         self.message = message or self.message
         self.interaction = interaction or self.interaction
@@ -191,7 +199,7 @@ class Context:
         self.arguments = arguments if arguments is not None else self.arguments
 
     def into_macro(self, macro: 'Macro', arguments: dict[str, str]):
-        '''Create a new Context for execution inside the given Macro.'''
+        '''Create a new child Context for execution inside the given Macro.'''
         author = None
         if macro.authorId and self.channel:
             author = self.channel.guild.get_member(macro.authorId)

@@ -47,9 +47,8 @@ class PipelineProcessor:
                 # Create execution context
                 context = Context(
                     origin=Context.Origin(
-                        name='Event: ' + event.name,
-                        activator=message.author,
                         type=Context.Origin.Type.EVENT,
+                        activator=message.author,
                         event=event,
                     ),
                     author=author,
@@ -77,9 +76,8 @@ class PipelineProcessor:
             # Create execution context
             context = Context(
                 origin=Context.Origin(
-                    name='Event: ' + event.name,
-                    activator=member,
                     type=Context.Origin.Type.EVENT,
+                    activator=member,
                     event=event,
                 ),
                 author=author,
@@ -129,7 +127,6 @@ class PipelineProcessor:
             async with message.channel.typing():
                 context = Context(
                     origin=Context.Origin(
-                        name=f'{message.author.display_name}\'s script',
                         type=Context.Origin.Type.DIRECT,
                         activator=message.author,    
                     ),

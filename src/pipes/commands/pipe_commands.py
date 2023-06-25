@@ -300,7 +300,7 @@ async def setup(bot: commands.Bot):
     def spout_to_func(spout: Spout):
         async def func(ctx: commands.Context):
             text = util.strip_command(ctx)
-            execution_context = Context(
+            script_context = Context(
                 origin=Context.Origin(
                     name=spout.name,
                     type=Context.Origin.Type.COMMAND,
@@ -313,8 +313,8 @@ async def setup(bot: commands.Bot):
             args, text, err = Arguments.from_string(text, spout.signature, greedy=False)
             err.name = f'`{spout.name}`'
             if err.terminal: return await ctx.send(embed=err.embed())
-            args, err2 = await args.determine(execution_context)
-            text, err3 = await text.evaluate(execution_context)
+            args, err2 = await args.determine(script_context)
+            text, err3 = await text.evaluate(script_context)
             err.extend(err2, 'arguments'); err.extend(err3, 'input string')
             if err.terminal: return await ctx.send(embed=err.embed())
             
@@ -324,7 +324,7 @@ async def setup(bot: commands.Bot):
 
             try:
                 # Execute the spout with what remains of the argstr
-                await spout.do_simple_callback(ctx.bot, ctx.message, [text], **args)
+                await spout.do_simple_callback(ctx.bot, script_context, [text], **args)
 
             except Exception as e:
                 err.log(f'With args {args}:\n\t{type(e).__name__}: {e}', True)
