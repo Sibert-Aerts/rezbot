@@ -19,7 +19,7 @@ class UploadCommands(MyCommands):
         # Are there ever more than 1 attachments?
         attached = ctx.message.attachments
         if len(attached) != 1:
-            await ctx.send('Please attach exactly one txt file with your message.'); return
+            return await ctx.send('Please attach exactly one txt file with your message.')
 
         attached = attached[0]
 
@@ -29,8 +29,7 @@ class UploadCommands(MyCommands):
                     text = await response.text(encoding='utf-8')
         except Exception as e:
             await ctx.send('Failed to parse text contents of file... make sure you upload a txt file.')
-            print(e)
-            return
+            raise e
 
         author = ctx.author
 
@@ -44,7 +43,7 @@ class UploadCommands(MyCommands):
     async def download(self, ctx, file):
         '''Download a txt file.'''
         if file not in uploads:
-            await ctx.send('No file by name `%s` found!' % file); return
+            return await ctx.send('No file by name `%s` found!' % file)
         file = uploads[file]
         discFile = discord.File(file.get_raw_path())
         await ctx.send(file=discFile)
@@ -104,12 +103,13 @@ class UploadCommands(MyCommands):
 
         #### Print info on a specific file
         if name not in uploads:
-            await ctx.send(f'No file by name `{name}` found!'); return
+            return await ctx.send(f'No file by name `{name}` found!')
         name = uploads[name]
         info = name.info
         lines = name.get()
 
         # TODO: make this a little File.embed() ?
+        # TODO: make this a little view, even?
         text = '**File:** ' + info.name
         text += ', **Uploader:** ' + info.author_name + '\n'
         text += '**Order:** ' + ('Sequential' if info.sequential else 'Random')
@@ -161,25 +161,25 @@ class UploadCommands(MyCommands):
         e.g. >file_set oldName name newName
         '''
         if file not in uploads:
-            await ctx.send('No file by name `%s` found!' % file); return
+            return await ctx.send('No file by name `%s` found!' % file)
         file = uploads[file]
 
         if attribute not in UploadCommands.attributes:
-            await ctx.send('Second argument must be one of: %s' % ', '.join(UploadCommands.attributes)); return
+            return await ctx.send('Second argument must be one of: %s' % ', '.join(UploadCommands.attributes))
 
         if attribute in UploadCommands.bool_attributes:
             value = parse_bool(value)
         elif attribute in UploadCommands.str_attributes:
             value = value.strip()
             if value == '':
-                await ctx.send('Please use a less blank-y value.'); return
+                return await ctx.send('Please use a less blank-y value.')
 
         oldVal = getattr(file.info, attribute)
         if attribute == 'name':
             # Special case because names of different files aren't allowed to overlap
             if value == oldVal: return
             if value in uploads:
-                await ctx.send('That name is already in use.'); return
+                return await ctx.send('That name is already in use.')
             # Everything seems in order to make this change
             del uploads[oldVal]
             uploads[value] = file
@@ -262,7 +262,7 @@ class UploadCommands(MyCommands):
         ''' Delete an uploaded file. Can only be done by owners of the bot or the file. '''
 
         if filename not in uploads:
-            await ctx.send('No file by name `%s` found!' % filename); return
+            return await ctx.send('No file by name `%s` found!' % filename)
         file = uploads[filename]
 
         if permissions.has(ctx.author.id, permissions.owner) or ctx.author.id == file.info.author_id:

@@ -7,12 +7,14 @@ from datetime import datetime
 import nltk
 import markovify
 import spacy
+
+from utils.util import normalize_name
 spacy.LOADED_NLP = None
 
 def DIR(filename=''):
     return os.path.join(os.path.dirname(__file__), 'files', filename)
 
-searchify_regex = re.compile(r'[^a-z0-9\s]')
+searchify_regex = re.compile(r'[^\w-\s]')
 def searchify(text):
     return searchify_regex.sub('', text.lower()).strip()
 
@@ -59,9 +61,9 @@ class FileInfo:
 
 class File:
     '''
-        Class representing an uploaded File as it is stored in memory.
-        File.info contains all metadata and is loaded on startup.
-        The file's actual contents and derived contents are only read/loaded/generated the first time they're requested.
+    Class representing an uploaded File as it is stored in memory.
+    File.info contains all metadata and is loaded on startup.
+    The file's actual contents and derived contents are only read/loaded/generated the first time they're requested.
     '''
     def __init__(self, info):
         '''Constructor used when a file is loaded at startup.'''
@@ -74,6 +76,8 @@ class File:
         self.markov_model = None
         self.pos_buckets = None
 
+    # ========================================= Life cycle =========================================
+    
     @staticmethod
     def new(name, author_name, author_id, raw, **kwargs):
         '''Constructor used when a file is first created.'''
@@ -86,6 +90,8 @@ class File:
 
     def delete(self):
         self.info.delete()
+
+    # ====================================== Raw file handling =====================================
 
     def get_raw_path(self):
         return DIR(self.info.raw_file)
@@ -103,8 +109,10 @@ class File:
     def process_raw(self, raw):
         '''Called either when the file is read from disk, or when the file is first uploaded.'''
         lines = [x.strip() for x in re.split(self.info.splitter, raw)]
-        lines = list(filter(lambda x: x != '', lines))
+        lines = [x for x in lines if x]
         self.lines = lines
+
+    # ======================================== Line getters ========================================
 
     def get_lines(self):
         if self.lines is None:
@@ -136,10 +144,11 @@ class File:
 
     def get(self, sentences=None):
         ''' Gets either Lines or Sentences depending on the given boolean or the default setting. '''
-        if sentences is None: sentences = self.info.sentences
+        if sentences is None:
+            sentences = self.info.sentences
         return self.get_lines() if not sentences else self.get_sentences()
 
-    def _search(self, sentences:bool, query=None, regex=None):
+    def _search(self, sentences: bool, query=None, regex=None):
         '''Returns an indexable iterable containing the indices which match the search filters'''
         lines = self.get(sentences)
 
@@ -191,6 +200,8 @@ class File:
         index = max(0, min( index-random.randint(0, count-1) , len(lines)-count))
         return lines[index: index + count]
 
+    # =========================================== Markov ===========================================
+
     def get_markov_model(self):
         if self.markov_model is None:
             # Make a markov model from whatever the default line split mode is
@@ -207,6 +218,8 @@ class File:
             return [model.make_sentence(tries=20) or model.make_sentence(test_output=False) for _ in range(count)]
         else:
             return [model.make_short_sentence(length, tries=20) or model.make_sentence(length, test_output=False) for _ in range(count)]
+
+    # ============================================= POS ============================================
 
     def get_pos_buckets(self):
         if self.pos_buckets is None:
@@ -244,10 +257,10 @@ class File:
 
 class Files:
     '''
-        Dict-like object containing and cataloguing all uploaded files.
+    Dict-like object containing and cataloguing all uploaded files.
     '''
     def __init__(self):
-        self.files = {}
+        self.files: dict[str, File] = {}
 
         ## Load pickled FileInfo files from the /files directory
         for filename in os.listdir(DIR()):
@@ -264,14 +277,18 @@ class Files:
                 file_info.last_modified = datetime.fromtimestamp(1577836800)
                 file_info.categories = []
                 file_info.write()
-
+ 
             self.files[file_info.name] = File(file_info)
 
         print('%d uploaded files found!' % len(self.files))
 
     @staticmethod
     def clean_name(name):
-        return name[:-4] if name[-4:]=='.txt' else name
+        if name[-4:] == '.txt':
+            name = name[:-4]
+        return normalize_name(name)
+
+    # ========================================== Interface =========================================
 
     def get_categories(self):
         ''' Get a {category: List[File]} dict. (Files may be in multiple categories!) '''
@@ -298,6 +315,8 @@ class Files:
         '''Delete a file from disk.'''
         self.files[filename].delete()
         del self.files[filename]
+
+    # ========================================= Data Model =========================================
 
     def __contains__(self, name):
         return (Files.clean_name(name) in self.files)
