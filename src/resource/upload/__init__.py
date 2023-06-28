@@ -14,7 +14,7 @@ spacy.LOADED_NLP = None
 def DIR(filename=''):
     return os.path.join(os.path.dirname(__file__), 'files', filename)
 
-searchify_regex = re.compile(r'[^\w-\s]')
+searchify_regex = re.compile(r'[^\w\s\-]')
 def searchify(text):
     return searchify_regex.sub('', text.lower()).strip()
 

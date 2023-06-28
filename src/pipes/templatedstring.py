@@ -278,8 +278,7 @@ class TemplatedString:
         if greedy:
             return self.unquote(), None
         else:
-            # This is stupid since it just applies the TemplatedString version of .split(' ', 1)
-            # But we probably don't need more than this...
+            # This applies the TemplatedString version of .split(' ', 1), probably doesn't need to be more than this.
             implicit = []
             remainder = []
             for i in range(len(self.pieces)):
@@ -288,7 +287,7 @@ class TemplatedString:
                     if ' ' in piece:
                         piece1, piece2 = piece.split(' ', 1)
                         implicit.append(piece1)
-                        remainder = [piece2, self.pieces[i+1:]]
+                        remainder = [piece2] + self.pieces[i+1:]
                         break
                     else:
                         implicit.append(piece)
