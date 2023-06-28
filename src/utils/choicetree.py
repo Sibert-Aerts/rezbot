@@ -1,4 +1,4 @@
-from pyparsing import Char, Literal, Regex, Group as pGroup, Forward, Empty, ZeroOrMore, OneOrMore, ParseResults, Word
+from pyparsing import Char, Literal, Regex, Group, Forward, Empty, ZeroOrMore, OneOrMore, ParseResults, Word
 from typing import Generator, Any
 import functools
 from random import choices
@@ -122,7 +122,7 @@ class ChoiceTree:
         def random(self):
             return ''
 
-    class Group(Node):
+    class Concat(Node):
         '''Multiple choices and text strings attached end to end.'''
         def __init__(self, vals):
             self.nodes: list[ChoiceTree.Node] = vals.as_list()
@@ -163,12 +163,12 @@ class ChoiceTree:
     _text = Regex(r'[^\[\|\]~]+') # any sequence of characters not containing '[', ']', '|' or '~'
     number = Word('0123456789')
 
-    text = pGroup( OneOrMore( escaped_symbol|escaped_esc|sole_esc|_text ) ).set_parse_action(lambda s, l, t: ChoiceTree.Text(t[0]))
+    text = Group( OneOrMore( escaped_symbol|escaped_esc|sole_esc|_text ) ).set_parse_action(lambda s, l, t: ChoiceTree.Text(t[0]))
     group = Forward()
-    ordinal = pGroup( lbr + number + rbr).set_parse_action(lambda t: ChoiceTree.Ordinal(t[0]))
-    choice = pGroup( lbr + group + ZeroOrMore( div + group ) + rbr ).set_parse_action(lambda s, l, t: ChoiceTree.Choice(t[0]))
+    ordinal = Group( lbr + number + rbr ).set_parse_action(lambda t: ChoiceTree.Ordinal(t[0]))
+    choice = Group( lbr + group + ZeroOrMore( div + group ) + rbr ).set_parse_action(lambda s, l, t: ChoiceTree.Choice(t[0]))
     empty = Empty().set_parse_action(lambda s, l, t: ChoiceTree.Text(''))
-    group <<= pGroup( OneOrMore(text|ordinal|choice) | empty ).leave_whitespace().set_parse_action(lambda s, l, t: ChoiceTree.Group(t[0]))
+    group <<= Group( OneOrMore(text|ordinal|choice) | empty ).leave_whitespace().set_parse_action(lambda s, l, t: ChoiceTree.Concat(t[0]))
 
     # ================ Methods
 
@@ -180,7 +180,7 @@ class ChoiceTree:
                 self.flag_random = True
 
         if add_brackets: text = '[' + text + ']'
-        self.root: ChoiceTree.Group = ChoiceTree.group.parse_string(text)[0]
+        self.root: ChoiceTree.Concat = ChoiceTree.group.parse_string(text)[0]
 
     def __repr__(self):
         return f'ChoiceTree({self.root})'
