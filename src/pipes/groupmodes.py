@@ -2,6 +2,10 @@ import re
 from typing import TypeVar
 from random import choice
 
+from pipes.logger import TerminalErrorLogException
+from pipes.conditions import Condition
+from pipes.context import Context, ItemScope
+
 # Pipe grouping syntax!
 
 ### Intro
@@ -488,7 +492,7 @@ class AssignMode:
         ''' A method that returns False unless the AssignMode is DefaultAssign(multiply=False) '''
         return False
 
-    def apply(self, tuples: list[tuple[T, bool]], pipes: list[P]) -> list[tuple[T, P]]:
+    async def apply(self, tuples: list[tuple[T, bool]], pipes: list[P], context: Context, scope: ItemScope) -> list[tuple[T, P]]:
         raise NotImplementedError()
 
 class DefaultAssign(AssignMode):
@@ -499,7 +503,7 @@ class DefaultAssign(AssignMode):
     def is_trivial(self):
         return not self.multiply
 
-    def apply(self, tuples: list[tuple[T, bool]], pipes: list[P]) -> list[tuple[T, P | None]]:
+    async def apply(self, tuples: list[tuple[T, bool]], pipes: list[P], *args) -> list[tuple[T, P | None]]:
         out = []
         i = 0
         l = len(pipes)
@@ -513,8 +517,8 @@ class DefaultAssign(AssignMode):
                 i += 1
         return out
 
-class Switch(AssignMode):
-    '''Assign mode that assigns groups to pipes based on logical conditions that each group meets.'''
+class LegacySwitch(AssignMode):
+    '''Assign mode that assigns groups to pipes based on logical conditions that each group meets. Crappy legacy parsing.'''
 
     class RootCondition():
         type1 = re.compile(r'^(-?\d+)\s*(!)?=\s*(-?\d+)$')                # <index> = <index>
@@ -580,7 +584,7 @@ class Switch(AssignMode):
             # This is bad, bad parsing, which is limited in complexity and totally ignores quotation marks and such
             disj = cond.split(' OR ')
             conjs = [conj.split(' AND ') for conj in disj]
-            self.conds = [[Switch.RootCondition(cond.strip()) for cond in conj] for conj in conjs]
+            self.conds = [[LegacySwitch.RootCondition(cond.strip()) for cond in conj] for conj in conjs]
             
         def __str__(self):
             return ' OR '.join(' AND '.join(str(cond) for cond in conj) for conj in self.conds)
@@ -597,7 +601,7 @@ class Switch(AssignMode):
     def __str__(self):
         return '{}SWITCH {{ {} }}'.format(super().__str__(), ' | '.join(str(c) for c in self.conditions))
 
-    def apply(self, tuples: list[tuple[T, bool]], pipes: list[P]) -> list[tuple[T, P | None]]:
+    async def apply(self, tuples: list[tuple[T, bool]], pipes: list[P], *args) -> list[tuple[T, P | None]]:
         #### Sends ALL VALUES as a single group to the FIRST pipe whose corresponding condition succeeds
         ## Multiply:    Send all values to EACH pipe whose condition succeeds
         ## Non-strict:  If all conditions fail, either pass to the (n+1)th pipe or leave values unaffected if it is not present
@@ -626,7 +630,8 @@ class Switch(AssignMode):
                 ## Run over all the conditions to see which one hits first and go with that pipe
                 for condition, pipe in conditions_and_pipes:
                     if condition.check(values):
-                        out.append((values, pipe)); break
+                        out.append((values, pipe))
+                        break
                 else:
                 ## None of the conditions matched: Pick a "default" case
                     if overflow_pipe_given:
@@ -652,12 +657,100 @@ class Switch(AssignMode):
                 if overflow_pipe_given: out.append( (values, pipes[-1]) )
             return out
 
+class Switch(AssignMode):
+    '''Assign mode that assigns groups to pipes based on logical conditions that each group meets.'''
+
+    def __init__(self, multiply, strictness, conditions):
+        super().__init__(multiply)
+        self.strictness = strictness
+        self.conditions = []
+        for condition_str in conditions.split('|'):
+            try:
+                self.conditions.append(Condition.from_string(condition_str.strip()))
+            except TerminalErrorLogException as e:
+                # TODO: Carry errors along there
+                errors = e.errors
+                raise GroupModeError(f'Error while parsing condition `{condition_str}`.')
+
+    def __str__(self):
+        return '{}SWITCH {{ {} }}'.format(super().__str__(), ' | '.join(str(c) for c in self.conditions))
+
+    async def apply(self, tuples: list[tuple[T, bool]], pipes: list[P], context: Context, parent_scope: ItemScope) -> list[tuple[T, P | None]]:
+        #### Sends ALL VALUES as a single group to the FIRST pipe whose corresponding condition succeeds
+        ## Multiply:    Send all values to EACH pipe whose condition succeeds
+        ## Non-strict:  If all conditions fail, either pass to the (n+1)th pipe or leave values unaffected if it is not present
+        ## Strict:      If all conditions fail, destroy the values. Raise an error if an (n+1)th pipe was given.
+        ## Very strict: If all conditions fail, raise an error. No (n+1)th pipe allowed either.
+
+        c = len(self.conditions)
+        p = len(pipes)
+        if p != c:
+            if self.strictness:
+                raise GroupModeError('Strict condition error: Unmatched number of cases and parallel pipes; should be equal.')
+            elif p != c+1:
+                raise GroupModeError('Unmatched number of cases and parallel pipes; number of pipes should be equal or one more.')
+
+        overflow_pipe_given = (p == c+1)
+        # c is the number of conditions, p is the number of pipes to sort it in (either c or c+1)
+
+        if not self.multiply:
+            out = []
+            for items, ignore in tuples:
+                if ignore:
+                    out.append((items, None))
+                    continue
+
+                ## Run over all the conditions to see which one hits first and go with that pipe
+                for condition, pipe in zip(self.conditions, pipes):
+                    scope = ItemScope(parent_scope, items)
+                    try:
+                        if await condition.evaluate(context, scope):
+                            out.append((items, pipe))
+                            break
+                    except TerminalErrorLogException as e:
+                        # TODO: Carry errors along there
+                        errors = e.errors
+                        raise GroupModeError(f'Error while evaluating condition `{condition}`.')
+                else:
+                ## None of the conditions matched: Pick a "default" case
+                    if overflow_pipe_given:
+                        out.append((items, pipes[-1]))
+                    elif not self.strictness:
+                        out.append((items, None))
+                    elif self.strictness == 1:
+                        pass # Throw this list of values away!
+                    elif self.strictness == 2:
+                        print('VERY STRICT SWITCH ERROR:')
+                        print('VALUES: ', items)
+                        print('CASES: ' + str(self))
+                        raise GroupModeError('Very strict switch error: Default case was reached!')
+            return out
+
+        else: ## Multiply
+            out = []
+            for items, ignore in tuples:
+                if ignore:
+                    out.append((items, None))
+                    continue
+                scope = ItemScope(parent_scope, items)
+                for (condition, pipe) in zip(self.conditions, pipes):
+                    try:
+                        if await condition.evaluate(context, scope):
+                            out.append((items, pipe))
+                    except TerminalErrorLogException as e:
+                        # TODO: Carry errors along there
+                        errors = e.errors
+                        raise GroupModeError(f'Error while evaluating condition `{condition}`.')
+                if overflow_pipe_given:
+                    out.append((items, pipes[-1]))
+            return out
+
 class Random(AssignMode):
     '''Assign mode that sends each group to a random pipe.'''
     def __str__(self):
         return super().__str__() + 'RANDOM'
 
-    def apply(self, tuples: list[tuple[T, bool]], pipes: list[P]) -> list[tuple[T, P | None]]:
+    async def apply(self, tuples: list[tuple[T, bool]], pipes: list[P], *args) -> list[tuple[T, P | None]]:
         return [ (items, None if ignore else choice(pipes)) for (items, ignore) in tuples ]
 
 
@@ -666,12 +759,12 @@ class Random(AssignMode):
 class IfMode:
     def __init__(self, cond: str, bangs: str):
         self.strict = bool(bangs)
-        self.cond = Switch.Condition(cond.strip())
+        self.cond = LegacySwitch.Condition(cond.strip())
 
     def __str__(self):
         return 'IF ((' + str(self.cond) + '))' + ('!' if self.strict else '')
 
-    def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
+    async def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
         out = []
         for (items, ignore) in tuples:
             if ignore:
@@ -704,7 +797,7 @@ class GroupBy:
     def __str__(self):
         return self.mode + ' BY ' + ', '.join(str(i) for i in self.keys)
 
-    def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
+    async def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
         out = []
         known = {}
 
@@ -760,7 +853,7 @@ class SortBy:
     def __str__(self):
         return 'SORT BY ' + ', '.join( ('+'+str(i) if self.isNum[i] else str(i)) for i in self.keys)
 
-    def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
+    async def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
         head = []
         toSort = []
         tail = []
@@ -800,8 +893,8 @@ class GroupMode:
     def is_singular(self):
         return not self.split_modes and not self.assign_mode.multiply
 
-    def apply(self, all_items: list[T], pipes: list[P]) -> list[tuple[ list[T], P | None ]]:
-        groups: list[tuple[list[T], bool]] = [(all_items, False)]
+    async def apply(self, items: list[T], pipes: list[P], context: Context, scope: ItemScope) -> list[tuple[ list[T], P|None ]]:
+        groups = [(items, False)]
 
         ## Apply the SplitModes
         for group_mode in self.split_modes:
@@ -816,7 +909,7 @@ class GroupMode:
             groups = mid_mode.apply(groups)
 
         ## Apply the AssignMode
-        return self.assign_mode.apply(groups, pipes)
+        return await self.assign_mode.apply(groups, pipes, context, scope)
 
 
 # pattern:
@@ -869,7 +962,7 @@ strict_pattern = re.compile(r'\s*(!?!?)\s*')
 
 op_dict = {'/': Divide, '\\': Column, '%': Modulo}
 
-def parse(big_pipe: str):
+def parse(big_pipe: str) -> tuple[str, GroupMode]:
     '''Consumes the GroupMode from the start of a string and returns the GroupMode and remainder.'''
     ### HEAD MULTIPLY FLAG (for backwards compatibility)
     m = mul_pattern.match(big_pipe)
@@ -947,7 +1040,10 @@ def parse(big_pipe: str):
     ### ASSIGNMODE
     m = switch_pattern.match(cropped) or switch_pattern_DEPREC.match(cropped)
     if m is not None:
-        assign_mode = Switch(multiply, len(m[2]), m[1])
+        try:
+            assign_mode = LegacySwitch(multiply, len(m[2]), m[1])
+        except:
+            assign_mode = Switch(multiply, len(m[2]), m[1])
         cropped = cropped[m.end():]
     elif (m := rand_pattern.match(cropped)) is not None:
         assign_mode = Random(multiply)
@@ -960,7 +1056,7 @@ def parse(big_pipe: str):
     return cropped, group_mode
 
 
-# Tests!
+# "Tests"
 if __name__ == '__main__':
     tests = ['foo', '* foo', '10', '%4', '(20)', '/10', '#7', '#14..20', '/',
         '()', '(0)', '#', '*% 2', '*(07)', '/010', '(', '(8', '#0..2!', '\\7', '\\0',
@@ -978,15 +1074,15 @@ if __name__ == '__main__':
     print()
     _, mode = parse('{ 0 = "bar" | 0 = "foo" }')
     print( mode )
-    print( mode.apply( ['bar'] , ['one', 'two', 'three'] ) )
-    print( mode.apply( ['bar'] , ['one', 'two'] ) )
-    print( mode.apply( ['foo'] , ['one', 'two', 'three'] ) )
-    print( mode.apply( ['xyz'] , ['one', 'two', 'three'] ) )
-    print( mode.apply( ['xyz'] , ['one', 'two'] ) )
+    print( mode.apply( ['bar'] , ['one', 'two', 'three'], None, None ) )
+    print( mode.apply( ['bar'] , ['one', 'two'], None, None ) )
+    print( mode.apply( ['foo'] , ['one', 'two', 'three'], None, None ) )
+    print( mode.apply( ['xyz'] , ['one', 'two', 'three'], None, None ) )
+    print( mode.apply( ['xyz'] , ['one', 'two'], None, None ) )
 
     print()
     _, mode = parse('{ 0 = 1 }')
     print( mode )
-    print( mode.apply( ['bar', 'xyz'] , ['one', 'two'] ) )
-    print( mode.apply( ['bar', 'bar'] , ['one', 'two'] ) )
-    print( mode.apply( ['bar', 'xyz'] , ['one'] ) )
+    print( mode.apply( ['bar', 'xyz'] , ['one', 'two'], None, None ) )
+    print( mode.apply( ['bar', 'bar'] , ['one', 'two'], None, None ) )
+    print( mode.apply( ['bar', 'xyz'] , ['one'], None, None ) )

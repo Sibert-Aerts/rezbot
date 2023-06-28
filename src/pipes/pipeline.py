@@ -5,7 +5,6 @@ import permissions
 from utils.choicetree import ChoiceTree
 
 # More import statements at the end of the file, due to circular dependencies.
-import pipes.groupmodes as groupmodes
 from pipes.logger import ErrorLog
 from pipes.spout_state import SpoutState
 
@@ -17,13 +16,13 @@ class PipelineError(ValueError):
 class ParsedPipe:
     '''In a parsed Pipeline represents a single, specific pipeoid along with its specific assigned arguments.'''
     # Different types of ParsedPipe, determined at moment of parsing
-    SPECIAL      = object()
-    NATIVE_PIPE   = object()
-    SPOUT        = object()
-    NATIVE_SOURCE = object()
-    MACRO_PIPE    = object()
-    MACRO_SOURCE  = object()
-    UNKNOWN      = object()
+    SPECIAL         = object()
+    NATIVE_PIPE     = object()
+    SPOUT           = object()
+    NATIVE_SOURCE   = object()
+    MACRO_PIPE      = object()
+    MACRO_SOURCE    = object()
+    UNKNOWN         = object()
 
     def __init__(self, pipestr:str):
         ''' Parse a string of the form `[name] [argstr]` '''
@@ -331,7 +330,7 @@ class Pipeline:
                 group_scope = ItemScope(item_scope)
 
             try:
-                applied_group_mode = group_mode.apply(loose_items, parsed_pipes)
+                applied_group_mode = await group_mode.apply(loose_items, parsed_pipes, context, group_scope)
             except groupmodes.GroupModeError as e:
                 errors.log('GroupModeError: ' + str(e), True)
                 return NOTHING_BUT_ERRORS
@@ -489,3 +488,4 @@ from .context import Context, ItemScope
 from .signature import ArgumentError, Arguments
 from .templatedstring import ParsedSource
 from .pipe import Pipe, Source, Spout
+import pipes.groupmodes as groupmodes

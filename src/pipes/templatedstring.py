@@ -298,7 +298,7 @@ class TemplatedString:
 
     # ================ Evaluation
 
-    async def evaluate(self, context: Context, scope: ItemScope=None) -> tuple[str, ErrorLog]:
+    async def evaluate(self, context: Context, scope: ItemScope=None) -> tuple[str|None, ErrorLog]:
         ''' Evaluate the TemplatedString into a string '''
         errors = ErrorLog()
         errors.extend(self.pre_errors)
