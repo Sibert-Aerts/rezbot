@@ -764,7 +764,7 @@ class IfMode:
     def __str__(self):
         return 'IF ((' + str(self.cond) + '))' + ('!' if self.strict else '')
 
-    async def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
+    def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
         out = []
         for (items, ignore) in tuples:
             if ignore:
@@ -797,7 +797,7 @@ class GroupBy:
     def __str__(self):
         return self.mode + ' BY ' + ', '.join(str(i) for i in self.keys)
 
-    async def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
+    def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
         out = []
         known = {}
 
@@ -853,7 +853,7 @@ class SortBy:
     def __str__(self):
         return 'SORT BY ' + ', '.join( ('+'+str(i) if self.isNum[i] else str(i)) for i in self.keys)
 
-    async def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
+    def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
         head = []
         toSort = []
         tail = []
