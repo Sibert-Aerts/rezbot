@@ -152,12 +152,12 @@ class Negation(Condition):
         self.child = child
 
     @classmethod
-    def from_parsed(cls, result: ParseResults):        
+    def from_parsed(cls, result: ParseResults) -> 'Negation':        
         times = len(result) - 1
-        result = Condition.from_parsed(result[-1])
+        negation = Condition.from_parsed(result[-1])
         for _ in range(times):
-            result = Negation(result)
-        return result
+            negation = Negation(negation)
+        return negation
 
     def __repr__(self):
         return 'NOT(' + repr(self.child) + ')'

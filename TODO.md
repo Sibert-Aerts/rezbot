@@ -3,8 +3,6 @@
 (In no particular order)
 
 
-
-
 * **NEW HOTNESS: VIEWS/BUTTONS**
 
     * Probably useful to have some kind of generic RezbotView base class
@@ -17,6 +15,7 @@
     * View/Button/Slash command interfaces for browsing/managing uploaded files
 
     * Slash command autocomplete is nice, but make it *try* interpreting a non-autocompleted input too, so you don't have to wait for it if you're certain
+
 
 * **General:**
     * Ability to disable specific features (commands, patterns, pipes) in specific channels/servers
@@ -65,9 +64,7 @@
 
     * **CONDITIONS:**
         * Phase out usage of the old syntax `{ }` vs. new `IF(( ))` and `SWITCH(( ))`
-        * Furthermore, don't reference items as 0 or 1, but as {0} or {1} for uniformity, and maybe just full-on obey Context ignore/remove logic
-        * Allow logical operations and clauses
-        * Evaluating sources or even pipes inside condition expressions? e.g. instead of `*[count|] > {0="1"} [...]` something like `{count="1"} [...]`
+        * Are currently in PROTOTYPE/WIP state, as they are not totally integrated with implicit `{}` item tracking yet, and do not properly convey errors yet.
 
     * **PARSING BUGS:**
         * `>> foo > bar x=( > baz` doesn't understand the ( should be a character and not a parenthesis (circumventable by writing `x="("`)

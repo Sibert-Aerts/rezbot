@@ -10,15 +10,23 @@ import pipes.grammar as grammar
 class ParsedItem:
     ''' Class representing an Item inside a TemplatedString. '''
     carrots: int
+    explicitly_indexed: bool
     index: int | None
     bang: bool
-    explicitly_indexed: bool
 
-    def __init__(self, item: ParseResults):
-        self.carrots = len(item.get('carrots', ''))
-        self.explicitly_indexed = ('index' in item)
-        self.index = int(item['index']) if 'index' in item else None
-        self.bang = item.get('bang', '') == '!'
+    def __init__(self, carrots: int, explicitly_indexed: bool, index: int|None, bang: bool):
+        self.carrots = carrots
+        self.explicitly_indexed = explicitly_indexed
+        self.index = index
+        self.bang = bang
+
+    @staticmethod
+    def from_parsed(result: ParseResults):
+        carrots = len(result.get('carrots', ''))
+        explicitly_indexed = 'index' in result
+        index = int(result['index']) if 'index' in result else None
+        bang = result.get('bang', '') == '!'
+        return ParsedItem(carrots, explicitly_indexed, index, bang)
         
     def __str__(self):
         return '{%s%s%s}' %( '^'*self.carrots, self.index if self.explicitly_indexed else '', '!' if self.bang else '')
@@ -69,12 +77,12 @@ class ParsedSource:
         signature = sources[name].signature if name in sources else None
         args, _, pre_errors = Arguments.from_parsed(parsed.get('args'), signature)
 
-        parsedSource = ParsedSource(name, args, amount)
-        parsedSource.pre_errors.extend(pre_errors)
-        return parsedSource
+        parsed_source = ParsedSource(name, args, amount)
+        parsed_source.pre_errors.extend(pre_errors)
+        return parsed_source
 
     def __str__(self):
-        return '{%s %s %s}' %( self.amount or '', self.name, repr(self.args) if self.args else '' )
+        return '{%s%s%s}' %( str(self.amount) + ' ' or '', self.name, ' ' + repr(self.args) if self.args else '' )
     def __repr__(self):
         return 'Source' + str(self)
 
@@ -93,8 +101,8 @@ class ParsedSource:
 
         if args is None:
             ## Determine the arguments
-            args, argErrors = await self.args.determine(context, scope)
-            errors.extend(argErrors, self.name)
+            args, arg_errors = await self.args.determine(context, scope)
+            errors.extend(arg_errors, self.name)
             if errors.terminal: return NOTHING_BUT_ERRORS
 
         ### CASE: Native Source
@@ -102,7 +110,7 @@ class ParsedSource:
             try:
                 return await self.source.generate(context, args, n=self.amount), errors
             except Exception as e:
-                errors(f'Failed to evaluate source `{self.name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
+                errors.log(f'Failed to evaluate source `{self.name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
                 return NOTHING_BUT_ERRORS
 
         ### CASE: Macro Source
@@ -140,6 +148,36 @@ class ParsedSource:
             return values, errors
 
 
+class ParsedConditional:
+    ''' Class representing an inline IF/ELSE conditional expression inside a TemplatedString. '''
+
+    def __init__(self, case_if: 'TemplatedString', condition: 'Condition', case_else: 'TemplatedString'):
+        self.case_if = case_if
+        self.condition = condition
+        self.case_else = case_else
+
+    @staticmethod
+    def from_parsed(parsed: ParseResults):
+        case_if = TemplatedString.from_parsed(parsed['case_if'][0])
+        condition = Condition.from_parsed(parsed['condition'])
+        case_else = TemplatedString.from_parsed(parsed['case_else'][0])
+        return ParsedConditional(case_if, condition, case_else)
+
+    def __str__(self):
+        return '{? %s IF %s ELSE %s}' %( self.case_if, self.condition, self.case_else)
+    def __repr__(self):
+        return 'ParsedConditional' + str(self)
+
+    # ================ Evaluation
+
+    async def evaluate(self, context: Context, scope: ItemScope) -> tuple[ list[str] | None, ErrorLog ]:
+        # TODO: ErrorLog from Condition?
+        if await self.condition.evaluate(context, scope):
+            return await self.case_if.evaluate(context, scope)
+        else:
+            return await self.case_else.evaluate(context, scope)
+
+
 class TemplatedString:
     ''' 
     Class representing a string that may contain Sources or Items, which may be evaluated to yield strings.
@@ -149,7 +187,7 @@ class TemplatedString:
     If there is no need to hold on to the parsed TemplatedString, the static methods `evaluate_string` and `evaluate_origin` can be used instead.
     '''
 
-    pieces: list[str | ParsedSource | ParsedItem]
+    pieces: list[str | ParsedItem | ParsedConditional | ParsedSource ]
     pre_errors: ErrorLog
     end_index: int = -1
 
@@ -193,14 +231,21 @@ class TemplatedString:
                 else:
                     pieces[-1] += piece['string_bit']
 
+            elif 'item' in piece:
+                item = ParsedItem.from_parsed(piece['item'])
+                pieces.append(item)
+
+            elif 'conditional' in piece:
+                conditional = ParsedConditional.from_parsed(piece['conditional'])
+                pieces.append(conditional)
+
             elif 'source' in piece:
                 source = ParsedSource.from_parsed(piece['source'])
                 pieces.append(source)
                 pre_errors.extend(source.pre_errors, source.name)
 
-            elif 'item' in piece:
-                item = ParsedItem(piece['item'])
-                pieces.append(item)
+            else:
+                raise Exception()
 
         string = TemplatedString(pieces, start_index)
         string.pre_errors.extend(pre_errors)
@@ -218,6 +263,7 @@ class TemplatedString:
         # TODO: this currently does not work as intended due to nesting:
         # "{} {roll max={}} {}" == "{0} {roll max={0}} {1}"
         for piece in self.pieces:
+            # TODO: Account for ParsedConditional
             if isinstance(piece, ParsedSource):
                 item_index = piece.args.adjust_implicit_item_indices(item_index)
             elif isinstance(piece, ParsedItem):
@@ -236,6 +282,7 @@ class TemplatedString:
     def adjust_implicit_item_indices(self, new_start_index):
         ''' Recursively adjust all implicit item indices by a flat amount and return the new end index. '''
         for piece in self.pieces:
+            # TODO: Account for ParsedConditional
             if isinstance(piece, ParsedSource):
                 piece.args.adjust_implicit_item_indices(new_start_index)
             elif isinstance(piece, ParsedItem) and not piece.explicitly_indexed:
@@ -246,7 +293,7 @@ class TemplatedString:
     def __str__(self):
         return ''.join(str(x) for x in self.pieces)
     def __repr__(self):
-        return 'TString"' + ''.join(x if isinstance(x, str) else repr(x) for x in self.pieces) + '"'
+        return 'TStr"' + ''.join(x if isinstance(x, str) else repr(x) for x in self.pieces) + '"'
     def __bool__(self):
         return not (self.is_string and not self.pieces[0])
 
@@ -306,7 +353,8 @@ class TemplatedString:
         if self.is_string:
             return self.string, errors
 
-        FUTURE = object()
+        SOURCE_FUTURE = object()
+        COND_FUTURE = object()
         results = []
         futures = []
 
@@ -321,23 +369,33 @@ class TemplatedString:
                     msg = f'Error filling in item `{piece}`:\n\tItemScopeError: {e}'
                     errors.log(msg, True)
 
-            elif isinstance(piece, ParsedSource) and not errors.terminal:
-                results.append(FUTURE)
+            elif isinstance(piece, ParsedConditional) and not errors.terminal:
+                results.append(COND_FUTURE)
                 futures.append(piece.evaluate(context, scope))
 
-        source_results = await asyncio.gather(*futures)
+            elif isinstance(piece, ParsedSource) and not errors.terminal:
+                results.append(SOURCE_FUTURE)
+                futures.append(piece.evaluate(context, scope))
+
+        future_results = await asyncio.gather(*futures)
 
         out = None
         if not errors.terminal:
             strings = []
-            source_index = 0
+            future_index = 0
             for result in results:
-                if result is FUTURE:
-                    items, src_errors = source_results[source_index]
+                if result is SOURCE_FUTURE:
+                    items, src_errors = future_results[future_index]
                     errors.extend(src_errors)
                     if not errors.terminal:
                         strings.append(items[0] if items else '')
-                    source_index += 1
+                    future_index += 1
+                elif result is COND_FUTURE:
+                    string, src_errors = future_results[future_index]
+                    errors.extend(src_errors)
+                    if not errors.terminal:
+                        strings.append(string)
+                    future_index += 1
                 else:
                     strings.append(result)            
             out = ''.join(strings)
@@ -408,3 +466,4 @@ from pipes.pipeline import Pipeline
 from pipes.signature import ArgumentError, Arguments
 from pipes.implementations.sources import sources
 from pipes.macros import source_macros
+from pipes.conditions import Condition
