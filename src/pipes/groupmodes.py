@@ -1,6 +1,7 @@
 import re
 from typing import TypeVar
 from random import choice
+from pyparsing import ParseException
 
 from pipes.logger import TerminalErrorLogException
 from pipes.conditions import Condition
@@ -667,10 +668,12 @@ class Switch(AssignMode):
         for condition_str in conditions.split('|'):
             try:
                 self.conditions.append(Condition.from_string(condition_str.strip()))
+            except ParseException as e:
+                raise GroupModeError(f'ParseException while parsing condition `{condition_str}`.')
             except TerminalErrorLogException as e:
                 # TODO: Carry errors along there
                 errors = e.errors
-                raise GroupModeError(f'Error while parsing condition `{condition_str}`.')
+                raise GroupModeError(f'Some errors while parsing condition `{condition_str}`.')
 
     def __str__(self):
         return '{}SWITCH {{ {} }}'.format(super().__str__(), ' | '.join(str(c) for c in self.conditions))

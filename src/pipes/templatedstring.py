@@ -27,11 +27,11 @@ class ParsedItem:
         index = int(result['index']) if 'index' in result else None
         bang = result.get('bang', '') == '!'
         return ParsedItem(carrots, explicitly_indexed, index, bang)
-        
-    def __str__(self):
-        return '{%s%s%s}' %( '^'*self.carrots, self.index if self.explicitly_indexed else '', '!' if self.bang else '')
+
     def __repr__(self):
-        return 'Item' + str(self)
+        return f'Item(%s)' % ('^'*self.carrots, self.index if self.explicitly_indexed else '', '!' if self.bang else '')
+    def __str__(self):
+        return '{%s%s%s}' % ('^'*self.carrots, self.index if self.explicitly_indexed else '', '!' if self.bang else '')
 
     def evaluate(self, scope: ItemScope) -> str:
         if scope is None: raise ItemScopeError('No scope!')
@@ -50,7 +50,7 @@ class ParsedSource:
     pre_errors: ErrorLog
     type: object
 
-    def __init__(self, name: str, args: 'Arguments', amount: str | int | None):
+    def __init__(self, name: str, args: 'Arguments', amount: str | int | None=None):
         self.name = name.lower()
         self.amount = amount
         self.args = args
@@ -81,10 +81,16 @@ class ParsedSource:
         parsed_source.pre_errors.extend(pre_errors)
         return parsed_source
 
-    def __str__(self):
-        return '{%s%s%s}' %( str(self.amount) + ' ' or '', self.name, ' ' + repr(self.args) if self.args else '' )
     def __repr__(self):
-        return 'Source' + str(self)
+        bits = [self.name, repr(self.args)]
+        if self.amount is not None: bits.append(self.amount)
+        return 'Source(%s)' % ', '.join(bits)
+    def __str__(self):
+        bits = []
+        if self.amount is not None: bits.append(self.amount)
+        bits.append(self.name)
+        if self.args: bits.append(str(self.args))
+        return '{%s}' % ' '.join(bits)
 
     # ================ Evaluation
 
@@ -163,10 +169,10 @@ class ParsedConditional:
         case_else = TemplatedString.from_parsed(parsed['case_else'][0])
         return ParsedConditional(case_if, condition, case_else)
 
-    def __str__(self):
-        return '{? %s IF %s ELSE %s}' %( self.case_if, self.condition, self.case_else)
     def __repr__(self):
-        return 'ParsedConditional' + str(self)
+        return 'Conditional(%s, %s, %s)' % (repr(self.case_if), repr(self.condition), repr(self.case_else))
+    def __str__(self):
+        return '{? %s if %s else %s}' % (str(self.case_if), str(self.condition), str(self.case_else))
 
     # ================ Evaluation
 
@@ -286,10 +292,10 @@ class TemplatedString:
         self.end_index += new_start_index
         return self.end_index
 
-    def __str__(self):
-        return ''.join(str(x) for x in self.pieces)
     def __repr__(self):
-        return 'TStr"' + ''.join(x if isinstance(x, str) else repr(x) for x in self.pieces) + '"'
+        return 'Tstr(%s)' % ', '.join(repr(x) for x in self.pieces)
+    def __str__(self):
+        return '"' + ''.join(str(x) for x in self.pieces) + '"'
     def __bool__(self):
         return not (self.is_string and not self.pieces[0])
 

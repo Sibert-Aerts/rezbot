@@ -455,8 +455,8 @@ class Pipeline:
                 elif name in source_macros:
                     macro = source_macros[name]
 
-                    # TODO: Something silly going on here with these arguments?
-                    temp_parsed_source = ParsedSource(name, None, None)
+                    # Source Macro functioning is implemented in ParsedSource
+                    temp_parsed_source = ParsedSource(name, None)
                     new_vals, src_errs = await temp_parsed_source.evaluate(context, group_scope, args)
                     errors.steal(src_errs, context='source-as-pipe')
 

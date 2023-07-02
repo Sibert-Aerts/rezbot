@@ -90,7 +90,9 @@ class Comparison(RootCondition):
         return cls.from_parsed(grammar.comparison.parse_string(string, True))
 
     def __repr__(self):
-        return 'Comparison(' + repr(self.lhs) + ' ' + self.op + ' ' + repr(self.rhs) + ')'
+        return 'Comparison(%s %s %s)' % (repr(self.lhs), self.op, repr(self.rhs))
+    def __str__(self):
+        return '%s%s%s' % (str(self.lhs), self.op, str(self.rhs))
 
     async def evaluate(self, context: Context, scope: ItemScope):
         lhs, lhs_errors = await self.lhs.evaluate(context, scope)
@@ -131,6 +133,8 @@ class JoinedCondition:
 
     def __repr__(self):
         return '(' + (' ' + self.joiner + ' ').join(repr(c) for c in self.children) + ')'
+    def __str__(self):
+        return '(' + (' ' + self.joiner.lower() + ' ').join(str(c) for c in self.children) + ')'
 
 class Conjunction(JoinedCondition):
     joiner = 'AND'
@@ -165,6 +169,8 @@ class Negation(Condition):
 
     def __repr__(self):
         return 'NOT(' + repr(self.child) + ')'
+    def __str__(self):
+        return 'not (' + str(self.child) + ')'
 
     async def evaluate(self, context: Context, scope: ItemScope):
         return not await self.child.evaluate(context, scope)

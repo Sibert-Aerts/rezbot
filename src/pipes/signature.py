@@ -129,6 +129,11 @@ class Arg:
         self.name = param.name if isinstance(param, Par) else param
         self.string = string
 
+    def __repr__(self):
+        return repr(self.value) if self.predetermined else repr(self.string)
+    def __str__(self):
+        return str(self.value) if self.predetermined else str(self.string)
+
     def predetermine(self, errors: ErrorLog):
         if self.string.is_string:
             try:
@@ -280,7 +285,9 @@ class Arguments:
         return end_index
 
     def __repr__(self):
-        return 'Args(' + ' '.join(self.args.keys()) + ')'
+        return 'Args(%s)' % ', '.join(f'{p}={repr(a)}' for p, a in self.args.items() if p not in self.defaults)
+    def __str__(self):
+        return ' '.join(f'{p}={a}' for p, a in self.args.items() if p not in self.defaults)
 
     async def determine(self, context: Context, scope: ItemScope=None) -> tuple[dict[str], ErrorLog]:
         ''' Returns a parsed {parameter: argument} dict ready for use. '''
