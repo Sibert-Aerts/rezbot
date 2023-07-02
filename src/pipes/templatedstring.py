@@ -91,7 +91,7 @@ class ParsedSource:
     async def evaluate(self, context: Context, scope: ItemScope, args=None) -> tuple[ list[str] | None, ErrorLog ]:
         ''' Find some values for the damn Source that we are. '''
         errors = ErrorLog()
-        if self.pre_errors: errors.extend(self.pre_errors)
+        errors.extend(self.pre_errors)
         NOTHING_BUT_ERRORS = (None, errors)
         if errors.terminal: return NOTHING_BUT_ERRORS
 
@@ -179,7 +179,7 @@ class ParsedConditional:
 
 
 class TemplatedString:
-    ''' 
+    '''
     Class representing a string that may contain Sources or Items, which may be evaluated to yield strings.
 
     Preferably instantiated via the `from_string` or `from_parsed` static methods.
@@ -187,7 +187,7 @@ class TemplatedString:
     If there is no need to hold on to the parsed TemplatedString, the static methods `evaluate_string` and `evaluate_origin` can be used instead.
     '''
 
-    pieces: list[str | ParsedItem | ParsedConditional | ParsedSource ]
+    pieces: list[str | ParsedItem | ParsedConditional | ParsedSource]
     pre_errors: ErrorLog
     end_index: int = -1
 
@@ -195,10 +195,8 @@ class TemplatedString:
     string: str = None
     is_source = False
     source: ParsedSource = None
-    is_item = False
-    item: ParsedItem = None
 
-    def __init__(self, pieces: list[str | ParsedSource | ParsedItem], start_index: int=0, index_items=True):
+    def __init__(self, pieces: list[str | ParsedItem | ParsedConditional | ParsedSource], start_index: int=0, index_items=True):
         self.pieces = pieces
         self.pre_errors = ErrorLog()
 
@@ -215,9 +213,6 @@ class TemplatedString:
 
             self.is_source = isinstance(self.pieces[0], ParsedSource)
             if self.is_source: self.source = self.pieces[0]
-            
-            self.is_item = isinstance(self.pieces[0], ParsedItem)
-            if self.is_item: self.item = self.pieces[0]
 
     @staticmethod
     def from_parsed(parsed: ParseResults=[], start_index=0):
@@ -238,11 +233,12 @@ class TemplatedString:
             elif 'conditional' in piece:
                 conditional = ParsedConditional.from_parsed(piece['conditional'])
                 pieces.append(conditional)
+                # TODO: Pre-errors
 
             elif 'source' in piece:
                 source = ParsedSource.from_parsed(piece['source'])
                 pieces.append(source)
-                pre_errors.extend(source.pre_errors, source.name)
+                pre_errors.steal(source.pre_errors, source.name)
 
             else:
                 raise Exception()
@@ -349,15 +345,20 @@ class TemplatedString:
         ''' Evaluate the TemplatedString into a string '''
         errors = ErrorLog()
         errors.extend(self.pre_errors)
+        NOTHING_BUT_ERRORS = (None, errors)
 
         if self.is_string:
             return self.string, errors
+        if errors.terminal:
+            return NOTHING_BUT_ERRORS
 
         SOURCE_FUTURE = object()
         COND_FUTURE = object()
         results = []
         futures = []
 
+        ## Go through our pieces and collect either immediately retrievable strings,
+        #   or string-determining coroutines (i.e. futures).
         for piece in self.pieces:
             if isinstance(piece, str):
                 results.append(piece)
@@ -377,30 +378,35 @@ class TemplatedString:
                 results.append(SOURCE_FUTURE)
                 futures.append(piece.evaluate(context, scope))
 
+        if errors.terminal:
+            return NOTHING_BUT_ERRORS
+
+        ## Await all future results at once
         future_results = await asyncio.gather(*futures)
 
-        out = None
-        if not errors.terminal:
-            strings = []
-            future_index = 0
-            for result in results:
-                if result is SOURCE_FUTURE:
-                    items, src_errors = future_results[future_index]
-                    errors.extend(src_errors)
-                    if not errors.terminal:
-                        strings.append(items[0] if items else '')
-                    future_index += 1
-                elif result is COND_FUTURE:
-                    string, src_errors = future_results[future_index]
-                    errors.extend(src_errors)
-                    if not errors.terminal:
-                        strings.append(string)
-                    future_index += 1
-                else:
-                    strings.append(result)            
-            out = ''.join(strings)
+        ## Join the collected results and future results
+        strings = []
+        future_index = 0
+        for result in results:
+            if result is SOURCE_FUTURE:
+                items, src_errors = future_results[future_index]
+                errors.extend(src_errors)
+                if not errors.terminal:
+                    strings.append(items[0] if items else '')
+                future_index += 1
+            elif result is COND_FUTURE:
+                string, cond_errors = future_results[future_index]
+                errors.extend(cond_errors)
+                if not errors.terminal:
+                    strings.append(string)
+                future_index += 1
+            else:
+                strings.append(result)
 
-        return out, errors
+        if errors.terminal:
+            return NOTHING_BUT_ERRORS
+
+        return ''.join(strings), errors
 
     # ================ Specific fast-tracked use cases
 
@@ -409,12 +415,18 @@ class TemplatedString:
         '''
         Takes a raw source string, evaluates {sources} and returns the list of values.
         
-        If forceSingle=False, a pure "{source}" string may generate more (or less!) than 1 value.
+        If force_single=False, a pure "{source}" string may generate more (or less!) than 1 value.
         '''
+        errors = ErrorLog()
+        NOTHING_BUT_ERRORS = (None, errors)
         try:
             template = TemplatedString.from_string(string)
+            errors.extend(template.pre_errors)
+            if errors.terminal:
+                return NOTHING_BUT_ERRORS
         except ParseException as e:
-            return None, ErrorLog().log_parse_exception(e)
+            errors.log_parse_exception(e)
+            return NOTHING_BUT_ERRORS
 
         if not force_single and template.is_source:
             vals, errs = await template.source.evaluate(context, scope)
@@ -444,10 +456,12 @@ class TemplatedString:
         for origin_str in expanded:
             try:
                 origin = TemplatedString.from_string(origin_str)
+                errors.extend(origin.pre_errors)
             except ParseException as e:
                 errors.log_parse_exception(e)
+                continue
 
-            else:
+            if not errors.terminal:
                 if origin.is_source:
                     vals, errs = await origin.source.evaluate(context, scope)
                     errors.extend(errs)

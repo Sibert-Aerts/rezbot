@@ -64,6 +64,10 @@
 
     * **CONDITIONS:**
         * Phase out usage of the old syntax `{ }` vs. new `IF(( ))` and `SWITCH(( ))`
+        * More conditions like
+            * "ANYTHING", "NOTHING",
+            * "IS (NOT) WHITE", "IS (NOT) EMPTY"
+            * "IS TRUE" / "IS FALSE" (using parse_bool logic)
         * Are currently in PROTOTYPE/WIP state, as they are not totally integrated with implicit `{}` item tracking yet, and do not properly convey errors yet.
 
     * **PARSING BUGS:**

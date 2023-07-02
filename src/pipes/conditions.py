@@ -1,5 +1,5 @@
 '''
-A file containing logic for parsing and evaluation logical conditions during the execution of a script.
+A file containing logic for parsing and evaluating logical conditions in a script.
 '''
 
 import re
@@ -12,9 +12,8 @@ from pipes.templatedstring import TemplatedString
 
 
 class Condition:
-    async def evaluate(self, context: Context, scope: ItemScope) -> bool:
-        raise NotImplementedError()
-    
+    ''' Base Condition class, never instantiated itself, but from_parsed and from_string constructors instantiate appropriately typed Conditions. '''
+
     @classmethod
     def from_parsed(cls, parse_result):
         if parse_result._name == 'conjunction':
@@ -27,15 +26,18 @@ class Condition:
             return Comparison.from_parsed(parse_result)
         else:
             raise Exception()
-        
+
     @classmethod
     def from_string(cls, string):
         return cls.from_parsed(grammar.condition.parse_string(string, True)[0])
 
+    async def evaluate(self, context: Context, scope: ItemScope) -> bool:
+        raise NotImplementedError()
 
 # ========================================= Root Conditions ========================================
 
 class RootCondition(Condition):
+    pre_errors: ErrorLog | None
     pass
 
 # ======================== Comparison
@@ -67,19 +69,21 @@ class Comparison(RootCondition):
         self.op = op
         self.rhs = rhs
 
+        if lhs.pre_errors or rhs.pre_errors:
+            self.pre_errors = ErrorLog()
+            self.pre_errors.extend(lhs.pre_errors, 'left-hand side')
+            self.pre_errors.extend(rhs.pre_errors, 'right-hand side')
+            if self.pre_errors.terminal:
+                raise TerminalErrorLogException(self.pre_errors)
+        else:
+            self.pre_errors = None
+
     @classmethod
     def from_parsed(cls, result: ParseResults):
         lhs = TemplatedString.from_parsed(result[0])
         op = operation_map[result[1]]
         rhs = TemplatedString.from_parsed(result[2])
-
-        pre_errors = ErrorLog()
-        pre_errors.extend(lhs.pre_errors, 'left-hand side')
-        pre_errors.extend(rhs.pre_errors, 'right-hand side')
-        if pre_errors.terminal:
-            raise TerminalErrorLogException(pre_errors)
-
-        return cls(lhs, op, rhs)
+        return Comparison(lhs, op, rhs)
 
     @classmethod
     def from_string(cls, string: str):

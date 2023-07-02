@@ -1,5 +1,5 @@
 import asyncio
-from typing import Awaitable, Iterable, Optional, TypeVar, Callable
+from typing import Dict, Awaitable, Iterable, Optional, TypeVar, Callable
 from pyparsing import ParseException, ParseResults
 
 import pipes.grammar as grammar
@@ -24,6 +24,9 @@ class Par:
     ''' Represents a single declared parameter in a signature. '''
     name: str
     default: T
+    desc: str | None
+    checkfun: Callable[[T], bool] | None
+    required: bool
 
     def __init__(self, type: Callable[[str], T], default: str | T=None, desc: str=None, check: Callable[[T], bool]=None, required: bool=True):
         '''
@@ -75,7 +78,7 @@ class Par:
         return val
 
 
-class Signature(dict):
+class Signature(Dict[str, Par]):
     ''' dict-derived class representing a set of parameters for a single function. '''
     def __init__(self, params):
         super().__init__(params)
@@ -115,6 +118,7 @@ def get_signature(f: Callable, default=None):
 class Arg:
     ''' Object representing a parsed TemplatedString assigned to a specific parameter. '''
     param: Par | None
+    'The Par that this is argument is assigned to. If None, this Arg is a "naive" stringy argument.'
     name: str
     string: 'TemplatedString'
     value: T = None
@@ -125,7 +129,7 @@ class Arg:
         self.name = param.name if isinstance(param, Par) else param
         self.string = string
 
-    def predetermine(self, errors):
+    def predetermine(self, errors: ErrorLog):
         if self.string.is_string:
             try:
                 self.value = self.param.parse(self.string.string) if self.param else self.string.string
@@ -137,14 +141,14 @@ class Arg:
         if self.predetermined: return self.value
 
         value, arg_errs = await self.string.evaluate(context, scope)
-        errors.steal(arg_errs, context='parameter `{}`'.format(self.name))
+        errors.extend(arg_errs, context='parameter `{}`'.format(self.name))
         if errors.terminal: return
-        
+
         try:
             return self.param.parse(value) if self.param else value
         except ArgumentError as e:
             errors.log(e, True)
-            return None
+            return
 
 
 class DefaultArg(Arg):
@@ -171,12 +175,12 @@ class Arguments:
             self.predetermined_args.defaults = self.defaults
 
     @staticmethod
-    def from_string(string: str, sig: Signature=None, greedy=True) -> tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
+    def from_string(string: str, signature: Signature=None, greedy=True) -> tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
         try:
             parsed = grammar.argument_list.parse_string(string, parseAll=True)
         except ParseException as e:
             return None, None, ErrorLog().log_parse_exception(e)
-        return Arguments.from_parsed(parsed, sig, greedy=greedy)
+        return Arguments.from_parsed(parsed, signature, greedy=greedy)
 
     @staticmethod
     def from_parsed(argList: ParseResults, signature: Signature=None, greedy: bool=True) -> tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
@@ -188,7 +192,7 @@ class Arguments:
 
         ## Step 1: Collect explicitly and implicitly assigned parameters
         remainder_pieces = []
-        args = {}
+        args: dict[str, Arg] = {}
         start_index = 0
 
         for arg in argList or []:
@@ -210,8 +214,7 @@ class Arguments:
         ## Step 2: Turn into Arg objects
         for param in list(args):
             if signature is None:
-                # TODO: I switched this from "if not signature" (i.e. signature is empty OR None)
-                # ...but what use case is "signature is None" anyway?
+                # Special case: Naive Arg
                 args[param] = Arg(args[param], param)
                 args[param].predetermine(errors)
             elif param in signature:
