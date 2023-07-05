@@ -1,10 +1,11 @@
 from operator import itemgetter
-from discord import Client, Interaction, ui, ButtonStyle, TextStyle
+from discord import Interaction, ui, ButtonStyle, TextStyle
 
 from .spouts import spout_from_class, spout_from_func, set_category, with_signature, Par, Context, Spout
 from pipes.signature import Option, parse_bool
 from pipes.pipeline_with_origin import PipelineWithOrigin
 from pipes.context import ItemScope
+from pipes.views.generic_views import RezbotButton, RezbotView
 
 ################################################################################
 #                               Spouts : INTERACT                              #
@@ -24,7 +25,7 @@ class ButtonSpout:
 
     ButtonStyleOption = Option('primary', 'secondary', 'success', 'danger', name='ButtonStyle', stringy=True)
 
-    class Button(ui.Button):
+    class Button(RezbotButton):
         '''Button which executes a given script on click.'''
         def set_spout_args(self, ctx: Context, script: PipelineWithOrigin, lockout: bool, defer: bool):
             # NOTE: These values may hang around for a while, be wary of memory leaks
@@ -55,25 +56,10 @@ class ButtonSpout:
                 author=self.original_context.author,
                 message=interaction.message,
                 interaction=interaction,
+                button=self,
             )
             await self.script.execute(context)
             self.locked = False
-
-    class View(ui.View):
-        '''Simple view which shows several buttons and disables them on timeout.'''
-        def __init__(self, buttons: ui.Button, **kwargs):
-            super().__init__(**kwargs)
-            self.buttons = buttons
-            for button in buttons:
-                self.add_item(button)
-
-        def set_message(self, message):
-            self.message = message
-
-        async def on_timeout(self):
-            for button in self.buttons:
-                button.disabled = True
-            await self.message.edit(view=self)
 
     @with_signature(
         script  = Par(PipelineWithOrigin.from_string, required=False, desc='Script to execute when the button is pressed.'),
@@ -101,7 +87,9 @@ class ButtonSpout:
 
         # Max. 25 buttons fit on one message
         for i in range(0, len(buttons), 25):
-            view = ButtonSpout.View(buttons[i:i+25], timeout=max_timeout)
+            view = RezbotView(timeout=max_timeout)
+            for button in buttons[i:i+25]:
+                view.add_item(button)
             view.set_message(await ctx.channel.send(view=view))
 
 
@@ -113,7 +101,7 @@ class ModalSpout:
     Callback script will have an Interaction in its Context (if not deferred).
     '''
     name = 'modal'
-        
+
     class Modal(ui.Modal):
         def set_spout_args(self, ctx: Context, script: PipelineWithOrigin, defer: bool):
             # NOTE: These values may hang around for a while, be wary of memory leaks
@@ -183,7 +171,7 @@ class ModalButtonSpout:
     name = 'modal_button'
     command = True
     
-    class Button(ui.Button):
+    class Button(RezbotButton):
         def set_config(self, bot, make_modal):
             self.bot = bot
             self.make_modal = make_modal
@@ -223,8 +211,9 @@ class ModalButtonSpout:
         button = ModalButtonSpout.Button(label=button_label, emoji=emoji, style=getattr(ButtonStyle, button_style))
         button.set_config(ctx.bot, make_modal)
 
-        # Use the generic ButtonSpout View
-        view = ButtonSpout.View([button], timeout=timeout)
+        # View that will hold the button
+        view = RezbotView(timeout=timeout)
+        view.add_item(button)
         view.set_message(await ctx.channel.send(view=view))
 
 

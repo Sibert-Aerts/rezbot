@@ -1,7 +1,7 @@
 from discord import Message, Client, TextChannel, ui, ButtonStyle, TextStyle, Interaction
 from discord.interactions import Interaction
 
-from .generic_views import ConfirmView
+from .generic_views import ConfirmView, RezbotView
 from pipes.events import Event, Events, OnMessage, OnReaction
 
 
@@ -35,26 +35,17 @@ class EditEventModal(ui.Modal):
         self.confirmed = True
 
 
-class EventView(ui.View):
+class EventView(RezbotView):
     '''View which is to be added to a message containing the Event's embed.'''
-    def __init__(self, bot: Client, event: Event, events: Events, channel: TextChannel, timeout=86400, **kwargs):
-        super().__init__(timeout=timeout, **kwargs)
+    def __init__(self, bot: Client, event: Event, events: Events, channel: TextChannel, timeout=86400):
+        super().__init__(remove_on_timeout=True, timeout=timeout)
         self.bot = bot
         self.channel = channel
-        self.message = None
         self.event: Event = event
         self.events: Events = events
         self._on_change_enable()
 
-    def set_message(self, message: Message):
-        self.message = message
-        self.channel = message.channel
-
     # =========================================== Utility ==========================================
-
-    async def _remove_self(self):
-        if self.message:
-            await self.message.edit(view=None)
 
     def _on_change_enable(self):
         enabled = self.channel.id in self.event.channels
@@ -64,10 +55,6 @@ class EventView(ui.View):
     # ========================================== Handlers ==========================================
 
     # TODO: Interaction check?
-    
-    async def on_timeout(self):
-        await self._remove_self()
-        return await super().on_timeout()
 
     # =========================================== Buttons ==========================================
 
@@ -111,5 +98,5 @@ class EventView(ui.View):
         if confirm_view.value:
             del self.events[self.event.name]
             delete_msg = f'Event `{self.event.name}` has been deleted by {interaction.user.name}.'
-            await self._remove_self()
+            await self.remove_from_message()
             await interaction.channel.send(delete_msg)

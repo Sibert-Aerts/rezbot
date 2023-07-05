@@ -1,7 +1,7 @@
 from discord import Message, ui, ButtonStyle, TextStyle, Interaction
 from discord.interactions import Interaction
 
-from .generic_views import ConfirmView
+from .generic_views import ConfirmView, RezbotView
 from pipes.macros import Macro, Macros
 
 
@@ -26,23 +26,15 @@ class EditMacroModal(ui.Modal):
         self.confirmed = True
 
 
-class MacroView(ui.View):
+class MacroView(RezbotView):
     '''View which is to be added to a message containing the Macro's embed.'''
-    def __init__(self, macro: Macro, macros: Macros, timeout=86400, **kwargs):
-        super().__init__(timeout=timeout, **kwargs)
-        self.message = None
+    def __init__(self, macro: Macro, macros: Macros, timeout=86400):
+        super().__init__(remove_on_timeout=True, timeout=timeout)
         self.macro: Macro = macro
         self.macros: Macros = macros
         self._on_change_visible()
 
-    def set_message(self, message: Message):
-        self.message = message
-
     # =========================================== Utility ==========================================
-
-    async def _remove_self(self):
-        if self.message:
-            await self.message.edit(view=None)
 
     def _on_change_visible(self):
         visible = self.macro.visible
@@ -56,10 +48,6 @@ class MacroView(ui.View):
             await interaction.response.send_message('You\'re not authorised to modify this macro.', ephemeral=True, delete_after=15)
             return False
         return await super().interaction_check(interaction)
-    
-    async def on_timeout(self):
-        await self._remove_self()
-        return await super().on_timeout()
 
     # =========================================== Buttons ==========================================
 
@@ -91,5 +79,5 @@ class MacroView(ui.View):
         if confirm_view.value:
             del self.macros[self.macro.name]
             delete_msg = f'{self.macros.kind} Macro `{self.macro.name}` has been deleted by {interaction.user.name}.'
-            await self._remove_self()
             await interaction.channel.send(delete_msg)
+            await self.remove_from_message()
