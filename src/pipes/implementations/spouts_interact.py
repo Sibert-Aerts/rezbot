@@ -251,9 +251,10 @@ async def defer_spout(ctx: Context, values: list[str], *, thinking, whisper):
 
 @spout_from_func
 @with_signature(
+    edit_content = Par(parse_bool, default=True, desc='If true, assigns incoming values as the new message content.'),
     remove_view = Par(parse_bool, default=False, desc='If true, removes the View (i.e. buttons) from the message.'),
 )
-async def edit_original_response_spout(ctx: Context, values: list[str], *, remove_view):
+async def edit_original_response_spout(ctx: Context, values: list[str], *, edit_content, remove_view):
     '''
     Edit a resolved Interaction's original response message.
     
@@ -267,7 +268,22 @@ async def edit_original_response_spout(ctx: Context, values: list[str], *, remov
     if not ctx.interaction.response.is_done():
         raise ValueError('This Interaction has not yet been responded to.')
     
-    content = '\n'.join(values)
     kwargs = {}
-    if remove_view: kwargs['view'] = None
-    await ctx.interaction.edit_original_response(content=content, **kwargs)
+    if edit_content:
+        kwargs['content'] = '\n'.join(values)
+    if remove_view:
+        kwargs['view'] = None
+    await ctx.interaction.edit_original_response(**kwargs)
+
+
+@spout_from_func
+async def disable_button_spout(ctx: Context, values: list[str]):
+    '''
+    Disable the clicked button, in context of a button being clicked.
+    '''
+    if not ctx.button:
+        raise ValueError('This spout can only be used in context of a button being clicked.')
+    
+    button: RezbotButton = ctx.button
+    button.disabled = True
+    await button.view.update_message()

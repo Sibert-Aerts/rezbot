@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     # NOTE: These are only here for type annotation purposes, no code can actually access these.
     from pipes.events import Event
     from pipes.macros import Macro
+    from pipes.views.generic_views import RezbotButton
 
 
 class ItemScopeError(ValueError):
@@ -155,6 +156,9 @@ class Context:
 
     channel: TextChannel = None
     'The channel of either the subject message or interaction, if any.'
+
+    button: 'RezbotButton' = None
+    'The specific button that triggered this interaction.'
     
     # == Macro context values
 
@@ -172,6 +176,7 @@ class Context:
         author: Member=None,
         message: Message=None,
         interaction: Interaction=None,
+        button=None,
 
         macro: 'Macro'=None,
         arguments: 'Macro'=None,
@@ -183,7 +188,7 @@ class Context:
 
         # If a parent Context is given, use most of its properties as defaults
         if parent:
-            for attr in ('author', 'message', 'interaction', 'channel', 'macro', 'arguments'):
+            for attr in ('author', 'message', 'interaction', 'channel', 'macro', 'arguments', 'button'):
                 setattr(self, attr, getattr(parent, attr, None))
 
         self.author = author or self.author
@@ -194,6 +199,7 @@ class Context:
             or (self.interaction and self.interaction.channel)
             or self.channel
         )
+        self.button = button or self.button
 
         self.macro = macro or self.macro
         self.arguments = arguments if arguments is not None else self.arguments
