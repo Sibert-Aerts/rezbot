@@ -11,11 +11,11 @@ default = object()
 muted = object()
 "RANK: Muted users, bot is generally supposed to ignore these."
 
-hierarchy = [muted, trusted, default, owner]
+hierarchy = [muted, default, trusted, owner]
 mapping = {
     'owner': owner,
-    'trusted': trusted,
     'default': default,
+    'trusted': trusted,
     'muted': muted,
 }
 
