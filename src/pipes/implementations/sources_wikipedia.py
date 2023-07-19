@@ -1,5 +1,4 @@
 import re
-from collections import defaultdict
 from functools import lru_cache
 
 from .sources import source_from_func, set_category
@@ -24,7 +23,7 @@ class DisambiguationError(Exception):
 #####################################################
 set_category('WIKI')
 
-USER_AGENT = 'Rezbot Discord Bot (https://github.com/sibert-aerts/Rezbot/)'
+
 WIKIPEDIA_LANGUAGES = ['aa', 'ab', 'abs', 'ace', 'acm', 'ady', 'ady-cyrl', 'aeb', 'aeb-arab',
 'aeb-latn', 'af', 'ak', 'aln', 'als', 'alt', 'am', 'ami', 'an', 'ang', 'ann', 'anp', 'ar', 'arc',
 'arn', 'arq', 'ary', 'arz', 'as', 'ase', 'ast', 'atj', 'av', 'avk', 'awa', 'ay', 'az', 'azb', 'ba',
@@ -68,19 +67,27 @@ WIKIPEDIA_LANGUAGES = ['aa', 'ab', 'abs', 'ace', 'acm', 'ady', 'ady-cyrl', 'aeb'
 # Assign this ahead of time to save a (somehow) very slow fetch of all of wikipedia's languages.
 MediaWikiLanguage.predefined_languages = {l: l for l in WIKIPEDIA_LANGUAGES}
 
+
 # Keep a different MediaWikiAPI entry per wikipedia language to account for a caching bug
-WIKIPEDIAS: dict[str, MediaWikiAPI] = defaultdict(lambda lang: MediaWikiAPI(MediaWikiConfig(language=lang, user_agent=USER_AGENT)))
+WIKIPEDIAS: dict[str, MediaWikiAPI] = {}
+USER_AGENT = 'Rezbot Discord Bot (https://github.com/sibert-aerts/Rezbot/)'
+
+def get_wikipedia(lang: str):
+    if lang not in WIKIPEDIAS:
+        WIKIPEDIAS[lang] = MediaWikiAPI(MediaWikiConfig(language=lang, user_agent=USER_AGENT))
+    return WIKIPEDIAS[lang]
+
 
 # Cache the most recent Wikipedia pages based on (name, language)
 @lru_cache(maxsize=20)
 def get_wikipedia_page(page, language):
     # Either find an exact page title match (results[0]) or Wikipedia's top suggestion
-    results, suggestion = WIKIPEDIAS[language].search(page, results=1, suggestion=True)
+    results, suggestion = get_wikipedia(language).search(page, results=1, suggestion=True)
     if not results and not suggestion:
         raise PageError(title=page)
 
     # Fetch the page
-    page = WIKIPEDIAS[language].page(results[0] if results else suggestion, auto_suggest=False)
+    page = get_wikipedia(language).page(results[0] if results else suggestion, auto_suggest=False)
 
     # Disambiguation pages raise an error
     if page.disambiguate_pages:
@@ -143,7 +150,7 @@ async def wikipedia_random_source(ctx, what, language, lines, n):
             ## Despite the module/API's insistence, wikipedia.random() may return an ambiguous page title
             ## and EVEN when you then pick a random disambiguated one, it may still be ambiguous (or invalid) anyway???
             ## So JUST KEEP freaking trying, it only fails like 1% of the time anyway
-            page = WIKIPEDIAS[language].random()
+            page = get_wikipedia(language).random()
             try:
                 pages.append(get_wikipedia_page(page, language))
                 break
@@ -182,4 +189,4 @@ async def wikipedia_source(ctx, page, what, language, n):
 })
 async def wikipedia_search_source(ctx, query, language):
     '''Returns the top Wikipedia search results for the query.'''
-    return WIKIPEDIAS[language].search(query)
+    return get_wikipedia(language).search(query)
