@@ -4,24 +4,22 @@ from functools import lru_cache
 from .sources import source_from_func, set_category
 from ..signature import Par, Option, Multi
 
-from utils.rand import choose, sample, choose_slice 
+from utils.rand import choose, sample, ordered_sample, choose_slice
 from utils.texttools import *
 
-from mediawikiapi import MediaWikiAPI, Config as MediaWikiConfig, Language as MediaWikiLanguage, PageError
+from mediawikiapi import MediaWikiAPI, Config as MediaWikiConfig, Language as MediaWikiLanguage, PageError, WikipediaPage
 import nltk
 
+
+########################################################
+# Wrappers/Utilities/Overrides of MediaWikiAPI package #
+########################################################
 
 class DisambiguationError(Exception):
     def __init__(self, page):
         self.page = page
     def __str__(self):
         return f'"{self.page.title}" may refer to:\n' + '\n'.join(self.page.disambiguate_pages)
-
-
-#####################################################
-#               Sources : WIKIPEDIA                 #
-#####################################################
-set_category('WIKI')
 
 
 WIKIPEDIA_LANGUAGES = ['aa', 'ab', 'abs', 'ace', 'acm', 'ady', 'ady-cyrl', 'aeb', 'aeb-arab',
@@ -74,7 +72,7 @@ USER_AGENT = 'Rezbot Discord Bot (https://github.com/sibert-aerts/Rezbot/)'
 
 def get_wikipedia(lang: str):
     if lang not in WIKIPEDIAS:
-        WIKIPEDIAS[lang] = MediaWikiAPI(MediaWikiConfig(language=lang, user_agent=USER_AGENT))
+        WIKIPEDIAS[lang] = MediaWikiAPI(MediaWikiConfig(language=lang, user_agent=USER_AGENT, timeout=15))
     return WIKIPEDIAS[lang]
 
 
@@ -95,7 +93,13 @@ def get_wikipedia_page(page, language):
     return page
 
 
-WIKIPEDIA_WHAT = Option('title', 'url', 'summary', 'content', 'images', 'videos', 'audio', 'links')
+#####################################################
+#               Sources : WIKIPEDIA                 #
+#####################################################
+set_category('WIKI')
+
+
+WIKIPEDIA_WHAT = Option('title', 'url', 'summary', 'content', 'images', 'videos', 'audio', 'links', 'infobox')
 _img_re = re.compile(r'(?i)(png|jpe?g|gif|webp)$')
 _banned_imgs = [
     'https://upload.wikimedia.org/wikipedia/commons/7/74/Red_Pencil_Icon.png',
@@ -105,7 +109,7 @@ _vid_re = re.compile(r'(?i)(webm|gif|mp4|ogv)$')
 _aud_re = re.compile(r'(?i)(mp3|ogg|wav)$')
 _svg_re = re.compile(r'(?i)(svg)$')
 
-def _wikipedia_get_what(page, what, n):
+def _wikipedia_get_what(page: WikipediaPage, what, n):
     if what == WIKIPEDIA_WHAT.title:
         return [page.title]
     elif what == WIKIPEDIA_WHAT.url:
@@ -132,6 +136,10 @@ def _wikipedia_get_what(page, what, n):
         return sample( list(filter(_aud_re.search, page.images)), n )
     elif what == WIKIPEDIA_WHAT.links:
         return sample( page.links, n )
+    elif what == WIKIPEDIA_WHAT.infobox:
+        info_tuples = list(page.infobox.items())
+        selected = ordered_sample(info_tuples, n)
+        return [x for tuple in selected for x in tuple]
 
 
 @source_from_func({

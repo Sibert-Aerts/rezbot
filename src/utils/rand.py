@@ -19,6 +19,17 @@ def sample(population, n):
         n = len(population)
     return random.sample(population, n)
 
+def ordered_sample(population, n):
+    '''
+    Uniformly sample n items from the population; no repeats. n = -1 for the entire population.
+    Returns items by original population order.
+    '''
+    if n == -1 or n >= len(population):
+        n = len(population)
+    indices = sorted(random.sample(range(len(population)), n))
+    return [population[i] for i in indices]
+
+
 def choose_slice(population, n, cyclical=False):
     '''
     Uniformly chooses a slice of length n from the population. n = -1 for the entire population.
