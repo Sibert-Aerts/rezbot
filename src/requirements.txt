@@ -17,4 +17,4 @@ python-datamuse
 google-cloud-translate
 openai
 CurrencyConverter
-spacy
+mediawikiapi
