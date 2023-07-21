@@ -18,3 +18,4 @@ google-cloud-translate
 openai
 CurrencyConverter
 mediawikiapi
+pint
