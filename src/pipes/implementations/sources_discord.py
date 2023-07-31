@@ -105,7 +105,7 @@ def members_get_what(members: list[discord.Member], what):
     elif what == MEMBER_WHAT.id:
         return (str(member.id) for member in members)
     elif what == MEMBER_WHAT.avatar:
-        return (str(member.avatar) for member in members)
+        return (str(member.display_avatar) for member in members)
     elif what == MEMBER_WHAT.activity:
         return (str(member.activities[0]) if member.activities else '' for member in members)
     elif what == MEMBER_WHAT.color:
