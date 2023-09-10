@@ -218,6 +218,21 @@ class ModalButtonSpout:
 
 
 @spout_from_func
+async def respond_interaction_spout(ctx: Context, values: list[str]):
+    '''
+    Responds to an active Interaction, only useful in specific circumstances
+    If multiple lines of input are given, they're joined with line breaks.
+    '''
+    if not ctx.interaction:
+        raise ValueError('This spout can only be used when an Interaction is present, e.g. from pressing a button.')
+    if ctx.interaction.response.is_done():
+        raise ValueError('This Interaction has already been responded to.')
+    
+    content = '\n'.join(values)
+    await ctx.interaction.response.send_message(content)
+
+
+@spout_from_func
 async def whisper_spout(ctx: Context, values: list[str]):
     '''
     Sends input as an ephemeral (invisible) Discord message, requires an active Interaction.

@@ -9,7 +9,7 @@ from pipes.implementations.pipes import pipes
 from pipes.implementations.sources import sources
 from pipes.implementations.spouts import spouts
 from pipes.macros import Macros, Macro, pipe_macros, source_macros
-from pipes.events import Event, Events, OnMessage, OnReaction, events
+from pipes.events import Event, Events, OnMessage, OnReaction, OnYell, events
 from .macro_commands import check_pipe_macro, check_source_macro
 from utils.util import normalize_name
 
@@ -29,9 +29,10 @@ macro_check_map: dict[str, Callable] = {
     'Source': check_source_macro,
 }
 
-event_type_map: dict[str, Type[OnMessage|OnReaction]] = {
+event_type_map: dict[str, Type[OnMessage|OnReaction|OnYell]] = {
     'OnMessage': OnMessage,
-    'OnReaction': OnReaction
+    'OnReaction': OnReaction,
+    'OnYell': OnYell,
 }
 
 # ===================================== Autocomplete utility ======================================
@@ -114,3 +115,13 @@ def autocomplete_event(*, enabled=None):
                     break
         return results
     return _autocomplete_event
+
+async def autocomplete_send_tone(interaction: Interaction, name: str):
+    name = name.lower()
+    results: list[Choice] = []
+    for tone in events.on_yell_tones:
+        if name in tone:
+            results.append(Choice(name=tone, value=tone))
+            if len(results) >= 25:
+                break
+    return results

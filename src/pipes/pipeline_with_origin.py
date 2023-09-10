@@ -83,20 +83,27 @@ class PipelineWithOrigin:
         return script.strip(), ''
 
     @staticmethod
-    async def send_print_values(channel: TextChannel, values: list[list[str]]):
+    async def send_print_values(channel: TextChannel, values: list[list[str]], context: Context=None):
         ''' Nicely print the output in rows and columns and even with little arrows.'''
+
+        # Mince out a special case for sending the message:
+        #   Respond to the original Interaction if it would otherwise go unresponded.
+        def send(text):
+            if context and context.interaction and not context.interaction.response.is_done():
+                return context.interaction.response.send_message(text)
+            return channel.send(text)
 
         # Don't apply any formatting if the output is just a single cel.
         if len(values) == 1:
             if len(values[0]) == 1:
                 if values[0][0].strip() != '':
                     for chunk in texttools.chunk_text(values[0][0]):
-                        await channel.send(chunk)
+                        await send(chunk)
                 else:
-                    await channel.send('`empty string`')
+                    await send('`empty string`')
                 return
             elif len(values[0]) == 0:
-                await channel.send('`no output`')
+                await send('`no output`')
                 return
 
         # Simple "arrow table" layout
@@ -120,7 +127,7 @@ class PipelineWithOrigin:
         # Remove unnecessary padding at line ends
         rows = [row.rstrip() for row in rows]
         for block in texttools.block_chunk_lines(rows):
-            await channel.send(block)
+            await send(block)
 
     @staticmethod
     async def send_error_log(context: Context, errors: ErrorLog):
@@ -194,12 +201,6 @@ class PipelineWithOrigin:
             if context.origin.type == Context.Origin.Type.DIRECT:
                 SourceResources.previous_pipeline_output[context.channel] = end_values
 
-            ## Perform `print` if either: No other spout has been encountered all script OR if a print spout has been explicitly encountered
-            # TODO: This isn't perfect yet
-            if not spout_state.anything() or any(spout is spouts['print'] for spout, _, _ in spout_state.callbacks):
-                spout_state.print_values.append(end_values)
-                await self.send_print_values(context.channel, spout_state.print_values)
-
             ## Perform all simple style Spout callbacks
             for spout, values, args in spout_state.callbacks:
                 try:
@@ -215,6 +216,13 @@ class PipelineWithOrigin:
                 except Exception as e:
                     errors.log(f'Failed to execute spout `{spout.name}`:\n\t{type(e).__name__}: {e}', True)
                     return errors
+
+            ## Perform `print` if either: No other spout has been encountered all script OR if a print spout has been explicitly encountered.
+            # Happens after other spouts have resolved because this involves looking at the .interaction and seeing if it's been responded to yet.
+            # TODO: This isn't perfect yet
+            if not spout_state.anything() or any(spout is spouts['print'] for spout, _, _ in spout_state.callbacks):
+                spout_state.print_values.append(end_values)
+                await self.send_print_values(context.channel, spout_state.print_values, context=context)
 
             return errors
 

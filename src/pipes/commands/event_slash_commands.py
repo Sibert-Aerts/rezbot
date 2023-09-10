@@ -7,11 +7,13 @@ from discord.ext import commands
 from discord import app_commands, Interaction
 
 from pipes.events import Event, events
+from pipes.context import Context, ItemScope
+from pipes.processor import PipelineProcessor
 from mycommands import MyCommands
 from utils.util import normalize_name
 
 from pipes.views import EventView
-from .slash_commands_util import event_type_map, autocomplete_event, choice_to_scriptoid
+from .slash_commands_util import event_type_map, autocomplete_event, choice_to_scriptoid, autocomplete_send_tone
 
 class EventSlashCommands(MyCommands):
 
@@ -59,7 +61,7 @@ class EventSlashCommands(MyCommands):
     @app_commands.rename(event_type='type')
     async def event_define(self, interaction: Interaction,
         name: str,
-        event_type: Literal['OnMessage', 'OnReaction'],
+        event_type: Literal['OnMessage', 'OnReaction', 'OnYell'],
         trigger: str,
         code: str,
     ):
@@ -89,7 +91,7 @@ class EventSlashCommands(MyCommands):
     @app_commands.autocomplete(event_choice=autocomplete_event())
     async def event_edit(self, interaction: Interaction,
         event_choice: str,
-        event_type: Literal['OnMessage', 'OnReaction']=None,
+        event_type: Literal['OnMessage', 'OnReaction', 'OnYell']=None,
         trigger: str=None,
         code: str=None,
     ):
@@ -175,6 +177,42 @@ class EventSlashCommands(MyCommands):
         ''' Disable an Event in this channel. '''
         await self._event_set_enabled(interaction, event_choice, enable=False)
 
+
+    # ================================================ Event Invocation ===============================================
+
+    @app_commands.command()
+    @app_commands.describe(
+        tone='Determines which Event(s) will receive your message.',
+        message='The "message" argument received by the Event script.',
+    )
+    @app_commands.autocomplete(tone=autocomplete_send_tone)
+    async def yell(self, interaction: Interaction, tone: str, message: str=''):
+        ''' Yell a message in a tone that an Event may react to. '''
+        if not self.bot.should_listen_to_user(interaction.user):
+            return
+
+        for event in events.on_yell_events:
+            if not event.test(interaction.channel, tone):
+                continue
+            # Fetch Event's author
+            author = interaction.guild.get_member(event.author_id) or self.bot.get_user(event.author_id)
+            # Create execution context
+            context = Context(
+                origin=Context.Origin(
+                    type=Context.Origin.Type.EVENT,
+                    activator=interaction.user,
+                    event=event,
+                ),
+                author=author,
+                interaction=interaction,
+                arguments={'message': message},
+            )
+            processor: PipelineProcessor = self.bot.pipeline_processor
+            await processor.execute_script(event.script, context)
+            
+            # In case the script does not resolve the interaction. There is no way to resolve a slash command without a reply, so reply.
+            if not interaction.response.is_done():
+                await interaction.response.send_message("Done.", ephemeral=True)
 
 
 # Load the bot cog

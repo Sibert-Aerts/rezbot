@@ -93,7 +93,7 @@ class OnMessage(Event):
         super().__init__(name, desc, author, channel, script)
         self.set_trigger(pattern)
 
-    def update(self, script, pattern):
+    def update(self, script: str, pattern: str):
         super().update(script)
         self.set_trigger(pattern)
 
@@ -144,6 +144,35 @@ class OnReaction(Event):
         embed = super().embed(**kwargs)
         return embed.insert_field_at(0, name='On reaction', value=','.join(self.emotes), inline=True)
 
+
+class OnYell(Event):
+    tone: str
+
+    def __init__(self, name, desc, author, channel, script: str, tone: str):
+        super().__init__(name, desc, author, channel, script)
+        self.set_trigger(tone)
+
+    def update(self, script: str, tone: str):
+        super().update(script)
+        self.set_trigger(tone)
+
+    def get_trigger_str(self):
+        return self.tone
+
+    def set_trigger(self, tone: str):
+        self.tone = tone.lower()
+
+    def test(self, channel, tone):
+        '''Test whether or not a given reaction-addition should trigger this Event.'''
+        return super().test(channel) and tone.lower() == self.tone
+
+    def __str__(self):
+        return f'**{self.name}**: ON YELL `{self.tone}`'
+
+    def embed(self, **kwargs):
+        embed = super().embed(**kwargs)
+        return embed.insert_field_at(0, name='On yell', value=self.tone, inline=True)
+
 ###############################################################
 #                             Events                          #
 ###############################################################
@@ -153,6 +182,8 @@ class Events:
     events: dict[str, Event]
     on_message_events: list[OnMessage]
     on_reaction_events: list[OnReaction]
+    on_yell_events: list[OnYell]
+    on_yell_tones: set[str]
 
     def __init__(self, DIR, filename):
         self.events = {}
@@ -189,14 +220,19 @@ class Events:
     def refresh_indexes(self):
         self.on_message_events = []
         self.on_reaction_events = []
+        self.on_yell_events = []
+        self.on_yell_tones = set()
         for event in self.events.values():
             if isinstance(event, OnMessage):
                 self.on_message_events.append(event)
             elif isinstance(event, OnReaction):
                 self.on_reaction_events.append(event)
+            elif isinstance(event, OnYell):
+                self.on_yell_events.append(event)
+                self.on_yell_tones.add(event.tone)
 
-    command_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w[\w.]+) ON ?(MESSAGE|REACT(?:ION)?) (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I | re.S )
-    #                                  ^^^^^^^^         ^^^^^^^^       ^^^^^^^^^^^^^^^^^^^^^   ^^^          ^^
+    command_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w[\w.]+) ON ?(MESSAGE|REACT(?:ION)?|YELL) (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I | re.S )
+    #                                  ^^^^^^^^         ^^^^^^^^       ^^^^^^^^^^^^^^^^^^^^^^^^^^   ^^^          ^^
 
     async def parse_command(self, bot, string, message: Message):
         m = re.match(self.command_pattern, string)
@@ -206,7 +242,7 @@ class Events:
 
         mode, name, what, trigger, script = m.groups()
         mode = mode.upper()
-        EventType: type[OnMessage|OnReaction]  = {'M': OnMessage, 'R': OnReaction}[what[0].upper()]
+        EventType: type[OnMessage|OnReaction|OnYell] = {'M': OnMessage, 'R': OnReaction, 'Y': OnYell}[what[0].upper()]
         name = normalize_name(name)
 
         ## Check for naming conflicts
@@ -253,6 +289,7 @@ class Events:
     def write(self):
         '''Write the list of events to a pickle file.'''
         pickle.dump(self.events, open(self.DIR(self.filename), 'wb+'))
+        self.refresh_indexes()
 
     def __contains__(self, name):
         return name in self.events
@@ -269,13 +306,11 @@ class Events:
     def __setitem__(self, name, val):
         self.events[name] = val
         self.write()
-        self.refresh_indexes()
         return val
 
     def __delitem__(self, name):
         del self.events[name]
         self.write()
-        self.refresh_indexes()
 
     def __bool__(self):
         return len(self.events) > 0
