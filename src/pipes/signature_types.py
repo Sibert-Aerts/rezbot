@@ -17,10 +17,12 @@ from utils.util import parse_bool
 def regex(*args, **kwargs):
     return re.compile(*args, **kwargs)
 
+
 def bool_or_none(val: str):
     if val is None or val == 'None':
         return None
-    return(parse_bool(val))
+    return parse_bool(val)
+
 
 class Hex(int):
     def __new__(cls, val: str):
@@ -34,6 +36,7 @@ class Hex(int):
 
     def __repr__(self):
         return hex(self)
+
 
 def url(s: str):
     if len(s) > 2 and s[0] == '<' and s[-1] == '>':
@@ -107,7 +110,7 @@ class Option:
                 if hasattr(self, alias):
                     raise Exception(f'Alias would overwrite existing attribute or alias {alias}')
                 setattr(self, alias, getattr(self, aliassed))
-        
+
     def __call__(self, text):
         if not self._case_sens:
             text = text.upper() if self._pref_upp else text.lower()

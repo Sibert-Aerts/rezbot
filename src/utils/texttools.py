@@ -42,6 +42,7 @@ def line_chunk_list(list, maxlength=100):
 
     return out
 
+
 def block_chunk_lines(lines):
     ''' Turn a list of lines into a list of <2000 character code blocks safe to send over discord.'''
     blocks = []
@@ -69,6 +70,7 @@ def block_chunk_lines(lines):
     blocks.append(block)    
     return [ block_format('\n'.join(block)) for block in blocks ]
 
+
 def split_once_within_length(text: str, splitter: str, max_length: int):
     '''
     Greedily splits `text` on the last occurence of `max_length` which starts at index `<= max_length`.
@@ -95,6 +97,7 @@ def split_once_within_length(text: str, splitter: str, max_length: int):
         chunk_length += len(splitter) + len(line)
 
     return splitter.join(chunk_lines), splitter.join(text_lines)
+
 
 def chunk_text(text: str, chunk_size=2000):
     ''' Smartly splits a string into a list of strings under a given size. '''
@@ -124,22 +127,28 @@ def chunk_text(text: str, chunk_size=2000):
 
     return chunks
 
+
 def matchCase(char, case):
     return char.upper() if case.isupper() else char.lower()
+
 
 def pSub(fro, to):
     def func(str, p):
         return re.sub(fro, lambda c: c.group(0) if not chance(p) else matchCase(choose(to), c.group(0)), str)
     return func
 
+
 def camel_case(s):
     return ''.join(s.title().split())
+
 
 vowelize = pSub('(?i)[aeiou]', 'aeiou')
 consonize = pSub('(?i)[bcdfgjklmnpqrstvwxz]', 'bbbddnnmmlgh')
 
+
 def letterize(str, p):
     return vowelize(consonize(str, p), p*2/3)
+
 
 letterize2Dict = {
     'a': 'eiou',
@@ -258,9 +267,11 @@ converters = {
     'none': lambda x: x
 }
 
+
 # Edit distance
 def ed(x, y):
     return distance(x.lower(), y.lower())
+
 
 def min_dist(w, min_min=0, corpus=None):
     if corpus is None: corpus = allWords
@@ -268,11 +279,13 @@ def min_dist(w, min_min=0, corpus=None):
     key = lambda x: distance(x.lower(), w)
     return choose(util.mins(corpus, key=key, min_min=min_min))
 
+
 def avg_dist(w1, w2, p=0.5):
     q = 1-p
     squares = [(ed(w, w1)**2)*q + (ed(w, w2)**2)*p for w in allWords]
     mini, mins = choose(util.mins(enumerate(squares), key=lambda x:x[1]))
     return allWords[mini]
+
 
 def dist_gradient(w1, w2, num=1):
     words = []
@@ -297,6 +310,7 @@ CASE_LOW = object()
 CASE_XOR = object()
 CASE_NOP = object()
 
+
 def case_parse(s):
     out = []
     for c in s:
@@ -306,11 +320,13 @@ def case_parse(s):
         else: out.append(CASE_NOP)
     return out
 
+
 def apply_case(c, i):
     if c is CASE_UPP: return i.upper()
     if c is CASE_LOW: return i.lower()
     if c is CASE_XOR: return i.upper() if i.islower() else i.lower()
     if c is CASE_NOP: return i
+
 
 def case_pattern(pattern, *inputs):
     '''
