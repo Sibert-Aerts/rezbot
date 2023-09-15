@@ -118,10 +118,11 @@ def autocomplete_event(*, enabled=None):
 
 async def autocomplete_send_tone(interaction: Interaction, name: str):
     name = name.lower()
-    results: list[Choice] = []
-    for tone in events.on_yell_tones:
-        if name in tone:
-            results.append(Choice(name=tone, value=tone))
-            if len(results) >= 25:
-                break
-    return results
+
+    tones = set()
+    for event in events.on_yell_events:
+        if event.is_enabled(interaction.channel) and name in event.tone:
+            tones.add(event.tone)
+
+    # Sort tones alphabetically and cut off at 25
+    return [Choice(name=tone, value=tone) for tone in sorted(tones)[:25]]

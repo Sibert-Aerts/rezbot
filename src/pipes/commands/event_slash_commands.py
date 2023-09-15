@@ -208,8 +208,9 @@ class EventSlashCommands(MyCommands):
                 arguments={'message': message},
             )
             processor: PipelineProcessor = self.bot.pipeline_processor
-            await processor.execute_script(event.script, context)
-            
+            scope = ItemScope(items=[message])
+            await processor.execute_script(event.script, context, scope)
+
             # In case the script does not resolve the interaction. There is no way to resolve a slash command without a reply, so reply.
             if not interaction.response.is_done():
                 await interaction.response.send_message("Done.", ephemeral=True)

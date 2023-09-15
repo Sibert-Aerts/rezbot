@@ -130,7 +130,7 @@ class ModalSpout:
                 message=interaction.message,
                 interaction=interaction,
             )
-            scope = ItemScope([self.text_input.value])
+            scope = ItemScope(items=[self.text_input.value])
             await self.script.execute(context, scope)
 
     @with_signature(

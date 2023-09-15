@@ -29,7 +29,7 @@ class ParsedItem:
         return ParsedItem(carrots, explicitly_indexed, index, bang)
 
     def __repr__(self):
-        return f'Item(%s)' % ('^'*self.carrots, self.index if self.explicitly_indexed else '', '!' if self.bang else '')
+        return f'Item(%s%s%s)' % ('^'*self.carrots, self.index if self.explicitly_indexed else '', '!' if self.bang else '')
     def __str__(self):
         return '{%s%s%s}' % ('^'*self.carrots, self.index if self.explicitly_indexed else '', '!' if self.bang else '')
 
