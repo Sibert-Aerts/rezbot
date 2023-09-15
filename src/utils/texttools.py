@@ -25,6 +25,7 @@ def block_format(s):
     # put a zero-width space in there to prevent it from breaking our block
     return '```\n{0}\n```'.format(s.replace('```','`­``'))
 
+# ======== Chunking/blocking text for outputting as Discord messages
 
 def line_chunk_list(list, maxlength=100):
     ''' Turn a list of strings into a list of lines of ", "-separated strings. '''
@@ -138,17 +139,11 @@ def pSub(fro, to):
     return func
 
 
-def camel_case(s):
-    return ''.join(s.title().split())
-
-
 vowelize = pSub('(?i)[aeiou]', 'aeiou')
 consonize = pSub('(?i)[bcdfgjklmnpqrstvwxz]', 'bbbddnnmmlgh')
 
-
 def letterize(str, p):
     return vowelize(consonize(str, p), p*2/3)
-
 
 letterize2Dict = {
     'a': 'eiou',
@@ -277,13 +272,13 @@ def min_dist(w, min_min=0, corpus=None):
     if corpus is None: corpus = allWords
     w = w.lower()
     key = lambda x: distance(x.lower(), w)
-    return choose(util.mins(corpus, key=key, min_min=min_min))
+    return choose(util.minima(corpus, key=key, min_min=min_min))
 
 
 def avg_dist(w1, w2, p=0.5):
     q = 1-p
     squares = [(ed(w, w1)**2)*q + (ed(w, w2)**2)*p for w in allWords]
-    mini, mins = choose(util.mins(enumerate(squares), key=lambda x:x[1]))
+    mini, mins = choose(util.minima(enumerate(squares), key=lambda x:x[1]))
     return allWords[mini]
 
 

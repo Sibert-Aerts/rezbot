@@ -5,7 +5,8 @@ from typing import Awaitable, Iterable, TypeVar
 T = TypeVar('T')
 U = TypeVar('U')
 
-def mins(items: list[T], key=None, min_min: float=None) -> list[T]:
+
+def minima(items: list[T], key=None, min_min: float=None) -> list[T]:
     '''
     Returns the list of all items i whose key(i) is equal to the minimum for all items.
     If min_min is given, it completely ignores items whose key() are less than min_min.
@@ -38,11 +39,13 @@ def strip_command(ctx):
     s = ctx.message.content.split(' ', 1)
     return s[1] if len(s) > 1 else ''
 
+
 def parse_bool(s: str) -> bool:
     s = s.lower()
     if s in ['t', 'true', '1', 'y', 'yes']: return True
     if s in ['f', 'false', '0', 'n', 'no']: return False
     raise ValueError('Cannot interpret "%s" as a boolean value' % s)
+
 
 def format_doc(**kwargs):
     '''Decorator that formats the function's docstring.'''
@@ -52,14 +55,17 @@ def format_doc(**kwargs):
         return func
     return _format_doc
 
+
 async def gather_dict(d: dict[T, Awaitable[U]]) -> dict[T, U]:
     '''Asyncronously turns a dict of coroutines into a dict of awaited values.'''
     return await dict_from_gather(d, d.values())
+
 
 async def dict_from_gather(keys: Iterable[T], futures: Iterable[Awaitable[U]]) -> dict[T, U]:
     '''Asyncronously turns a list of keys and a list of coroutines into a dict of awaited values.'''
     values = await asyncio.gather(*futures)
     return dict(zip(keys, values))
+
 
 def normalize_name(name: str):
     '''Normalizes a user-entered name to a lowercase name of only alphanumeric/underscore chars.'''
@@ -71,10 +77,6 @@ def normalize_name(name: str):
     name = re.sub('[^a-z0-9_]+', '_', name)
     return name
 
-class FormatDict(dict):
-    '''A dict that returns "{key}" if it does not contain an entry for "key".'''
-    def __missing__(self, key):
-        return '{'+key+'}'
 
 theSheriff = '''
 ⠀　　　:cowboy:
