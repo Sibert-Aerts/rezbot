@@ -2,9 +2,11 @@ from datetime import datetime, timezone
 from pyparsing import ParseException, StringEnd
 import discord
 
+
 class TerminalErrorLogException(Exception):
     def __init__(self, errors: 'ErrorLog'):
         self.errors = errors
+
 
 class ErrorLog:
     '''Class for storing warning and error messages related to Rezbot scripting.'''

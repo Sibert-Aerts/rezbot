@@ -235,7 +235,7 @@ async def server_source(ctx: Context, what):
         return [str(server.id)]
 
 
-@source_from_func(depletable=True)
+@source_from_func(depletable=True, aliases=['emote', 'emotes'])
 @with_signature(
     n =      Par(int, 1, 'The number of emojis'),
     name =   Par(str, None, 'An exact name to match.', required=False),

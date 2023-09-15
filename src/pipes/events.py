@@ -173,6 +173,7 @@ class OnYell(Event):
         embed = super().embed(**kwargs)
         return embed.insert_field_at(0, name='On yell', value=self.tone, inline=True)
 
+
 ###############################################################
 #                             Events                          #
 ###############################################################

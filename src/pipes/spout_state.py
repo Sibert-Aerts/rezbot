@@ -4,9 +4,12 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pipes.pipe import Spout
 
-class SpoutState:
-    any = False
 
+class SpoutState:
+    '''
+    Represents a script's "outgoing information", collected as the script is being executed.
+    Conceptually, propagates information "upwards", where the Context object propagates information "downwards".
+    '''
     print_values: list[list[str]]
     explicit_print: bool = False # TODO: print hook should set this one instead of putting a callback
     suppressed_print: bool = False # TODO: suppress_print hook should set this one instead of putting a callback

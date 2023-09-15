@@ -1,6 +1,5 @@
 
 '''
-The PipelineWithOrigin class essentially represents a Rezbot script that may be executed.
 The PipelineProcessor class provides the primary interface through which Rezbot Scripts are executed.
 '''
 
