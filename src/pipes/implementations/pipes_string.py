@@ -2,7 +2,7 @@ import math
 import textwrap
 
 from .pipes import pipe_from_func, many_to_one, one_to_one, one_to_many, set_category
-from ..signature import Par, Option, Multi, parse_bool, regex
+from pipes.core.signature import Par, Option, Multi, parse_bool, regex
 from utils.texttools import min_dist, case_pattern
 from utils.choicetree import ChoiceTree
 from resource.upload import uploads

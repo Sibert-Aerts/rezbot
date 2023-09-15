@@ -2,7 +2,7 @@ from discord import Message, ui, ButtonStyle, TextStyle, Interaction
 from discord.interactions import Interaction
 
 from .generic_views import ConfirmView, RezbotView
-from pipes.macros import Macro, Macros
+from pipes.core.macros import Macro, Macros
 
 
 class EditMacroModal(ui.Modal):

@@ -8,7 +8,7 @@ import spacy
 spacy.LOADED_NLP = None
 
 from .pipes import pipe_from_func, one_to_one, one_to_many, set_category
-from ..signature import Par, Option, Multi
+from pipes.core.signature import Par, Option, Multi
 from utils.util import parse_bool
 from resource.upload import uploads
 

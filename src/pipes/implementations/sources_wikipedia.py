@@ -2,7 +2,7 @@ import re
 from functools import lru_cache
 
 from .sources import source_from_func, set_category
-from ..signature import Par, Option, Multi
+from pipes.core.signature import Par, Option, Multi
 
 from utils.rand import choose, sample, ordered_sample, choose_slice
 from utils.texttools import *

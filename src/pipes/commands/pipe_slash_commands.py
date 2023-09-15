@@ -5,12 +5,12 @@ from discord.ext import commands
 from discord import app_commands, Interaction, utils
 from discord.app_commands import Choice
 
-from pipes.pipe import Pipeoid, Pipes, Sources, Spouts
+from pipes.core.pipe import Pipeoid, Pipes, Sources, Spouts
 from pipes.implementations.pipes import pipes
 from pipes.implementations.sources import sources
 from pipes.implementations.spouts import spouts
-from pipes.macros import Macro
-from pipes.events import Event
+from pipes.core.macros import Macro
+from pipes.core.events import Event
 from mycommands import MyCommands
 import utils.texttools as texttools
 

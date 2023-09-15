@@ -1,13 +1,13 @@
 from discord.ext import commands
 
-from pipes.pipeline_with_origin import PipelineWithOrigin
-from pipes.pipe import Pipe, Source, Spout
-from pipes.context import Context
+from pipes.core.pipeline_with_origin import PipelineWithOrigin
+from pipes.core.pipe import Pipe, Source, Spout
+from pipes.core.context import Context
 from pipes.implementations.pipes import pipes
 from pipes.implementations.sources import sources, SourceResources
 from pipes.implementations.spouts import spouts
-from pipes.macros import pipe_macros, source_macros
-from pipes.signature import Arguments
+from pipes.core.macros import pipe_macros, source_macros
+from pipes.core.signature import Arguments
 from pipes.views import MacroView
 from mycommands import MyCommands
 import utils.texttools as texttools

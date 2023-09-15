@@ -1,6 +1,6 @@
 from .sources import source_from_func, source_from_class, set_category, SourceResources, Context
-from pipes.context import ContextError
-from pipes.signature import Par, with_signature, parse_bool
+from pipes.core.context import ContextError
+from pipes.core.signature import Par, with_signature, parse_bool
 
 
 #####################################################

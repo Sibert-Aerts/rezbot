@@ -3,9 +3,9 @@ from typing import TypeVar
 from random import choice
 from pyparsing import ParseException
 
-from pipes.logger import TerminalErrorLogException
-from pipes.conditions import Condition
-from pipes.context import Context, ItemScope
+from .logger import TerminalErrorLogException
+from .conditions import Condition
+from .context import Context, ItemScope
 
 # Pipe grouping syntax!
 

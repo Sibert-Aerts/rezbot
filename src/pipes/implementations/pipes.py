@@ -2,8 +2,8 @@ import re
 from functools import wraps
 from typing import Callable, TypeVar
 
-from ..signature import Signature, Par, with_signature, get_signature
-from ..pipe import Pipe, Pipes
+from pipes.core.signature import Signature, Par, with_signature, get_signature
+from pipes.core.pipe import Pipe, Pipes
 
 #######################################################
 #                      Decorators                     #

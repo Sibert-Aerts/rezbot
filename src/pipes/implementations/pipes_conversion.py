@@ -2,7 +2,7 @@ from currency_converter import CurrencyConverter, SINGLE_DAY_ECB_URL
 from pint import UnitRegistry
 
 from .pipes import pipe_from_class, one_to_one, set_category
-from ..signature import Par, Option, with_signature, parse_bool
+from pipes.core.signature import Par, Option, with_signature, parse_bool
 from utils.util import format_doc
 
 

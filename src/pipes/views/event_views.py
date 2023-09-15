@@ -2,7 +2,7 @@ from discord import Message, Client, TextChannel, ui, ButtonStyle, TextStyle, In
 from discord.interactions import Interaction
 
 from .generic_views import ConfirmView, RezbotView
-from pipes.events import Event, Events, OnMessage, OnReaction, OnYell
+from pipes.core.events import Event, Events, OnMessage, OnReaction, OnYell
 
 
 class EditEventModal(ui.Modal):

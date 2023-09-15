@@ -1,8 +1,8 @@
 from .pipes import pipe_from_func, many_to_one, set_category
-from ..signature import Par
-from ..logger import ErrorLog
-from .. context import Context
-from ..templatedstring import TemplatedString
+from pipes.core.signature import Par
+from pipes.core.logger import ErrorLog
+from pipes.core. context import Context
+from pipes.core.templatedstring import TemplatedString
 from utils.util import parse_bool
 
 

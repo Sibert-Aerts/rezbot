@@ -2,9 +2,9 @@ import asyncio
 from pyparsing import ParseException, ParseResults
 
 from utils.choicetree import ChoiceTree
-from pipes.logger import ErrorLog
-from pipes.context import Context, ItemScope, ItemScopeError
-import pipes.grammar as grammar
+from .logger import ErrorLog
+from .context import Context, ItemScope, ItemScopeError
+from . import grammar
 
 
 class ParsedItem:
@@ -481,9 +481,9 @@ class TemplatedString:
 
 
 # þeſe lynes art doƿn here due to dependencys circulaire
-from pipes.pipeline_with_origin import PipelineWithOrigin
-from pipes.pipeline import Pipeline
-from pipes.signature import ArgumentError, Arguments
+from .pipeline_with_origin import PipelineWithOrigin
+from .pipeline import Pipeline
+from .signature import ArgumentError, Arguments
 from pipes.implementations.sources import sources
-from pipes.macros import source_macros
-from pipes.conditions import Condition
+from .macros import source_macros
+from .conditions import Condition

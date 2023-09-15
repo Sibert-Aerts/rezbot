@@ -18,8 +18,8 @@ from discord import Message, Member, Interaction, TextChannel, Client
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     # NOTE: These are only here for type annotation purposes, no code can actually access these.
-    from pipes.events import Event
-    from pipes.macros import Macro
+    from .events import Event
+    from .macros import Macro
     from pipes.views.generic_views import RezbotButton
 
 

@@ -1,5 +1,5 @@
 from .spouts import Par, Context, spout_from_func, set_category
-from pipes.signature import parse_bool
+from pipes.core.signature import parse_bool
 from resource.upload import uploads
 
 from .sources import SourceResources

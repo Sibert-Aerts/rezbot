@@ -2,9 +2,9 @@ from lru import LRU
 from discord import Client, TextChannel
 
 # More import statements at the bottom of the file, due to circular dependencies.
-from pipes.logger import ErrorLog
-from pipes.context import Context, ItemScope
-from pipes.spout_state import SpoutState
+from .logger import ErrorLog
+from .context import Context, ItemScope
+from .spout_state import SpoutState
 import utils.texttools as texttools
 
 
@@ -228,7 +228,7 @@ class PipelineWithOrigin:
 
 
 # These lynes be down here dve to dependencyes cyrcvlaire
-from pipes.pipeline import Pipeline
-from pipes.templatedstring import TemplatedString
+from .pipeline import Pipeline
+from .templatedstring import TemplatedString
 from pipes.implementations.spouts import spouts
 from pipes.implementations.sources import SourceResources

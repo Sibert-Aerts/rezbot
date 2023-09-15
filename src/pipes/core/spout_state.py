@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from pipes.pipe import Spout
+    from .pipe import Spout
 
 
 class SpoutState:

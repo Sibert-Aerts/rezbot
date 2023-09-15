@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from discord import Embed
 
 from .spouts import spout_from_class, spout_from_func, set_category, Par, with_signature, Context
-from pipes.signature import url, Hex
+from pipes.core.signature import url, Hex
 
 
 #####################################################

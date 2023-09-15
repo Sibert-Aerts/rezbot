@@ -6,9 +6,9 @@ from typing import TypeVar
 from discord.ext.commands import Bot
 
 # Unused imports are so other addons can import them from here
-from pipes.signature import Signature, Par, get_signature, with_signature
-from pipes.pipe import Source, Sources
-from pipes.context import Context
+from pipes.core.signature import Signature, Par, get_signature, with_signature
+from pipes.core.pipe import Source, Sources
+from pipes.core.context import Context
 from resource.variables import VariableStore
 
 

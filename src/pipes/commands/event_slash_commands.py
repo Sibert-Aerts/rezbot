@@ -6,9 +6,9 @@ from typing import Literal
 from discord.ext import commands
 from discord import app_commands, Interaction
 
-from pipes.events import Event, events
-from pipes.context import Context, ItemScope
-from pipes.processor import PipelineProcessor
+from pipes.core.events import Event, events
+from pipes.core.context import Context, ItemScope
+from pipes.core.processor import PipelineProcessor
 from mycommands import MyCommands
 from utils.util import normalize_name
 

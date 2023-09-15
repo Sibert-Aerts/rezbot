@@ -2,7 +2,7 @@ import re
 import random
 
 from .sources import source_from_func, set_category, multi_source
-from ..signature import Par, Option
+from pipes.core.signature import Par, Option
 
 import utils.util as util
 import utils.soapstone as soapstone

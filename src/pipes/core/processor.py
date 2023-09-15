@@ -8,8 +8,8 @@ import re
 from discord import Client, Message, TextChannel
 
 # More import statements at the bottom of the file, due to circular dependencies.
-from pipes.context import Context, ItemScope
-from pipes.logger import ErrorLog
+from .context import Context, ItemScope
+from .logger import ErrorLog
 
 
 class PipelineProcessor:
@@ -138,7 +138,7 @@ class PipelineProcessor:
 
 
 # These lynes be down here dve to dependencyes cyrcvlaire
-from pipes.pipeline_with_origin import PipelineWithOrigin
-from pipes.events import events
+from .pipeline_with_origin import PipelineWithOrigin
+from .events import events
 from pipes.implementations.sources import SourceResources
 from pipes.commands.macro_commands import parse_macro_command

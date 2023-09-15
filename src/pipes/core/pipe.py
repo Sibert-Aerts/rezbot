@@ -3,16 +3,17 @@ This file contains the definitions for the base class Pipeoid and deriving class
 These define the basic model and interface for those scripting entities.
 '''
 
+from typing import Callable, Any, Generic, TypeVar
 from collections import defaultdict
 import inspect
 from textwrap import dedent
+
 import discord
 from discord import Embed
 
-from pipes.signature import Signature
-from pipes.context import Context
-from pipes.spout_state import SpoutState
-from typing import Callable, Any, Generic, TypeVar
+from .signature import Signature
+from .context import Context
+from .spout_state import SpoutState
 
 
 class Pipeoid:

@@ -9,7 +9,8 @@ from discord.ext import commands
 
 import permissions
 import patterns
-from pipes.processor import PipelineProcessor
+from pipes import PipelineProcessor
+
 
 # Open the config so we can read info from it
 config = ConfigParser()
@@ -23,6 +24,7 @@ patterns_blacklist = []
 if 'PATTERNS.PY BLACKLIST' in config:
     for key in config['PATTERNS.PY BLACKLIST']:
         patterns_blacklist.append(int(config['PATTERNS.PY BLACKLIST'][key]))
+
 
 # Configure our intents
 intents = discord.Intents.all()

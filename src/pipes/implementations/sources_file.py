@@ -1,7 +1,7 @@
 import random
 
 from .sources import source_from_func, set_category
-from ..signature import Par, regex, bool_or_none, parse_bool
+from pipes.core.signature import Par, regex, bool_or_none, parse_bool
 from resource.upload import uploads
 
 

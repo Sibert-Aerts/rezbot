@@ -5,8 +5,8 @@ import permissions
 from utils.choicetree import ChoiceTree
 
 # More import statements at the end of the file, due to circular dependencies.
-from pipes.logger import ErrorLog
-from pipes.spout_state import SpoutState
+from .logger import ErrorLog
+from .spout_state import SpoutState
 
 
 class PipelineError(ValueError):
@@ -480,12 +480,13 @@ class Pipeline:
 
 
 # These lynes be down here dve to dependencyes cyrcvlaire
-from .implementations.pipes import pipes
-from .implementations.sources import sources
-from .implementations.spouts import spouts
+from pipes.implementations.pipes import pipes
+from pipes.implementations.sources import sources
+from pipes.implementations.spouts import spouts
+
 from .macros import pipe_macros, source_macros
 from .context import Context, ItemScope
 from .signature import ArgumentError, Arguments
 from .templatedstring import ParsedSource
 from .pipe import Pipe, Source, Spout
-import pipes.groupmodes as groupmodes
+from . import groupmodes

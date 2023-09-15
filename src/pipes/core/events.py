@@ -6,11 +6,11 @@ from discord import Embed, Guild, TextChannel, Message, Client
 
 from utils.util import normalize_name
 from utils.texttools import block_format
-from pipes.pipeline_with_origin import PipelineWithOrigin
+from .pipeline_with_origin import PipelineWithOrigin
 
 # Save events to the same directory as macros... because they're essentially macros.
 def DIR(filename=''):
-    return os.path.join(os.path.dirname(__file__), 'macros', filename)
+    return os.path.join(os.path.dirname(__file__), '..', 'macros', filename)
 
 ###############################################################
 #                             Event                           #

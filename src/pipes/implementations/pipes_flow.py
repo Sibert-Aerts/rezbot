@@ -2,7 +2,7 @@ import random
 import math
 
 from .pipes import pipe_from_func, many_to_one, set_category
-from ..signature import Par, Option, with_signature
+from pipes.core.signature import Par, Option, with_signature
 from utils.rand import choose_slice
 from utils.util import parse_bool
 

@@ -5,7 +5,7 @@ import re
 from simpleeval import SimpleEval
 
 from .pipes import pipe_from_func, many_to_one, set_category
-from ..signature import Par
+from pipes.core.signature import Par
 
 
 #####################################################

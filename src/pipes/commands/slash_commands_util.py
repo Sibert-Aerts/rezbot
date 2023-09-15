@@ -4,12 +4,12 @@ from typing import Callable, Type
 from discord import Interaction
 from discord.app_commands import Choice
 
-from pipes.pipe import Pipeoid, Pipe, Source, Spout, Pipes, Sources, Spouts
+from pipes.core.pipe import Pipeoid, Pipe, Source, Spout, Pipes, Sources, Spouts
 from pipes.implementations.pipes import pipes
 from pipes.implementations.sources import sources
 from pipes.implementations.spouts import spouts
-from pipes.macros import Macros, Macro, pipe_macros, source_macros
-from pipes.events import Event, Events, OnMessage, OnReaction, OnYell, events
+from pipes.core.macros import Macros, Macro, pipe_macros, source_macros
+from pipes.core.events import Event, Events, OnMessage, OnReaction, OnYell, events
 from .macro_commands import check_pipe_macro, check_source_macro
 from utils.util import normalize_name
 

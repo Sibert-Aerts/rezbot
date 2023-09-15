@@ -5,10 +5,10 @@ A file containing logic for parsing and evaluating logical conditions in a scrip
 import re
 from pyparsing import ParseResults
 
-import pipes.grammar as grammar
-from pipes.logger import ErrorLog, TerminalErrorLogException
-from pipes.context import Context, ItemScope
-from pipes.templatedstring import TemplatedString
+from . import grammar
+from .logger import ErrorLog, TerminalErrorLogException
+from .context import Context, ItemScope
+from .templatedstring import TemplatedString
 
 
 class Condition:

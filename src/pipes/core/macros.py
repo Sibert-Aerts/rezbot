@@ -8,8 +8,10 @@ from .signature import ArgumentError
 import utils.texttools as texttools
 import permissions
 
+
 def DIR(filename=''):
-    return os.path.join(os.path.dirname(__file__), 'macros', filename)
+    return os.path.join(os.path.dirname(__file__), '..', 'macros', filename)
+
 
 class MacroSig:
     # NOTE: Serialized; do not rename.

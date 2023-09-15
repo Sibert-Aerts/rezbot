@@ -7,7 +7,7 @@ from typing import Literal
 from discord.ext import commands
 from discord import app_commands, Interaction
 
-from pipes.macros import Macro, Macros, MacroSig, pipe_macros, source_macros
+from pipes.core.macros import Macro, Macros, MacroSig, pipe_macros, source_macros
 from mycommands import MyCommands
 import utils.texttools as texttools
 from utils.util import normalize_name

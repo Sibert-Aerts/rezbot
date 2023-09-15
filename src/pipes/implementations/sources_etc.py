@@ -4,7 +4,7 @@ import random
 from datetime import datetime, timezone, timedelta
 
 from .sources import source_from_func, multi_source, set_category
-from ..signature import Par, regex
+from pipes.core.signature import Par, regex
 
 from utils.rand import choose, sample 
 from utils.texttools import *

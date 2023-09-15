@@ -2,7 +2,7 @@ from configparser import ConfigParser
 import discord
 
 from .pipes import pipe_from_class, one_to_many, set_category
-from ..signature import Par, with_signature
+from pipes.core.signature import Par, with_signature
 from utils.util import parse_bool
 import permissions
 

@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from pipes.events import events
+from pipes.core.events import events
 from pipes.views import EventView
 from mycommands import MyCommands
 import permissions

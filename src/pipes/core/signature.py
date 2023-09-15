@@ -2,9 +2,9 @@ import asyncio
 from typing import Dict, Awaitable, Iterable, Optional, TypeVar, Callable
 from pyparsing import ParseException, ParseResults
 
-import pipes.grammar as grammar
-from pipes.logger import ErrorLog
-from pipes.context import Context, ItemScope
+from . import grammar
+from .logger import ErrorLog
+from .context import Context, ItemScope
 
 # Make all the signature_types types available through this import
 from .signature_types import *

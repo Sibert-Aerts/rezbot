@@ -2,9 +2,9 @@ from operator import itemgetter
 from discord import Interaction, ui, ButtonStyle, TextStyle
 
 from .spouts import spout_from_class, spout_from_func, set_category, with_signature, Par, Context, Spout
-from pipes.signature import Option, parse_bool
-from pipes.pipeline_with_origin import PipelineWithOrigin
-from pipes.context import ItemScope
+from pipes.core.signature import Option, parse_bool
+from pipes.core.pipeline_with_origin import PipelineWithOrigin
+from pipes.core.context import ItemScope
 from pipes.views.generic_views import RezbotButton, RezbotView
 
 ################################################################################

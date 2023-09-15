@@ -1,7 +1,7 @@
 import utils.util as util
 
 from .pipes import pipe_from_func, one_to_one, set_category
-from ..signature import Par, Option
+from pipes.core.signature import Par, Option
 from utils.texttools import vowelize, consonize, letterize, letterize2, converters
 
 

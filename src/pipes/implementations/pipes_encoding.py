@@ -4,7 +4,7 @@ import emoji
 import hashlib
 
 from .pipes import pipe_from_func, many_to_one, one_to_one, one_to_many, set_category
-from ..signature import Par, Option
+from pipes.core.signature import Par, Option
 
 #####################################################
 #                  Pipes : ENCODING                 #
