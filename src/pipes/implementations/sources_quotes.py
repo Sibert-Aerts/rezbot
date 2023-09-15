@@ -11,6 +11,7 @@ from utils.texttools import *
 from utils.frinkiac import simpsons, futurama
 import resource.tweets as tweets
 from resource.jerkcity import JERKCITY
+from utils.FROG import FROG
 
 
 #####################################################
@@ -88,14 +89,29 @@ async def trump_source(ctx, query, n):
 
 
 @source_from_func({
+    'N' : Par(int, 1, 'NUMBER OF COMICS TO LOAD LINES FROM.'),
+    'NUMBER': Par(int, -1, 'EXACT TIP NUMBER, -1 FOR RANDOM TIP.', required=False),
+})
+async def frog_source(CTX, n, number):
+    ''' FROG TIPS, DIRECTLY FROM HTTPS://FROG.TIPS '''
+    N, NUMBER = n, number
+    if NUMBER == -1:
+        TIPS = [FROG.GET_RANDOM() for _ in range(N)]
+    else:
+        TIPS = [FROG.GET_TIP(NUMBER)] * N
+    return {TIP["tip"] for TIP in TIPS}
+
+
+@source_from_func({
     'COMIC' : Par(int, -1, 'EXACT COMIC NUMBER, -1 FOR QUERY COMIC.'),
     'QUERY' : Par(str, '', 'TITLE OR DIALOG TO LOOK FOR (FUZZY!), EMPTY FOR RANDOM COMICS.'),
     'N'     : Par(int, 1, 'NUMBER OF COMICS TO LOAD LINES FROM.', lambda x: x>0),
     'LINES' : Par(int, 1, 'NUMBER OF LINES PER COMIC (0 FOR ALL LINES).'),
     'NAMES' : Par(util.parse_bool, False, 'WHETHER OR NOT DIALOG ATTRIBUTIONS ("spigot: ") ARE KEPT')
 }, plural='JERKCITIES', depletable=True)
-async def JERKCITY_source(CTX, COMIC, QUERY, N, LINES, NAMES):
+async def JERKCITY_source(CTX, comic, query, n, lines, names):
     ''' JERKCITY COMIC DIALOG '''
+    COMIC, QUERY, N, LINES, NAMES = comic, query, n, lines, names
     ISSUES = []
     if COMIC == -1:
         if QUERY == '':
@@ -122,6 +138,7 @@ async def JERKCITY_source(CTX, COMIC, QUERY, N, LINES, NAMES):
         _LINES = _NONAMES
 
     return _LINES
+
 
 SOULS_GAME = Option('?','1','2','3','b','s', name='game', stringy=True)
 

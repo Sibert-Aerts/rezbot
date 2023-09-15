@@ -1,5 +1,5 @@
 import asyncio
-from typing import Dict, Awaitable, Iterable, Optional, TypeVar, Callable
+from typing import Awaitable, Iterable, Optional, TypeVar, Callable
 from pyparsing import ParseException, ParseResults
 
 from . import grammar
@@ -78,10 +78,13 @@ class Par:
         return val
 
 
-class Signature(Dict[str, Par]):
+class Signature(dict[str, Par]):
     ''' dict-derived class representing a set of parameters for a single function. '''
     def __init__(self, params):
+        # Force all keys lowercase
+        params  = {k.lower(): v for (k, v) in params.items()}
         super().__init__(params)
+        # Tell each Parameter its name
         for param in params:
             params[param].name = param
 

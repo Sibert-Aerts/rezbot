@@ -1,3 +1,7 @@
+'''
+Cute bit of code for parsing/representing/simulating a Wordle game.
+'''
+
 import re
 
 class WordleInfo:

@@ -12,9 +12,7 @@ from utils.frinkiac import simpsons, futurama
 import resource.tweets as tweets
 from resource.jerkcity import JERKCITY
 from resource.upload import uploads
-import utils.biogenerator
 from utils.rand import *
-from utils.meal import Meal
 from utils.emojifight import EmojiFight
 from mycommands import MyCommands
 import utils.wordle as wordle
@@ -177,81 +175,6 @@ class BotCommands(MyCommands):
 
 
     @commands.command()
-    async def cat(self, ctx, category:str=None):
-        '''
-        Posts a random cat picture, courtesy of http://thecatapi.com/
-        
-        Optional categories: hats, space, funny, sunglasses, boxes, caturday, ties, dream, kittens, sinks, clothes
-        '''
-        params = {'api_key': 'MjE4MjM2'}
-        if category is not None:
-            params['category'] = category
-        r = requests.get('http://thecatapi.com/api/images/get', params=params, allow_redirects=False)
-        await ctx.send(r.headers['Location'])
-
-
-
-    triviaCategories = {
-        'general' : 9 , 'books' : 10, 'film' : 11, 'music' : 12, 'musicals' : 13, 'tv' : 14, 'videogames' : 15,
-        'board games' : 16, 'science' : 17, 'computers' : 18, 'maths' : 19, 'mythology' : 20, 'sports' : 21,
-        'geography' : 22, 'history' : 23, 'politics' : 24, 'art' : 25, 'celebrities' : 26, 'animals' : 27,
-        'vehicles' : 28, 'comics' : 29, 'gadgets' : 30, 'anime' : 31, 'cartoon' : 32,
-    }
-
-    @commands.command()
-    @util.format_doc(categories=', '.join([c for c in triviaCategories]))
-    async def trivia(self, ctx, category:str=None):
-        '''
-        Posts an absolutely legitimate trivia question.
-
-        Categories: {categories}
-        '''
-        amount = 2
-        params = {'amount': amount + 1}
-        if category is not None:
-            params['category'] = BotCommands.triviaCategories[category.lower()]
-        r = requests.get('https://opentdb.com/api.php', params=params)
-        results = r.json()['results']
-
-        decode = html.unescape
-
-        question = decode(results[0]['question'])
-
-        wrongAnswerPool = []
-        incorrect = [decode(i) for i in results[0]['incorrect_answers']]
-        wrongAnswerPool += incorrect
-
-        other_question = [decode(a) for i in range(amount) for a in results[i+1]['incorrect_answers'] + [results[i+1]['correct_answer']]]
-        wrongAnswerPool += other_question
-        
-        correctAnswer = decode(results[0]['correct_answer'])
-        wrongAnswerPool += [texttools.letterize(i, 0.4) for i in [correctAnswer]*3]
-
-        if chance(0.4):
-            wrongAnswerPool += ['Maybe']
-
-        wrongAnswerPool = [x for x in util.remove_duplicates(wrongAnswerPool) if x != correctAnswer]
-
-        random.shuffle(wrongAnswerPool)
-        chosenAnswers = wrongAnswerPool[:3] + [correctAnswer]
-        random.shuffle(chosenAnswers)
-
-        text = question + '\n'
-        for answ in chosenAnswers:
-            text += '\n 🔘 ' + answ
-        await ctx.send(text)
-
-
-    @commands.command()
-    async def bio(self, ctx, count:int=1):
-        '''Post a random twitter bio, credit to Jon Hendren (@fart)'''
-        messages = []
-        for _ in range(min(count, 10)):
-            messages.append(utils.biogenerator.get())
-        await ctx.send('\n'.join(messages))
-
-
-    @commands.command()
     async def word_gradient(self, ctx, w1:str, w2:str, n:int=5):
         '''gradient between two words'''
         if n > 20: return
@@ -268,7 +191,7 @@ class BotCommands(MyCommands):
         await ctx.send(text)
 
 
-    @commands.command()
+    @commands.command(hidden=True)
     async def sheriff(self, ctx, *bodyParts):
         '''Makes a sheriff using the given emoji.'''
         mySheriff = '⠀' + util.theSheriff
@@ -408,12 +331,6 @@ class BotCommands(MyCommands):
         smiley = {'1': '🤯', '2': '🤩', '3': '😃', '4': '🙂', '5': '😐', '6': '😟', 'X': '😢'}[turns] or '🤔'
 
         await (await ctx.send('\n'.join(output))).add_reaction(smiley)
-
-
-    @commands.command(hidden=True)
-    async def lunch(self, ctx, kind='regular'):
-        '''Generate a fake lunch menu in Dutch. If the first argument is "weird" it will produce a weirder menu.'''
-        await ctx.send(Meal.generateMenu(kind))
 
 
 async def setup(bot):

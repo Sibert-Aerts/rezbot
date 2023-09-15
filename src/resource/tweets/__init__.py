@@ -54,7 +54,6 @@ derek = TweetHistory(_HERE('derek.json'))
 print(', derek: %d' % len(derek), end='')
 trump = TweetHistory(_HERE('trump.json'))
 print(', trump: %d' % len(trump), end='')
-print(', done!')
 
 if os.path.isfile(_HERE('dril-model.json')):
     with open(_HERE('dril-model.json'), encoding='utf-8') as f:
@@ -64,3 +63,6 @@ else:
     dril_model = markovify.NewlineText(sentences)
     with open(_HERE('dril-model.json'), 'w+', encoding='utf-8') as f:
         f.write(dril_model.to_json())
+
+print(', dril model: %d' % len(dril_model.parsed_sentences), end='')
+print(', done!')

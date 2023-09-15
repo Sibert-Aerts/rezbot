@@ -4,10 +4,12 @@ import functools
 from random import choices
 from itertools import product
 
+
 class ChoiceTreeError(ValueError):
     pass
 class EmptyChoiceTreeError(ChoiceTreeError):
     pass
+
 
 class ChoiceTree:
     '''
