@@ -21,14 +21,18 @@ def openai_setup():
     try: import openai
     except: return print('Could not import Python module `openai`, OpenAI-related features will not be available.')
 
-    # Attempt read API key from config
+    # Attempt to read API key from config
     config = ConfigParser()
     config.read('config.ini')
     openai_api_key = config['OPENAI']['api_key']
     if not openai_api_key or openai_api_key == 'PutYourKeyHere':
         return print('OpenAI API key not set in config.ini, OpenAI-related features will not be available.')
-
     openai.api_key = openai_api_key
+
+    # Reduce timeout to something slightly more sensible, down from 10 minutes
+    import openai.api_requestor
+    openai.api_requestor.TIMEOUT_SECS = 60
+
     _is_openai_usable = True
 
 openai_setup()
@@ -120,30 +124,3 @@ class PipeGPTChat:
             result.extend(choice.message.content for choice in response.choices)
 
         return result
-
-
-@pipe_from_class
-class PipeGPTEdit:
-    name = 'gpt_edit'
-
-    @staticmethod
-    def may_use(user: discord.User):
-        return permissions.has(user.id, permissions.trusted)
-
-    @with_signature(
-        instruction = Par(str, None, 'The instruction that tells the model how to edit the prompt.'),
-        n           = Par(int, 1, 'The amount of completions to generate.'),
-        temperature = Par(float, .7, 'Value between 0 and 1 determining how creative/unhinged the generation is.'),
-        model       = Par(str, 'text-davinci-edit-001', 'The GPT model to use, either text-davinci-edit-001 or code-davinci-edit-001.'),
-    )
-    @one_to_many
-    @staticmethod
-    def pipe_function(text, **kwargs):
-        '''
-        Edit the given input according to an instruction.    
-        Uses OpenAI GPT models.
-        '''
-        if not _is_openai_usable: return [text]
-
-        response = openai.Edit.create(input=text, **kwargs)
-        return [choice.text for choice in response.choices]
