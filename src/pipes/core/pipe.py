@@ -213,6 +213,9 @@ P = TypeVar('P', bound=Pipeoid)
 
 class PipeoidStore(Generic[P]):
     ''' A class for storing/mapping multiple Pipeoid instances. '''
+    _name_singular = 'Pipeoid'
+    _name_plural = 'Pipeoids'
+
     by_name: dict[str, P]
     by_primary_name: dict[str, P]
     categories: defaultdict[str, list[P]]
@@ -261,10 +264,13 @@ class PipeoidStore(Generic[P]):
 
 
 class Pipes(PipeoidStore[Pipe]):
-    pass
+    _name_singular = 'Pipe'
+    _name_plural = 'Pipes'
 
 class Sources(PipeoidStore[Source]):
-    pass
+    _name_singular = 'Source'
+    _name_plural = 'Sources'
 
 class Spouts(PipeoidStore[Spout]):
-    pass
+    _name_singular = 'Spout'
+    _name_plural = 'Spouts'
