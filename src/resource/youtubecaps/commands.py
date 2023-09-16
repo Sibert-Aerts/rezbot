@@ -1,8 +1,3 @@
-import asyncio
-import re
-import random
-
-import discord
 from discord.ext import commands
 
 from mycommands import MyCommands
@@ -10,9 +5,6 @@ from resource.youtubecaps import youtubeCaps
 import utils.util as util
 import permissions
 
-'''
-Main command module, contains a bunch of random functionality.
-'''
 
 info_string = '''
 Commands for using the youtube captions feature:
@@ -28,10 +20,8 @@ Commands for moderating captions:
 • **youtube_add/remove_tags [video] [...tags]**: Add/remove tags to video
 '''
 
-class YoutubeCommands(MyCommands):
-    def __init__(self, bot):
-        super().__init__(bot)
 
+class YoutubeCommands(MyCommands):
     @commands.command(aliases=['yt'])
     async def youtube(self, ctx):
         '''Get a random caption from a youtube video from a list of saved youtube videos'''
@@ -49,6 +39,7 @@ class YoutubeCommands(MyCommands):
                 await ctx.send(cap)
             except IndexError:
                 await ctx.send('no results found for search "{}".'.format(query))
+
 
     @commands.command(aliases=['yt_random'], hidden=True)
     async def youtube_random(self, ctx):
@@ -143,6 +134,7 @@ class YoutubeCommands(MyCommands):
                 await ctx.send('"{}" does not uniquely identify a video.'.format(ident))
                 return
             # TODO
+
 
 # Commands cog
 async def setup(bot):

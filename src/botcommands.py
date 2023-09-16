@@ -1,29 +1,25 @@
 import random
-import requests
-import html
 
 import discord
 from discord.ext import commands
 
+from mycommands import MyCommands
 import permissions
 import utils.util as util
 import utils.texttools as texttools
+import utils.wordle as wordle
+from utils.rand import *
 from utils.frinkiac import simpsons, futurama
+from utils.emojifight import EmojiFight
 import resource.tweets as tweets
 from resource.jerkcity import JERKCITY
 from resource.upload import uploads
-from utils.rand import *
-from utils.emojifight import EmojiFight
-from mycommands import MyCommands
-import utils.wordle as wordle
 
 '''
 Main command module, contains a bunch of random functionality.
 '''
 
 class BotCommands(MyCommands):
-    def __init__(self, bot):
-        super().__init__(bot)
 
     ###################################
     ##        HIDDEN COMMANDS        ##

@@ -1,4 +1,5 @@
 import aiohttp
+
 import discord
 from discord.ext import commands
 
@@ -8,11 +9,8 @@ from resource.upload import uploads
 import utils.texttools as texttools
 from utils.util import parse_bool
 
+
 class UploadCommands(MyCommands):
-    def __init__(self, bot):
-        super().__init__(bot)
-
-
     @commands.command()
     async def upload(self, ctx):
         '''Upload a txt file for the bot to use.'''

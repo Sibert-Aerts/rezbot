@@ -1,21 +1,20 @@
 import sys
-import utils.texttools as texttools
+from typing import TYPE_CHECKING, Never
+
 from discord.ext import commands
+
+if TYPE_CHECKING:
+    import bot as rezbot
+
 
 class MyCommands(commands.Cog):
     '''Class holding useful methods for bot commands.'''
-    bot: commands.Bot
+    bot: 'rezbot.Rezbot'
 
     def __init__(self, bot):
         self.bot = bot
 
-    async def say_block(self, s, **kwargs):
-        await self.say(texttools.block_format(s), **kwargs)
-
-    async def say(self, *args, **kwargs):
-        await self.bot.say(*args, **kwargs)
-
-    async def _die(self):
+    async def _die(self) -> Never:
         '''Kill the bot.'''
         await self.bot.close()
         print('Bot killed.')

@@ -108,7 +108,7 @@ class Patterns:
     async def attack(self, message):
         '''This function is called when the bot recognises an "emoji fight" in a message.'''
         match = re.search(Patterns.fightRegex, message.content)
-        l, w, r = match.groups()        
+        l, w, r = match.groups()
         fight = EmojiFight(l, w, r)
         # print(f'({fight.attacker}) attacking ({fight.target}) with ({fight.weapon})')
 
@@ -332,14 +332,8 @@ class Patterns:
     def addresses_bot(self, pattern):
         return '(' + self.robotRegexRaw + '\s*[,.]* ' + pattern + '|' + pattern + "[,.]* ((yo)?u )?([^\s]+ )?" + self.robotRegexRaw + ')'
 
-    happyDayText = 'pls rember that wen u feel scare or frigten\nnever forget ttimes wen u feeled happy\n\nwen day is dark alway rember happy day'
-
     # Patterns that are always* executed
     generalPatterns = [
-        #{ 'pattern' : (':yaranaika:'  , re.I),
-        #  'function' : do_react(':yaranaika:245987292513173505') },
-        #{ 'pattern' : ('\\bxd+\\b'  , re.I),
-        #  'function' : do_react('😫') },
         {'pattern': ('(✋|up[-\\s]top|high[-\\s]five)', re.I),
          'function': do_react('🤚')},
         {'pattern': (fightRegex.pattern, re.I),
@@ -348,8 +342,6 @@ class Patterns:
          'function': current_year},
         {'pattern': ('\\byou\'?re? a big bot\\b', re.I),
          'function': do_reply('for you.')},
-        #{ 'pattern' : (':pe:', re.I),
-        #  'function' : do_reply('`{0}.`'.format(happyDayText)) },
         {'pattern': ('^<:pe:245959018210656256>$', re.I),
          'function': do_react(':pe:245959018210656256')},
     ]
