@@ -1,5 +1,6 @@
 import os
 import pickle
+import json
 from shutil import copyfile
 from lru import LRU
 
@@ -15,7 +16,7 @@ def DIR(filename=''):
 
 class MacroSig:
     # NOTE: Serialized; do not rename.
-    def __init__(self, name, default=None, desc=None):
+    def __init__(self, name: str, default: str=None, desc: str=None):
         self.name = name
         self.default = default
         self.desc = desc
@@ -30,8 +31,29 @@ class MacroSig:
             out += ' (REQUIRED)'
         return out
 
+    # ================ Serialization ================
+
+    def serialize(self):
+        return {
+            '_version': 5,
+            'name': self.name,
+            'default': self.default,
+            'desc': self.desc,
+        }
+    
+    @classmethod
+    def deserialize(cls, values):
+        version = values.pop('_version')
+        if version == 5:
+            return MacroSig(**values)
+        raise NotImplementedError()
+
 
 class Macro:
+    simple_attrs = [
+        'kind', 'name', 'code', 'authorName', 'authorId', 'desc', 'visible', 'command'
+    ]
+
     def __init__(self, kind, name, code, authorName, authorId, desc=None, visible=True, command=False):
         self.version = 4
         self.kind: str = kind
@@ -101,6 +123,25 @@ class Macro:
         '''Test whether or not the given user is authorised to modify this macro.'''
         return permissions.has(user.id, permissions.owner) or user.id == int(self.authorId)
 
+    # ================ Serialization ================
+
+    def serialize(self):
+        return {
+            '_version': 5,
+            'attrs': {a: getattr(self, a) for a in Macro.simple_attrs},
+            'signature': [v.serialize() for v in self.signature.values()],
+        }
+
+    @classmethod
+    def deserialize(cls, values):
+        version = values.pop('_version')
+        if version == 5:
+            macro = Macro(**values['attrs'])
+            sigs = [MacroSig.deserialize(v) for v in values['signature']]
+            macro.signature = {sig.name: sig for sig in sigs}
+            return macro
+        raise NotImplementedError()
+
 
 class Macros:
     macros: dict[str, Macro]
@@ -109,16 +150,35 @@ class Macros:
         self.macros = {}
         self.DIR = DIR
         self.kind = kind
-        self.filename = filename
+        self.pickle_filename = filename + '.p'
+        self.json_filename = filename + '.json'
         self.pipeline_cache = LRU(60)
+        self.read_macros_from_file()
+
+    # ================ Reading/writing ================
+
+    def read_macros_from_file(self):
         try:
             if not os.path.exists(DIR()): os.mkdir(DIR())
-            self.macros = pickle.load(open(DIR(filename), 'rb+'))
-            self.convert_v3_to_v4()
-            print('{} macros loaded from "{}"!'.format(len(self.macros), filename))
+
+            if os.path.isfile(DIR(self.json_filename)):
+                # Deserialize Macros from JSON data
+                file_used = self.json_filename
+                with open(DIR(self.json_filename), 'r+') as file:
+                    self.deserialize(json.load(file))
+            else:
+                # DEPRECATED/FALLBACK: Pickle file
+                file_used = self.pickle_filename
+                with open(DIR(self.pickle_filename), 'rb+') as file:
+                    self.macros = pickle.load(file)
+                self.write()
+
+            # self.convert_v3_to_v4()
+            print(f'{len(self.macros)} macros loaded from "{file_used}"!')
+
         except Exception as e:
             print(e)
-            print('Failed to load macros from "{}"!'.format(DIR(filename)))
+            print(f'Failed to load macros from "{file_used}"!')
 
     def convert_v3_to_v4(self):
         FROM_VERSION = 3
@@ -138,15 +198,29 @@ class Macros:
             self.write()
             if count: print('{} macros successfully converted and added from "{}"!'.format(count, self.filename))
 
+    def write(self):
+        '''Write the list of macros to a json file.'''
+        # pickle.dump(self.macros, open(self.DIR(self.filename), 'wb+'))
+        with open(self.DIR(self.json_filename), 'w+') as file:
+            json.dump(self.serialize(), file)
+
+    # ================ Serialization ================
+
+    def serialize(self):
+        return [v.serialize() for v in self.macros.values()]
+
+    def deserialize(self, data):
+        # NOTE: Deserializes in-place, does not create a new object.
+        macros = [Macro.deserialize(d) for d in data]
+        self.macros = {macro.name: macro for macro in macros}
+
+    # ================ Interface ================
+
     def visible(self):
         return [i for i in self.macros if self.macros[i].visible]
 
     def hidden(self):
         return [i for i in self.macros if not self.macros[i].visible]
-
-    def write(self):
-        '''Write the list of macros to a pickle file.'''
-        pickle.dump(self.macros, open(self.DIR(self.filename), 'wb+'))
 
     def __contains__(self, name):
         return name in self.macros
@@ -178,5 +252,5 @@ class Macros:
         return len(self.macros)
 
 
-pipe_macros = Macros(DIR, 'Pipe', 'pipe_macros.p')
-source_macros = Macros(DIR, 'Source', 'source_macros.p')
+pipe_macros = Macros(DIR, 'Pipe', 'pipe_macros')
+source_macros = Macros(DIR, 'Source', 'source_macros')
