@@ -2,7 +2,6 @@ import re
 import os
 import json
 import traceback
-import pickle
 from shutil import copyfile
 from discord import Embed, Guild, TextChannel, Message, Client
 
@@ -260,7 +259,6 @@ class Events:
     def __init__(self, DIR, filename):
         self.events = {}
         self.DIR = DIR
-        self.pickle_filename = filename + '.p'
         self.json_filename = filename + '.json'
         self.read_events_from_file()
         self.refresh_indexes()
@@ -271,17 +269,10 @@ class Events:
         try:
             if not os.path.exists(DIR()): os.mkdir(DIR())
 
-            if os.path.isfile(DIR(self.json_filename)):
-                # Deserialize Events from JSON data
-                file_used = self.json_filename
-                with open(DIR(self.json_filename), 'r+') as file:
-                    self.deserialize(json.load(file))
-            else:
-                # DEPRECATED/FALLBACK: Pickle file
-                file_used = self.pickle_filename
-                with open(DIR(self.pickle_filename), 'rb+') as file:
-                    self.events = pickle.load(file)
-                self.write()
+            # Deserialize Events from JSON data
+            file_used = self.json_filename
+            with open(DIR(self.json_filename), 'r+') as file:
+                self.deserialize(json.load(file))
 
             # self.attempt_version_upgrade()
             print(f'{len(self.events)} events loaded from "{file_used}"!')

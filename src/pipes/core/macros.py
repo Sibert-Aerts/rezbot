@@ -1,5 +1,4 @@
 import os
-import pickle
 import json
 import traceback
 from shutil import copyfile
@@ -143,7 +142,6 @@ class Macros:
         self.macros = {}
         self.DIR = DIR
         self.kind = kind
-        self.pickle_filename = filename + '.p'
         self.json_filename = filename + '.json'
         self.pipeline_cache = LRU(60)
         self.read_macros_from_file()
@@ -154,22 +152,14 @@ class Macros:
         try:
             if not os.path.exists(DIR()): os.mkdir(DIR())
 
-            if os.path.isfile(DIR(self.json_filename)):
-                # Deserialize Macros from JSON data
-                file_used = self.json_filename
-                with open(DIR(self.json_filename), 'r+') as file:
-                    self.deserialize(json.load(file))
-            else:
-                # DEPRECATED/FALLBACK: Pickle file
-                file_used = self.pickle_filename
-                with open(DIR(self.pickle_filename), 'rb+') as file:
-                    self.macros = pickle.load(file)
-                self.write()
+            # Deserialize Macros from JSON data
+            with open(DIR(self.json_filename), 'r+') as file:
+                self.deserialize(json.load(file))
 
-            print(f'{len(self.macros)} macros loaded from "{file_used}"!')
+            print(f'{len(self.macros)} macros loaded from "{self.json_filename}"!')
 
         except Exception as e:
-            print(f'Failed to load macros from "{file_used}"!')
+            print(f'Failed to load macros from "{self.json_filename}"!')
             print(traceback.format_exc())
             print()
 
