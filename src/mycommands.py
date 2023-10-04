@@ -1,5 +1,5 @@
 import sys
-from typing import TYPE_CHECKING, Never
+from typing import TYPE_CHECKING
 
 from discord.ext import commands
 
@@ -14,7 +14,7 @@ class MyCommands(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    async def _die(self) -> Never:
+    async def _die(self):
         '''Kill the bot.'''
         await self.bot.close()
         print('Bot killed.')
