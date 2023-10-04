@@ -1,5 +1,7 @@
 import re
 import os
+import json
+import traceback
 import pickle
 from shutil import copyfile
 from discord import Embed, Guild, TextChannel, Message, Client
@@ -8,32 +10,23 @@ from utils.util import normalize_name
 from utils.texttools import block_format
 from .pipeline_with_origin import PipelineWithOrigin
 
-# Save events to the same directory as macros... because they're essentially macros.
+
 def DIR(filename=''):
     return os.path.join(os.path.dirname(__file__), '..', 'macros', filename)
+
 
 ###############################################################
 #                             Event                           #
 ###############################################################
 
 class Event:
-    def __init__(self, name, desc, author, channel, script):
-        self.version = 3
+    def __init__(self, name, desc, author_id, channels, script):
+        self.version = 4
         self.name: str = name
         self.desc: str = desc
-        self.author_id: int = author.id
-        self.channels: list[int] = [channel.id]
+        self.author_id: int = author_id
+        self.channels: list[int] = channels
         self.script: str = script
-
-    def upgrade_version(self):
-        if self.version == 1:
-            # Didn't change any fields...
-            self.version = 2
-        if self.version == 2:
-            self.desc = None
-            self.author_id = 154597714619793408 # Rezuaq
-            self.version = 3
-        return self
 
     def update(self, script):
         self.script = script
@@ -84,13 +77,37 @@ class Event:
 
         return embed
 
+    # ================ Serialization ================
+
+    def serialize(self):
+        return {
+            '_version': 4,
+            '_type': type(self).__name__,
+            'name': self.name,
+            'desc': self.desc,
+            'author_id': self.author_id,
+            'channels': self.channels,
+            'script': self.script
+        }
+    
+    @classmethod
+    def deserialize(cls, values):
+        # Delegate to one of the sub-classes' deserialize method
+        type_map = {
+            'OnMessage': OnMessage,
+            'OnReaction': OnReaction,
+            'OnYell': OnYell,
+        }
+        EventType = type_map[values.pop('_type')]
+        return EventType.deserialize(values)
+
 
 class OnMessage(Event):
     patternstr: str
     pattern: re.Pattern
 
-    def __init__(self, name, desc, author, channel, script, pattern):
-        super().__init__(name, desc, author, channel, script)
+    def __init__(self, name, desc, author_id, channels, script, pattern):
+        super().__init__(name, desc, author_id, channels, script)
         self.set_trigger(pattern)
 
     def update(self, script: str, pattern: str):
@@ -108,19 +125,37 @@ class OnMessage(Event):
         '''Test whether or not the given message should trigger the Event's execution.'''
         return super().test(message.channel) and self.pattern.search(message.content)
 
+    # ================ Display ================
+
     def __str__(self):
         return '**{}**: ON MESSAGE `{}`'.format(self.name, self.patternstr)
 
     def embed(self, **kwargs):
         embed = super().embed(**kwargs)
         return embed.insert_field_at(0, name='On message', value='`%s`' % self.patternstr, inline=True)
-        
+
+    # ================ Serialization ================
+
+    def serialize(self):
+        res = super().serialize()
+        res.update({
+            'pattern': self.patternstr,
+        })
+        return res
+
+    @classmethod
+    def deserialize(cls, values):
+        version = values.pop('_version')
+        if version == 4:
+            return OnMessage(**values)
+        raise NotImplementedError()
+
 
 class OnReaction(Event):
     emotes: list[str]
 
-    def __init__(self, name, desc, author, channel, script: str, emotes: str):
-        super().__init__(name, desc, author, channel, script)
+    def __init__(self, name, desc, author_id, channels, script: str, emotes: str):
+        super().__init__(name, desc, author_id, channels, script)
         self.set_trigger(emotes)
 
     def update(self, script: str, emotes: str):
@@ -137,6 +172,8 @@ class OnReaction(Event):
         '''Test whether or not a given reaction-addition should trigger this Event.'''
         return super().test(channel) and emoji in self.emotes
 
+    # ================ Display ================
+
     def __str__(self):
         return '**{}**: ON REACTION `{}`'.format(self.name, ','.join(self.emotes))
 
@@ -144,12 +181,28 @@ class OnReaction(Event):
         embed = super().embed(**kwargs)
         return embed.insert_field_at(0, name='On reaction', value=','.join(self.emotes), inline=True)
 
+    # ================ Serialization ================
+
+    def serialize(self):
+        res = super().serialize()
+        res.update({
+            'emotes': self.get_trigger_str(),
+        })
+        return res
+
+    @classmethod
+    def deserialize(cls, values):
+        version = values.pop('_version')
+        if version == 4:
+            return OnReaction(**values)
+        raise NotImplementedError()
+
 
 class OnYell(Event):
     tone: str
 
-    def __init__(self, name, desc, author, channel, script: str, tone: str):
-        super().__init__(name, desc, author, channel, script)
+    def __init__(self, name, desc, author_id, channels, script: str, tone: str):
+        super().__init__(name, desc, author_id, channels, script)
         self.set_trigger(tone)
 
     def update(self, script: str, tone: str):
@@ -166,12 +219,30 @@ class OnYell(Event):
         '''Test whether or not a given reaction-addition should trigger this Event.'''
         return super().test(channel) and tone.lower() == self.tone
 
+    # ================ Display ================
+
     def __str__(self):
         return f'**{self.name}**: ON YELL `{self.tone}`'
 
     def embed(self, **kwargs):
         embed = super().embed(**kwargs)
         return embed.insert_field_at(0, name='On yell', value=self.tone, inline=True)
+
+    # ================ Serialization ================
+
+    def serialize(self):
+        res = super().serialize()
+        res.update({
+            'tone': self.tone,
+        })
+        return res
+
+    @classmethod
+    def deserialize(cls, values):
+        version = values.pop('_version')
+        if version == 4:
+            return OnYell(**values)
+        raise NotImplementedError()
 
 
 ###############################################################
@@ -189,34 +260,36 @@ class Events:
     def __init__(self, DIR, filename):
         self.events = {}
         self.DIR = DIR
-        self.filename = filename
-        try:
-            if not os.path.exists(DIR()): os.mkdir(DIR())
-            self.events = pickle.load(open(DIR(filename), 'rb+'))
-            self.attempt_version_upgrade()
-            print('{} events loaded from "{}"!'.format(len(self.events), filename))
-        except Exception as e:
-            print(e)
-            print('Failed to load events from "{}"!'.format(DIR(filename)))
+        self.pickle_filename = filename + '.p'
+        self.json_filename = filename + '.json'
+        self.read_events_from_file()
         self.refresh_indexes()
 
-    def attempt_version_upgrade(self):
-        TO_VERSION = 3
-        if not any(e for e in self.events if self.events[e].version != TO_VERSION): return
+    # ================ Reading/writing ================
+
+    def read_events_from_file(self):
         try:
-            copyfile(self.DIR(self.filename), self.DIR(self.filename + f'.v{TO_VERSION}_upgrade_backup'))
-            count = 0
-            for name in self.events:
-                event = self.events[name]
-                if event.version != TO_VERSION:
-                    self.events[name] = event.upgrade_version()
-                    count += 1
+            if not os.path.exists(DIR()): os.mkdir(DIR())
+
+            if os.path.isfile(DIR(self.json_filename)):
+                # Deserialize Events from JSON data
+                file_used = self.json_filename
+                with open(DIR(self.json_filename), 'r+') as file:
+                    self.deserialize(json.load(file))
+            else:
+                # DEPRECATED/FALLBACK: Pickle file
+                file_used = self.pickle_filename
+                with open(DIR(self.pickle_filename), 'rb+') as file:
+                    self.events = pickle.load(file)
+                self.write()
+
+            # self.attempt_version_upgrade()
+            print(f'{len(self.events)} events loaded from "{file_used}"!')
+
         except Exception as e:
-            print(e)
-            print('Failed to convert events from "{}"!'.format(self.filename))
-        else:
-            self.write()
-            if count: print('{} events successfully converted and added from "{}"!'.format(count, self.filename))
+            print(f'Failed to load events from "{file_used}"!')
+            print(traceback.format_exc())
+            print()
 
     def refresh_indexes(self):
         self.on_message_events = []
@@ -231,6 +304,24 @@ class Events:
             elif isinstance(event, OnYell):
                 self.on_yell_events.append(event)
                 self.on_yell_tones.add(event.tone)
+
+    def write(self):
+        '''Write the list of events to a json file.'''
+        self.refresh_indexes()
+        with open(self.DIR(self.json_filename), 'w+') as file:
+            json.dump(self.serialize(), file)
+
+    # ================ Serialization ================
+
+    def serialize(self):
+        return [v.serialize() for v in self.events.values()]
+
+    def deserialize(self, data):
+        # NOTE: Deserializes in-place, does not create a new Events object.
+        events = [Event.deserialize(d) for d in data]
+        self.events = {event.name: event for event in events}
+
+    # ================ Parse event create/edit command ================
 
     command_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w[\w.]+) ON ?(MESSAGE|REACT(?:ION)?|YELL) (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I | re.S )
     #                                  ^^^^^^^^         ^^^^^^^^       ^^^^^^^^^^^^^^^^^^^^^^^^^^   ^^^          ^^
@@ -273,7 +364,7 @@ class Events:
                 event.update(script, trigger)
                 self.write()
             else:
-                event = self[name] = EventType(name, None, message.author, channel, script, trigger)
+                event = self[name] = EventType(name, None, message.author.id, [channel.id], script, trigger)
 
         except Exception as e:
             ## Failed to register event (e.g. OnMessage regex could not parse)
@@ -287,10 +378,7 @@ class Events:
             view.set_message(await channel.send(msg, embed=event.embed(bot=bot, channel=channel), view=view))
             return True
 
-    def write(self):
-        '''Write the list of events to a pickle file.'''
-        pickle.dump(self.events, open(self.DIR(self.filename), 'wb+'))
-        self.refresh_indexes()
+    # ================ Interface ================
 
     def __contains__(self, name):
         return name in self.events
@@ -320,7 +408,7 @@ class Events:
         return len(self.events)
 
 
-events = Events(DIR, 'events.p')
+events = Events(DIR, 'events')
 'The canonical object managing all Event instances, responsible for serialising and deserialising them.'
 
 

@@ -1,6 +1,7 @@
 import os
 import pickle
 import json
+import traceback
 from shutil import copyfile
 from lru import LRU
 
@@ -14,8 +15,7 @@ def DIR(filename=''):
     return os.path.join(os.path.dirname(__file__), '..', 'macros', filename)
 
 
-class MacroSig:
-    # NOTE: Serialized; do not rename.
+class MacroParam:
     def __init__(self, name: str, default: str=None, desc: str=None):
         self.name = name
         self.default = default
@@ -45,7 +45,7 @@ class MacroSig:
     def deserialize(cls, values):
         version = values.pop('_version')
         if version == 5:
-            return MacroSig(**values)
+            return MacroParam(**values)
         raise NotImplementedError()
 
 
@@ -64,14 +64,7 @@ class Macro:
         self.desc: str = desc
         self.visible: bool = visible
         self.command: bool = command
-        self.signature: dict[str, MacroSig] = {}
-
-    def v3_to_v4(self, kind):
-        if self.version != 3: return self
-        self.kind = kind
-        self.authorId = int(self.authorId)
-        self.version = 4
-        return self
+        self.signature: dict[str, MacroParam] = {}
 
     def embed(self, bot: Client=None, channel: TextChannel=None, **kwargs):
         title = self.name + (' `hidden`' if not self.visible else '')
@@ -137,7 +130,7 @@ class Macro:
         version = values.pop('_version')
         if version == 5:
             macro = Macro(**values['attrs'])
-            sigs = [MacroSig.deserialize(v) for v in values['signature']]
+            sigs = [MacroParam.deserialize(v) for v in values['signature']]
             macro.signature = {sig.name: sig for sig in sigs}
             return macro
         raise NotImplementedError()
@@ -173,34 +166,15 @@ class Macros:
                     self.macros = pickle.load(file)
                 self.write()
 
-            # self.convert_v3_to_v4()
             print(f'{len(self.macros)} macros loaded from "{file_used}"!')
 
         except Exception as e:
-            print(e)
             print(f'Failed to load macros from "{file_used}"!')
-
-    def convert_v3_to_v4(self):
-        FROM_VERSION = 3
-        if not [name for name in self.macros if self.macros[name].version == FROM_VERSION]: return
-        try:
-            copyfile(self.DIR(self.filename), self.DIR(self.filename + '.v{}_backup'.format(FROM_VERSION)))
-            count = 0
-            for name in self.macros:
-                m = self.macros[name]
-                if m.version == FROM_VERSION:
-                    self.macros[name] = m.v3_to_v4(self.kind)
-                    count += 1
-        except Exception as e:
-            print(e)
-            print('Failed to convert macros from "{}"!'.format(self.filename))
-        else:
-            self.write()
-            if count: print('{} macros successfully converted and added from "{}"!'.format(count, self.filename))
+            print(traceback.format_exc())
+            print()
 
     def write(self):
         '''Write the list of macros to a json file.'''
-        # pickle.dump(self.macros, open(self.DIR(self.filename), 'wb+'))
         with open(self.DIR(self.json_filename), 'w+') as file:
             json.dump(self.serialize(), file)
 

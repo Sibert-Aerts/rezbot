@@ -11,7 +11,7 @@ from pipes.core.pipeline import Pipeline
 from pipes.core.pipeline_with_origin import PipelineWithOrigin
 from pipes.implementations.pipes import pipes
 from pipes.implementations.sources import sources
-from pipes.core.macros import Macro, MacroSig, Macros, pipe_macros, source_macros
+from pipes.core.macros import Macro, MacroParam, Macros, pipe_macros, source_macros
 import utils.texttools as texttools
 from utils.util import normalize_name
 from mycommands import MyCommands
@@ -203,7 +203,7 @@ class MacroCommands(MyCommands):
         if not macros[name].authorised(ctx.author):
             await self.permission_complain(ctx); return
 
-        sig = MacroSig(signame, sigdefault, sigdesc)
+        sig = MacroParam(signame, sigdefault, sigdesc)
         macros[name].signature[signame] = sig
         macros.write()
         await ctx.send('Added argument ({}) to {} {}'.format(sig, what, name))
