@@ -74,8 +74,7 @@ class EventSlashCommands(MyCommands):
             return await reply(f'An Event called `{name}` already exists, try the `/event edit` command.')
             
         # TODO: Check event script code before saving
-
-        event = EventType(name, interaction.channel, code, trigger)
+        event = EventType.from_trigger_str(name=name, author_id=interaction.user.id, channels=[interaction.channel.id], script=code, trigger=trigger)
         events[name] = event
         view = EventView(self.bot, event, events, interaction.channel)
         view.set_message(await reply(f'Successfully defined a new Event.', embed=event.embed(bot=self.bot, channel=interaction.channel), view=view))
@@ -109,9 +108,7 @@ class EventSlashCommands(MyCommands):
             EventType = event_type_map[event_type]
             if trigger is None:
                 return await reply(f'When changing Event Type, the trigger must be given as well.')
-            new_event = EventType(event.name, interaction.channel, event.script, trigger)
-            new_event.channels = event.channels
-            event = new_event
+            event = EventType.from_trigger_str(name=event.name, desc=event.desc, author_id=event.author_id, channels=event.channels, script=event.script, trigger=trigger)
             events[event.name] = event
         elif trigger is not None:
             event.set_trigger(trigger)
@@ -120,7 +117,7 @@ class EventSlashCommands(MyCommands):
 
         events.write()
         view = EventView(self.bot, event, events, interaction.channel)
-        view.set_message(reply(f'Successfully edited the Event.', embed=event.embed(bot=self.bot, channel=interaction.channel), view=view))
+        view.set_message(await reply(f'Successfully edited the Event.', embed=event.embed(bot=self.bot, channel=interaction.channel), view=view))
 
     @event_group.command(name='delete')
     @app_commands.describe(event_choice='The Event to delete')

@@ -19,13 +19,16 @@ def DIR(filename=''):
 ###############################################################
 
 class Event:
-    def __init__(self, name, desc, author_id, channels, script):
-        self.version = 4
+    def __init__(self, *, name: str, desc: str='', author_id: int, channels: list[int]=None, script: str):
         self.name: str = name
         self.desc: str = desc
         self.author_id: int = author_id
-        self.channels: list[int] = channels
+        self.channels: list[int] = channels or []
         self.script: str = script
+
+    @staticmethod
+    def from_trigger_str(**kwargs) -> 'Event':
+        raise NotImplementedError()
 
     def update(self, script):
         self.script = script
@@ -80,7 +83,7 @@ class Event:
 
     def serialize(self):
         return {
-            '_version': 4,
+            '_version': 5,
             '_type': type(self).__name__,
             'name': self.name,
             'desc': self.desc,
@@ -105,9 +108,13 @@ class OnMessage(Event):
     patternstr: str
     pattern: re.Pattern
 
-    def __init__(self, name, desc, author_id, channels, script, pattern):
-        super().__init__(name, desc, author_id, channels, script)
+    def __init__(self, *, pattern: str, **kwargs):
+        super().__init__(**kwargs)
         self.set_trigger(pattern)
+
+    @staticmethod
+    def from_trigger_str(*, trigger: str, **kwargs):
+        return OnMessage(pattern=trigger, **kwargs)
 
     def update(self, script: str, pattern: str):
         super().update(script)
@@ -145,7 +152,7 @@ class OnMessage(Event):
     @classmethod
     def deserialize(cls, values):
         version = values.pop('_version')
-        if version == 4:
+        if version in (4, 5):
             return OnMessage(**values)
         raise NotImplementedError()
 
@@ -153,16 +160,22 @@ class OnMessage(Event):
 class OnReaction(Event):
     emotes: list[str]
 
-    def __init__(self, name, desc, author_id, channels, script: str, emotes: str):
-        super().__init__(name, desc, author_id, channels, script)
-        self.set_trigger(emotes)
+    def __init__(self, *, emotes: list[str]=None, **kwargs):
+        super().__init__(**kwargs)
+        self.emotes = emotes or []
+
+    @staticmethod
+    def from_trigger_str(*, trigger: str, **kwargs):
+        event = OnReaction(**kwargs)
+        event.set_trigger(trigger)
+        return event
 
     def update(self, script: str, emotes: str):
         super().update(script)
         self.set_trigger(emotes)
 
     def get_trigger_str(self):
-        return ''.join(self.emotes)
+        return ','.join(self.emotes)
 
     def set_trigger(self, emotes: str):
         self.emotes = re.split('\s*,\s*', emotes)
@@ -185,7 +198,7 @@ class OnReaction(Event):
     def serialize(self):
         res = super().serialize()
         res.update({
-            'emotes': self.get_trigger_str(),
+            'emotes': self.emotes,
         })
         return res
 
@@ -193,6 +206,9 @@ class OnReaction(Event):
     def deserialize(cls, values):
         version = values.pop('_version')
         if version == 4:
+            emotes = values.pop('emotes')
+            return OnReaction.from_trigger_str(trigger=emotes, **values)
+        if version == 5:
             return OnReaction(**values)
         raise NotImplementedError()
 
@@ -200,9 +216,13 @@ class OnReaction(Event):
 class OnYell(Event):
     tone: str
 
-    def __init__(self, name, desc, author_id, channels, script: str, tone: str):
-        super().__init__(name, desc, author_id, channels, script)
+    def __init__(self, *, tone: str, **kwargs):
+        super().__init__(**kwargs)
         self.set_trigger(tone)
+
+    @staticmethod
+    def from_trigger_str(*, trigger: str, **kwargs):
+        return OnYell(tone=trigger, **kwargs)
 
     def update(self, script: str, tone: str):
         super().update(script)
@@ -239,7 +259,7 @@ class OnYell(Event):
     @classmethod
     def deserialize(cls, values):
         version = values.pop('_version')
-        if version == 4:
+        if version in (4, 5):
             return OnYell(**values)
         raise NotImplementedError()
 
@@ -355,7 +375,7 @@ class Events:
                 event.update(script, trigger)
                 self.write()
             else:
-                event = self[name] = EventType(name, None, message.author.id, [channel.id], script, trigger)
+                event = self[name] = EventType.from_trigger_str(name=name, author_id=message.author.id, channels=[channel.id], script=script, trigger=trigger)
 
         except Exception as e:
             ## Failed to register event (e.g. OnMessage regex could not parse)
