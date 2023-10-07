@@ -278,7 +278,7 @@ class Files:
                 file_info.categories = []
                 file_info.write()
  
-            self.files[file_info.name] = File(file_info)
+            self[file_info.name] = File(file_info)
 
         print('%d uploaded files found!' % len(self.files))
 
@@ -313,6 +313,7 @@ class Files:
 
     def delete_file(self, filename):
         '''Delete a file from disk.'''
+        filename = Files.clean_name(filename)
         self.files[filename].delete()
         del self.files[filename]
 
