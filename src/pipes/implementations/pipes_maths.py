@@ -72,16 +72,16 @@ def math_pipe(values, expr):
 
 @pipe_from_func
 @many_to_one
-def max_pipe(values):
-    ''' Produces the maximum value of the inputs evaluated as numbers. '''
-    return [smart_format(max(float(x) for x in values))]
+def min_pipe(values):
+    ''' Produces the minimum value of the inputs evaluated as numbers. '''
+    return [smart_format(min(float(x) for x in values))]
 
 
 @pipe_from_func
 @many_to_one
-def min_pipe(values):
-    ''' Produces the minimum value of the inputs evaluated as numbers. '''
-    return [smart_format(min(float(x) for x in values))]
+def max_pipe(values):
+    ''' Produces the maximum value of the inputs evaluated as numbers. '''
+    return [smart_format(max(float(x) for x in values))]
 
 
 @pipe_from_func

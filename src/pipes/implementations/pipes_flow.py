@@ -124,4 +124,3 @@ def unique_pipe(input, count):
 def count_pipe(input):
     '''Counts the number of input items.'''
     return [str(len(input))]
-
