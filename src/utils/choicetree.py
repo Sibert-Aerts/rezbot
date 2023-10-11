@@ -161,28 +161,28 @@ class ChoiceTree:
     sole_esc = Char('~')
     lbr = Literal('[').suppress()
     rbr = Literal(']').suppress()
-    div = Literal('|').suppress()
+    bar = Literal('|').suppress()
     _text = Regex(r'[^\[\|\]~]+') # any sequence of characters not containing '[', ']', '|' or '~'
     number = Word('0123456789')
 
     text = Group( OneOrMore( escaped_symbol|escaped_esc|sole_esc|_text ) ).set_parse_action(lambda s, l, t: ChoiceTree.Text(t[0]))
-    group = Forward()
+    concat = Forward()
     ordinal = Group( lbr + number + rbr ).set_parse_action(lambda t: ChoiceTree.Ordinal(t[0]))
-    choice = Group( lbr + group + ZeroOrMore( div + group ) + rbr ).set_parse_action(lambda s, l, t: ChoiceTree.Choice(t[0]))
+    choice = Group( lbr + concat + ZeroOrMore( bar + concat ) + rbr ).set_parse_action(lambda s, l, t: ChoiceTree.Choice(t[0]))
     empty = Empty().set_parse_action(lambda s, l, t: ChoiceTree.Text(''))
-    group <<= Group( OneOrMore(text|ordinal|choice) | empty ).leave_whitespace().set_parse_action(lambda s, l, t: ChoiceTree.Concat(t[0]))
+    concat <<= Group( OneOrMore(text|ordinal|choice) | empty ).leave_whitespace().set_parse_action(lambda s, l, t: ChoiceTree.Concat(t[0]))
+    _root = Group( concat + ZeroOrMore( bar + concat ) ).set_parse_action(lambda s, l, t: ChoiceTree.Choice(t[0]))
 
     # ================ Methods
 
-    def __init__(self, text, parse_flags=False, add_brackets=False):
+    def __init__(self, text, parse_flags=False, parse_all=True):
         self.flag_random = False
         if parse_flags:
             if text[:3] == '[?]':
                 text = text[3:]
                 self.flag_random = True
 
-        if add_brackets: text = '[' + text + ']'
-        self.root: ChoiceTree.Concat = ChoiceTree.group.parse_string(text)[0]
+        self.root: ChoiceTree.Concat = ChoiceTree._root.parse_string(text, parse_all=parse_all)[0]
 
     def __repr__(self):
         return f'ChoiceTree({self.root})'

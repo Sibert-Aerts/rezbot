@@ -51,8 +51,12 @@ class ErrorLog:
     def log_parse_exception(self, e: ParseException):
         ''' Bespoke formatting for a not-uncommon terminal exception. '''
         if isinstance(e.parserElement, StringEnd):
+            bad_char = e.line[e.col-1]
             message = f'ParseException: Likely unclosed brace at position {e.loc}:\n­\t'
-            message += f'{e.line[:e.col-1]}**[{e.line[e.col-1]}](http://0)**{e.line[e.col:]}'
+            if bad_char in '[]':
+                message += f'{e.line[:e.col-1]}**{bad_char}**{e.line[e.col:]}'
+            else:
+                message += f'{e.line[:e.col-1]}**[{bad_char}](http://0)**{e.line[e.col:]}'
             return self.log(message, True)
         else:
             self.log('An unexpected ParseException occurred!')

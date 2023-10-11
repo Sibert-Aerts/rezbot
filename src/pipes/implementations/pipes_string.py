@@ -350,7 +350,7 @@ def expand_pipe(text, random):
     Jay likes doggos
     ```
     '''
-    tree = ChoiceTree(text, add_brackets=True)
+    tree = ChoiceTree(text, parse_all=False)
     if random is None:
         return list(tree)
     else:

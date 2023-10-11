@@ -455,7 +455,15 @@ class TemplatedString:
         elif len(origin_str) >= 2 and origin_str[0] == origin_str[-1] in ('"', "'", '/'):
             origin_str = origin_str[1:-1]
     
-        expanded = ChoiceTree(origin_str, parse_flags=True, add_brackets=True) if expand else [origin_str]
+        ## ChoiceTree expand
+        if expand:
+            try:
+                expanded = ChoiceTree(origin_str, parse_flags=True)
+            except ParseException as e:
+                errors.log_parse_exception(e)
+                return values, errors
+        else:
+            expanded = [origin_str]
 
         ## Evaluate each string as a TemplatedString, collecting errors along the way
         ## This part is basically TemplatedString.evaluate_string inlined

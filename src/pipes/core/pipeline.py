@@ -1,5 +1,6 @@
 import re
 from typing import Union
+from pyparsing import ParseException
 
 import permissions
 from utils.choicetree import ChoiceTree
@@ -95,8 +96,12 @@ class Pipeline:
             except groupmodes.GroupModeError as e:
                 self.parser_errors.log(e, True)
                 # Don't attempt to parse the rest of this segment, since we aren't sure where the groupmode ends
-                continue 
-            parallel = self.parse_segment(segment)
+                continue
+            try:
+                parallel = self.parse_segment(segment)
+            except ParseException as e:
+                self.parser_errors.log_parse_exception(e)
+                continue
             self.parsed_segments.append((groupMode, parallel))
 
     # =========================================== Parsing ==========================================
@@ -244,7 +249,7 @@ class Pipeline:
         parsedPipes: list[ParsedPipe | Pipeline] = []
 
         # ChoiceTree expands the segment into the different parallel pipes 
-        for pipe in ChoiceTree(segment, add_brackets=True):
+        for pipe in ChoiceTree(segment):
             ## Put the stolen triple-quoted strings and parentheses back.
             pipe = self.restore_triple_quotes(pipe, stolen_quotes)
             pipe = self.restore_parentheses(pipe, stolen_parens)
