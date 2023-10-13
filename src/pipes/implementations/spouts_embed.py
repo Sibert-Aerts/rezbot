@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from discord import Embed
 
 from .spouts import spout_from_class, spout_from_func, set_category, Par, with_signature, Context
-from pipes.core.signature import url, Hex
+from pipes.core.signature import url, Hex, Multi
 
 
 #####################################################
@@ -22,20 +22,26 @@ class SpoutEmbed:
         author      = Par(str, None, 'A name presented as the author\'s.', required=False),
         author_icon = Par(url, None, 'Link to the author\'s portrait.', required=False),
         thumb       = Par(url, None, 'Link to an image shown as a thumbnail.', required=False),
-        image       = Par(url, None, 'Link to an image shown in big.', required=False),
+        image       = Par(Multi(url), None, 'Up to four links to images to display in big, separated by commas.', required=False),
         footer      = Par(str, None, 'The footer text.', required=False),
         footer_icon = Par(url, None, 'Link to the footer icon.', required=False),
         timestamp   = Par(int, None, 'A timestamp representing the date that shows up in the footer.', required=False),
     )
     @staticmethod
-    async def spout_function(ctx: Context, values, *, color, title, author, author_icon, link, thumb, image, footer, footer_icon, timestamp):
+    async def spout_function(ctx: Context, values, *, color, title, author, author_icon, link, thumb, image: list[str], footer, footer_icon, timestamp):
         ''' Outputs text as the body of a Discord embed box.'''
         embed = Embed(title=title, description='\n'.join(values), color=color, url=link)
+        embeds = [embed]
 
         if timestamp is not None:
             embed.timestamp = datetime.fromtimestamp(timestamp, tz=timezone.utc)
-        if image is not None:
-            embed.set_image(url=image)
+        if image:
+            embed.set_image(url=image[0])
+            # Multiple images in one embed is achieved by having additional embeds each linking to the same URL
+            if len(image) > 1 and not link:
+                link = embed.url = 'http://0.0.0.0/'
+            for img in image[1:4]:
+                embeds.append(Embed(url=link).set_image(url=img))
         if thumb is not None:
             embed.set_thumbnail(url=thumb)
         if author or author_icon:
@@ -45,7 +51,7 @@ class SpoutEmbed:
             # It's a soft hyphen here also
             embed.set_footer(text=footer or '­', icon_url=footer_icon)
 
-        await ctx.channel.send(embed=embed)
+        await ctx.channel.send(embeds=embeds)
 
 
 @spout_from_func({

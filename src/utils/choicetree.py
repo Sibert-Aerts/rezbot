@@ -182,7 +182,7 @@ class ChoiceTree:
                 text = text[3:]
                 self.flag_random = True
 
-        self.root: ChoiceTree.Concat = ChoiceTree._root.parse_string(text, parse_all=parse_all)[0]
+        self.root: ChoiceTree.Choice = ChoiceTree._root.parse_string(text, parse_all=parse_all)[0]
 
     def __repr__(self):
         return f'ChoiceTree({self.root})'
