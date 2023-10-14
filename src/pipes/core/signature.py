@@ -210,10 +210,12 @@ class Arguments:
                     errors.warn(f'Repeated assignment of parameter `{param}`.')
                     continue
                 remainder_piece = TemplatedString.from_parsed(arg['value'], start_index)
+                errors.extend(remainder_piece.pre_errors, param)
                 start_index = remainder_piece.end_index
                 args[param] = remainder_piece
             else:
                 remainder_piece = TemplatedString.from_parsed(arg['implicit_arg'], start_index)
+                errors.extend(remainder_piece.pre_errors, 'implicit arg')
                 start_index = remainder_piece.end_index
                 remainder_pieces.append(remainder_piece)
 
@@ -249,6 +251,7 @@ class Arguments:
                 [param] = missing
                 implicit, remainder = remainder.split_implicit_arg(greedy)
                 args[param] = Arg(implicit, signature[param])
+                args[param].predetermine(errors)
 
 
         ## Step 4: Check if the Signature simply has one parameter, and it hasn't been assigned yet (⇒ it's non-required)

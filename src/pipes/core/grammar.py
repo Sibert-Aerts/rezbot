@@ -21,8 +21,8 @@ right_paren     = Literal(')').suppress()
 eq              = Literal('=').suppress()
 escaped_symbol  = Literal('~').suppress() + Char('{}~"\'/')
 question_mark   = Literal('?').suppress()
+backslash       = Literal('\\').suppress()
 
-some_white      = White().suppress()
 optional_white  = Optional(White()).suppress()
 
 # ============================================= Grammar ============================================
@@ -67,19 +67,23 @@ argument_list = optional_white + ZeroOrMore(explicit_arg | implicit_arg)
 'A free mixture of explicit and implicit argument assignments.'
 
 
-# ======================== Items
+# ======================== Templated Element: Items
 
 item = Group( left_brace + Optional(Word('^'))('carrots') + Optional( Regex('-?\d+') )('index') + Optional('!')('bang') + right_brace )('item')
 
-# ======================== Sources
+# ======================== Templated Element: Sources
 
 amount = Word(nums) | CaselessKeyword('ALL')
 source = Group( left_brace + Optional(amount)('amount') + identifier('source_name') + Optional(argument_list('args')) + right_brace )('source')
 
+# ======================== Templated Element: Special Symbol
+
+te_special = Group( left_brace + backslash + identifier('name') + right_brace )('te_special')
+
 
 # ======================== Conditions
 
-# ======== Root Conditions
+# ======== Root Conditions: Comparison
 
 str_comp_op  = (Literal('==') | Literal('!='))('str_comp_op')
 num_comp_op  = (Literal('<=') | Literal('>=') | Literal('<') | Literal('>'))('num_comp_op')
@@ -106,7 +110,7 @@ cond_conjunction = Group(cond_negation + OneOrMore(kw_and + cond_negation))('con
 condition <<= Group(cond_conjunction + OneOrMore(kw_or + cond_conjunction))('disjunction') | cond_conjunction
 
 
-# ======================== Conditionals
+# ======================== Templated Element: Conditionals
 
 kw_if   = Keyword('if', caseless=True).suppress()
 kw_else = Keyword('else', caseless=True).suppress()
@@ -114,7 +118,10 @@ kw_else = Keyword('else', caseless=True).suppress()
 conditional_expr = comparison_templated_string('case_if') + kw_if + condition('condition') + kw_else + comparison_templated_string('case_else')
 conditional = Group( left_brace + question_mark + conditional_expr + right_brace )('conditional')
 
-templated_element <<= item | conditional | source 
+
+# ======================== Finish forward definitions
+
+templated_element <<= te_special | item | conditional | source
 
 
 

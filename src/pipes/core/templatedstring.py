@@ -1,3 +1,26 @@
+'''
+File containing the TemplatedString class, and the 'Templated Element' classes that constitute a TemplatedString.
+
+A TemplatedString is a sequence of static strings and Templated Elements, meant to be evaluated to a single string.
+Templated Elements need to be evaluated to yield strings, and may vary depending state, context or randomization.
+
+There are four types of Templated Elements:
+    * Item: e.g. {}, {0}, {^1}, {2!}, {^^3!}
+        These are (implicit) indexes pointing out items to use from the provided ItemScope.
+
+    * Source: e.g. {word}, {word query=foo}, {txt bible sequential=false}
+        These are evaluated as calls to their respective Source.
+
+    * Conditional: e.g. {foo if {0}=='bar' else baz}, {{word} if {arg 1} LIKE /^foo/ and {get baz} != zip else {arg 2}}
+        These represent an (if_case: TemplatedString, condition: Condition, else_case: TemplatedString) tuple,
+            the Condition is evaluated based on both ItemScope and Context, and then depending on its value,
+            either `if_case` or `else_case` is evaluated.
+
+    * Special: e.g. {\n}, {\t}
+        These are simply replaced by respective '\n' and '\t' special characters at parse time.
+'''
+
+
 import asyncio
 from pyparsing import ParseException, ParseResults
 
@@ -184,6 +207,22 @@ class ParsedConditional:
             return await self.case_else.evaluate(context, scope)
 
 
+class ParsedSpecialSymbol:
+    ''' 'Class' translating special symbol codes `{\n}` directly into the symbol. '''
+    SPECIAL_SYMBOL_MAP = {
+        'n': '\n',
+        't': '\t',
+    }
+
+    @staticmethod
+    def from_parsed(result: ParseResults):
+        name = result.get('name')
+        result = ParsedSpecialSymbol.SPECIAL_SYMBOL_MAP.get(name)
+        if result is None:
+            raise ValueError(f'Unknown special symbol "\{name}".')
+        return result
+
+
 class TemplatedString:
     '''
     Class representing a string that may contain Sources or Items, which may be evaluated to yield strings.
@@ -225,12 +264,22 @@ class TemplatedString:
         pre_errors = ErrorLog()
         pieces = []
 
+        def append_string(s):
+            if not pieces or not isinstance(pieces[-1], str):
+                pieces.append(s)
+            else:
+                pieces[-1] += s
+
         for piece in parsed:
             if 'string_bit' in piece:
-                if not pieces or not isinstance(pieces[-1], str):
-                    pieces.append(piece['string_bit'])
-                else:
-                    pieces[-1] += piece['string_bit']
+                append_string(piece['string_bit'])
+
+            elif 'te_special' in piece:
+                try:
+                    item = ParsedSpecialSymbol.from_parsed(piece['te_special'])
+                    append_string(item)
+                except ValueError as v:
+                    pre_errors.log(str(v), terminal=True)
 
             elif 'item' in piece:
                 item = ParsedItem.from_parsed(piece['item'])
@@ -251,6 +300,9 @@ class TemplatedString:
 
         string = TemplatedString(pieces, start_index)
         string.pre_errors.extend(pre_errors)
+        # Catch edge case: A TS with pre_errors cannot be a string
+        if string.pre_errors:
+            string.is_string = False
         return string
     
     @staticmethod
@@ -297,14 +349,21 @@ class TemplatedString:
     def __str__(self):
         return '"' + ''.join(str(x) for x in self.pieces) + '"'
     def __bool__(self):
+        # A working TemplatedString is falsey if and only if it represents the static empty string.
         return not (self.is_string and not self.pieces[0])
 
     # ================ Manipulation
 
     @staticmethod
-    def join(strings: list['TemplatedString']) -> 'TemplatedString':
+    def join(tstrings: list['TemplatedString']) -> 'TemplatedString':
         ''' Joins the TemplatedStrings together as one long TemplatedString, without re-indexing implicit items. '''
-        return TemplatedString([piece for string in strings for piece in string.pieces], index_items=False)
+        result = TemplatedString([piece for ts in tstrings for piece in ts.pieces], index_items=False)
+        for ts in tstrings:
+            result.pre_errors.extend(ts.pre_errors)
+        # Catch edge case: A TS with pre_errors cannot be a string
+        if result.pre_errors:
+            result.is_string = False
+        return result
 
     def unquote(self) -> 'TemplatedString':
         ''' Modifies the TemplatedString to remove wrapping string delimiters, if present. '''
@@ -353,10 +412,10 @@ class TemplatedString:
         errors.extend(self.pre_errors)
         NOTHING_BUT_ERRORS = (None, errors)
 
-        if self.is_string:
-            return self.string, errors
         if errors.terminal:
             return NOTHING_BUT_ERRORS
+        if self.is_string:
+            return self.string, errors
 
         SOURCE_FUTURE = object()
         COND_FUTURE = object()
