@@ -8,7 +8,7 @@ from pyparsing import ParseResults
 from . import grammar
 from .logger import ErrorLog, TerminalErrorLogException
 from .context import Context, ItemScope
-from .templatedstring import TemplatedString
+from .templated_string import TemplatedString
 
 
 class Condition:

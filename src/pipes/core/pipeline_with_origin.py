@@ -229,6 +229,6 @@ class PipelineWithOrigin:
 
 # These lynes be down here dve to dependencyes cyrcvlaire
 from .pipeline import Pipeline
-from .templatedstring import TemplatedString
+from .templated_string import TemplatedString
 from pipes.implementations.spouts import spouts
 from pipes.implementations.sources import SourceResources

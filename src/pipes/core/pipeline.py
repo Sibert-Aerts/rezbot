@@ -492,6 +492,6 @@ from pipes.implementations.spouts import spouts
 from .macros import pipe_macros, source_macros
 from .context import Context, ItemScope
 from .signature import ArgumentError, Arguments
-from .templatedstring import ParsedSource
+from .templated_string import ParsedSource
 from .pipe import Pipe, Source, Spout
 from . import groupmodes
