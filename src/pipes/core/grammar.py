@@ -125,6 +125,49 @@ templated_element <<= te_special | item | conditional | source
 
 
 
+'''
+Note to self about Rezbot Script's grammar and the current model:
+
+The above grammar is currently used via three entrypoints:
+    Given a string, interpret the entire thing as a TemplatedString
+    Given a string, interpret the entire thing as an Arguments object
+    Given a string, interpret the entire thing as a Condition
+
+That does not however cover the entire grammar.
+There's places that can still be grammaticised, e.g. a grammar for GroupModes could be defined,
+    which would replace the third use case by "Given a string, consume the leading GroupMode".
+
+At that point however, things get more complicated, as any attempt at grammaticising higher up
+    the scripting language's structure hits the wall of ChoiceTree expansions being wielded.
+
+ANALYSIS OF THE CURRENT NON-PYPARSING GRAMMARS RESPONSIBLE FOR PARSING A SCRIPT:
+    1. The "butcher grammar", which does not care about the finer aspects of the script, merely cares about chopping it into [origin, pipe_chunk, pipe_chunk, ...]
+        This is implemented via extremely simple state machines in PipelineWithOrigin.split and Pipeline.split_into_segments.
+        Currently, essentially, these very naively consider quotation marks and nested parentheses to determine "legit, top level >'s" to split on.
+    2. Consume each "pipe chunk"'s leading GroupMode (grammaticizable!)
+    3. Then, for each "pipe chunk":
+        1. Use FOUL TRICKERY to temporarily evacuate all triple-quoted and parenthesized substrings
+        2. ChoiceTree expand
+        3. Put triple-quoted and parenthesized substrings back
+        Effectively, this is like a variant ChoiceTree grammar that acknowledges "ChoiceTree-invariant substrings",
+    4. Then a simple manual parse job followed by a grammar parse turns each one into a (pipe_name, Arguments)
+
+Points 1, 2 and 3 can each individually be improved by making a real grammar out of what is currently a more manual ordeal.
+For step 2 (GroupModes) this obviously contributes to the larger project of pyparsing entire scripts.
+
+For step 1 and 3, these would be grammars acting independently of the main grammar, and would not simply slot into the current grammar.
+So to speak, they would not be scaffolding, but bandaids that we'd have to peel off later.
+Better than not doing anything, but not part of an ideal solution.
+
+It's clear that to make a full grammar to parse entire scripts, the power currently permitted by ChoiceTree needs to be weakened
+in order to make it fit in with the other grammar.
+At the same time, existing grammar needs to be made more complex to replace the powers currently granted by ChoiceTree wizardy.
+
+e.g. Make it so the Origin can only have full sources inside of a single ChoiceTree segment, so "{foo [}|bar}]" is super illegal,
+    and maybe "{[foo|bar]}" is too, but then "{foo [bar|baz]}" should probably be allowed.
+'''
+
+
 # ======== Utility
 
 def print_parse_result(result: ParseResults, indent=0):

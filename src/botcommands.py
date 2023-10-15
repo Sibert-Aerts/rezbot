@@ -95,7 +95,7 @@ class BotCommands(MyCommands):
         274202462884331520  # Rezbot (mine)
     ]
 
-    @commands.command(hidden=True, aliases=['update_color_roles', 'update_colours', 'update_colors'])
+    @commands.command(hidden=True, aliases=['update_color_roles', 'update_colours', 'update_colors', 'refresh_colors', 'refresh_colours'])
     @permissions.check(permissions.owner)
     async def update_colour_roles(self, ctx):
         '''Automatically (un)assign colour roles to members of the rezbot server.'''

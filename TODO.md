@@ -3,6 +3,13 @@
 (In no particular order)
 
 
+* **WIP features**
+
+    * Ability to create/modify events and macros en-masse by uploading a JSON file
+
+    * Finish Conditionals (see below)
+
+
 * **NEW HOTNESS: VIEWS/BUTTONS**
 
     * Probably useful to have some kind of generic RezbotView base class
@@ -64,6 +71,7 @@
 
     * **CONDITIONS:**
         * Phase out usage of the old syntax `{ }` vs. new `IF(( ))` and `SWITCH(( ))`
+            * Make syntax work with just `IF( )` and `SWITCH( )`
         * More conditions like
             * "ANYTHING", "NOTHING",
             * "IS (NOT) WHITE", "IS (NOT) EMPTY"

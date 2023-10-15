@@ -59,14 +59,14 @@ class PipelineWithOrigin:
 
     @staticmethod
     def split(script: str) -> tuple[str, str]:
-        '''Splits a script into the source and pipeline.'''
+        '''Splits a script into the origin and pipeline.'''
         # So here's the deal:
-        #    SOURCE > PIPE > PIPE > PIPE > ETC...
+        #    ORIGIN > PIPE > PIPE > PIPE > ETC...
         # We only need to split on the first >, but this can be escaped by wrapping the entire thing in quotes!
-        #    "SOU > RCE" > PIPE
+        #    "ORI > GIN" > PIPE
         # We want to split on the LAST pipe there... The issue is parsing this is kinda hard maybe, because of weird cases:
-        #    SOU ">" RCE    or    "SOU">"RCE" ???
-        # AND also: SOURCE -> PIPE should parse as SOURCE > print > PIPE
+        #    ORI ">" GIN    or    "ORI">"GIN" ???
+        # AND also: ORIGIN -> PIPE should parse as ORIGIN > print > PIPE
         # So I would simply like to assume people don't put enough quotes AND >'s in their texts for this to be a problem....
         # ...because what we've been doing so far is: look at quotes as non-nesting and just split on the first non-wrapped >
         # Anyway here is a neutered version of the script used to parse Pipelines.

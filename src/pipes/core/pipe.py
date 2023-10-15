@@ -209,6 +209,7 @@ class Spout(Pipeoid):
         elif self.mode == Spout.Mode.aggregated:
             await self.spout_function(context, [(values, args)])
 
+
 P = TypeVar('P', bound=Pipeoid)
 
 class PipeoidStore(Generic[P]):
