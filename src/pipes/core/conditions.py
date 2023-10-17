@@ -10,6 +10,8 @@ from .logger import ErrorLog, TerminalErrorLogException
 from .context import Context, ItemScope
 from .templated_string import TemplatedString
 
+from utils.util import parse_bool
+
 
 class Condition:
     ''' Base Condition class, never instantiated itself, but from_parsed and from_string constructors instantiate appropriately typed Conditions. '''
@@ -24,6 +26,8 @@ class Condition:
             return Negation.from_parsed(parse_result)
         if parse_result._name == 'comparison':
             return Comparison.from_parsed(parse_result)
+        if parse_result._name == 'predicate':
+            return Predicate.from_parsed(parse_result)
         else:
             raise Exception()
 
@@ -120,6 +124,81 @@ class Comparison(RootCondition):
             return re.search(rhs, lhs)
         if self.op is Operation.NLIKE:
             return not re.search(rhs, lhs)
+        raise Exception()
+
+
+# ======================== Predicate
+
+def type_check(str, t):
+    try:
+        t(str)
+        return True
+    except ValueError:
+        return False
+
+class Predicate(RootCondition):
+    class Category:
+        WHITE = 'WHITE'
+        EMPTY = 'EMPTY'
+        TRUE =  'TRUE'
+        FALSE = 'FALSE'
+        BOOL =  'BOOL'
+        INT =   'INT'
+        FLOAT = 'FLOAT'
+
+    def __init__(self, subject: TemplatedString, negated: bool, category: Category):
+        self.subject = subject
+        self.negated = negated
+        self.category = category
+
+        if subject.pre_errors:
+            self.pre_errors = ErrorLog()
+            self.pre_errors.extend(subject.pre_errors)
+            if self.pre_errors.terminal:
+                raise TerminalErrorLogException(self.pre_errors)
+        else:
+            self.pre_errors = None
+
+    @classmethod
+    def from_parsed(cls, result: ParseResults):
+        subject = TemplatedString.from_parsed(result[0])
+        negated = bool(result.get('not'))
+        category = result['pred_category']
+        return Predicate(subject, negated, category)
+
+    @classmethod
+    def from_string(cls, string: str):
+        return cls.from_parsed(grammar.predicate.parse_string(string, True))
+
+    def __repr__(self):
+        return 'Predicate(%s IS %s%s)' % (repr(self.subject), 'NOT ' if self.negated else '', self.category)
+    def __str__(self):
+        return '%s IS %s%s' % (str(self.subject), 'NOT ' if self.negated else '', self.category)
+
+    async def evaluate(self, context: Context, scope: ItemScope):
+        subject, errors = await self.subject.evaluate(context, scope)
+        neg = self.negated
+
+        if errors.terminal:
+            errors = ErrorLog().extend(errors)
+            raise TerminalErrorLogException(errors)
+        
+        if self.category is Predicate.Category.WHITE:
+            return neg ^ (subject.isspace() or not subject)
+        elif self.category is Predicate.Category.EMPTY:
+            return neg ^ (not subject)
+        elif self.category is Predicate.Category.BOOL:
+            return neg ^ type_check(subject, parse_bool)
+        elif self.category is Predicate.Category.FALSE:
+            try: return neg ^ (parse_bool(subject) is False)
+            except: return neg
+        elif self.category is Predicate.Category.TRUE:
+            try: return neg ^ (parse_bool(subject) is True)
+            except: return neg
+        elif self.category is Predicate.Category.INT:
+            return neg ^ type_check(subject, int)
+        elif self.category is Predicate.Category.FLOAT:
+            return neg ^ type_check(subject, float)
         raise Exception()
 
 

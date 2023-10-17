@@ -76,10 +76,12 @@ class ErrorLog:
                 self.errors[-1].count += e.count
             else:
                 self.errors.append(ErrorLog.ErrorMessage(message, e.count))
+        return self
 
     def steal(self, other, *args, **kwargs):
         self.extend(other, *args, **kwargs)
         other.clear()
+        return self
 
     #############################################
     ## Log viewing and presenting methods

@@ -85,18 +85,23 @@ te_special = Group( left_brace + backslash + identifier('name') + right_brace )(
 
 # ======== Root Conditions: Comparison
 
-str_comp_op  = (Literal('==') | Literal('!='))('str_comp_op')
-num_comp_op  = (Literal('<=') | Literal('>=') | Literal('<') | Literal('>'))('num_comp_op')
-like_comp_op = Combine(Optional(Keyword('NOT')) + (Keyword('LIKE')), adjacent=False)('like_comp_op')
-comp_op = str_comp_op | num_comp_op | like_comp_op
+comp_op_eq   = Literal('==') | Literal('!=')
+comp_op_num  = Literal('<=') | Literal('>=') | Literal('<') | Literal('>')
+comp_op_like = Combine(Optional(Keyword('NOT')) + (Keyword('LIKE')), adjacent=False)
+comp_op = comp_op_eq | comp_op_num | comp_op_like
 
-string_bit_cond_safe = Combine(OneOrMore(escaped_symbol | ~(str_comp_op | num_comp_op) + Regex('[^{}()\s]', re.S)))('string_bit').leave_whitespace()
+string_bit_cond_safe = Combine(OneOrMore(escaped_symbol | ~(comp_op_eq | comp_op_num) + Regex('[^{}()\s]', re.S)))('string_bit').leave_whitespace()
 unquoted_spaceless_compless_templated_string = OneOrMore( Group(templated_element | string_bit_cond_safe) )('value')
 'A nonempty templated string, without wrapping quotes, without any spaces in the literal parts, (nb. containing sources and items may have spaces)'
 
-comparison_templated_string = optional_white + Group(quoted_templated_string | unquoted_spaceless_compless_templated_string) + optional_white
-comparison = Group(comparison_templated_string + comp_op + comparison_templated_string)('comparison')
+comparison_safe_templated_string = optional_white + Group(quoted_templated_string | unquoted_spaceless_compless_templated_string) + optional_white
+comparison = Group(comparison_safe_templated_string + comp_op + comparison_safe_templated_string)('comparison')
 
+# ======== Root Conditions: Predicate
+
+pred_category = (Keyword('WHITE') | Keyword('EMPTY') | Keyword('TRUE') | Keyword('FALSE') | Keyword('BOOL') | Keyword('INT') | Keyword('FLOAT'))('pred_category')
+pred_is_category = Combine(Keyword('IS') + Optional(Keyword('NOT'))('not') + pred_category, adjacent=False)
+predicate = Group(comparison_safe_templated_string + pred_is_category)('predicate')
 
 # ======== Composite Conditions
 
@@ -104,7 +109,7 @@ kw_and = Keyword('and', caseless=True).suppress()
 kw_or  = Keyword('or', caseless=True).suppress()
 kw_not = Keyword('not', caseless=True)
 
-root_condition = (left_paren + condition + right_paren) | comparison
+root_condition = (left_paren + condition + right_paren) | predicate | comparison
 cond_negation = Group(OneOrMore(kw_not) + root_condition)('negation') | root_condition
 cond_conjunction = Group(cond_negation + OneOrMore(kw_and + cond_negation))('conjunction') | cond_negation
 condition <<= Group(cond_conjunction + OneOrMore(kw_or + cond_conjunction))('disjunction') | cond_conjunction
@@ -115,7 +120,7 @@ condition <<= Group(cond_conjunction + OneOrMore(kw_or + cond_conjunction))('dis
 kw_if   = Keyword('if', caseless=True).suppress()
 kw_else = Keyword('else', caseless=True).suppress()
 
-conditional_expr = comparison_templated_string('case_if') + kw_if + condition('condition') + kw_else + comparison_templated_string('case_else')
+conditional_expr = comparison_safe_templated_string('case_if') + kw_if + condition('condition') + kw_else + comparison_safe_templated_string('case_else')
 conditional = Group( left_brace + question_mark + conditional_expr + right_brace )('conditional')
 
 
@@ -128,7 +133,7 @@ templated_element <<= te_special | item | conditional | source
 '''
 Note to self about Rezbot Script's grammar and the current model:
 
-The above grammar is currently used via three entrypoints:
+The above grammar is currently used via three entry points:
     Given a string, interpret the entire thing as a TemplatedString
     Given a string, interpret the entire thing as an Arguments object
     Given a string, interpret the entire thing as a Condition
