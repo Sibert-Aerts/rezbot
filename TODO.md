@@ -70,10 +70,10 @@
         * (same for others???)
 
     * **CONDITIONS:**
-        * Phase out usage of the old syntax `{ }` vs. new `IF(( ))` and `SWITCH(( ))`
-            * Make syntax work with just `IF( )` and `SWITCH( )`
+        * WIP: Errors in parsing/applying are not properly handled/bubbled/conveyed.
         * "Aggregate" conditions
             * "ANYTHING", "NOTHING", "ALL WHITE/EMPTY/BOOL/TRUE/FALSE/INT/FLOAT"
+            * INDEX 10 EXISTS (i.e. len(items) > 10)
         * Are currently in PROTOTYPE/WIP state, as they are not totally integrated with implicit `{}` item tracking yet, and do not properly convey errors yet.
 
     * **PARSING BUGS:**
@@ -83,13 +83,8 @@
     * **SPECULATIVE:**
         * Allow pipe(line)s as arguments, somehow
             * e.g. `sub_func from=\b(\w) to=( convert fraktur )`
-
-        * Option to hide warnings log
-        * Command to show most recent warnings log
+        * Option to post minimal warnings logs + command to show most recent warnings log
+            * Per Channel/per Event?
         * Special mode to analyse how a pipeline is parsed for debugging or learning purposes
-        * ChoiceTree flags:
-            * [-] to produce a minimal number of lines that reach each choice leaf at least once (is this hard???)
-                [-] [alpha|beta] [gamma|delta] → alpha gamma, beta delta
-        * in pipe/source arguments, replace `\n` to newlines
         * conditional `return` pipes so loops are easier?
         * pipes have an associated "complexity" cost function based on args/input values that makes sure a user doesn't request absurdly much work...?
