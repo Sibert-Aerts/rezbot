@@ -78,14 +78,14 @@ class ParsedSource:
         self.amount = amount
         self.args = args
         self.pre_errors = ErrorLog()
-        
+
         if self.name in sources:
             self.type = ParsedSource.NATIVE_SOURCE
             self.source = sources[self.name]
         elif self.name in source_macros:
             self.type = ParsedSource.MACRO_SOURCE
         else:
-            self.type = ParsedSource.UNKNOWN            
+            self.type = ParsedSource.UNKNOWN
 
     @staticmethod
     def from_parsed(parsed: ParseResults):
@@ -117,7 +117,7 @@ class ParsedSource:
 
     # ================ Evaluation
 
-    async def evaluate(self, context: Context, scope: ItemScope, args=None) -> tuple[ list[str] | None, ErrorLog ]:
+    async def evaluate(self, context: Context, scope: ItemScope, args: dict=None) -> tuple[ list[str] | None, ErrorLog ]:
         ''' Find some values for the damn Source that we are. '''
         errors = ErrorLog()
         errors.extend(self.pre_errors)
@@ -159,7 +159,7 @@ class ParsedSource:
             #### Fast-tracked, no-side-effect version of PipelineWithOrigin.execute:
             origin, code = PipelineWithOrigin.split(code)
 
-            ## STEP 1: Get the values from the Macro's origin            
+            ## STEP 1: Get the values from the Macro's origin
             values, origin_errors = await TemplatedString.evaluate_origin(origin, macro_ctx)
             errors.extend(origin_errors, self.name)
             if errors.terminal: return NOTHING_BUT_ERRORS
@@ -304,7 +304,7 @@ class TemplatedString:
         if string.pre_errors:
             string.is_string = False
         return string
-    
+
     @staticmethod
     def from_string(string: str):
         parsed = grammar.absolute_templated_string.parse_string(string, parseAll=True)
@@ -479,7 +479,7 @@ class TemplatedString:
     async def evaluate_string(string: str, context: Context, scope: ItemScope, force_single=False) -> tuple[list[str] | None, ErrorLog]:
         '''
         Takes a raw source string, evaluates {sources} and returns the list of values.
-        
+
         If force_single=False, a pure "{source}" string may generate more (or less!) than 1 value.
         '''
         errors = ErrorLog()
@@ -506,14 +506,14 @@ class TemplatedString:
         values = []
         expand = True
         errors = ErrorLog()
-    
+
         ## Get rid of wrapping quotes or triple quotes
         if len(origin_str) >= 6 and origin_str[:3] == origin_str[-3:] == '"""':
             origin_str = origin_str[3:-3]
             expand = False
         elif len(origin_str) >= 2 and origin_str[0] == origin_str[-1] in ('"', "'", '/'):
             origin_str = origin_str[1:-1]
-    
+
         ## ChoiceTree expand
         if expand:
             try:

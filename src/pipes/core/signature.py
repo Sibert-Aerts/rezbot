@@ -43,7 +43,7 @@ class Par:
         self.desc = desc
         self.checkfun = check
         self.required = required and (default is None)
-        
+
     def __str__(self):
         ''' Make the representation string. '''
         out = [f'* **{self.name}:**']
@@ -98,7 +98,7 @@ def with_signature(arg=None, **kwargs: dict[str, Par]):
         if hasattr(f, '__func__'):
             f.__func__.pipe_signature = signature
         else:
-            f.pipe_signature = signature 
+            f.pipe_signature = signature
         return f
     return _with_signature
 
@@ -167,7 +167,10 @@ class DefaultArg(Arg):
 
 
 class Arguments:
-    ''' A set of parsed Args, meta-information, and the utility to determine them all into a single dict. '''
+    '''
+    A set of parsed Args, meta-information, and the utility to determine them all into a single dict.
+    `args` maps every single parameter to an Arg, even ones not assigned, which will be a DefaultArg instance.
+    '''
     args: dict[str, Arg]
     defaults: list[str]
     predetermined: bool
@@ -220,7 +223,7 @@ class Arguments:
                 remainder_pieces.append(remainder_piece)
 
         remainder = TemplatedString.join(remainder_pieces)
-        
+
         ## Step 2: Turn into Arg objects
         for param in list(args):
             if signature is None:
@@ -294,6 +297,9 @@ class Arguments:
         return 'Args(%s)' % ', '.join(f'{p}={repr(a)}' for p, a in self.args.items() if p not in self.defaults)
     def __str__(self):
         return ' '.join(f'{p}={a}' for p, a in self.args.items() if p not in self.defaults)
+    def __bool__(self):
+        # Truthy if and only if it contains any non-default arguments
+        return len(self.args) > len(self.defaults)
 
     async def determine(self, context: Context, scope: ItemScope=None) -> tuple[dict[str], ErrorLog]:
         ''' Returns a parsed {parameter: argument} dict ready for use. '''

@@ -92,7 +92,7 @@ class Pipeline:
         self.parsed_segments: list[tuple[ groupmodes.GroupMode, list[ParsedPipe | Pipeline] ]] = []
         for segment in segments:
             try:
-                group_mode, segment = groupmodes.GroupMode.from_string_with_remainder(segment)
+                groupmode, segment = groupmodes.GroupMode.from_string_with_remainder(segment)
             except ParseException as e:
                 self.parser_errors.log_parse_exception(e)
             except groupmodes.GroupModeError as e:
@@ -104,7 +104,7 @@ class Pipeline:
             except ParseException as e:
                 self.parser_errors.log_parse_exception(e)
                 continue
-            self.parsed_segments.append((group_mode, parallel))
+            self.parsed_segments.append((groupmode, parallel))
 
     # =========================================== Parsing ==========================================
 

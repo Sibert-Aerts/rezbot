@@ -861,18 +861,18 @@ class GroupBy:
     COLLECT = 'COLLECT'
     EXTRACT = 'EXTRACT'
 
-    def __init__(self, mode: str, keys: str | list[int]):
+    def __init__(self, mode: str, indices: str | list[int]):
         self.mode = GroupBy.GROUP if mode == 'GROUP' else GroupBy.COLLECT if mode == 'COLLECT' else GroupBy.EXTRACT
 
         # The set of indices
-        if isinstance(keys, str):
-            self.keys = [ int(i) for i in re.split(r'\s*,\s*', keys) ]
+        if isinstance(indices, str):
+            self.indices = [ int(i) for i in re.split(r'\s*,\s*', indices) ]
         else:
-            self.keys = keys
+            self.indices = indices
         # The highest referenced index
-        self.maxIndex = max(self.keys)
-        # isKey[i] == True  ⇐⇒ i in indices
-        self.isKey = [ (i in self.keys) for i in range(self.maxIndex + 1) ]
+        self.max_index = max(self.indices)
+        # is_key[i] == True  ⇐⇒ i in indices
+        self.is_key = [ (i in self.indices) for i in range(self.max_index + 1) ]
 
     @staticmethod
     def from_parsed(result: ParseResults):
@@ -883,11 +883,11 @@ class GroupBy:
         return GroupBy.from_parsed(grammar.gm_mid_group_by.parse_string(string, parse_all=True)[0])
 
     def __str__(self):
-        return self.mode + ' BY ' + ', '.join(str(i) for i in self.keys)
+        return self.mode + ' BY ' + ', '.join(str(i) for i in self.indices)
 
     async def apply(self, tuples: list[tuple[T, bool]], context: Context, parent_scope: ItemScope) -> list[tuple[T, bool]]:
         out = []
-        known = {}
+        known_keys = {}
 
         for (items, ignore) in tuples:
             if ignore:
@@ -895,20 +895,20 @@ class GroupBy:
                 continue
 
             n = len(items)
-            if self.maxIndex >= n:
+            if self.max_index >= n:
                 raise GroupModeError('GROUP BY index out of range.')
-            keys = tuple( items[i] for i in self.keys )
+            key = tuple(items[i] for i in self.indices)
 
-            if keys not in known:
+            if key not in known_keys:
                 ## COLLECT mode tells us to float the keys to the front
                 ## EXTRACT mode tells us to get rid of the keys entirely
                 if self.mode == GroupBy.GROUP:
                     values = items
                 elif self.mode == GroupBy.COLLECT:
-                    values = list(keys) + [ items[i] for i in range(n) if i > self.maxIndex or not self.isKey[i] ]
+                    values = list(key) + [ items[i] for i in range(n) if i > self.max_index or not self.is_key[i] ]
                 else:
-                    values = [ items[i] for i in range(n) if i > self.maxIndex or not self.isKey[i] ]
-                known[keys] = values
+                    values = [ items[i] for i in range(n) if i > self.max_index or not self.is_key[i] ]
+                known_keys[key] = values
                 out.append((values, False))
 
             else:
@@ -916,28 +916,28 @@ class GroupBy:
                 if self.mode == GroupBy.GROUP:
                     values = items
                 else:
-                    values = [ items[i] for i in range(n) if i > self.maxIndex or not self.isKey[i] ]
-                known[keys].extend(values)
+                    values = [ items[i] for i in range(n) if i > self.max_index or not self.is_key[i] ]
+                known_keys[key].extend(values)
 
         return out
 
 class SortBy:
-    def __init__(self, keys: str | list[str]):
+    def __init__(self, indices: str | list[str]):
         # The set of indices
-        self.keys = []
+        self.indices = []
         nums = []
-        if isinstance(keys, str):
-            keys = re.split(r'\s*,\s*', keys)
-        for key in keys:
-            if key[0] == '+':
-                i = int(key[1:])
-                self.keys.append(i)
+        if isinstance(indices, str):
+            indices = re.split(r'\s*,\s*', indices)
+        for index in indices:
+            if index[0] == '+':
+                i = int(index[1:])
+                self.indices.append(i)
                 nums.append(i)
             else:
-                self.keys.append(int(key))
+                self.indices.append(int(index))
 
-        self.maxKey = max(self.keys)
-        self.isNum = [(i in nums) for i in range(self.maxKey+1)]
+        self.max_index = max(self.indices)
+        self.is_numeric = [(i in nums) for i in range(self.max_index+1)]
 
     @staticmethod
     def from_parsed(result: ParseResults):
@@ -948,25 +948,24 @@ class SortBy:
         return SortBy.from_parsed(grammar.gm_mid_sort_by.parse_string(string, parse_all=True)[0])
 
     def __str__(self):
-        return 'SORT BY ' + ', '.join( ('+'+str(i) if self.isNum[i] else str(i)) for i in self.keys)
+        return 'SORT BY ' + ', '.join(('+'+str(i) if self.is_numeric[i] else str(i)) for i in self.indices)
 
     async def apply(self, tuples: list[tuple[T, bool]], context: Context, parent_scope: ItemScope) -> list[tuple[T, bool]]:
         head = []
-        toSort = []
+        to_sort = []
         tail = []
 
         # Deal with ignored items: Float them all to before/after the sorted block of items
         #   depending on if they appear before/after the first non-ignored item.
         for (items, ignore) in tuples:
-            if ignore: (head if not toSort else tail).append((items, True))
-            else: toSort.append(items)
+            if ignore: (head if not to_sort else tail).append((items, True))
+            else: to_sort.append(items)
 
-        keys = self.keys
-        def keyMaker(items):
-            return tuple( items[i] if (i>self.maxKey or not self.isNum[i]) else float(items[i]) for i in keys )
-        toSort.sort(key=keyMaker)
+        def make_key(items):
+            return tuple( items[i] if (i>self.max_index or not self.is_numeric[i]) else float(items[i]) for i in self.indices )
+        to_sort.sort(key=make_key)
 
-        return head + [(items, False) for items in toSort] + tail
+        return head + [(items, False) for items in to_sort] + tail
 
 
 ################ GROUPMODE ################
@@ -980,14 +979,17 @@ class GroupMode:
 
     @staticmethod
     def from_parsed(result: ParseResults):
+        ### Split modes
         split_modes = [SplitMode.from_parsed(split) for split in result.get('split')]
         mid_modes = []
+        ### Mid modes
         if 'mid_if' in result:
             mid_modes.append(IfMode.from_parsed(result['mid_if']))
         if 'mid_sort_by' in result:
             mid_modes.append(SortBy.from_parsed(result['mid_sort_by']))
         if 'mid_group_by' in result:
             mid_modes.append(GroupBy.from_parsed(result['mid_group_by']))
+        ### Assign modes
         assign_mode = AssignMode.from_parsed(result['assign'][0])
         return GroupMode(split_modes, mid_modes, assign_mode)
 
