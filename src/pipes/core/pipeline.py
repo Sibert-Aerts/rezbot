@@ -33,7 +33,7 @@ class ParsedPipe:
 
         self.errors = ErrorLog()
         self.arguments: Arguments | None = None
-        
+
         ## (Attempt to) determine what kind of pipe it is ahead of time
         if self.name in ['', 'nop', 'print']:
             self.type = ParsedPipe.SPECIAL
@@ -71,7 +71,7 @@ class ParsedPipe:
 
 
 class Pipeline:
-    ''' 
+    '''
     The Pipeline class parses a pipeline script into a reusable, applicable Pipeline object.
     A Pipeline is made for each script execution, for nested (parenthesised) Pipelines, and for Macros.
     Its state should be immutable past parsing and comprises only two things:
@@ -92,7 +92,9 @@ class Pipeline:
         self.parsed_segments: list[tuple[ groupmodes.GroupMode, list[ParsedPipe | Pipeline] ]] = []
         for segment in segments:
             try:
-                segment, groupMode = groupmodes.parse(segment)
+                group_mode, segment = groupmodes.GroupMode.from_string_with_remainder(segment)
+            except ParseException as e:
+                self.parser_errors.log_parse_exception(e)
             except groupmodes.GroupModeError as e:
                 self.parser_errors.log(e, True)
                 # Don't attempt to parse the rest of this segment, since we aren't sure where the groupmode ends
@@ -102,7 +104,7 @@ class Pipeline:
             except ParseException as e:
                 self.parser_errors.log_parse_exception(e)
                 continue
-            self.parsed_segments.append((groupMode, parallel))
+            self.parsed_segments.append((group_mode, parallel))
 
     # =========================================== Parsing ==========================================
 
@@ -248,7 +250,7 @@ class Pipeline:
         ### Parse the simultaneous pipes into a usable form: A list[Union[Pipeline, ParsedPipe]]
         parsedPipes: list[ParsedPipe | Pipeline] = []
 
-        # ChoiceTree expands the segment into the different parallel pipes 
+        # ChoiceTree expands the segment into the different parallel pipes
         for pipe in ChoiceTree(segment):
             ## Put the stolen triple-quoted strings and parentheses back.
             pipe = self.restore_triple_quotes(pipe, stolen_quotes)
@@ -372,7 +374,7 @@ class Pipeline:
                     errors.extend(arg_errors, context=name)
 
                 # Check if something went wrong while determining arguments
-                if errors.terminal: return NOTHING_BUT_ERRORS                
+                if errors.terminal: return NOTHING_BUT_ERRORS
                 # Handle certain items being ignoring/filtering depending on their use in arguments
                 ignored, items = group_scope.extract_ignored()
                 next_items.extend(ignored)
@@ -383,7 +385,7 @@ class Pipeline:
                 ## NO OPERATION
                 if name in ['', 'nop']:
                     next_items.extend(items)
-                    
+
                 ## HARDCODED 'PRINT' SPOUT (TODO: GET RID OF THIS)
                 elif name == 'print':
                     next_items.extend(items)

@@ -1,11 +1,12 @@
 import re
 from typing import TypeVar
 from random import choice
-from pyparsing import ParseException
+from pyparsing import ParseException, ParseResults
 
 from .logger import TerminalErrorLogException
 from .conditions import Condition
 from .context import Context, ItemScope
+from . import grammar
 
 # Pipe grouping syntax!
 
@@ -57,7 +58,7 @@ from .context import Context, ItemScope
 # Might produce the 2 rows of output: "derides AND clambered", "swatting OR quays"
 
 #   >> {foo} > *(2) [bar|tox]
-# Means: Fetch output from source "foo", split it in groups of 2, feed one copy of the first group into "bar" and another copy into "tox", 
+# Means: Fetch output from source "foo", split it in groups of 2, feed one copy of the first group into "bar" and another copy into "tox",
 # feed one copy of the second group into "bar" and another copy into "tox", and so on.
 
 # e.g. >> {words n=4} > *(2) [join s=" AND " | join s=" OR "]
@@ -207,20 +208,39 @@ class SplitMode:
     def __init__(self, strictness: int):
         self.strictness = strictness
 
+    @staticmethod
+    def from_parsed(result: ParseResults):
+        strictness = len(result.get('strictness_flag', ''))
+        if result._name == 'split_row':
+            return Row(strictness, int(result['size']), result['size'].startswith('0'))
+        elif result._name == 'split_modulo':
+            return Modulo(strictness, int(result['modulo']), result['modulo'].startswith('0'))
+        elif result._name == 'split_divide':
+            return Divide(strictness, int(result['count']), result['count'].startswith('0'))
+        elif result._name == 'split_column':
+            return Column(strictness, int(result['size']), result['size'].startswith('0'))
+        elif result._name == 'split_interval':
+            start = result.get('start')
+            end = result.get('end') or (None if not result.get('colon') else '')
+            return Interval(strictness, start, end)
+        else:
+            raise Exception()
+
+    @staticmethod
+    def from_string(string: str):
+        return SplitMode.from_parsed(grammar.gm_single_split.parse_string(string, parse_all=True)[0])
+
     def __str__(self):
         if self.strictness == 0: return ''
         if self.strictness == 1: return 'STRICT '
         if self.strictness == 2: return 'VERY STRICT '
 
-    def isDefault(self):
-        '''Whether or not this SplitMode is the default GroupMode DIVIDE BY 1.'''
-        return False
-
     def apply(self, items: list[P]) -> list[tuple[list[P], bool]]:
         raise NotImplementedError()
 
+
 class Row(SplitMode):
-    def __init__(self, strictness, size, padding):
+    def __init__(self, strictness: int, size: int, padding: bool):
         super().__init__(strictness)
         if size < 1: raise GroupModeError('Row size must be at least 1.')
         self.size = size
@@ -319,9 +339,6 @@ class Divide(SplitMode):
             right = (i+1) * size + min(rest, i+1)
             out.append( (items[left:right], False) )
         return out
-
-    def isDefault(self):
-        return self.count == 1
 
 class Modulo(SplitMode):
     def __init__(self, strictness, modulo, padding):
@@ -423,61 +440,58 @@ class Interval(SplitMode):
     # Magic object
     END = 'END'
 
-    def __init__(self, strictness, lval, rval):
+    def __init__(self, strictness: int, start: str, end: str):
         super().__init__(strictness)
-        # Should this be an error or should it just parse as a trivial group mode?
-        if not lval and not rval: raise GroupModeError('No indices.')
+        ## start is empty: START
+        ## start is -0:    END
+        self.start = 0 if not start else Interval.END if start == '-0' else int(start)
 
-        ## lval is empty: START
-        ## lval is -0:    END
-        self.lval = 0 if lval == '' else Interval.END if lval == '-0' else int(lval)
-
-        ## rval is None: (lval+1) (indicated as keeping it None)
-        ## rval is empty or -0: END
-        self.rval = None if rval is None else Interval.END if rval in ['-0', ''] else int(rval)
+        ## end is None: (start+1) (indicated as keeping it None)
+        ## end is empty or -0: END
+        self.end = None if end is None else Interval.END if end in ['-0', ''] else int(end)
 
     def __str__(self):
-        if self.rval is None: return '{}INDEX AT {}'.format(super().__str__(), self.lval)
-        return '{}INTERVAL FROM {} TO {}'.format(super().__str__(), self.lval, self.rval)
+        if self.end is None: return '{}INDEX AT {}'.format(super().__str__(), self.start)
+        return '{}INTERVAL FROM {} TO {}'.format(super().__str__(), self.start, self.end)
 
     def apply(self, items: list[P]) -> list[tuple[list[P], bool]]:
         length = len(items)
 
         if length == 0: return [(items, False)]
 
-        ## Determine the effective lval
-        lval = self.lval if self.lval != Interval.END else length
+        ## Determine the effective start
+        start = self.start if self.start != Interval.END else length
 
-        ## Determine the effective rval
-        if self.rval is Interval.END:
-            rval = length
-        elif self.rval is None:
-            if self.lval == -1:             # Writing #-1 is equivalent to #-1:-0 i.e. The last element
-                rval = length
-            elif self.lval is Interval.END: # Writing #-0 is equivalent to #-0:-0 i.e. The empty tail
-                rval = length
-            else: rval = lval + 1
+        ## Determine the effective end
+        if self.end is Interval.END:
+            end = length
+        elif self.end is None:
+            if self.start == -1:             # Writing #-1 is equivalent to #-1:-0 i.e. The last element
+                end = length
+            elif self.start is Interval.END: # Writing #-0 is equivalent to #-0:-0 i.e. The empty tail
+                end = length
+            else: end = start + 1
         else:
-            rval = self.rval
+            end = self.end
 
         ## Manually adjust the indices to be non-negative (may be larger than length)
-        while lval < 0: lval += length
-        while rval < 0: rval += length
-        ## Special case: If we're targeting a negative range, simply target the empty range [lval:lval]
-        if rval < lval: rval = lval
+        while start < 0: start += length
+        while end < 0: end += length
+        ## Special case: If we're targeting a negative range, simply target the empty range [start:start]
+        if end < start: end = start
 
         ## Non-strict: Ignore the items outside of the selected range.
         if not self.strictness:
             return [
-                (items[0: lval], True),
-                (items[lval: rval], False),
-                (items[rval: length], True),
+                (items[0: start], True),
+                (items[start: end], False),
+                (items[end: length], True),
             ]
         ## Very strict: Get angry when our range does not exactly cover the list of items
-        elif self.strictness == 2 and (lval > 0 or rval != length):
+        elif self.strictness == 2 and (start > 0 or end != length):
             raise GroupModeError('The range does not strictly fit the set of items!')
         ## Strict: Throw away the items outside of the selected range.
-        return [(items[lval: rval], False)]
+        return [(items[start: end], False)]
 
 ################ ASSIGNMODES ################
 
@@ -485,6 +499,26 @@ class AssignMode:
     '''An object representing a function that takes lists of items and assigns them to pipes picked from a list.'''
     def __init__(self, multiply):
         self.multiply = multiply
+
+    @staticmethod
+    def from_parsed(result: ParseResults):
+        multiply = bool(result.get('multiply_flag'))
+        if result._name == 'assign_random':
+            return Random(multiply)
+        elif result._name == 'assign_default':
+            return DefaultAssign(multiply)
+        elif result._name == 'assign_switch':
+            strictness = len(result.get('strictness_flag', ''))
+            # TODO: Handle/repackage/distinguish Condition parse errors?
+            conditions = [Condition.from_parsed(cond) for cond in result['conditions']]
+            return Switch(multiply, strictness, conditions)
+        else:
+            raise Exception()
+
+    @staticmethod
+    def from_string(string: str):
+        return AssignMode.from_parsed(grammar.gm_assign.parse_string(string, parse_all=True)[0])
+
 
     def __str__(self):
         return 'MULTIPLY ' if self.multiply else ''
@@ -495,6 +529,7 @@ class AssignMode:
 
     async def apply(self, tuples: list[tuple[T, bool]], pipes: list[P], context: Context, scope: ItemScope) -> list[tuple[T, P]]:
         raise NotImplementedError()
+
 
 class DefaultAssign(AssignMode):
     '''Assign mode that sends the n'th group to the (n%P)'th pipe with P the number of pipes.'''
@@ -586,7 +621,7 @@ class LegacySwitch(AssignMode):
             disj = cond.split(' OR ')
             conjs = [conj.split(' AND ') for conj in disj]
             self.conds = [[LegacySwitch.RootCondition(cond.strip()) for cond in conj] for conj in conjs]
-            
+
         def __str__(self):
             return ' OR '.join(' AND '.join(str(cond) for cond in conj) for conj in self.conds)
 
@@ -661,22 +696,27 @@ class LegacySwitch(AssignMode):
 class Switch(AssignMode):
     '''Assign mode that assigns groups to pipes based on logical conditions that each group meets.'''
 
-    def __init__(self, multiply, strictness, conditions):
+    def __init__(self, multiply: bool, strictness: int, conditions: list[Condition]):
         super().__init__(multiply)
         self.strictness = strictness
-        self.conditions = []
-        for condition_str in conditions.split('|'):
+        self.conditions = conditions
+
+    @staticmethod
+    def from_regex_groups(multiply, strictness, conditions_str: str):
+        conditions = []
+        for cond_str in conditions_str.split('|'):
             try:
-                self.conditions.append(Condition.from_string(condition_str.strip()))
+                conditions.append(Condition.from_string(cond_str.strip()))
             except ParseException as e:
-                raise GroupModeError(f'ParseException while parsing condition `{condition_str}`.')
+                raise GroupModeError(f'ParseException while parsing condition `{cond_str}`.')
             except TerminalErrorLogException as e:
-                # TODO: Carry errors along there
+                # TODO: Carry errors along here?
                 errors = e.errors
-                raise GroupModeError(f'Some errors while parsing condition `{condition_str}`.')
+                raise GroupModeError(f'Some errors while parsing condition `{cond_str}`.')
+        return Switch(multiply, strictness, conditions)
 
     def __str__(self):
-        return '{}SWITCH {{ {} }}'.format(super().__str__(), ' | '.join(str(c) for c in self.conditions))
+        return '{}SWITCH ({})'.format(super().__str__(), ' | '.join(str(c) for c in self.conditions))
 
     async def apply(self, tuples: list[tuple[T, bool]], pipes: list[P], context: Context, parent_scope: ItemScope) -> list[tuple[T, P | None]]:
         #### Sends ALL VALUES as a single group to the FIRST pipe whose corresponding condition succeeds
@@ -751,7 +791,7 @@ class Switch(AssignMode):
 class Random(AssignMode):
     '''Assign mode that sends each group to a random pipe.'''
     def __str__(self):
-        return super().__str__() + 'RANDOM'
+        return 'RANDOM'
 
     async def apply(self, tuples: list[tuple[T, bool]], pipes: list[P], *args) -> list[tuple[T, P | None]]:
         return [ (items, None if ignore else choice(pipes)) for (items, ignore) in tuples ]
@@ -759,7 +799,7 @@ class Random(AssignMode):
 
 ################ MIDMODES ################
 
-class IfMode:
+class LegacyIfMode:
     def __init__(self, cond: str, bangs: str):
         self.strict = bool(bangs)
         self.cond = LegacySwitch.Condition(cond.strip())
@@ -775,8 +815,42 @@ class IfMode:
 
             elif self.cond.check(items):
                 out.append((items, False))
-            
+
             elif not self.strict:
+                out.append((items, True))
+
+        return out
+
+class IfMode:
+    def __init__(self, condition: Condition, strictness: int):
+        self.condition = condition
+        self.strictness = strictness
+
+    @staticmethod
+    def from_parsed(result: ParseResults):
+        condition = Condition.from_parsed(result[0])
+        strictness = len(result.get('strictness_flag'))
+        return IfMode(condition, strictness)
+
+    @staticmethod
+    def from_string(string: str):
+        return IfMode.from_parsed(grammar.gm_mid_if.parse_string(string, parse_all=True)[0])
+
+    def __str__(self):
+        return 'IF (' + str(self.condition) + ')' + '!' * self.strictness
+
+    async def apply(self, tuples: list[tuple[T, bool]], context: Context, parent_scope: ItemScope) -> list[tuple[T, bool]]:
+        out = []
+        for (items, ignore) in tuples:
+            if ignore:
+                out.append((items, True))
+                continue
+
+            scope = ItemScope(parent_scope, items)
+            if await self.condition.evaluate(context, scope):
+                out.append((items, False))
+
+            elif not self.strictness:
                 out.append((items, True))
 
         return out
@@ -787,20 +861,31 @@ class GroupBy:
     COLLECT = 'COLLECT'
     EXTRACT = 'EXTRACT'
 
-    def __init__(self, mode: str, keys: str):
+    def __init__(self, mode: str, keys: str | list[int]):
         self.mode = GroupBy.GROUP if mode == 'GROUP' else GroupBy.COLLECT if mode == 'COLLECT' else GroupBy.EXTRACT
 
         # The set of indices
-        self.keys = [ int(i) for i in re.split(r'\s*,\s*', keys) ]
+        if isinstance(keys, str):
+            self.keys = [ int(i) for i in re.split(r'\s*,\s*', keys) ]
+        else:
+            self.keys = keys
         # The highest referenced index
         self.maxIndex = max(self.keys)
         # isKey[i] == True  ⇐⇒ i in indices
-        self.isKey = [ (i in self.keys) for i in range(self.maxIndex+1) ]
+        self.isKey = [ (i in self.keys) for i in range(self.maxIndex + 1) ]
+
+    @staticmethod
+    def from_parsed(result: ParseResults):
+        return GroupBy(result['mode'], [int(k) for k in result.get('indices')])
+
+    @staticmethod
+    def from_string(string: str):
+        return GroupBy.from_parsed(grammar.gm_mid_group_by.parse_string(string, parse_all=True)[0])
 
     def __str__(self):
         return self.mode + ' BY ' + ', '.join(str(i) for i in self.keys)
 
-    def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
+    async def apply(self, tuples: list[tuple[T, bool]], context: Context, parent_scope: ItemScope) -> list[tuple[T, bool]]:
         out = []
         known = {}
 
@@ -837,11 +922,13 @@ class GroupBy:
         return out
 
 class SortBy:
-    def __init__(self, keys: str):
+    def __init__(self, keys: str | list[str]):
         # The set of indices
         self.keys = []
         nums = []
-        for key in re.split(r'\s*,\s*', keys):
+        if isinstance(keys, str):
+            keys = re.split(r'\s*,\s*', keys)
+        for key in keys:
             if key[0] == '+':
                 i = int(key[1:])
                 self.keys.append(i)
@@ -852,15 +939,24 @@ class SortBy:
         self.maxKey = max(self.keys)
         self.isNum = [(i in nums) for i in range(self.maxKey+1)]
 
+    @staticmethod
+    def from_parsed(result: ParseResults):
+        return SortBy(list(result.get('indices')))
+
+    @staticmethod
+    def from_string(string: str):
+        return SortBy.from_parsed(grammar.gm_mid_sort_by.parse_string(string, parse_all=True)[0])
 
     def __str__(self):
         return 'SORT BY ' + ', '.join( ('+'+str(i) if self.isNum[i] else str(i)) for i in self.keys)
 
-    def apply(self, tuples: list[tuple[T, bool]]) -> list[tuple[T, bool]]:
+    async def apply(self, tuples: list[tuple[T, bool]], context: Context, parent_scope: ItemScope) -> list[tuple[T, bool]]:
         head = []
         toSort = []
         tail = []
 
+        # Deal with ignored items: Float them all to before/after the sorted block of items
+        #   depending on if they appear before/after the first non-ignored item.
         for (items, ignore) in tuples:
             if ignore: (head if not toSort else tail).append((items, True))
             else: toSort.append(items)
@@ -877,10 +973,30 @@ class SortBy:
 
 class GroupMode:
     '''A class that combines multiple SplitModes, MidModes and an AssignMode'''
-    def __init__(self, split_modes: list[SplitMode], mid_modes: list[IfMode | SortBy | GroupBy], assign_mode: AssignMode):
+    def __init__(self, split_modes: list[SplitMode], mid_modes: list[LegacyIfMode | IfMode | SortBy | GroupBy], assign_mode: AssignMode):
         self.split_modes= split_modes
         self.mid_modes = mid_modes
         self.assign_mode = assign_mode
+
+    @staticmethod
+    def from_parsed(result: ParseResults):
+        split_modes = [SplitMode.from_parsed(split) for split in result.get('split')]
+        mid_modes = []
+        if 'mid_if' in result:
+            mid_modes.append(IfMode.from_parsed(result['mid_if']))
+        if 'mid_sort_by' in result:
+            mid_modes.append(SortBy.from_parsed(result['mid_sort_by']))
+        if 'mid_group_by' in result:
+            mid_modes.append(GroupBy.from_parsed(result['mid_group_by']))
+        assign_mode = AssignMode.from_parsed(result['assign'][0])
+        return GroupMode(split_modes, mid_modes, assign_mode)
+
+    @staticmethod
+    def from_string_with_remainder(string: str) -> tuple['GroupMode', str]:
+        result = grammar.groupmode_and_remainder.parse_string(string, parse_all=True)
+        groupmode = GroupMode.from_parsed(result[0])
+        remainder = result[1]
+        return groupmode, remainder
 
     def __str__(self):
         if self.splits_trivially() and self.assign_mode.is_trivial():
@@ -909,11 +1025,16 @@ class GroupMode:
 
         ## Apply the MidModes
         for mid_mode in self.mid_modes:
-            groups = mid_mode.apply(groups)
+            groups = await mid_mode.apply(groups, context, scope)
 
         ## Apply the AssignMode
         return await self.assign_mode.apply(groups, pipes, context, scope)
 
+
+
+# ================================ LEGACY PARSING CODE ================================
+# The rest of this file is legacy parsing code, to be deleted as soon as the
+#   replacement PyParsing-parsing has been demonstrated to encompass all nuances.
 
 # pattern:
 # optionally starting with a Multiply Flag: *
@@ -965,7 +1086,7 @@ strict_pattern = re.compile(r'\s*(!?!?)\s*')
 
 op_dict = {'/': Divide, '\\': Column, '%': Modulo}
 
-def parse(big_pipe: str) -> tuple[str, GroupMode]:
+def legacy_parse(big_pipe: str) -> tuple[str, GroupMode]:
     '''Consumes the GroupMode from the start of a string and returns the GroupMode and remainder.'''
     ### HEAD MULTIPLY FLAG (for backwards compatibility)
     m = mul_pattern.match(big_pipe)
@@ -984,7 +1105,7 @@ def parse(big_pipe: str) -> tuple[str, GroupMode]:
             value = m[2]
         elif (m := int_pattern.match(cropped)) is not None:
             split_mode = Interval
-            lval, rval = m.groups()
+            start, end = m.groups()
         else:
             ## No (more) SplitMode found; Stop the loop!
             break
@@ -1008,7 +1129,7 @@ def parse(big_pipe: str) -> tuple[str, GroupMode]:
                 split_mode = split_mode(strictness, value, padding)
 
             elif split_mode is Interval:
-                split_mode = Interval(strictness, lval, rval)
+                split_mode = Interval(strictness, start, end)
 
         except GroupModeError as e:
             raise GroupModeError( 'In split mode `%s`: %s' % (flag, e) )
@@ -1020,7 +1141,7 @@ def parse(big_pipe: str) -> tuple[str, GroupMode]:
     ### IFMODE (optional)
     m = if_pattern.match(cropped)
     if m is not None:
-        mid_modes.append(IfMode(m[1], m[2]))
+        mid_modes.append(LegacyIfMode(m[1], m[2]))
         cropped = cropped[m.end():]
 
     ### SORTBY MODE (optional)
@@ -1046,7 +1167,7 @@ def parse(big_pipe: str) -> tuple[str, GroupMode]:
         try:
             assign_mode = LegacySwitch(multiply, len(m[2]), m[1])
         except:
-            assign_mode = Switch(multiply, len(m[2]), m[1])
+            assign_mode = Switch.from_regex_groups(multiply, len(m[2]), m[1])
         cropped = cropped[m.end():]
     elif (m := rand_pattern.match(cropped)) is not None:
         assign_mode = Random(multiply)
@@ -1068,14 +1189,14 @@ if __name__ == '__main__':
     print('TESTS:')
     for test in tests:
         try:
-            out, mode = parse(test)
+            out, mode = legacy_parse(test)
             print(test + ((' → "' + out + '"') if out else '') + ' : ' + str(mode))
         except Exception as e:
             print(test + ' : ' + 'ERROR! ' + str(e))
         print()
 
     print()
-    _, mode = parse('{ 0 = "bar" | 0 = "foo" }')
+    _, mode = legacy_parse('{ 0 = "bar" | 0 = "foo" }')
     print( mode )
     print( mode.apply( ['bar'] , ['one', 'two', 'three'], None, None ) )
     print( mode.apply( ['bar'] , ['one', 'two'], None, None ) )
@@ -1084,7 +1205,7 @@ if __name__ == '__main__':
     print( mode.apply( ['xyz'] , ['one', 'two'], None, None ) )
 
     print()
-    _, mode = parse('{ 0 = 1 }')
+    _, mode = legacy_parse('{ 0 = 1 }')
     print( mode )
     print( mode.apply( ['bar', 'xyz'] , ['one', 'two'], None, None ) )
     print( mode.apply( ['bar', 'bar'] , ['one', 'two'], None, None ) )

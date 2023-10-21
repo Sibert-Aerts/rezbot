@@ -4,8 +4,8 @@ This file defines pyparsing grammar comprising important parts of, but not all o
 
 from pyparsing import (
     Empty, alphas, alphanums, nums, Literal, Word, Char, ParserElement, Forward,
-    Combine, OneOrMore, Group, Regex, ZeroOrMore, White, CaselessKeyword, Optional,
-    Keyword, ParseResults
+    Combine, OneOrMore, Group, Regex, ZeroOrMore, White, CaselessKeyword, Opt,
+    Keyword, ParseResults, Suppress, delimited_list,
 )
 import re
 
@@ -14,6 +14,9 @@ ParserElement.enable_packrat()
 # ============================================ Terminals ===========================================
 
 identifier      = Word(alphas + '_', alphanums + '_')
+pos_integer     = Word(nums)
+integer         = Combine(Opt(Literal('-')) + Word(nums))
+
 left_brace      = Literal('{').suppress().leave_whitespace()
 right_brace     = Literal('}').suppress()
 left_paren      = Literal('(').suppress()
@@ -23,7 +26,7 @@ escaped_symbol  = Literal('~').suppress() + Char('{}~"\'/')
 question_mark   = Literal('?').suppress()
 backslash       = Literal('\\').suppress()
 
-optional_white  = Optional(White()).suppress()
+optional_white  = Opt(White()).suppress()
 
 # ============================================= Grammar ============================================
 
@@ -34,6 +37,9 @@ templated_element: ParserElement = Forward()
 condition: ParserElement = Forward()
 
 # ======================== Templated Strings
+
+# TODO: Every instance of Group(templated_element | string_bit) is a pointless layer of Grouping,
+#   remove those AND fix it so the .from_parsed methods to match it
 
 def make_quoted(q):
     q = Literal(q).suppress()
@@ -69,12 +75,12 @@ argument_list = optional_white + ZeroOrMore(explicit_arg | implicit_arg)
 
 # ======================== Templated Element: Items
 
-item = Group( left_brace + Optional(Word('^'))('carrots') + Optional( Regex('-?\d+') )('index') + Optional('!')('bang') + right_brace )('item')
+item = Group( left_brace + Opt(Word('^'))('carrots') + Opt(integer)('index') + Opt('!')('bang') + right_brace )('item')
 
 # ======================== Templated Element: Sources
 
-amount = Word(nums) | CaselessKeyword('ALL')
-source = Group( left_brace + Optional(amount)('amount') + identifier('source_name') + Optional(argument_list('args')) + right_brace )('source')
+source_amount = Word(nums) | CaselessKeyword('ALL')
+source = Group( left_brace + Opt(source_amount)('amount') + identifier('source_name') + Opt(argument_list('args')) + right_brace )('source')
 
 # ======================== Templated Element: Special Symbol
 
@@ -87,7 +93,7 @@ te_special = Group( left_brace + backslash + identifier('name') + right_brace )(
 
 comp_op_eq   = Literal('==') | Literal('!=')
 comp_op_num  = Literal('<=') | Literal('>=') | Literal('<') | Literal('>')
-comp_op_like = Combine(Optional(Keyword('NOT')) + (Keyword('LIKE')), adjacent=False)
+comp_op_like = Combine(Opt(Keyword('NOT')) + (Keyword('LIKE')), adjacent=False)
 comp_op = comp_op_eq | comp_op_num | comp_op_like
 
 string_bit_cond_safe = Combine(OneOrMore(escaped_symbol | ~(comp_op_eq | comp_op_num) + Regex('[^{}()\s]', re.S)))('string_bit').leave_whitespace()
@@ -100,7 +106,7 @@ comparison = Group(comparison_safe_templated_string + comp_op + comparison_safe_
 # ======== Root Conditions: Predicate
 
 pred_category = (Keyword('WHITE') | Keyword('EMPTY') | Keyword('TRUE') | Keyword('FALSE') | Keyword('BOOL') | Keyword('INT') | Keyword('FLOAT'))('pred_category')
-pred_is_category = Combine(Keyword('IS') + Optional(Keyword('NOT'))('not') + pred_category, adjacent=False)
+pred_is_category = Combine(Keyword('IS') + Opt(Keyword('NOT'))('not') + pred_category, adjacent=False)
 predicate = Group(comparison_safe_templated_string + pred_is_category)('predicate')
 
 # ======== Composite Conditions
@@ -123,11 +129,52 @@ kw_else = Keyword('else', caseless=True).suppress()
 conditional_expr = comparison_safe_templated_string('case_if') + kw_if + condition('condition') + kw_else + comparison_safe_templated_string('case_else')
 conditional = Group( left_brace + question_mark + conditional_expr + right_brace )('conditional')
 
-
-# ======================== Finish forward definitions
+# ======================== Templated Element
 
 templated_element <<= te_special | item | conditional | source
 
+
+# ======================== Group Mode
+
+gm_multiply_flag = Opt(Literal('*')('multiply_flag'))
+gm_strictness_flag = Combine(ZeroOrMore('!'))('strictness_flag')
+def may_be_parenthesized(expr):
+    # Utility to catch old IF(()) and SWITCH(()) syntax
+    return (left_paren + expr + right_paren) | expr
+
+# ======== Group Mode: Split Mode
+
+gm_split_row = Group( left_paren + pos_integer('size') + right_paren + gm_strictness_flag )('split_row')
+gm_split_divide = Group( Suppress('/')  + pos_integer('count') + gm_strictness_flag )('split_divide')
+gm_split_modulo = Group( Suppress('%')  + pos_integer('modulo') + gm_strictness_flag )('split_modulo')
+gm_split_column = Group( Suppress('\\') + pos_integer('size') + gm_strictness_flag )('split_column')
+gm_split_interval = Group( Suppress('#') + Opt(integer)('start') + Opt(Literal(':')('colon') + Opt(integer)('end') + gm_strictness_flag ) )('split_interval')
+
+gm_single_split = gm_split_row | gm_split_divide | gm_split_modulo | gm_split_column | gm_split_interval
+gm_split = ZeroOrMore(gm_split_row | gm_split_divide | gm_split_modulo | gm_split_column | gm_split_interval)('split')
+
+# ======== Group Mode: Mid Mode
+
+gm_mid_if       = Group( Keyword('IF').suppress() + left_paren + may_be_parenthesized(condition) + right_paren + gm_strictness_flag )('mid_if')
+gm_mid_sort_by  = Group( Keyword('SORT BY').suppress() + Group(delimited_list(Combine(Opt('+') + pos_integer)))('indices') )('mid_sort_by')
+gm_mid_group_by = Group( (Keyword('GROUP') | Keyword('COLLECT') | Keyword('EXTRACT'))('mode') + Keyword('BY').suppress() + Group(delimited_list(pos_integer))('indices') )('mid_group_by')
+
+gm_mid = Opt(gm_mid_if) + Opt(gm_mid_sort_by) + Opt(gm_mid_group_by)
+
+# ======== Group Mode: Assign Mode
+
+gm_assign_random = Group( gm_multiply_flag + question_mark )('assign_random')
+gm_assign_switch_body = may_be_parenthesized( Group(delimited_list(condition, '|'))('conditions') )
+gm_assign_switch = Group( gm_multiply_flag + Keyword('SWITCH').suppress() + left_paren + gm_assign_switch_body + right_paren + gm_strictness_flag )('assign_switch')
+gm_assign_default = Group( gm_multiply_flag )('assign_default')
+
+# NOTE: `gm_assign_default` may match an empty string, so this may also
+gm_assign = (gm_assign_random | gm_assign_switch | gm_assign_default)('assign')
+
+# ======== Group Mode
+
+groupmode = Group(gm_split + gm_mid + gm_assign)('groupmode')
+groupmode_and_remainder = groupmode + Regex('.*', flags=re.S)('remainder')
 
 
 '''
@@ -175,12 +222,17 @@ e.g. Make it so the Origin can only have full sources inside of a single ChoiceT
 
 # ======== Utility
 
-def print_parse_result(result: ParseResults, indent=0):
-    '''Prints a ParseResults as a tree, using sub-results' names. Does not work totally perfectly?'''
+def print_parse_result(result: ParseResults, indent=0, name=''):
+    '''Prints a ParseResults as a tree, using sub-results' names. Little hackish but works.'''
     if isinstance(result, ParseResults):
         if result._name:
             print('    '*indent, result._name)
+        # Hack to associate names to str items that don't have a _name field
+        names_by_item = {id(v): k for k, v in result.as_dict().items()}
         for item in result:
-            print_parse_result(item, indent+1)
+            print_parse_result(item, indent+1, name=names_by_item.get(id(item), ''))
     else:
-        print('    '*indent, repr(result))
+        if name:
+            print('    '*indent, name, repr(result))
+        else:
+            print('    '*indent, repr(result))
