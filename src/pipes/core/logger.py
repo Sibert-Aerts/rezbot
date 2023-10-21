@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from pyparsing import ParseException, StringEnd
+from pyparsing import ParseBaseException, ParseSyntaxException, StringEnd
 import discord
 
 
@@ -48,19 +48,27 @@ class ErrorLog:
     def warn(self, message):
         return self.log(message, terminal=False)
 
-    def log_parse_exception(self, e: ParseException):
+    def log_parse_exception(self, e: ParseBaseException):
         ''' Bespoke formatting for a not-uncommon terminal exception. '''
+        ### Create a human-readable error message
         if isinstance(e.parserElement, StringEnd):
+            message = f'ParseException: Likely unclosed expression at position {e.loc}:\n­\t'
+        elif e.col-1 == len(e.line):
+            message = f'ParseSyntaxException: Unexpected end of code, perhaps expected {e.parser_element.name}:\n­\t'
+        elif isinstance(e, ParseSyntaxException):
+            message = f'ParseSyntaxException: Invalid syntax at position {e.loc}, perhaps expected {e.parser_element.name}:\n­\t'
+        else:
+            message = f'{type(e).__name__}: Unexpected ParseException at position {e.loc}, perhaps expected {e.parser_element.name}:\n­\t'
+        ### Create a highlighted piece of code
+        if e.col-1 == len(e.line):
+            message += f'{e.line} **[(?)](http://0)**'
+        else:
             bad_char = e.line[e.col-1]
-            message = f'ParseException: Likely unclosed brace at position {e.loc}:\n­\t'
             if bad_char in '[]':
                 message += f'{e.line[:e.col-1]}**{bad_char}**{e.line[e.col:]}'
             else:
                 message += f'{e.line[:e.col-1]}**[{bad_char}](http://0)**{e.line[e.col:]}'
-            return self.log(message, True)
-        else:
-            self.log('An unexpected ParseException occurred!')
-            return self.log(e, True)
+        return self.log(message, True)
 
     #############################################
     ## Log transfering methods

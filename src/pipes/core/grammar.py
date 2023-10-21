@@ -1,15 +1,21 @@
 '''
-This file defines pyparsing grammar comprising important parts of, but not all of, the Rezbot scripting language grammar.
+This file defines a pyparsing grammar describing important parts of, but not all of, the Rezbot scripting language.
+Not used directly, but internally used by various .from_string methods on classes representing Rezbot scripting structures.
 '''
-
+import re
 from pyparsing import (
     Empty, alphas, alphanums, nums, Literal, Word, Char, ParserElement, Forward,
     Combine, OneOrMore, Group, Regex, ZeroOrMore, White, CaselessKeyword, Opt,
     Keyword, ParseResults, Suppress, delimited_list,
 )
-import re
 
 ParserElement.enable_packrat()
+
+
+# TODO: Every instance of Group(templated_element | string_bit) is a pointless layer of Grouping,
+#   remove those AND fix it so the .from_parsed methods to match it
+
+# TODO: use .set_name to give every grammar rule a decent name that gets shown in error output!!!
 
 # ============================================ Terminals ===========================================
 
@@ -38,13 +44,10 @@ condition: ParserElement = Forward()
 
 # ======================== Templated Strings
 
-# TODO: Every instance of Group(templated_element | string_bit) is a pointless layer of Grouping,
-#   remove those AND fix it so the .from_parsed methods to match it
-
 def make_quoted(q):
     q = Literal(q).suppress()
     quoted_string_bit = Combine(OneOrMore( escaped_symbol | (~q + Regex('[^{}]', re.S)) ))('string_bit').leave_whitespace()
-    quoted_string = q + (OneOrMore(Group(templated_element | quoted_string_bit)) | Empty())('value') + q
+    quoted_string = q - (OneOrMore(Group(templated_element | quoted_string_bit)) | Empty())('value') + q
     return quoted_string
 
 quoted_templated_string = (make_quoted('"""') | make_quoted('"') | make_quoted("'") | make_quoted('/'))
@@ -62,7 +65,7 @@ absolute_templated_string = (OneOrMore(Group(templated_element | string_bit)) | 
 # ======================== Argument Assignments
 
 arg_value = (quoted_templated_string | unquoted_spaceless_templated_string).leave_whitespace()
-explicit_arg = Group(identifier('param_name') + eq.leave_whitespace() + arg_value)
+explicit_arg = Group(identifier('param_name') + eq.leave_whitespace() - arg_value)
 'An explicity param=<templated_string> assingment'
 
 implicit_string_bit = Combine(ZeroOrMore(White()) + OneOrMore(escaped_symbol | Regex('[^{}\s]', re.S)) | OneOrMore(White()))('string_bit').leave_whitespace()
@@ -84,7 +87,7 @@ source = Group( left_brace + Opt(source_amount)('amount') + identifier('source_n
 
 # ======================== Templated Element: Special Symbol
 
-te_special = Group( left_brace + backslash + identifier('name') + right_brace )('te_special')
+te_special = Group( left_brace + backslash - identifier('name') + right_brace )('te_special')
 
 
 # ======================== Conditions
@@ -101,12 +104,12 @@ unquoted_spaceless_compless_templated_string = OneOrMore( Group(templated_elemen
 'A nonempty templated string, without wrapping quotes, without any spaces in the literal parts, (nb. containing sources and items may have spaces)'
 
 comparison_safe_templated_string = optional_white + Group(quoted_templated_string | unquoted_spaceless_compless_templated_string) + optional_white
-comparison = Group(comparison_safe_templated_string + comp_op + comparison_safe_templated_string)('comparison')
+comparison = Group(comparison_safe_templated_string + comp_op - comparison_safe_templated_string)('comparison')
 
 # ======== Root Conditions: Predicate
 
 pred_category = (Keyword('WHITE') | Keyword('EMPTY') | Keyword('TRUE') | Keyword('FALSE') | Keyword('BOOL') | Keyword('INT') | Keyword('FLOAT'))('pred_category')
-pred_is_category = Combine(Keyword('IS') + Opt(Keyword('NOT'))('not') + pred_category, adjacent=False)
+pred_is_category = Combine(Keyword('IS') - Opt(Keyword('NOT'))('not') + pred_category, adjacent=False)
 predicate = Group(comparison_safe_templated_string + pred_is_category)('predicate')
 
 # ======== Composite Conditions
@@ -127,7 +130,7 @@ kw_if   = Keyword('if', caseless=True).suppress()
 kw_else = Keyword('else', caseless=True).suppress()
 
 conditional_expr = comparison_safe_templated_string('case_if') + kw_if + condition('condition') + kw_else + comparison_safe_templated_string('case_else')
-conditional = Group( left_brace + question_mark + conditional_expr + right_brace )('conditional')
+conditional = Group( left_brace + question_mark - conditional_expr + right_brace )('conditional')
 
 # ======================== Templated Element
 
@@ -144,20 +147,20 @@ def may_be_parenthesized(expr):
 
 # ======== Group Mode: Split Mode
 
-gm_split_row = Group( left_paren + pos_integer('size') + right_paren + gm_strictness_flag )('split_row')
-gm_split_divide = Group( Suppress('/')  + pos_integer('count') + gm_strictness_flag )('split_divide')
-gm_split_modulo = Group( Suppress('%')  + pos_integer('modulo') + gm_strictness_flag )('split_modulo')
-gm_split_column = Group( Suppress('\\') + pos_integer('size') + gm_strictness_flag )('split_column')
-gm_split_interval = Group( Suppress('#') + Opt(integer)('start') + Opt(Literal(':')('colon') + Opt(integer)('end') + gm_strictness_flag ) )('split_interval')
+gm_split_row = Group( left_paren + pos_integer('size') - right_paren + gm_strictness_flag )('split_row')
+gm_split_divide = Group( Suppress('/')  - pos_integer('count') + gm_strictness_flag )('split_divide')
+gm_split_modulo = Group( Suppress('%')  - pos_integer('modulo') + gm_strictness_flag )('split_modulo')
+gm_split_column = Group( Suppress('\\') - pos_integer('size') + gm_strictness_flag )('split_column')
+gm_split_interval = Group( Suppress('#') - Opt(integer)('start') + Opt(Literal(':')('colon') + Opt(integer)('end') + gm_strictness_flag ) )('split_interval')
 
 gm_single_split = gm_split_row | gm_split_divide | gm_split_modulo | gm_split_column | gm_split_interval
 gm_split = ZeroOrMore(gm_split_row | gm_split_divide | gm_split_modulo | gm_split_column | gm_split_interval)('split')
 
 # ======== Group Mode: Mid Mode
 
-gm_mid_if       = Group( Keyword('IF').suppress() + left_paren + may_be_parenthesized(condition) + right_paren + gm_strictness_flag )('mid_if')
-gm_mid_sort_by  = Group( Keyword('SORT BY').suppress() + Group(delimited_list(Combine(Opt('+') + pos_integer)))('indices') )('mid_sort_by')
-gm_mid_group_by = Group( (Keyword('GROUP') | Keyword('COLLECT') | Keyword('EXTRACT'))('mode') + Keyword('BY').suppress() + Group(delimited_list(pos_integer))('indices') )('mid_group_by')
+gm_mid_if       = Group( Keyword('IF').suppress() - left_paren + may_be_parenthesized(condition) + right_paren + gm_strictness_flag )('mid_if')
+gm_mid_sort_by  = Group( Keyword('SORT BY').suppress() - Group(delimited_list(Combine(Opt('+') + pos_integer)))('indices') )('mid_sort_by')
+gm_mid_group_by = Group( (Keyword('GROUP') | Keyword('COLLECT') | Keyword('EXTRACT'))('mode') - Keyword('BY').suppress() + Group(delimited_list(pos_integer))('indices') )('mid_group_by')
 
 gm_mid = Opt(gm_mid_if) + Opt(gm_mid_sort_by) + Opt(gm_mid_group_by)
 
@@ -165,7 +168,7 @@ gm_mid = Opt(gm_mid_if) + Opt(gm_mid_sort_by) + Opt(gm_mid_group_by)
 
 gm_assign_random = Group( gm_multiply_flag + question_mark )('assign_random')
 gm_assign_switch_body = may_be_parenthesized( Group(delimited_list(condition, '|'))('conditions') )
-gm_assign_switch = Group( gm_multiply_flag + Keyword('SWITCH').suppress() + left_paren + gm_assign_switch_body + right_paren + gm_strictness_flag )('assign_switch')
+gm_assign_switch = Group( gm_multiply_flag + Keyword('SWITCH').suppress() - left_paren + gm_assign_switch_body + right_paren + gm_strictness_flag )('assign_switch')
 gm_assign_default = Group( gm_multiply_flag )('assign_default')
 
 # NOTE: `gm_assign_default` may match an empty string, so this may also

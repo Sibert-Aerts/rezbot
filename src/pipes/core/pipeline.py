@@ -1,6 +1,6 @@
 import re
 from typing import Union
-from pyparsing import ParseException
+from pyparsing import ParseBaseException
 
 import permissions
 from utils.choicetree import ChoiceTree
@@ -93,15 +93,15 @@ class Pipeline:
         for segment in segments:
             try:
                 groupmode, segment = groupmodes.GroupMode.from_string_with_remainder(segment)
-            except ParseException as e:
+            except ParseBaseException as e:
                 self.parser_errors.log_parse_exception(e)
+                continue
             except groupmodes.GroupModeError as e:
                 self.parser_errors.log(e, True)
-                # Don't attempt to parse the rest of this segment, since we aren't sure where the groupmode ends
                 continue
             try:
                 parallel = self.parse_segment(segment)
-            except ParseException as e:
+            except ParseBaseException as e:
                 self.parser_errors.log_parse_exception(e)
                 continue
             self.parsed_segments.append((groupmode, parallel))
