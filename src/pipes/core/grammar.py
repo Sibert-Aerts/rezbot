@@ -11,6 +11,11 @@ from pyparsing import (
 
 ParserElement.enable_packrat()
 
+# ============================================= Utility ============================================
+
+def SuppKeyword(*args, **kwargs):
+    return Suppress(Keyword(*args, **kwargs))
+
 # ============================================ Terminals ===========================================
 
 left_brace      = Suppress('{').leave_whitespace()
@@ -96,7 +101,7 @@ comp_op_num  = Literal('<=') | Literal('>=') | Literal('<') | Literal('>')
 comp_op_like = Combine(Opt(Keyword('NOT')) + (Keyword('LIKE')), adjacent=False)
 comp_op = (comp_op_eq | comp_op_num | comp_op_like).set_name('Comparison Operator')
 
-string_bit_cond_safe = Combine(OneOrMore(escaped_symbol | ~(comp_op_eq | comp_op_num) + Regex('[^{}|()\s]', re.S)))('string_bit').leave_whitespace()
+string_bit_cond_safe = Combine(OneOrMore(escaped_symbol | ~(comp_op_eq | comp_op_num) + Regex('[^{}=|()\s]', re.S)))('string_bit').leave_whitespace()
 unquoted_spaceless_cond_safe_templated_string = OneOrMore(templated_element | string_bit_cond_safe)('value').set_name('Inline Templated String')
 'A nonempty templated string, without wrapping quotes, without any spaces in the literal parts, (nb. containing sources and items may have spaces)'
 
@@ -111,8 +116,8 @@ predicate = Group(cond_safe_templated_string + pred_is_category)('predicate').se
 
 # ======== Composite Conditions
 
-kw_and = Keyword('and', caseless=True).suppress()
-kw_or  = Keyword('or', caseless=True).suppress()
+kw_and = SuppKeyword('and', caseless=True)
+kw_or  = SuppKeyword('or', caseless=True)
 kw_not = Keyword('not', caseless=True)
 
 root_condition      = (left_paren + condition + right_paren).set_name('Nested Condition') | (predicate | comparison).set_name('Root Condition')
@@ -123,8 +128,8 @@ condition         <<= (Group(cond_conjunction + OneOrMore(kw_or - cond_conjuncti
 
 # ======================== Templated Element: Conditionals
 
-kw_if   = Keyword('if', caseless=True).suppress()
-kw_else = Keyword('else', caseless=True).suppress()
+kw_if   = SuppKeyword('if', caseless=True)
+kw_else = SuppKeyword('else', caseless=True)
 
 conditional_body = cond_safe_templated_string('case_if') + kw_if + condition('condition') + kw_else + cond_safe_templated_string('case_else')
 conditional = Group( left_brace + question_mark - conditional_body + right_brace )('conditional').set_name('Templated Conditional')
@@ -145,8 +150,8 @@ def may_be_parenthesized(expr: ParserElement):
 # ======== Group Mode: Split Mode
 
 gm_split_row = Group( left_paren + pos_integer('size') - right_paren + gm_strictness )('split_row').set_name('Splitmode Row')
-gm_split_divide = Group( Suppress('/')  - pos_integer('count') + gm_strictness )('split_divide').set_name('Splitmode Divide')
-gm_split_modulo = Group( Suppress('%')  - pos_integer('modulo') + gm_strictness )('split_modulo').set_name('Splitmode Modulo')
+gm_split_divide = Group( Suppress('/') - pos_integer('count') + gm_strictness )('split_divide').set_name('Splitmode Divide')
+gm_split_modulo = Group( Suppress('%') - pos_integer('modulo') + gm_strictness )('split_modulo').set_name('Splitmode Modulo')
 gm_split_column = Group( Suppress('\\') - pos_integer('size') + gm_strictness )('split_column').set_name('Splitmode Column')
 gm_split_interval = Group( Suppress('#') - (interval('interval') | integer('index')) + gm_strictness )('split_interval').set_name('Splitmode Interval')
 
@@ -155,11 +160,11 @@ gm_split = ZeroOrMore(gm_single_split)('split')
 
 # ======== Group Mode: Mid Mode
 
-gm_mid_if       = Group( Keyword('IF').suppress() - left_paren + may_be_parenthesized(condition) + right_paren + gm_strictness )('mid_if').set_name('Midmode IF')
-gm_mid_sort_by  = Group( Keyword('SORT BY').suppress() - may_be_parenthesized(Group(delimited_list(Combine(Opt('+') + pos_integer)))('indices')) )('mid_sort_by').set_name('Midmode SORT BY')
+gm_mid_if       = Group( SuppKeyword('IF') - left_paren + may_be_parenthesized(condition) + right_paren + gm_strictness )('mid_if').set_name('Midmode IF')
+gm_mid_sort_by  = Group( SuppKeyword('SORT BY') - may_be_parenthesized(Group(delimited_list(Combine(Opt('+') + pos_integer)))('indices')) )('mid_sort_by').set_name('Midmode SORT BY')
 
 gm_mid_group_by_mode = (Keyword('GROUP') | Keyword('COLLECT') | Keyword('EXTRACT'))('mode')
-gm_mid_group_by = Group( gm_mid_group_by_mode - Keyword('BY').suppress() + may_be_parenthesized(Group(delimited_list(pos_integer))('indices')) )('mid_group_by').set_name('Midmode GROUP BY')
+gm_mid_group_by = Group( gm_mid_group_by_mode - SuppKeyword('BY') + may_be_parenthesized(Group(delimited_list(pos_integer))('indices')) )('mid_group_by').set_name('Midmode GROUP BY')
 
 gm_mid = Opt(gm_mid_if) + Opt(gm_mid_sort_by) + Opt(gm_mid_group_by)
 
@@ -167,7 +172,7 @@ gm_mid = Opt(gm_mid_if) + Opt(gm_mid_sort_by) + Opt(gm_mid_group_by)
 
 gm_assign_random = Group( gm_multiply_flag + question_mark )('assign_random').set_name('Assignmode Random')
 gm_assign_switch_body = may_be_parenthesized( Group(delimited_list(condition, '|'))('conditions').set_name('Sequence of Conditions') )
-gm_assign_switch = Group( gm_multiply_flag + Keyword('SWITCH').suppress() - left_paren + gm_assign_switch_body + right_paren + gm_strictness )('assign_switch').set_name('Assignmode SWITCH')
+gm_assign_switch = Group( gm_multiply_flag + SuppKeyword('SWITCH') - left_paren + gm_assign_switch_body + right_paren + gm_strictness )('assign_switch').set_name('Assignmode SWITCH')
 gm_assign_default = Group( gm_multiply_flag )('assign_default').set_name('Assignmode Default')
 
 # NOTE: `gm_assign_default` may match an empty string, so this may also

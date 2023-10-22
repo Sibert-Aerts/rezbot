@@ -71,6 +71,7 @@
 
     * **CONDITIONS:**
         * WIP: Errors in parsing/applying are not properly handled/bubbled/conveyed.
+            * e.g. errors when casting to float() in number comparisons
         * "Aggregate" conditions
             * "ANYTHING", "NOTHING", "ALL WHITE/EMPTY/BOOL/TRUE/FALSE/INT/FLOAT"
             * INDEX 10 EXISTS (i.e. len(items) > 10)
