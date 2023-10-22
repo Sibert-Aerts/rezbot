@@ -22,7 +22,7 @@ There are four types of Templated Elements:
 
 
 import asyncio
-from pyparsing import ParseException, ParseResults
+from pyparsing import ParseBaseException, ParseResults
 
 from utils.choicetree import ChoiceTree
 from .logger import ErrorLog
@@ -489,7 +489,7 @@ class TemplatedString:
             errors.extend(template.pre_errors)
             if errors.terminal:
                 return NOTHING_BUT_ERRORS
-        except ParseException as e:
+        except ParseBaseException as e:
             errors.log_parse_exception(e)
             return NOTHING_BUT_ERRORS
 
@@ -518,7 +518,7 @@ class TemplatedString:
         if expand:
             try:
                 expanded = ChoiceTree(origin_str, parse_flags=True)
-            except ParseException as e:
+            except ParseBaseException as e:
                 errors.log_parse_exception(e)
                 return values, errors
         else:
@@ -530,7 +530,7 @@ class TemplatedString:
             try:
                 origin = TemplatedString.from_string(origin_str)
                 errors.extend(origin.pre_errors)
-            except ParseException as e:
+            except ParseBaseException as e:
                 errors.log_parse_exception(e)
                 continue
 

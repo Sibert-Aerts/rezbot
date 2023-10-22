@@ -50,15 +50,17 @@ class ErrorLog:
 
     def log_parse_exception(self, e: ParseBaseException):
         ''' Bespoke formatting for a not-uncommon terminal exception. '''
+        print('Logging parse exception:', str(e))
         ### Create a human-readable error message
+        error_msg = e.msg[0].lower() + e.msg[1:]
         if isinstance(e.parserElement, StringEnd):
             message = f'ParseException: Likely unclosed expression at position {e.loc}:\n­\t'
         elif e.col-1 == len(e.line):
-            message = f'ParseSyntaxException: Unexpected end of code, perhaps expected {e.parser_element.name}:\n­\t'
+            message = f'ParseSyntaxException: Unexpected end of code, {error_msg}:\n­\t'
         elif isinstance(e, ParseSyntaxException):
-            message = f'ParseSyntaxException: Invalid syntax at position {e.loc}, perhaps expected {e.parser_element.name}:\n­\t'
+            message = f'ParseSyntaxException: Invalid syntax at position {e.loc}, {error_msg}:\n­\t'
         else:
-            message = f'{type(e).__name__}: Unexpected ParseException at position {e.loc}, perhaps expected {e.parser_element.name}:\n­\t'
+            message = f'{type(e).__name__}: Unexpected ParseException at position {e.loc}, {error_msg}:\n­\t'
         ### Create a highlighted piece of code
         if e.col-1 == len(e.line):
             message += f'{e.line} **[(?)](http://0)**'

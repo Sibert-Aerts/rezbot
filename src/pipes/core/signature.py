@@ -1,6 +1,6 @@
 import asyncio
 from typing import Awaitable, Iterable, Optional, TypeVar, Callable
-from pyparsing import ParseException, ParseResults
+from pyparsing import ParseBaseException, ParseResults
 
 from . import grammar
 from .logger import ErrorLog
@@ -189,7 +189,7 @@ class Arguments:
     def from_string(string: str, signature: Signature=None, greedy=True) -> tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
         try:
             parsed = grammar.argument_list.parse_string(string, parseAll=True)
-        except ParseException as e:
+        except ParseBaseException as e:
             return None, None, ErrorLog().log_parse_exception(e)
         return Arguments.from_parsed(parsed, signature, greedy=greedy)
 

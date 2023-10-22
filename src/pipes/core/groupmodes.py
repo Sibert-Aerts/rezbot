@@ -1,7 +1,7 @@
 import re
 from typing import TypeVar
 from random import choice
-from pyparsing import ParseException, ParseResults
+from pyparsing import ParseBaseException, ParseResults
 
 from .logger import TerminalErrorLogException
 from .conditions import Condition
@@ -210,7 +210,7 @@ class SplitMode:
 
     @staticmethod
     def from_parsed(result: ParseResults):
-        strictness = len(result.get('strictness_flag', ''))
+        strictness = len(result.get('strictness', ''))
         if result._name == 'split_row':
             return Row(strictness, int(result['size']), result['size'].startswith('0'))
         elif result._name == 'split_modulo':
@@ -220,8 +220,12 @@ class SplitMode:
         elif result._name == 'split_column':
             return Column(strictness, int(result['size']), result['size'].startswith('0'))
         elif result._name == 'split_interval':
-            start = result.get('start')
-            end = result.get('end') or (None if not result.get('colon') else '')
+            if 'interval' in result:
+                interval = result['interval']
+                start, end = interval.get('start', ''), interval.get('end', '')
+            else:
+                start = result['index']
+                end = None
             return Interval(strictness, start, end)
         else:
             raise Exception()
@@ -508,7 +512,7 @@ class AssignMode:
         elif result._name == 'assign_default':
             return DefaultAssign(multiply)
         elif result._name == 'assign_switch':
-            strictness = len(result.get('strictness_flag', ''))
+            strictness = len(result.get('strictness', ''))
             # TODO: Handle/repackage/distinguish Condition parse errors?
             conditions = [Condition.from_parsed(cond) for cond in result['conditions']]
             return Switch(multiply, strictness, conditions)
@@ -707,8 +711,8 @@ class Switch(AssignMode):
         for cond_str in conditions_str.split('|'):
             try:
                 conditions.append(Condition.from_string(cond_str.strip()))
-            except ParseException as e:
-                raise GroupModeError(f'ParseException while parsing condition `{cond_str}`.')
+            except ParseBaseException as e:
+                raise GroupModeError(f'ParseBaseException while parsing condition `{cond_str}`.')
             except TerminalErrorLogException as e:
                 # TODO: Carry errors along here?
                 errors = e.errors
@@ -829,7 +833,7 @@ class IfMode:
     @staticmethod
     def from_parsed(result: ParseResults):
         condition = Condition.from_parsed(result[0])
-        strictness = len(result.get('strictness_flag'))
+        strictness = len(result.get('strictness'))
         return IfMode(condition, strictness)
 
     @staticmethod
