@@ -17,19 +17,20 @@ class Condition:
     ''' Base Condition class, never instantiated itself, but from_parsed and from_string constructors instantiate appropriately typed Conditions. '''
 
     @classmethod
-    def from_parsed(cls, parse_result):
-        if parse_result._name == 'conjunction':
-            return Conjunction([cls.from_parsed(c) for c in parse_result])
-        if parse_result._name == 'disjunction':
-            return Disjunction([cls.from_parsed(c) for c in parse_result])
-        if parse_result._name == 'negation':
-            return Negation.from_parsed(parse_result)
-        if parse_result._name == 'comparison':
-            return Comparison.from_parsed(parse_result)
-        if parse_result._name == 'predicate':
-            return Predicate.from_parsed(parse_result)
-        else:
-            raise Exception()
+    def from_parsed(cls, parse_result: ParseResults):
+        match parse_result._name:
+            case 'conjunction':
+                return Conjunction([cls.from_parsed(c) for c in parse_result])
+            case 'disjunction':
+                return Disjunction([cls.from_parsed(c) for c in parse_result])
+            case 'negation':
+                return Negation.from_parsed(parse_result)
+            case 'comparison':
+                return Comparison.from_parsed(parse_result)
+            case 'predicate':
+                return Predicate.from_parsed(parse_result)
+            case bad_name:
+                raise Exception()
 
     @classmethod
     def from_string(cls, string):
@@ -107,7 +108,7 @@ class Comparison(RootCondition):
             errors.extend(lhs_errors, 'left-hand side')
             errors.extend(rhs_errors, 'right-hand side')
             raise TerminalErrorLogException(errors)
-        
+
         if self.op is Operation.STR_EQUALS:
             return (lhs == rhs)
         if self.op is Operation.STR_NEQUALS:
@@ -182,7 +183,7 @@ class Predicate(RootCondition):
         if errors.terminal:
             errors = ErrorLog().extend(errors)
             raise TerminalErrorLogException(errors)
-        
+
         if self.category is Predicate.Category.WHITE:
             return neg ^ (subject.isspace() or not subject)
         elif self.category is Predicate.Category.EMPTY:
@@ -203,7 +204,7 @@ class Predicate(RootCondition):
 
 
 # ======================================== Joined Conditions =======================================
-    
+
 class JoinedCondition:
     children: list[Condition]
 
@@ -239,7 +240,7 @@ class Negation(Condition):
         self.child = child
 
     @classmethod
-    def from_parsed(cls, result: ParseResults) -> 'Negation':        
+    def from_parsed(cls, result: ParseResults) -> 'Negation':
         times = len(result) - 1
         negation = Condition.from_parsed(result[-1])
         for _ in range(times):

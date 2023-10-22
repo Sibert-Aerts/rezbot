@@ -260,7 +260,7 @@ class TemplatedString:
             if self.is_source: self.source = self.pieces[0]
 
     @staticmethod
-    def from_parsed(parsed: ParseResults=[], start_index=0):
+    def from_parsed(result: ParseResults=[], start_index=0):
         pre_errors = ErrorLog()
         pieces = []
 
@@ -270,33 +270,36 @@ class TemplatedString:
             else:
                 pieces[-1] += s
 
-        for piece in parsed:
-            if 'string_bit' in piece:
-                append_string(piece['string_bit'])
+        # Match and parse the different kinds of pieces that make up the TemplatedString
+        for result_piece in result:
+            if isinstance(result_piece, str):
+                append_string(result_piece)
+                continue
 
-            elif 'te_special' in piece:
-                try:
-                    item = ParsedSpecialSymbol.from_parsed(piece['te_special'])
-                    append_string(item)
-                except ValueError as v:
-                    pre_errors.log(str(v), terminal=True)
+            match result_piece._name:
+                case 'te_special':
+                    try:
+                        item = ParsedSpecialSymbol.from_parsed(result_piece)
+                        append_string(item)
+                    except ValueError as v:
+                        pre_errors.log(str(v), terminal=True)
 
-            elif 'item' in piece:
-                item = ParsedItem.from_parsed(piece['item'])
-                pieces.append(item)
+                case 'item':
+                    item = ParsedItem.from_parsed(result_piece)
+                    pieces.append(item)
 
-            elif 'conditional' in piece:
-                conditional = ParsedConditional.from_parsed(piece['conditional'])
-                pieces.append(conditional)
-                # TODO: Pre-errors
+                case 'conditional':
+                    conditional = ParsedConditional.from_parsed(result_piece)
+                    pieces.append(conditional)
+                    # TODO: Pre-errors
 
-            elif 'source' in piece:
-                source = ParsedSource.from_parsed(piece['source'])
-                pieces.append(source)
-                pre_errors.steal(source.pre_errors, source.name)
+                case 'source':
+                    source = ParsedSource.from_parsed(result_piece)
+                    pieces.append(source)
+                    pre_errors.steal(source.pre_errors, source.name)
 
-            else:
-                raise Exception()
+                case _:
+                    raise Exception()
 
         string = TemplatedString(pieces, start_index)
         string.pre_errors.extend(pre_errors)
@@ -307,7 +310,7 @@ class TemplatedString:
 
     @staticmethod
     def from_string(string: str):
-        parsed = grammar.absolute_templated_string.parse_string(string, parseAll=True)
+        parsed = grammar.absolute_templated_string.parse_string(string, parse_all=True)
         return TemplatedString.from_parsed(parsed)
 
     def assign_implicit_item_indices(self, start_index):

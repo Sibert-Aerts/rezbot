@@ -211,24 +211,25 @@ class SplitMode:
     @staticmethod
     def from_parsed(result: ParseResults):
         strictness = len(result.get('strictness', ''))
-        if result._name == 'split_row':
-            return Row(strictness, int(result['size']), result['size'].startswith('0'))
-        elif result._name == 'split_modulo':
-            return Modulo(strictness, int(result['modulo']), result['modulo'].startswith('0'))
-        elif result._name == 'split_divide':
-            return Divide(strictness, int(result['count']), result['count'].startswith('0'))
-        elif result._name == 'split_column':
-            return Column(strictness, int(result['size']), result['size'].startswith('0'))
-        elif result._name == 'split_interval':
-            if 'interval' in result:
-                interval = result['interval']
-                start, end = interval.get('start', ''), interval.get('end', '')
-            else:
-                start = result['index']
-                end = None
-            return Interval(strictness, start, end)
-        else:
-            raise Exception()
+        match result._name:
+            case 'split_row':
+                return Row(strictness, int(result['size']), result['size'].startswith('0'))
+            case 'split_modulo':
+                return Modulo(strictness, int(result['modulo']), result['modulo'].startswith('0'))
+            case 'split_divide':
+                return Divide(strictness, int(result['count']), result['count'].startswith('0'))
+            case 'split_column':
+                return Column(strictness, int(result['size']), result['size'].startswith('0'))
+            case 'split_interval':
+                if 'interval' in result:
+                    interval = result['interval']
+                    start, end = interval.get('start', ''), interval.get('end', '')
+                else:
+                    start = result['index']
+                    end = None
+                return Interval(strictness, start, end)
+            case bad_name:
+                raise Exception()
 
     @staticmethod
     def from_string(string: str):
@@ -507,17 +508,18 @@ class AssignMode:
     @staticmethod
     def from_parsed(result: ParseResults):
         multiply = bool(result.get('multiply_flag'))
-        if result._name == 'assign_random':
-            return Random(multiply)
-        elif result._name == 'assign_default':
-            return DefaultAssign(multiply)
-        elif result._name == 'assign_switch':
-            strictness = len(result.get('strictness', ''))
-            # TODO: Handle/repackage/distinguish Condition parse errors?
-            conditions = [Condition.from_parsed(cond) for cond in result['conditions']]
-            return Switch(multiply, strictness, conditions)
-        else:
-            raise Exception()
+        match result._name:
+            case 'assign_random':
+                return Random(multiply)
+            case 'assign_default':
+                return DefaultAssign(multiply)
+            case 'assign_switch':
+                strictness = len(result.get('strictness', ''))
+                # TODO: Handle/repackage/distinguish Condition parse errors?
+                conditions = [Condition.from_parsed(cond) for cond in result['conditions']]
+                return Switch(multiply, strictness, conditions)
+            case bad_name:
+                raise Exception()
 
     @staticmethod
     def from_string(string: str):

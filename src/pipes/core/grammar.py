@@ -6,29 +6,25 @@ import re
 from pyparsing import (
     Empty, alphas, alphanums, nums, Literal, Word, Char, ParserElement, Forward,
     Combine, OneOrMore, Group, Regex, ZeroOrMore, White, CaselessKeyword, Opt,
-    Keyword, ParseResults, Suppress, delimited_list,
+    Keyword, ParseResults, Suppress, FollowedBy, delimited_list,
 )
 
 ParserElement.enable_packrat()
 
-
-# TODO: Every instance of Group(templated_element | string_bit) is a pointless layer of Grouping,
-#   remove those AND fix it so the .from_parsed methods to match it
-
 # ============================================ Terminals ===========================================
 
+left_brace      = Suppress('{').leave_whitespace()
+right_brace     = Suppress('}')
+left_paren      = Suppress('(')
+right_paren     = Suppress(')')
+eq              = Suppress('=')
+escaped_symbol  = Suppress('~') + Char('{}~"\'/')
+question_mark   = Suppress('?')
+colon           = Suppress(':')
+backslash       = Suppress('\\')
 
-left_brace      = Literal('{').suppress().leave_whitespace()
-right_brace     = Literal('}').suppress()
-left_paren      = Literal('(').suppress()
-right_paren     = Literal(')').suppress()
-eq              = Literal('=').suppress()
-escaped_symbol  = Literal('~').suppress() + Char('{}~"\'/')
-question_mark   = Literal('?').suppress()
-colon           = Literal(':').suppress()
-backslash       = Literal('\\').suppress()
-
-optional_white  = Opt(White()).suppress()
+# Needed before elements where .leave_whitespace() has been used
+optional_white  = Suppress(Opt(White()))
 
 identifier      = Word(alphas + '_', alphanums + '_').set_name('identifier')
 pos_integer     = Word(nums).set_name('positive integer')
@@ -45,21 +41,21 @@ condition: ParserElement = Forward().set_name('Condition')
 
 # ======================== Templated Strings
 
-def make_quoted(q):
-    q = Literal(q).suppress()
+def make_quoted_ts(q):
+    q = Suppress(q)
     quoted_string_bit = Combine(OneOrMore( escaped_symbol | (~q + Regex('[^{}]', re.S)) ))('string_bit').leave_whitespace()
-    quoted_string = q - (OneOrMore(Group(templated_element | quoted_string_bit)) | Empty())('value') + q
+    quoted_string = q - (OneOrMore(templated_element | quoted_string_bit) | Empty())('value') + q
     return quoted_string.set_name('Quoted Templated String')
 
-quoted_templated_string = (make_quoted('"""') | make_quoted('"') | make_quoted("'") | make_quoted('/')).set_name('Quoted Templated String')
+quoted_templated_string = (make_quoted_ts('"""') | make_quoted_ts('"') | make_quoted_ts("'") | make_quoted_ts('/')).set_name('Quoted Templated String')
 'A templated string, wrapped in either triple quotes """, regular quotes ", single quotes \' or forward slashes /'
 
 string_bit_no_space = Combine(OneOrMore(escaped_symbol | Regex('[^{}\s]', re.S)))('string_bit').leave_whitespace()
-unquoted_spaceless_templated_string = OneOrMore( Group(templated_element | string_bit_no_space) )('value').set_name('Inline Templated String')
+unquoted_spaceless_templated_string = OneOrMore(templated_element | string_bit_no_space)('value').set_name('Inline Templated String')
 'A nonempty templated string, without wrapping quotes, without any spaces in the literal parts, (nb. containing sources and items may have spaces)'
 
 string_bit = Combine(OneOrMore(escaped_symbol | Regex('[^{}]', re.S)))('string_bit').leave_whitespace()
-absolute_templated_string = (OneOrMore(Group(templated_element | string_bit)) | Empty())('value').set_name('Templated String')
+absolute_templated_string = (OneOrMore(templated_element | string_bit) | Empty())('value').set_name('Templated String')
 'A templated string, parsed in a context where we are supposed to take the ENTIRE thing as the templated string, without enclosing quotes.'
 
 
@@ -70,7 +66,7 @@ explicit_arg = Group(identifier('param_name') + eq.leave_whitespace() - arg_valu
 'An explicity "param=<templated_string>" assignment'
 
 implicit_string_bit = Combine(ZeroOrMore(White()) + OneOrMore(escaped_symbol | Regex('[^{}\s]', re.S)) | OneOrMore(White()))('string_bit').leave_whitespace()
-implicit_arg = Group( OneOrMore( ~explicit_arg + Group(templated_element | implicit_string_bit) )('implicit_arg') ).set_name('Implicit Argument')
+implicit_arg = Group( OneOrMore( ~explicit_arg + (templated_element | implicit_string_bit) )('implicit_arg') ).set_name('Implicit Argument')
 'Literally anything that is not an explicit argument assignment, but immediately parsed as a stripped templated string.'
 
 argument_list = optional_white + ZeroOrMore(explicit_arg | implicit_arg).set_name('Argument List')
@@ -100,18 +96,18 @@ comp_op_num  = Literal('<=') | Literal('>=') | Literal('<') | Literal('>')
 comp_op_like = Combine(Opt(Keyword('NOT')) + (Keyword('LIKE')), adjacent=False)
 comp_op = (comp_op_eq | comp_op_num | comp_op_like).set_name('Comparison Operator')
 
-string_bit_cond_safe = Combine(OneOrMore(escaped_symbol | ~(comp_op_eq | comp_op_num) + Regex('[^{}()\s]', re.S)))('string_bit').leave_whitespace()
-unquoted_spaceless_compless_templated_string = OneOrMore( Group(templated_element | string_bit_cond_safe) )('value').set_name('Inline Templated String')
+string_bit_cond_safe = Combine(OneOrMore(escaped_symbol | ~(comp_op_eq | comp_op_num) + Regex('[^{}|()\s]', re.S)))('string_bit').leave_whitespace()
+unquoted_spaceless_cond_safe_templated_string = OneOrMore(templated_element | string_bit_cond_safe)('value').set_name('Inline Templated String')
 'A nonempty templated string, without wrapping quotes, without any spaces in the literal parts, (nb. containing sources and items may have spaces)'
 
-comparison_safe_templated_string = optional_white + Group((quoted_templated_string | unquoted_spaceless_compless_templated_string).set_name('Templated String')) + optional_white
-comparison = Group(comparison_safe_templated_string + comp_op - comparison_safe_templated_string)('comparison').set_name('Comparison')
+cond_safe_templated_string = optional_white + Group((quoted_templated_string | unquoted_spaceless_cond_safe_templated_string).set_name('Templated String')) + optional_white
+comparison = Group(cond_safe_templated_string + comp_op - cond_safe_templated_string)('comparison').set_name('Comparison')
 
 # ======== Root Conditions: Predicate
 
 pred_category = (Keyword('WHITE') | Keyword('EMPTY') | Keyword('TRUE') | Keyword('FALSE') | Keyword('BOOL') | Keyword('INT') | Keyword('FLOAT'))('pred_category').set_name('Predicate Category')
 pred_is_category = Combine(Keyword('IS') - Opt(Keyword('NOT'))('not') + pred_category, adjacent=False)
-predicate = Group(comparison_safe_templated_string + pred_is_category)('predicate').set_name('Predicate')
+predicate = Group(cond_safe_templated_string + pred_is_category)('predicate').set_name('Predicate')
 
 # ======== Composite Conditions
 
@@ -130,12 +126,12 @@ condition         <<= (Group(cond_conjunction + OneOrMore(kw_or - cond_conjuncti
 kw_if   = Keyword('if', caseless=True).suppress()
 kw_else = Keyword('else', caseless=True).suppress()
 
-conditional_body = comparison_safe_templated_string('case_if') + kw_if + condition('condition') + kw_else + comparison_safe_templated_string('case_else')
+conditional_body = cond_safe_templated_string('case_if') + kw_if + condition('condition') + kw_else + cond_safe_templated_string('case_else')
 conditional = Group( left_brace + question_mark - conditional_body + right_brace )('conditional').set_name('Templated Conditional')
 
 # ======================== Templated Element
 
-templated_element <<= te_special | conditional | item | source
+templated_element <<= FollowedBy(left_brace) - (te_special | conditional | item | source)
 
 
 # ======================== Group Mode
@@ -160,8 +156,10 @@ gm_split = ZeroOrMore(gm_single_split)('split')
 # ======== Group Mode: Mid Mode
 
 gm_mid_if       = Group( Keyword('IF').suppress() - left_paren + may_be_parenthesized(condition) + right_paren + gm_strictness )('mid_if').set_name('Midmode IF')
-gm_mid_sort_by  = Group( Keyword('SORT BY').suppress() - Group(delimited_list(Combine(Opt('+') + pos_integer)))('indices') )('mid_sort_by').set_name('Midmode SORT BY')
-gm_mid_group_by = Group( (Keyword('GROUP') | Keyword('COLLECT') | Keyword('EXTRACT'))('mode') - Keyword('BY').suppress() + Group(delimited_list(pos_integer))('indices') )('mid_group_by').set_name('Midmode GROUP BY')
+gm_mid_sort_by  = Group( Keyword('SORT BY').suppress() - may_be_parenthesized(Group(delimited_list(Combine(Opt('+') + pos_integer)))('indices')) )('mid_sort_by').set_name('Midmode SORT BY')
+
+gm_mid_group_by_mode = (Keyword('GROUP') | Keyword('COLLECT') | Keyword('EXTRACT'))('mode')
+gm_mid_group_by = Group( gm_mid_group_by_mode - Keyword('BY').suppress() + may_be_parenthesized(Group(delimited_list(pos_integer))('indices')) )('mid_group_by').set_name('Midmode GROUP BY')
 
 gm_mid = Opt(gm_mid_if) + Opt(gm_mid_sort_by) + Opt(gm_mid_group_by)
 
