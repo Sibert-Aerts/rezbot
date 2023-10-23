@@ -154,8 +154,11 @@ gm_split_divide = Group( Suppress('/') - pos_integer('count') + gm_strictness )(
 gm_split_modulo = Group( Suppress('%') - pos_integer('modulo') + gm_strictness )('split_modulo').set_name('Splitmode Modulo')
 gm_split_column = Group( Suppress('\\') - pos_integer('size') + gm_strictness )('split_column').set_name('Splitmode Column')
 gm_split_interval = Group( Suppress('#') - (interval('interval') | integer('index')) + gm_strictness )('split_interval').set_name('Splitmode Interval')
+gm_split_one = Group( Suppress('.') + gm_strictness )('split_one').set_name('Splitmode One')
+gm_split_head = Group( Suppress('^') + gm_strictness )('split_head').set_name('Splitmode Head')
+gm_split_tail = Group( Suppress('$') + gm_strictness )('split_tail').set_name('Splitmode Tail')
 
-gm_single_split = (gm_split_row | gm_split_divide | gm_split_modulo | gm_split_column | gm_split_interval).set_name('Splitmode')
+gm_single_split = (gm_split_one | gm_split_row | gm_split_divide | gm_split_modulo | gm_split_column | gm_split_interval | gm_split_head | gm_split_tail).set_name('Splitmode')
 gm_split = ZeroOrMore(gm_single_split)('split')
 
 # ======== Group Mode: Mid Mode

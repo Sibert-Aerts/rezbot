@@ -212,6 +212,8 @@ class SplitMode:
     def from_parsed(result: ParseResults):
         strictness = len(result.get('strictness', ''))
         match result._name:
+            case 'split_one':
+                return Row(strictness, 1)
             case 'split_row':
                 return Row(strictness, int(result['size']), result['size'].startswith('0'))
             case 'split_modulo':
@@ -228,6 +230,10 @@ class SplitMode:
                     start = result['index']
                     end = None
                 return Interval(strictness, start, end)
+            case 'split_head':
+                return Interval(strictness, '0', '0')
+            case 'split_tail':
+                return Interval(strictness, '-0', '-0')
             case bad_name:
                 raise Exception()
 
@@ -245,7 +251,7 @@ class SplitMode:
 
 
 class Row(SplitMode):
-    def __init__(self, strictness: int, size: int, padding: bool):
+    def __init__(self, strictness: int, size: int, padding: bool=False):
         super().__init__(strictness)
         if size < 1: raise GroupModeError('Row size must be at least 1.')
         self.size = size
@@ -1024,11 +1030,11 @@ class GroupMode:
         groups = [(items, False)]
 
         ## Apply the SplitModes
-        for group_mode in self.split_modes:
+        for split_mode in self.split_modes:
             new_group = []
             for items, ignore in groups:
-                if ignore: new_group.append( (items, True, None) )
-                else: new_group.extend( group_mode.apply(items) )
+                if ignore: new_group.append( (items, ignore) )
+                else: new_group.extend( split_mode.apply(items) )
             groups = new_group
 
         ## Apply the MidModes
@@ -1039,31 +1045,31 @@ class GroupMode:
         return await self.assign_mode.apply(groups, pipes, context, scope)
 
 
+# TODO: Move this comment to the top of some kind of "groupmodes.md"
+
+# pattern:
+# 0 or more instances of SplitModes:
+#   (N)  |  %N  |  \N  |  /N  |  #N  |  #N:M  | ^  |  $  |  .
+# each optionally followed by a Strictness flag: ! | !!
+
+# optionally followed by an IfMode:
+#   IF ( <Condition> )
+# optionally followed by a strictness flag: !
+
+# optionally followed by a SortBy:
+#   SORT BY (I, J, K, ...)
+
+# optionally followed by a GroupBy:
+#   (GROUP|COLLECT|EXTRACT) BY (I, J, K, ...)
+
+# optionally followed by a Multiply flag: *
+# optionally followed by an AssignMode:
+#   SWITCH ( <COND1> | <COND2> | <COND3> | ... )  |  ?
+# each optionally followed by a Strictness flag: ! | !!
 
 # ================================ LEGACY PARSING CODE ================================
 # The rest of this file is legacy parsing code, to be deleted as soon as the
 #   replacement PyParsing-parsing has been demonstrated to encompass all nuances.
-
-# pattern:
-# optionally starting with a Multiply Flag: *
-# then 0 or more instances of SplitModes:
-#   (N)  |  %N  |  \N  |  /N  |  #N  |  #N:M
-# each optionally followed by a Strictness flag: ! | !!
-
-# optionally followed by an IfMode:
-#   IF (( COND ))
-# optionally followed by a strictness flag: !
-
-# optionally followed by a SortBy:
-#   SORT BY I, J, K, ...
-
-# optionally followed by a GroupBy:
-#   (GROUP|COLLECT|EXTRACT) BY I, J, K, ...
-
-# optionally followed by a Multiply flag: *
-# optionally followed by an AssignMode:
-#   SWITCH(( COND1 | COND2 | COND3 | ... ))  |  ?
-# each optionally followed by a Strictness flag: ! | !!
 
 mul_pattern = re.compile(r'\s*(\*?)\s*')
 #                              ^^^
