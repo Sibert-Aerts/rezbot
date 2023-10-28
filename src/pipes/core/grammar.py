@@ -34,7 +34,7 @@ optional_white  = Suppress(Opt(White()))
 identifier      = Word(alphas + '_', alphanums + '_').set_name('identifier')
 pos_integer     = Word(nums).set_name('positive integer')
 integer         = Combine(Opt(Literal('-')) + Word(nums)).set_name('integer')
-interval        = Group(Opt(integer)('start') + colon + Opt(integer)('end')).set_name('interval')
+interval        = Group(Opt(integer)('start') + (colon | Suppress('..')) + Opt(integer)('end')).set_name('interval')
 
 # ============================================= Grammar ============================================
 
@@ -192,8 +192,8 @@ Note to self about Rezbot Script's grammar and the current model:
 
 The above grammar is currently used via three entry points:
     Given a string, interpret the entire thing as a TemplatedString
+    Given a string, interpret the leading part as a GroupMode
     Given a string, interpret the entire thing as an Arguments object
-    Given a string, interpret the entire thing as a Condition
 
 That does not however cover the entire grammar.
 There's places that can still be grammaticised, e.g. a grammar for GroupModes could be defined,
@@ -206,18 +206,16 @@ ANALYSIS OF THE CURRENT NON-PYPARSING GRAMMARS RESPONSIBLE FOR PARSING A SCRIPT:
     1. The "butcher grammar", which does not care about the finer aspects of the script, merely cares about chopping it into [origin, pipe_chunk, pipe_chunk, ...]
         This is implemented via extremely simple state machines in PipelineWithOrigin.split and Pipeline.split_into_segments.
         Currently, essentially, these very naively consider quotation marks and nested parentheses to determine "legit, top level >'s" to split on.
-    2. Consume each "pipe chunk"'s leading GroupMode (grammaticizable!)
+    2. Parse each "pipe chunk"'s leading GroupMode
     3. Then, for each "pipe chunk":
         1. Use FOUL TRICKERY to temporarily evacuate all triple-quoted and parenthesized substrings
         2. ChoiceTree expand
         3. Put triple-quoted and parenthesized substrings back
-        Effectively, this is like a variant ChoiceTree grammar that acknowledges "ChoiceTree-invariant substrings",
-    4. Then a simple manual parse job followed by a grammar parse turns each one into a (pipe_name, Arguments)
+        Effectively, this is like a variant ChoiceTree grammar that acknowledges "ChoiceTree-invariant substrings"(!)
+    4. Then a really simple .split() followed by a grammar parse turns each one into a (pipe_name, Arguments)
 
-Points 1, 2 and 3 can each individually be improved by making a real grammar out of what is currently a more manual ordeal.
-For step 2 (GroupModes) this obviously contributes to the larger project of pyparsing entire scripts.
-
-For step 1 and 3, these would be grammars acting independently of the main grammar, and would not simply slot into the current grammar.
+Points 1 and 3 can each individually be improved by making a real grammar out of what is currently a manual ordeal.
+Hpwever, these would be grammars acting independently of the main grammar, and would not simply slot into the current grammar.
 So to speak, they would not be scaffolding, but bandaids that we'd have to peel off later.
 Better than not doing anything, but not part of an ideal solution.
 
