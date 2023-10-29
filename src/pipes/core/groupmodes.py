@@ -817,8 +817,8 @@ class GroupMode:
     def from_parsed(result: ParseResults):
         ### Split modes
         split_modes = [SplitMode.from_parsed(split) for split in result.get('split')]
-        mid_modes = []
         ### Mid modes
+        mid_modes = []
         if 'mid_if' in result:
             mid_modes.append(IfMode.from_parsed(result['mid_if']))
         if 'mid_sort_by' in result:

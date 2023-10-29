@@ -47,13 +47,13 @@ Temporary Items
 .apdisk
 .vscode/settings.json
 .vscode/.ropeproject
-src/config.ini
 *.pyc
 src/.vscode/settings.json
-
 *.vtt
+
+# Configs
+src/config.ini
 src/permissions.ini
-src/test.py
 
 # Data files too big to need to put on github
 src/resource/tweets/derek.json

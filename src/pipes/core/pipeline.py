@@ -25,7 +25,7 @@ class ParsedPipe:
     MACRO_SOURCE    = object()
     UNKNOWN         = object()
 
-    def __init__(self, pipestr:str):
+    def __init__(self, pipestr: str):
         ''' Parse a string of the form `[name] [argstr]` '''
         name, *args = pipestr.strip().split(' ', 1)
         self.name = name.lower()
@@ -33,6 +33,9 @@ class ParsedPipe:
 
         self.errors = ErrorLog()
         self.arguments: Arguments | None = None
+
+        if not re.match(r'^[_a-z]\w*$', self.name):
+            self.errors.log(f'Invalid pipe name "{self.name}"', True)
 
         ## (Attempt to) determine what kind of pipe it is ahead of time
         if self.name in ['', 'nop', 'print']:
@@ -67,7 +70,6 @@ class ParsedPipe:
             self.errors.extend(errors, self.name)
             # This one will keep being posted repeatedly even if the name eventually is defined, so don't uncomment it
             # self.errors.warn(f'`{self.name}` is no known pipe, source, spout or macro at the time of parsing.')
-        return
 
 
 class Pipeline:
@@ -248,32 +250,32 @@ class Pipeline:
         segment, stolen_quotes = self.steal_triple_quotes(segment)
 
         ### Parse the simultaneous pipes into a usable form: A list[Union[Pipeline, ParsedPipe]]
-        parsedPipes: list[ParsedPipe | Pipeline] = []
+        parsed_pipes: list[ParsedPipe | Pipeline] = []
 
         # ChoiceTree expands the segment into the different parallel pipes
-        for pipe in ChoiceTree(segment):
+        for pipestr in ChoiceTree(segment):
             ## Put the stolen triple-quoted strings and parentheses back.
-            pipe = self.restore_triple_quotes(pipe, stolen_quotes)
-            pipe = self.restore_parentheses(pipe, stolen_parens)
-            pipe = pipe.strip()
+            pipestr = self.restore_triple_quotes(pipestr, stolen_quotes)
+            pipestr = self.restore_parentheses(pipestr, stolen_parens)
+            pipestr = pipestr.strip()
 
             ## Inline pipeline: (foo > bar > baz)
-            if pipe and pipe[0] == '(':
+            if pipestr and pipestr[0] == '(':
                 # TODO: This shouldn't happen via regex.
-                m = re.match(Pipeline.wrapping_parens_regex, pipe)
+                m = re.match(Pipeline.wrapping_parens_regex, pipestr)
                 pipeline = m[2] or m[4]
                 # Immediately attempt to parse the inline pipeline (recursion call!)
                 parsed = Pipeline(pipeline, m[3])
                 self.parser_errors.steal(parsed.parser_errors, context='parens')
-                parsedPipes.append(parsed)
+                parsed_pipes.append(parsed)
 
             ## Normal pipe: foo [bar=baz]*
             else:
-                parsed = ParsedPipe(pipe)
+                parsed = ParsedPipe(pipestr)
                 self.parser_errors.steal(parsed.errors)
-                parsedPipes.append(parsed)
+                parsed_pipes.append(parsed)
 
-        return parsedPipes
+        return parsed_pipes
 
     # ========================================= Application ========================================
 

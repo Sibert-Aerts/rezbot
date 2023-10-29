@@ -12,6 +12,15 @@
             "program": "bot.py",
             "console": "integratedTerminal",
             "justMyCode": true
-        }
+        },
+        {
+            "name": "Python: Run testing file",
+            "type": "python",
+            "request": "launch",
+            "cwd": "${workspaceFolder}/src",
+            "program": "test.py",
+            "console": "integratedTerminal",
+            "justMyCode": true
+        },
     ]
 }
