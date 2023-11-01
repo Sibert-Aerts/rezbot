@@ -1,15 +1,17 @@
 import random
 import re
+from decimal import InvalidOperation
 from functools import lru_cache
 
 from google.cloud import translate_v2 as translate
 import nltk
 import spacy
 spacy.LOADED_NLP = None
+import num2words
 
-from .pipes import pipe_from_func, one_to_one, one_to_many, set_category
+from .pipes import pipe_from_func, one_to_one, one_to_many, set_category, with_signature
 from pipes.core.signature import Par, Option, Multi
-from utils.util import parse_bool
+from utils.util import parse_bool, format_doc
 from resource.upload import uploads
 
 
@@ -85,6 +87,31 @@ def split_sentences_pipe(line):
     return nltk.sent_tokenize(line)
 
 
+NUM2WORDS_LANG = Option(*num2words.CONVERTER_CLASSES, name='Language', stringy=True)
+NUM2WORDS_TYPE = Option(*num2words.CONVERTES_TYPES, name='Type', stringy=True)
+
+@pipe_from_func(aliases=['num2word'], command=True)
+@with_signature(
+    lang = Par(NUM2WORDS_LANG, 'en', 'The language'),
+    type = Par(NUM2WORDS_TYPE, 'cardinal', '/'.join(NUM2WORDS_TYPE)),
+)
+@one_to_one
+@format_doc(langs=', '.join(NUM2WORDS_LANG))
+def num2words_pipe(item, lang, type):
+    '''
+    Turns numbers into words.
+
+    Languages to choose from: {langs}
+    '''
+    # Correct for these being normalized to lowercase (nl_be) but num2words wants (nl_BE)
+    if '_' in lang:
+        lang = lang[:3] + lang[3:].upper()
+    try:
+        return num2words.num2words(item, lang=lang, to=type)
+    except InvalidOperation:
+        raise ValueError(f'Cannot interpret value "{item}" as a decimal.')
+
+
 @pipe_from_func({
     'file'   : Par(str, None, 'The file name'),
     'uniform': Par(parse_bool, False, 'Whether to pick pieces uniformly or based on their frequency'),
@@ -122,7 +149,7 @@ POS_TAG = Option('ADJ', 'ADJ', 'ADP', 'PUNCT', 'ADV', 'AUX', 'SYM', 'INTJ', 'CON
 def pos_unfill_pipe(text, include, exclude):
     '''
     Inverse of `pos_fill`: replaces parts of the given text with %TAG% formatted POS tags.
-    
+
     List of POS tags: https://universaldependencies.org/docs/u/pos/
     See `pos_analyse` for a more complex alternative to this pipe.
     '''
@@ -141,7 +168,7 @@ def pos_analyse_pipe(text):
     Splits a piece of text into grammatically distinct pieces along with their POS tag.
     Each part of text turns into three output item: The original text, its POS tag, and its trailing whitespace.
     e.g. `pos_analyse > (3) format ("{}", {}, "{}")` nicely formats this pipe's output.
-    
+
     List of POS tags: https://universaldependencies.org/docs/u/pos/
     '''
     if spacy.LOADED_NLP is None: spacy.LOADED_NLP = spacy.load('en_core_web_sm')

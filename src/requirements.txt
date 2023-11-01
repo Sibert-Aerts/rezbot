@@ -19,3 +19,4 @@ openai
 CurrencyConverter
 mediawikiapi
 pint
+num2words

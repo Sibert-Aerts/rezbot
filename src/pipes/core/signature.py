@@ -92,7 +92,7 @@ class Signature(dict[str, Par]):
 def with_signature(arg=None, **kwargs: dict[str, Par]):
     ''' Creates a Signature from the given dict or kwargs and stores it on the given function. '''
     if arg and kwargs:
-        raise ValueError("with_signature should either specify one arg, or a set of kwargs, not both.")
+        raise ValueError('with_signature should either specify one arg, or a set of kwargs, not both.')
     def _with_signature(f: Callable):
         signature = Signature(arg or kwargs)
         if hasattr(f, '__func__'):
