@@ -1,6 +1,8 @@
 from discord import ui, ButtonStyle, Interaction, Message
 from discord.interactions import Interaction
 
+import permissions
+
 
 class ConfirmView(ui.View):
     """Generic Confirm/Cancel functionality."""
@@ -50,6 +52,12 @@ class RezbotView(ui.View):
             await self.message.edit(view=None)
 
     # ======== Default Behaviour
+
+    async def interaction_check(self, interaction: Interaction):
+        # Ignore muted users
+        if permissions.is_muted(interaction.user.id):
+            return False
+        return await super().interaction_check(interaction)
 
     async def on_timeout(self):
         if self.remove_on_timeout:

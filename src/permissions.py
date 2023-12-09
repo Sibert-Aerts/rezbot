@@ -3,13 +3,13 @@ from discord.ext import commands
 
 # Rank objects:
 owner = object()
-"RANK: People designated as the bot's owner, are allowed everything."
+'RANK: People designated as the bot\'s owner, are allowed everything.'
 trusted = object()
-"RANK: People designated as trusted, are allowed more things than regular users, but not everything."
+'RANK: People designated as trusted, are allowed more things than regular users, but not everything.'
 default = object()
-"RANK: Regular users, certain features are restricted from them."
+'RANK: Regular users, certain features are restricted from them.'
 muted = object()
-"RANK: Muted users, bot is generally supposed to ignore these."
+'RANK: Muted users, bot is generally supposed to ignore these.'
 
 hierarchy = [muted, default, trusted, owner]
 mapping = {
@@ -20,7 +20,7 @@ mapping = {
 }
 
 user_permissions = {}
-"Dict mapping user IDs to their rank."
+'Dict mapping user IDs to their rank.'
 
 # ============================= Read out user permissions from config =============================
 
@@ -34,19 +34,22 @@ for rank in config:
 
 # Get the user's permission level, or the default permission level if the user is not found.
 def get(user_id):
+    '''Get the user's permission level, or the default permission level if the user is not found.'''
     return user_permissions.get(user_id, default)
 
 
 # key function, checks if the user has at least the specified permission
 def has(user_id, permission):
+    '''Checks if the user has at least the specified permission'''
     return hierarchy.index(get(user_id)) >= hierarchy.index(permission)
 
 
 # key function, checks if the user has at most the specified permission.
 # The same as doing !has(id, permission + 1) except permissions are strings and not ints (or enums),
 # so you can't actually do that unless you know what the +1 permission is (which is adding magic numbers!!!).
-def has_at_most(id, permission):
-    return hierarchy.index(get(id)) <= hierarchy.index(permission)
+def has_at_most(user_id, permission):
+    '''Checks if the user has at most the specified permission'''
+    return hierarchy.index(get(user_id)) <= hierarchy.index(permission)
 
 
 def check(permission):
@@ -60,5 +63,6 @@ def check(permission):
     return commands.check(_check)
 
 
-def is_muted(id):
-    return has_at_most(id, muted)
+def is_muted(user_id):
+    '''Check if the user is muted'''
+    return has_at_most(user_id, muted)
