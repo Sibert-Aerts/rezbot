@@ -34,7 +34,7 @@ class ParsedPipe:
         self.errors = ErrorLog()
         self.arguments: Arguments | None = None
 
-        if not re.match(r'^[_a-z]\w*$', self.name):
+        if self.name and not re.match(r'^[_a-z]\w*$', self.name):
             self.errors.log(f'Invalid pipe name "{self.name}"', True)
 
         ## (Attempt to) determine what kind of pipe it is ahead of time
