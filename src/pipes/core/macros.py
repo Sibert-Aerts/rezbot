@@ -15,6 +15,8 @@ def DIR(filename=''):
 
 
 class MacroParam:
+    CURRENT_VERSION = 5
+
     def __init__(self, name: str, default: str=None, desc: str=None):
         self.name = name
         self.default = default
@@ -34,12 +36,12 @@ class MacroParam:
 
     def serialize(self):
         return {
-            '_version': 5,
+            '_version': MacroParam.CURRENT_VERSION,
             'name': self.name,
             'default': self.default,
             'desc': self.desc,
         }
-    
+
     @classmethod
     def deserialize(cls, values):
         version = values.pop('_version')
@@ -49,7 +51,8 @@ class MacroParam:
 
 
 class Macro:
-    simple_attrs = [
+    CURRENT_VERSION = 5
+    SIMPLE_ATTRS = [
         'kind', 'name', 'code', 'authorName', 'authorId', 'desc', 'visible', 'command'
     ]
 
@@ -90,9 +93,9 @@ class Macro:
 
         if author: embed.set_footer(text=author.display_name, icon_url=author.avatar)
         else: embed.set_footer(text=self.authorName)
-    
+
         return embed
-    
+
     def apply_signature(self, args: dict[str, str]) -> dict[str, str]:
         '''Use the Macro's signature to insert default arguments and check for missing arguments.'''
         # Important: Do not modify args
@@ -119,8 +122,8 @@ class Macro:
 
     def serialize(self):
         return {
-            '_version': 5,
-            'attrs': {a: getattr(self, a) for a in Macro.simple_attrs},
+            '_version': Macro.CURRENT_VERSION,
+            'attrs': {a: getattr(self, a) for a in Macro.SIMPLE_ATTRS},
             'signature': [v.serialize() for v in self.signature.values()],
         }
 
@@ -150,11 +153,21 @@ class Macros:
 
     def read_macros_from_file(self):
         try:
+            # Ensure the macros directory exists
             if not os.path.exists(DIR()): os.mkdir(DIR())
 
             # Deserialize Macros from JSON data
             with open(DIR(self.json_filename), 'r+') as file:
-                self.deserialize(json.load(file))
+                data = json.load(file)
+                upgrade_needed = (
+                    any(d['_version'] != Macro.CURRENT_VERSION for d in data)
+                    or any(p['_version'] != MacroParam.CURRENT_VERSION for d in data for p in d['signature'])
+                )
+                if upgrade_needed:
+                    new_filename = self.json_filename + '.v{}_backup'.format(Macro.CURRENT_VERSION-1)
+                    print(f'Deserializing Macros that require upgrading, backing up pre-upgraded data in {new_filename}')
+                    copyfile(self.DIR(self.json_filename), self.DIR(new_filename))
+                self.deserialize(data)
 
             print(f'{len(self.macros)} macros loaded from "{self.json_filename}"!')
 

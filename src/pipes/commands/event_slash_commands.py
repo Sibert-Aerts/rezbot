@@ -13,7 +13,7 @@ from mycommands import MyCommands
 from utils.util import normalize_name
 
 from pipes.views import EventView
-from .slash_commands_util import event_type_map, autocomplete_event, choice_to_scriptoid, autocomplete_send_tone
+from .slash_commands_util import event_type_map, autocomplete_event, choice_to_scriptoid, autocomplete_invoke_command
 
 class EventSlashCommands(MyCommands):
 
@@ -61,7 +61,7 @@ class EventSlashCommands(MyCommands):
     @app_commands.rename(event_type='type')
     async def event_define(self, interaction: Interaction,
         name: str,
-        event_type: Literal['OnMessage', 'OnReaction', 'OnYell'],
+        event_type: Literal['OnMessage', 'OnReaction', 'OnInvoke'],
         trigger: str,
         code: str,
     ):
@@ -72,7 +72,7 @@ class EventSlashCommands(MyCommands):
         name = normalize_name(name)
         if name in events:
             return await reply(f'An Event called `{name}` already exists, try the `/event edit` command.')
-            
+
         # TODO: Check event script code before saving
         event = EventType.from_trigger_str(name=name, author_id=interaction.user.id, channels=[interaction.channel.id], script=code, trigger=trigger)
         events[name] = event
@@ -90,7 +90,7 @@ class EventSlashCommands(MyCommands):
     @app_commands.autocomplete(event_choice=autocomplete_event())
     async def event_edit(self, interaction: Interaction,
         event_choice: str,
-        event_type: Literal['OnMessage', 'OnReaction', 'OnYell']=None,
+        event_type: Literal['OnMessage', 'OnReaction', 'OnInvoke']=None,
         trigger: str=None,
         code: str=None,
     ):
@@ -134,7 +134,7 @@ class EventSlashCommands(MyCommands):
 
         del events[event.name]
         await reply(f'Successfully deleted Event `{event.name}`.')
-        
+
     async def _event_set_enabled(self, interaction: Interaction, event_choice: str, enable: bool):
         reply = interaction.response.send_message
 
@@ -146,14 +146,14 @@ class EventSlashCommands(MyCommands):
         if enable:
             if interaction.channel.id in event.channels:
                 await reply(f'Event {event.name} is already enabled in {interaction.channel.mention}.')
-            else:                
+            else:
                 event.channels.append(interaction.channel.id)
                 events.write()
                 await reply(f'Event {event.name} has been enabled in {interaction.channel.mention}.')
         else:
             if interaction.channel.id not in event.channels:
                 await reply(f'Event {event.name} is already disabled in {interaction.channel.mention}.')
-            else:                
+            else:
                 event.channels.remove(interaction.channel.id)
                 events.write()
                 await reply(f'Event {event.name} has been disabled in {interaction.channel.mention}.')
@@ -179,17 +179,17 @@ class EventSlashCommands(MyCommands):
 
     @app_commands.command()
     @app_commands.describe(
-        tone='Determines which Event(s) will receive your message.',
-        message='The "message" argument received by the Event script.',
+        command='Determines which Event(s) to invoke.',
+        message='The "message" text received by the Event script.',
     )
-    @app_commands.autocomplete(tone=autocomplete_send_tone)
-    async def yell(self, interaction: Interaction, tone: str, message: str=''):
-        ''' Yell a message in a tone that an Event may react to. '''
+    @app_commands.autocomplete(command=autocomplete_invoke_command)
+    async def invoke(self, interaction: Interaction, command: str, message: str=''):
+        ''' Invoke an "On Invoke" event. '''
         if not self.bot.should_listen_to_user(interaction.user):
             return
 
-        for event in events.on_yell_events:
-            if not event.test(interaction.channel, tone):
+        for event in events.on_invoke_events:
+            if not event.test(interaction.channel, command):
                 continue
             # Fetch Event's author
             author = interaction.guild.get_member(event.author_id) or self.bot.get_user(event.author_id)

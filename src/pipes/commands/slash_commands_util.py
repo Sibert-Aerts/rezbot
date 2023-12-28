@@ -9,7 +9,7 @@ from pipes.implementations.pipes import pipes
 from pipes.implementations.sources import sources
 from pipes.implementations.spouts import spouts
 from pipes.core.macros import Macros, Macro, pipe_macros, source_macros
-from pipes.core.events import Event, Events, OnMessage, OnReaction, OnYell, events
+from pipes.core.events import Event, Events, OnMessage, OnReaction, OnInvoke, events
 from .macro_commands import check_pipe_macro, check_source_macro
 from utils.util import normalize_name
 
@@ -29,10 +29,10 @@ macro_check_map: dict[str, Callable] = {
     'Source': check_source_macro,
 }
 
-event_type_map: dict[str, Type[OnMessage|OnReaction|OnYell]] = {
+event_type_map: dict[str, Type[OnMessage|OnReaction|OnInvoke]] = {
     'OnMessage': OnMessage,
     'OnReaction': OnReaction,
-    'OnYell': OnYell,
+    'OnInvoke': OnInvoke,
 }
 
 # ===================================== Autocomplete utility ======================================
@@ -40,7 +40,7 @@ event_type_map: dict[str, Type[OnMessage|OnReaction|OnYell]] = {
 
 def scriptoid_to_choice(scriptoid: Pipeoid|Macro|Event, channel=None):
     # This could be class methods but it's only used in this one file
-    # and it is much nicer to have all the implementations laid out right here.    
+    # and it is much nicer to have all the implementations laid out right here.
     if isinstance(scriptoid, Pipeoid):
         # name  = 'pipe_name (PipeType)'
         # value = 'PipeType:pipe_name'
@@ -48,14 +48,14 @@ def scriptoid_to_choice(scriptoid: Pipeoid|Macro|Event, channel=None):
         name = f'{scriptoid.name} ({type_name})'
         value = f'{type_name}:{scriptoid.name}'
         return Choice(name=name, value=value)
-    
+
     if isinstance(scriptoid, Macro):
         # name  = 'macro_name (Kind Macro)'
         # value = 'Kind_macro:macro_name'
         name = f'{scriptoid.name} ({scriptoid.kind} Macro)'
         value = f'{scriptoid.kind}_macro:{scriptoid.name}'
         return Choice(name=name, value=value)
-    
+
     if isinstance(scriptoid, Event):
         # name  = 'event_name (EventType Event, xabled)'
         # value = 'Event:macro_name'
@@ -64,7 +64,7 @@ def scriptoid_to_choice(scriptoid: Pipeoid|Macro|Event, channel=None):
         name = f'{scriptoid.name} ({type_name} Event, {xabled})'
         value = 'Event:' + scriptoid.name
         return Choice(name=name, value=value)
-    
+
     raise NotImplementedError(repr(scriptoid), repr(type(scriptoid)))
 
 def choice_to_scriptoid(value: str, expect_type=None):
@@ -116,13 +116,13 @@ def autocomplete_event(*, enabled=None):
         return results
     return _autocomplete_event
 
-async def autocomplete_send_tone(interaction: Interaction, name: str):
+async def autocomplete_invoke_command(interaction: Interaction, name: str):
     name = name.lower()
 
-    tones = set()
-    for event in events.on_yell_events:
-        if event.is_enabled(interaction.channel) and name in event.tone:
-            tones.add(event.tone)
+    commands = set()
+    for event in events.on_invoke_events:
+        if event.is_enabled(interaction.channel) and name in event.command:
+            commands.add(event.command)
 
-    # Sort tones alphabetically and cut off at 25
-    return [Choice(name=tone, value=tone) for tone in sorted(tones)[:25]]
+    # Sort commands alphabetically and cut off at 25
+    return [Choice(name=command, value=command) for command in sorted(commands)[:25]]

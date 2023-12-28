@@ -2,7 +2,7 @@ from discord import Message, Client, TextChannel, ui, ButtonStyle, TextStyle, In
 from discord.interactions import Interaction
 
 from .generic_views import ConfirmView, RezbotView
-from pipes.core.events import Event, Events, OnMessage, OnReaction, OnYell
+from pipes.core.events import Event, Events, OnMessage, OnReaction, OnInvoke
 
 
 class EditEventModal(ui.Modal):
@@ -18,7 +18,7 @@ class EditEventModal(ui.Modal):
         self.desc_input.default = event.desc
         self.script_input.default = event.script
 
-        if isinstance(event, (OnMessage, OnReaction, OnYell)):
+        if isinstance(event, (OnMessage, OnReaction, OnInvoke)):
             trigger_label = f'Trigger ({type(event).__name__})'
             trigger_value = event.get_trigger_str()
             self.trigger_input = ui.TextInput(label=trigger_label, default=trigger_value, row=0, required=True)
@@ -27,7 +27,7 @@ class EditEventModal(ui.Modal):
         self.confirmed = False
 
     async def on_submit(self, interaction: Interaction):
-        if isinstance(self.event, (OnMessage, OnReaction, OnYell)):
+        if isinstance(self.event, (OnMessage, OnReaction, OnInvoke)):
             self.event.desc = self.desc_input.value
             self.event.update(self.script_input.value, self.trigger_input.value)
         # events.write() is called by the View

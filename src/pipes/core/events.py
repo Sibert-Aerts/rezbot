@@ -19,6 +19,8 @@ def DIR(filename=''):
 ###############################################################
 
 class Event:
+    CURRENT_VERSION = 6
+
     def __init__(self, *, name: str, desc: str='', author_id: int, channels: list[int]=None, script: str):
         self.name: str = name
         self.desc: str = desc
@@ -33,10 +35,10 @@ class Event:
     def update(self, script):
         self.script = script
 
-    def test(self, channel):
+    def test(self, channel: TextChannel):
         return self.is_enabled(channel)
 
-    def is_enabled(self, channel):
+    def is_enabled(self, channel: TextChannel):
         # TODO: distinguish threads/channels?
         return channel.id in self.channels
 
@@ -46,7 +48,7 @@ class Event:
         self.channels = [c for c in self.channels if not c in guild_channels]
 
     def embed(self, *, bot: Client=None, channel: TextChannel=None, **kwargs):
-        
+
         ## Description
         desc_lines = []
         if self.desc:
@@ -83,7 +85,7 @@ class Event:
 
     def serialize(self):
         return {
-            '_version': 5,
+            '_version': Event.CURRENT_VERSION,
             '_type': type(self).__name__,
             'name': self.name,
             'desc': self.desc,
@@ -91,14 +93,15 @@ class Event:
             'channels': self.channels,
             'script': self.script
         }
-    
+
     @classmethod
     def deserialize(cls, values):
         # Delegate to one of the sub-classes' deserialize method
         type_map = {
             'OnMessage': OnMessage,
             'OnReaction': OnReaction,
-            'OnYell': OnYell,
+            'OnYell': OnInvoke,
+            'OnInvoke': OnInvoke,
         }
         EventType = type_map[values.pop('_type')]
         return EventType.deserialize(values)
@@ -152,7 +155,7 @@ class OnMessage(Event):
     @classmethod
     def deserialize(cls, values):
         version = values.pop('_version')
-        if version in (4, 5):
+        if version in (4, 5, 6):
             return OnMessage(**values)
         raise NotImplementedError()
 
@@ -208,51 +211,51 @@ class OnReaction(Event):
         if version == 4:
             emotes = values.pop('emotes')
             return OnReaction.from_trigger_str(trigger=emotes, **values)
-        if version == 5:
+        if version in (5, 6):
             return OnReaction(**values)
         raise NotImplementedError()
 
 
-class OnYell(Event):
-    tone: str
+class OnInvoke(Event):
+    command: str
 
-    def __init__(self, *, tone: str, **kwargs):
+    def __init__(self, *, command: str, **kwargs):
         super().__init__(**kwargs)
-        self.set_trigger(tone)
+        self.set_trigger(command)
 
     @staticmethod
     def from_trigger_str(*, trigger: str, **kwargs):
-        return OnYell(tone=trigger, **kwargs)
+        return OnInvoke(command=trigger, **kwargs)
 
-    def update(self, script: str, tone: str):
+    def update(self, script: str, command: str):
         super().update(script)
-        self.set_trigger(tone)
+        self.set_trigger(command)
 
     def get_trigger_str(self):
-        return self.tone
+        return self.command
 
-    def set_trigger(self, tone: str):
-        self.tone = tone.lower()
+    def set_trigger(self, command: str):
+        self.command = command.lower()
 
-    def test(self, channel, tone):
+    def test(self, channel: TextChannel, command: str):
         '''Test whether or not a given reaction-addition should trigger this Event.'''
-        return super().test(channel) and tone.lower() == self.tone
+        return super().test(channel) and command.lower() == self.command
 
     # ================ Display ================
 
     def __str__(self):
-        return f'**{self.name}**: ON YELL `{self.tone}`'
+        return f'**{self.name}**: ON INVOKE `{self.command}`'
 
     def embed(self, **kwargs):
         embed = super().embed(**kwargs)
-        return embed.insert_field_at(0, name='On yell', value=self.tone, inline=True)
+        return embed.insert_field_at(0, name='On Invoke', value=self.command, inline=True)
 
     # ================ Serialization ================
 
     def serialize(self):
         res = super().serialize()
         res.update({
-            'tone': self.tone,
+            'command': self.command,
         })
         return res
 
@@ -260,7 +263,10 @@ class OnYell(Event):
     def deserialize(cls, values):
         version = values.pop('_version')
         if version in (4, 5):
-            return OnYell(**values)
+            values['command'] = values.pop('tone')
+            return OnInvoke(**values)
+        if version == 6:
+            return OnInvoke(**values)
         raise NotImplementedError()
 
 
@@ -273,8 +279,8 @@ class Events:
     events: dict[str, Event]
     on_message_events: list[OnMessage]
     on_reaction_events: list[OnReaction]
-    on_yell_events: list[OnYell]
-    on_yell_tones: set[str]
+    on_invoke_events: list[OnInvoke]
+    on_invoke_commands: set[str]
 
     def __init__(self, DIR, filename):
         self.events = {}
@@ -287,14 +293,20 @@ class Events:
 
     def read_events_from_file(self):
         try:
+            # Ensure the events directory exists
             if not os.path.exists(DIR()): os.mkdir(DIR())
 
             # Deserialize Events from JSON data
             file_used = self.json_filename
             with open(DIR(self.json_filename), 'r+') as file:
-                self.deserialize(json.load(file))
+                data = json.load(file)
+                upgrade_needed = any(d['_version'] != Event.CURRENT_VERSION for d in data)
+                if upgrade_needed:
+                    new_filename = self.json_filename + '.v{}_backup'.format(Event.CURRENT_VERSION-1)
+                    print(f'Deserializing Events that require upgrading, backing up pre-upgraded data in {new_filename}')
+                    copyfile(self.DIR(self.json_filename), self.DIR(new_filename))
+                self.deserialize(data)
 
-            # self.attempt_version_upgrade()
             print(f'{len(self.events)} events loaded from "{file_used}"!')
 
         except Exception as e:
@@ -305,16 +317,16 @@ class Events:
     def refresh_indexes(self):
         self.on_message_events = []
         self.on_reaction_events = []
-        self.on_yell_events = []
-        self.on_yell_tones = set()
+        self.on_invoke_events = []
+        self.on_invoke_commands = set()
         for event in self.events.values():
             if isinstance(event, OnMessage):
                 self.on_message_events.append(event)
             elif isinstance(event, OnReaction):
                 self.on_reaction_events.append(event)
-            elif isinstance(event, OnYell):
-                self.on_yell_events.append(event)
-                self.on_yell_tones.add(event.tone)
+            elif isinstance(event, OnInvoke):
+                self.on_invoke_events.append(event)
+                self.on_invoke_commands.add(event.command)
 
     def write(self):
         '''Write the list of events to a json file.'''
@@ -334,8 +346,8 @@ class Events:
 
     # ================ Parse event create/edit command ================
 
-    command_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w[\w.]+) ON ?(MESSAGE|REACT(?:ION)?|YELL) (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I | re.S )
-    #                                  ^^^^^^^^         ^^^^^^^^       ^^^^^^^^^^^^^^^^^^^^^^^^^^   ^^^          ^^
+    command_pattern = re.compile(r'\s*(NEW|EDIT) EVENT (\w[\w.]+) ON ?(MESSAGE|REACT(?:ION)?|INVOKE) (.*?)\s*::\s*(.*)'.replace(' ', '\s+'), re.I | re.S )
+    #                                  ^^^^^^^^         ^^^^^^^^       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^   ^^^          ^^
 
     async def parse_command(self, bot, string, message: Message):
         m = re.match(self.command_pattern, string)
@@ -345,7 +357,7 @@ class Events:
 
         mode, name, what, trigger, script = m.groups()
         mode = mode.upper()
-        EventType: type[OnMessage|OnReaction|OnYell] = {'M': OnMessage, 'R': OnReaction, 'Y': OnYell}[what[0].upper()]
+        EventType: type[OnMessage|OnReaction|OnInvoke] = {'M': OnMessage, 'R': OnReaction, 'I': OnInvoke}[what[0].upper()]
         name = normalize_name(name)
 
         ## Check for naming conflicts
