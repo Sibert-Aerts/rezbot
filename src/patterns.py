@@ -98,7 +98,7 @@ class Patterns:
 
         ('love',        10),
         ('shake',       10),
-        
+
         ('kiss',        10),
         ('teleport',    10),
     ])
@@ -114,7 +114,7 @@ class Patterns:
 
         if not fight.target:
             ## No target, no fight
-            return                    
+            return
         elif not fight.attacker:
             ## No attacker: interpret it as the target is threatening themselves
             await message.channel.send('`don\'t do it.`' if chance(0.5) else '`do it.`')
@@ -126,7 +126,7 @@ class Patterns:
             await message.channel.send(''.join(args))
         async def postRandom(*args):
             await message.channel.send(random.choice(args))
-            
+
         if fight.weapon in EmojiFight.dualWeapons:
             ## Start the battle by having one side draw a random weapon
             fight.weapon = choose(EmojiFight.leftWeapons) if chance(0.5) else choose(EmojiFight.rightWeapons)
@@ -152,16 +152,16 @@ class Patterns:
                         continue
                     else: # or a 1/3 chance the attacker gives up
                         await postRandom(
-                            '`h-he\'s not even scratched !!`', 
-                            '`t-this thing ain\'t human!`', 
+                            '`h-he\'s not even scratched !!`',
+                            '`t-this thing ain\'t human!`',
                             '`i-it\'s invincible !`'
                         )
                         break
-                       
+
                 elif r < 0.7: # 40% chance they're dead and their corpse is shown
                     fight.killTarget()
                     await post(fight.status_quo())
-                    
+
                 # 30% chance they're dead and their corpse isn't shown
                 break
 
@@ -184,7 +184,7 @@ class Patterns:
                 await post('`*', choose(acts), ' ', choose(knives), '*`')
 
                 await post(fight.attacking())
-                
+
                 quips = [
                     '`it was knife knowing you.`',
                     '`now THIS is a knife.`',
@@ -202,19 +202,19 @@ class Patterns:
                 fight.weapon = choose('🔨⛏🪓🪚')
                 await post(fight.status_quo())
                 await post(fight.attacking())
-                
+
                 quips = [
                     '`don\'t underestimate a craftsman.`',
                 ]
-                if fight.weapon == '🔨': 
+                if fight.weapon == '🔨':
                     quips += ['`hammer time!`', '`get hammered.`']
-                elif fight.weapon == '⛏': 
+                elif fight.weapon == '⛏':
                     quips += ['`get minecrafted.`', 'get fortnited.', '(fortnite default dance)']
                 elif fight.weapon == '🪓':
                     quips += ['get lumberjacked.', 'can I "axe" you a question?', 'hey Paul!']
                 elif fight.weapon == '🪚':
                     quips += ['I bet you didn\'t saw that one coming.']
-                
+
                 await post(choose(quips))
                 break
 
@@ -352,7 +352,7 @@ class Patterns:
          'function': do_reply('`hello.`')},
         {'pattern': ('\\bthanks?( (yo)?u)?', re.I),
          'function': do_react('<:rezbot:1128733363860144229>', '🙂')},
-        {'pattern': ('\\b(goo?d|nice|beautiful|amazing)( ?(j[oa]b|work))?', re.I), 
+        {'pattern': ('\\b(goo?d|nice|beautiful|amazing)( ?(j[oa]b|work))?', re.I),
          'function': do_react('<:rezbot:1128733363860144229>', '🙂')},
         {'pattern': ('\\bi l[ou]ve? ((yo)?u|th(e|is))', re.I),
          'function': do_react('<:rezbot:1128733363860144229>', '🙂')},
