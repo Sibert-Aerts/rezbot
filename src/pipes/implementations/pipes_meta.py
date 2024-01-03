@@ -1,7 +1,7 @@
 from .pipes import pipe_from_func, many_to_one, set_category
 from pipes.core.signature import Par
 from pipes.core.logger import ErrorLog
-from pipes.core. context import Context
+from pipes.core.context import Context
 from pipes.core.templated_string import TemplatedString
 from utils.util import parse_bool
 
@@ -20,7 +20,7 @@ def format2_pipe(input, f):
     Formats inputs according to a template which may itself be constructed via template.
 
     (Should be read as "format²")
-    
+
     In truth, the regular `format` pipe does nothing but discard all its inputs, only returning its `f` argument instead.
     Rezbot scripting already automatically "formats" the `f` argument, and so it behaves exactly as you want!
 
@@ -39,7 +39,7 @@ async def evaluate_sources_pipe(items, force_single: bool):
     '''
     Evaluates Sources in the literal strings it receives.
 
-    Evaluation of these Sources is constrained for safety reasons. 
+    Evaluation of these Sources is constrained for safety reasons.
     '''
     errors = ErrorLog()
     # NOTE: This carries over NONE of the existing context
@@ -50,7 +50,7 @@ async def evaluate_sources_pipe(items, force_single: bool):
             activator=None,
         ),
         author=None,
-        message=None,        
+        message=None,
     )
     output = []
     try:
