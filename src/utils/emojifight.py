@@ -1,16 +1,16 @@
 import random
 import re
 
-'''
-Helper class for processing/drawing emoji fights.
-'''
 
 class EmojiFight:
-    leftWeapons = ['🔨', '⛏️', '🪓', '🪚', '🗡️', '🪡', '🪠', '🪒', '📌', '🔫', '🤛', '🏹']
-    rightWeapons = ['🔪', '🤜', '💉']
-    dualWeapons = ['⚔️', '⚒️', '🛠️']
+    '''
+    Helper class for storing the state of an "emoji fight" (see: patterns.py).
+    '''
+    weapons_left = ['🔨', '⛏️', '🪓', '🪚', '🗡️', '🪡', '🪠', '🪒', '📌', '🔫', '🤛', '🏹']
+    weapons_right = ['🔪', '🤜', '💉']
+    weapons_dual = ['⚔️', '⚒️', '🛠️']
 
-    weaponRegex = re.compile('(' + '|'.join(leftWeapons + rightWeapons + dualWeapons) + ')')
+    weapons_regex = re.compile('(' + '|'.join(weapons_left + weapons_right + weapons_dual) + ')')
 
     corpses = [':skull_crossbones:', ':skull:', ':bone:', ':ghost:', ':headstone:', ':urn:', ':coffin:']
 
@@ -20,35 +20,35 @@ class EmojiFight:
         self.right = right
 
     @property
-    def leftFacing(self) -> bool:
-        return (self.weapon in self.leftWeapons)
+    def facing_left(self) -> bool:
+        return (self.weapon in self.weapons_left)
 
     @property
     def target(self) -> str:
-        return self.left if self.leftFacing else self.right
+        return self.left if self.facing_left else self.right
     @target.setter
     def target(self, value: str) -> str:
-        if self.leftFacing: self.left = value
+        if self.facing_left: self.left = value
         else: self.right = value
 
     @property
     def attacker(self) -> str:
-        return self.right if self.leftFacing else self.left
+        return self.right if self.facing_left else self.left
     @attacker.setter
     def attacker(self, value: str) -> str:
-        if self.leftFacing: self.right = value
+        if self.facing_left: self.right = value
         else: self.left = value
 
-    def killTarget(self) -> None:
+    def kill_target(self) -> None:
         self.target = random.choice(self.corpses)
-
-    def no_weapon(self) -> str:
-        return self.left + '   ' + self.right
 
     def status_quo(self) -> str:
         return self.left + self.weapon + self.right
 
+    def no_weapon(self) -> str:
+        return self.left + '   ' + self.right
+
     def attacking(self) -> str:
-        if self.leftFacing:
+        if self.facing_left:
             return ':boom:' + self.weapon + self.right
         return self.left + self.weapon + ':boom:'

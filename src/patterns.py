@@ -103,7 +103,7 @@ class Patterns:
         ('teleport',    10),
     ])
 
-    fightRegex = re.compile( r'(\S*)\s*' + EmojiFight.weaponRegex.pattern + r'\s*(\S*)' )
+    fightRegex = re.compile( r'(\S*)\s*' + EmojiFight.weapons_regex.pattern + r'\s*(\S*)' )
 
     async def attack(self, message):
         '''This function is called when the bot recognises an "emoji fight" in a message.'''
@@ -127,9 +127,9 @@ class Patterns:
         async def postRandom(*args):
             await message.channel.send(random.choice(args))
 
-        if fight.weapon in EmojiFight.dualWeapons:
+        if fight.weapon in EmojiFight.weapons_dual:
             ## Start the battle by having one side draw a random weapon
-            fight.weapon = choose(EmojiFight.leftWeapons) if chance(0.5) else choose(EmojiFight.rightWeapons)
+            fight.weapon = choose(EmojiFight.weapons_left) if chance(0.5) else choose(EmojiFight.weapons_right)
             await post(fight.status_quo())
             if chance(0.5):
                 await postRandom('`en guarde!`', '`have at you!`', '`on your guard!`')
@@ -159,7 +159,7 @@ class Patterns:
                         break
 
                 elif r < 0.7: # 40% chance they're dead and their corpse is shown
-                    fight.killTarget()
+                    fight.kill_target()
                     await post(fight.status_quo())
 
                 # 30% chance they're dead and their corpse isn't shown
@@ -225,7 +225,7 @@ class Patterns:
                 if chance(0.5):
                     await post(fight.left, (':point_left:' if fight.leftFacing else ':point_right:'), fight.right)
                     await post('`you are already dead.`')
-                fight.killTarget()
+                fight.kill_target()
                 await post(fight.no_weapon())
                 break
 
@@ -276,14 +276,14 @@ class Patterns:
                     if kawarimi: await post('`Kawarimi no jutsu!`')
                     else: await post('`*teleports behind you*`')
                     (fight.left, fight.right) = (fight.right, fight.left)
-                    fight.weapon = choose(EmojiFight.leftWeapons)
+                    fight.weapon = choose(EmojiFight.weapons_left)
                     await post(oldWeapon, fight.left, fight.weapon, fight.right)
                 else:
                     await post(fight.left, oldWeapon, (':wood:' if kawarimi else ':dash:'))
                     if kawarimi: await post('`Kawarimi no jutsu!`')
                     else: await post('`*teleports behind you*`')
                     (fight.left, fight.right) = (fight.right, fight.left)
-                    fight.weapon = choose(EmojiFight.rightWeapons)
+                    fight.weapon = choose(EmojiFight.weapons_right)
                     await post(fight.left, fight.weapon, fight.right, oldWeapon)
 
                 if chance(0.5):

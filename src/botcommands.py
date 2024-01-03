@@ -78,7 +78,7 @@ class BotCommands(MyCommands):
                 elif i >= lowerBound:
                     await log.delete()
                 i += 1
-                
+
 
     colourRoles = [
         403542818456600577, # red
@@ -135,7 +135,7 @@ class BotCommands(MyCommands):
         print('Publishing commands:', ' '.join(c.name for c in self.bot.tree.get_commands()))
         await self.bot.tree.sync()
         await ctx.message.add_reaction('✅')
-        
+
     @commands.command(hidden=True)
     @permissions.check(permissions.owner)
     async def unsync(self, ctx: commands.Context):
@@ -143,7 +143,7 @@ class BotCommands(MyCommands):
         self.bot.tree.clear_commands(guild=None)
         await self.bot.tree.sync()
         await ctx.message.add_reaction('✅')
-        
+
     @commands.command(hidden=True)
     @permissions.check(permissions.owner)
     async def sync_guild(self, ctx: commands.Context):
@@ -181,9 +181,9 @@ class BotCommands(MyCommands):
     @commands.command()
     async def weapons(self, ctx):
         '''Show all weapons the bot recognises to start emoji fights.'''
-        text = "`left-facing weapons:` " + " ".join(EmojiFight.leftWeapons)
-        text += "\n`right-facing weapons:` " + " ".join(EmojiFight.rightWeapons)
-        text += "\n`duel-starting weapons:` " + " ".join(EmojiFight.dualWeapons)
+        text = "`left-facing weapons:` " + " ".join(EmojiFight.weapons_left)
+        text += "\n`right-facing weapons:` " + " ".join(EmojiFight.weapons_right)
+        text += "\n`duel-starting weapons:` " + " ".join(EmojiFight.weapons_dual)
         await ctx.send(text)
 
 
@@ -283,8 +283,8 @@ class BotCommands(MyCommands):
     async def solve_wordle(self, ctx, theWord, file='wordle_guesses'):
         '''
         Make the bot try to solve a wordle, semi-naively.
-        
-        First argument is the word to solve for, wrap it in ||'s to make the bot treat the word as secret. 
+
+        First argument is the word to solve for, wrap it in ||'s to make the bot treat the word as secret.
         Second, optional argument is a file name (see `>files`) to use as its corpus of allowed guesses.
         '''
         spoilers = False
