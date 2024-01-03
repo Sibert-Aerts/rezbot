@@ -138,8 +138,8 @@ class ParsedSource:
         Evaluate this `{source}` expression, there are four cases:
         * We are a native Source: Straightforwardly call Source.generate
         * We are a native Pipe: Evaluate the Arguments' remainder, and feed it into the Pipe.apply
-        * We are a Source Macro: Fetch the Macro's script and perform a variant of PipelineWithOrigin.execute
-        * We are a Pipe Macro: (idk)
+        * We are a Source Macro: Perform a variant of PipelineWithOrigin.execute
+        * We are a Pipe Macro: Evaluate the Arguments' remainder, and feet it into Pipeline.apply
         '''
         errors = ErrorLog()
         errors.extend(self.pre_errors)
@@ -175,6 +175,7 @@ class ParsedSource:
         ### CASE: Macro Source
         elif self.name in source_macros:
             macro = source_macros[self.name]
+            ## STEP 1: Ensure arguments are passed to the Macro
             try:
                 # NEWFANGLED: Get the set of arguments and put them in Context
                 # TODO: Put the implicit 'amount' argument in args
@@ -189,15 +190,13 @@ class ParsedSource:
             #### Fast-tracked, no-side-effect version of PipelineWithOrigin.execute:
             origin, code = PipelineWithOrigin.split(code)
 
-            ## STEP 1: Get the values from the Macro's origin
+            ## STEP 2: Get the values from the Macro's origin
             values, origin_errors = await TemplatedString.evaluate_origin(origin, macro_ctx)
             errors.extend(origin_errors, self.name)
             if errors.terminal: return NOTHING_BUT_ERRORS
 
-            ## STEP 2: Parse the Pipeline (but check the cache first)
-            pipeline = source_macros.pipeline_from_code(code)
-
             ## STEP 3: Apply
+            pipeline = source_macros.pipeline_from_code(code)
             values, pl_errors, _ = await pipeline.apply(values, macro_ctx)
             errors.extend(pl_errors, self.name)
             return values, errors
@@ -205,6 +204,7 @@ class ParsedSource:
         ## CASE: Macro Pipe
         elif self.name in pipe_macros:
             macro = pipe_macros[self.name]
+            ## STEP 1: Ensure arguments are passed to the Macro
             try:
                 # NEWFANGLED: Get the set of arguments and put them in Context
                 args = macro.apply_signature(args)
@@ -215,15 +215,13 @@ class ParsedSource:
                 errors.log(e, True, context=self.name)
                 return NOTHING_BUT_ERRORS
 
-            ## STEP 1: Evaluate the remainder
+            ## STEP 2: Evaluate the remainder
             remainder_str, remainder_errors = await self.remainder.evaluate(context, scope)
             errors.extend(remainder_errors, self.name)
             if errors.terminal: return NOTHING_BUT_ERRORS
 
-            ## STEP 2: Parse the Pipeline (but check the cache first)
-            pipeline = pipe_macros.pipeline_from_code(code)
-
             ## STEP 3: Apply
+            pipeline = pipe_macros.pipeline_from_code(code)
             values, pl_errors, _ = await pipeline.apply([remainder_str], macro_ctx)
             errors.extend(pl_errors, self.name)
             return values, errors
