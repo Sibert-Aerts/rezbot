@@ -65,6 +65,8 @@ class ParsedSource:
     ''' Class representing a Source inside a TemplatedString. '''
     NATIVE_SOURCE = object()
     MACRO_SOURCE  = object()
+    NATIVE_PIPE   = object()
+    MACRO_PIPE    = object()
     UNKNOWN       = object()
 
     name: str
@@ -73,15 +75,21 @@ class ParsedSource:
     pre_errors: ErrorLog
     type: object
 
-    def __init__(self, name: str, args: 'Arguments', amount: str | int | None=None):
+    def __init__(self, name: str, args: 'Arguments', amount: str | int | None=None, remainder: 'TemplatedString'=None):
         self.name = name.lower()
         self.amount = amount
+        self.remainder = remainder
         self.args = args
         self.pre_errors = ErrorLog()
 
         if self.name in sources:
             self.type = ParsedSource.NATIVE_SOURCE
             self.source = sources[self.name]
+        elif self.name in pipes:
+            self.type = ParsedSource.NATIVE_PIPE
+            self.pipe = pipes[self.name]
+        elif self.name in pipe_macros:
+            self.type = ParsedSource.MACRO_PIPE
         elif self.name in source_macros:
             self.type = ParsedSource.MACRO_SOURCE
         else:
@@ -91,16 +99,24 @@ class ParsedSource:
     def from_parsed(parsed: ParseResults):
         name = parsed['source_name'].lower()
 
+        # Determine the "amount"
         if 'amount' in parsed:
             amt = parsed['amount']
             if amt == 'ALL': amount = 'all'
             else: amount = int(amt)
         else: amount = None
 
-        signature = sources[name].signature if name in sources else None
-        args, _, pre_errors = Arguments.from_parsed(parsed.get('args'), signature)
+        # Parse the Arguments, for which we need to know if it's a Source or a Pipe (if either)
+        signature = None
+        greedy = True
+        if name in sources:
+            signature = sources[name].signature
+        if name in pipes:
+            signature = pipes[name].signature
+            greedy = False
+        args, remainder, pre_errors = Arguments.from_parsed(parsed.get('args'), signature, greedy=greedy)
 
-        parsed_source = ParsedSource(name, args, amount)
+        parsed_source = ParsedSource(name, args, amount, remainder)
         parsed_source.pre_errors.extend(pre_errors)
         return parsed_source
 
@@ -118,18 +134,20 @@ class ParsedSource:
     # ================ Evaluation
 
     async def evaluate(self, context: Context, scope: ItemScope, args: dict=None) -> tuple[ list[str] | None, ErrorLog ]:
-        ''' Find some values for the damn Source that we are. '''
+        '''
+        Evaluate this `{source}` expression, there are four cases:
+        * We are a native Source: Straightforwardly call Source.generate
+        * We are a native Pipe: Evaluate the Arguments' remainder, and feed it into the Pipe.apply
+        * We are a Source Macro: Fetch the Macro's script and perform a variant of PipelineWithOrigin.execute
+        * We are a Pipe Macro: (idk)
+        '''
         errors = ErrorLog()
         errors.extend(self.pre_errors)
         NOTHING_BUT_ERRORS = (None, errors)
         if errors.terminal: return NOTHING_BUT_ERRORS
 
-        if not (self.name in sources or self.name in source_macros):
-            errors(f'Unknown source `{self.name}`.', True)
-            return NOTHING_BUT_ERRORS
-
+        ## Determine the arguments if needed
         if args is None:
-            ## Determine the arguments
             args, arg_errors = await self.args.determine(context, scope)
             errors.extend(arg_errors, self.name)
             if errors.terminal: return NOTHING_BUT_ERRORS
@@ -139,7 +157,19 @@ class ParsedSource:
             try:
                 return await self.source.generate(context, args, n=self.amount), errors
             except Exception as e:
-                errors.log(f'Failed to evaluate source `{self.name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
+                errors.log(f'Failed to evaluate Source `{self.name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
+                return NOTHING_BUT_ERRORS
+
+        ### CASE: Native Pipe
+        elif self.type == ParsedSource.NATIVE_PIPE:
+            # Evaluate the remainder first
+            remainder_str, remainder_errors = await self.remainder.evaluate(context, scope)
+            errors.extend(remainder_errors, self.name)
+            if errors.terminal: return NOTHING_BUT_ERRORS
+            try:
+                return await self.pipe.apply([remainder_str], **args), errors
+            except Exception as e:
+                errors.log(f'Failed to evaluate Pipe-as-Source `{self.name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
                 return NOTHING_BUT_ERRORS
 
         ### CASE: Macro Source
@@ -164,17 +194,43 @@ class ParsedSource:
             errors.extend(origin_errors, self.name)
             if errors.terminal: return NOTHING_BUT_ERRORS
 
-            ## STEP 2: parse the Pipeline (but check the cache first)
-            if code in source_macros.pipeline_cache:
-                pipeline = source_macros.pipeline_cache[code]
-            else:
-                pipeline = Pipeline(code)
-                source_macros.pipeline_cache[code] = pipeline
+            ## STEP 2: Parse the Pipeline (but check the cache first)
+            pipeline = source_macros.pipeline_from_code(code)
 
-            ## STEP 3: apply
+            ## STEP 3: Apply
             values, pl_errors, _ = await pipeline.apply(values, macro_ctx)
             errors.extend(pl_errors, self.name)
             return values, errors
+
+        ## CASE: Macro Pipe
+        elif self.name in pipe_macros:
+            macro = pipe_macros[self.name]
+            try:
+                # NEWFANGLED: Get the set of arguments and put them in Context
+                args = macro.apply_signature(args)
+                macro_ctx = context.into_macro(macro, args)
+                # DEPRECATED: Insert arguments into Macro string
+                code = macro.apply_args(args)
+            except ArgumentError as e:
+                errors.log(e, True, context=self.name)
+                return NOTHING_BUT_ERRORS
+
+            ## STEP 1: Evaluate the remainder
+            remainder_str, remainder_errors = await self.remainder.evaluate(context, scope)
+            errors.extend(remainder_errors, self.name)
+            if errors.terminal: return NOTHING_BUT_ERRORS
+
+            ## STEP 2: Parse the Pipeline (but check the cache first)
+            pipeline = pipe_macros.pipeline_from_code(code)
+
+            ## STEP 3: Apply
+            values, pl_errors, _ = await pipeline.apply([remainder_str], macro_ctx)
+            errors.extend(pl_errors, self.name)
+            return values, errors
+
+        else:
+            errors(f'Unknown source `{self.name}`.', True)
+            return NOTHING_BUT_ERRORS
 
 
 class ParsedConditional:
@@ -555,5 +611,6 @@ from .pipeline_with_origin import PipelineWithOrigin
 from .pipeline import Pipeline
 from .signature import ArgumentError, Arguments
 from pipes.implementations.sources import sources
-from .macros import source_macros
+from pipes.implementations.pipes import pipes
+from .macros import source_macros, pipe_macros
 from .conditions import Condition

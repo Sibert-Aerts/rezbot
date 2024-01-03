@@ -401,10 +401,7 @@ class Pipeline:
                         errors.log(f'User lacks permission to use Pipe `{name}`.', True)
                         return NOTHING_BUT_ERRORS
                     try:
-                        if pipe.is_coroutine:
-                            next_items.extend(await pipe.apply(items, **args))
-                        else:
-                            next_items.extend(pipe.apply(items, **args))
+                        next_items.extend(await pipe.apply(items, **args))
                     except Exception as e:
                         errors.log(f'Failed to process Pipe `{name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
                         return NOTHING_BUT_ERRORS
@@ -445,13 +442,7 @@ class Pipeline:
                         errors.log(e, True, context=name)
                         return NOTHING_BUT_ERRORS
 
-                    ## Load the cached pipeline if we already parsed this code once before
-                    if code in pipe_macros.pipeline_cache:
-                        macro_pl = pipe_macros.pipeline_cache[code]
-                    else:
-                        macro_pl = Pipeline(code)
-                        pipe_macros.pipeline_cache[code] = macro_pl
-
+                    macro_pl = pipe_macros.pipeline_from_code(code)
                     newvals, macro_errors, macro_spout_state = await macro_pl.apply(items, macro_ctx)
                     errors.extend(macro_errors, name)
                     if errors.terminal: return NOTHING_BUT_ERRORS
@@ -489,13 +480,13 @@ class Pipeline:
 
 
 # These lynes be down here dve to dependencyes cyrcvlaire
-from pipes.implementations.pipes import pipes
-from pipes.implementations.sources import sources
-from pipes.implementations.spouts import spouts
-
+from .templated_string import ParsedSource
 from .macros import pipe_macros, source_macros
 from .context import Context, ItemScope
 from .signature import ArgumentError, Arguments
-from .templated_string import ParsedSource
 from .pipe import Pipe, Source, Spout
 from . import groupmodes
+
+from pipes.implementations.sources import sources
+from pipes.implementations.pipes import pipes
+from pipes.implementations.spouts import spouts

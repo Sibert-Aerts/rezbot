@@ -42,7 +42,7 @@ async def setup(bot: commands.Bot):
             err.name = f'`{pipe.name}`'
             if err.terminal: return await ctx.send(embed=err.embed())
             args, err2 = await args.determine(execution_context)
-            err.extend(err2, 'arguments'); 
+            err.extend(err2, 'arguments')
             if text is not None:
                 text, err3 = await text.evaluate(execution_context)
                 err.extend(err3, 'input string')
@@ -54,7 +54,7 @@ async def setup(bot: commands.Bot):
 
             try:
                 # Apply the pipe to what remains of the command string
-                results = pipe.apply([text], **args)
+                results = await pipe.apply([text], **args)
                 await PipelineWithOrigin.send_print_values(ctx.channel, [results])
 
             except Exception as e:
@@ -78,7 +78,7 @@ async def setup(bot: commands.Bot):
 
     def source_to_func(source: Source):
         async def func(ctx: commands.Context):
-            text = util.strip_command(ctx)            
+            text = util.strip_command(ctx)
             execution_context = Context(
                 origin=Context.Origin(
                     name=source.name,
@@ -104,7 +104,7 @@ async def setup(bot: commands.Bot):
                 # Apply the source with the given arguments
                 results = await source.generate(execution_context, args)
                 await PipelineWithOrigin.send_print_values(ctx.channel, [results])
-    
+
             except Exception as e:
                 err.log(f'With args {args}:\n\t{type(e).__name__}: {e}', True)
                 await ctx.send(embed=err.embed())
@@ -144,7 +144,7 @@ async def setup(bot: commands.Bot):
             text, err3 = await text.evaluate(script_context)
             err.extend(err2, 'arguments'); err.extend(err3, 'input string')
             if err.terminal: return await ctx.send(embed=err.embed())
-            
+
             if not spout.may_use(ctx.author):
                 err.log(f'User lacks permission to use Spout `{spout.name}`.', True)
                 return await ctx.send(embed=err.embed())

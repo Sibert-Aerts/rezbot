@@ -6,6 +6,7 @@ from lru import LRU
 
 from discord import Embed, TextChannel, Client
 from .signature import ArgumentError
+from .pipeline import Pipeline
 import utils.texttools as texttools
 import permissions
 
@@ -192,6 +193,12 @@ class Macros:
         self.macros = {macro.name: macro for macro in macros}
 
     # ================ Interface ================
+
+    def pipeline_from_code(self, code: str) -> Pipeline:
+        '''Parses the code to a Pipeline, but cached.'''
+        if code not in self.pipeline_cache:
+            self.pipeline_cache[code] = Pipeline(code)
+        return self.pipeline_cache[code]
 
     def visible(self):
         return [i for i in self.macros if self.macros[i].visible]

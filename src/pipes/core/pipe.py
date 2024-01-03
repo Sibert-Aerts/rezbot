@@ -18,7 +18,7 @@ from .spout_state import SpoutState
 
 class Pipeoid:
     '''
-    Base class of Pipe, Source and Spout. 
+    Base class of Pipe, Source and Spout.
     '''
     name: str
     aliases: list[str]
@@ -29,7 +29,7 @@ class Pipeoid:
     small_doc: str = None
 
     def __init__(
-        self, 
+        self,
         *,
         signature: Signature,
         name: str,
@@ -90,7 +90,7 @@ class Pipeoid:
         if self.aliases:
             title += ' (' + ', '.join(self.aliases) + ')'
 
-        description = self.doc or ''    
+        description = self.doc or ''
         if (source_url := self.get_source_code_url()):
             description += f'\n[(View source)]({source_url})'
 
@@ -108,21 +108,24 @@ class Pipeoid:
 
 class Pipe(Pipeoid):
     '''
-    Represents a functional function that can be used in a script.    
+    Represents a functional function that can be used in a script.
     '''
     pipe_function: Callable[..., list[str]]
     is_coroutine: bool
 
     def __init__(self, signature: Signature, function: Callable[..., list[str]], **kwargs):
         super().__init__(signature=signature, **kwargs)
-    
+
         self.pipe_function = function
         self.is_coroutine = inspect.iscoroutinefunction(function)
 
-    def apply(self, items: list[str], **args) -> list[str]:
+    async def apply(self, items: list[str], **args) -> list[str]:
         ''' Apply the pipe to a list of items. '''
         # TODO: Call may_use here?
-        return self.pipe_function(items, **args)
+        if self.is_coroutine:
+            return await self.pipe_function(items, **args)
+        else:
+            return self.pipe_function(items, **args)
 
     def get_source_code_url(self):
         return self._get_github_url(self.pipe_function)
@@ -142,7 +145,7 @@ class Source(Pipeoid):
         self.depletable = depletable
 
         if plural:
-            self.plural = plural.lower() 
+            self.plural = plural.lower()
         elif plural is not False and 'n' in signature:
             self.plural = self.name + 's'
         if self.plural and self.plural != self.name:
@@ -178,10 +181,10 @@ class Spout(Pipeoid):
         '''Spout which straightforwardly receives one set of values and args in its callback.'''
         aggregated = object()
         '''Spout which acts based on the complete SpoutState in its callback.'''
-    
+
     spout_function: Callable[..., None]
     mode: Mode = Mode.simple
-    
+
     def __init__(self, signature: Signature, function: Callable[..., None], mode: Mode=None, **kwargs):
         super().__init__(signature=signature, **kwargs)
         self.spout_function = function
@@ -260,7 +263,7 @@ class PipeoidStore(Generic[P]):
     def __iter__(self):
         return self.by_primary_name.__iter__()
 
-    def values(self): 
+    def values(self):
         return self.by_primary_name.values()
 
 
