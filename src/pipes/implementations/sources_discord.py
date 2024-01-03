@@ -78,7 +78,7 @@ async def message_source(ctx: Context, what):
 async def previous_message_source(ctx: Context, n, i, what, by):
     '''
     A generalization of {that} and {message} that allows more messages and going further back.
-    
+
     The N messages in this channel, counting backwards from the Ith previous message.
     i.e. N messages, ordered newest to oldest, with the newest being the Ith previous message.
     '''
@@ -90,8 +90,8 @@ async def previous_message_source(ctx: Context, n, i, what, by):
 
 #### MEMBERS ########################################
 
-MEMBER_WHAT = Option('name', 'global_name', 'username', 'mention', 'id', 'avatar', 'activity', 'color', 'is_bot',
-    aliases={'name': ['display_name', 'nickname'], 'username': ['handle']})
+MEMBER_WHAT = Option('name', 'global_name', 'username', 'mention', 'id', 'avatar', 'global_avatar', 'activity', 'color', 'is_bot',
+    aliases={'name': ['display_name', 'nickname'], 'username': ['handle'], 'avatar': ['display_avatar']})
 @get_which
 def members_get_what(members: list[discord.Member], what):
     if what == MEMBER_WHAT.display_name:
@@ -106,6 +106,8 @@ def members_get_what(members: list[discord.Member], what):
         return (str(member.id) for member in members)
     elif what == MEMBER_WHAT.avatar:
         return (str(member.display_avatar) for member in members)
+    elif what == MEMBER_WHAT.global_avatar:
+        return (str(member._user.avatar or member._user.default_avatar) for member in members)
     elif what == MEMBER_WHAT.activity:
         return (str(member.activities[0]) if member.activities else '' for member in members)
     elif what == MEMBER_WHAT.color:
