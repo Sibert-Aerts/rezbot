@@ -28,17 +28,13 @@ def messages_get_what(messages, what):
         return (str(msg.author.id) for msg in messages)
 
 
-@source_from_func({
-    'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT))
-}, plural='those')
+@source_from_func(plural='those')
+@with_signature(
+    what = Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT))
+)
 async def that_source(ctx: Context, what):
-    '''The previous message in the channel, or the message being replied to.'''
-    message = ctx.message
-    if message.reference and message.reference.message_id:
-        msg_id = message.reference.message_id
-        msg = await ctx.channel.fetch_message(msg_id)
-    else:
-        msg = [ msg async for msg in message.channel.history(limit=2) ][1]
+    '''The message being replied to, or the previous message in the channel.'''
+    msg = await ctx.get_message('that')
     return messages_get_what([msg], what)
 
 
@@ -61,12 +57,15 @@ async def next_message_source(ctx: Context, n, what):
     return messages_get_what(messages, what)
 
 
-@source_from_func({
-    'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT))
-})
-async def message_source(ctx: Context, what):
+@source_from_func(aliases=['this'])
+@with_signature(
+    what = Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
+    id = Par(str, 'this', 'Which message to read from: That/this or message ID (in this channel).'),
+)
+async def message_source(ctx: Context, what, id):
     '''The message which triggered script execution. Useful in Event scripts.'''
-    return messages_get_what([ctx.message], what)
+    msg = await ctx.get_message(id)
+    return messages_get_what([msg], what)
 
 
 @source_from_func({
@@ -97,7 +96,7 @@ def members_get_what(members: list[discord.Member], what):
     if what == MEMBER_WHAT.display_name:
         return (member.display_name for member in members)
     elif what == MEMBER_WHAT.global_name:
-        return (member.global_name or '' for member in members)
+        return (member.global_name or member.name for member in members)
     elif what == MEMBER_WHAT.username:
         return (member.name for member in members)
     elif what == MEMBER_WHAT.mention:
@@ -122,7 +121,8 @@ def members_get_what(members: list[discord.Member], what):
 )
 async def me_source(ctx: Context, what):
     '''The name (or other attribute) of the member invoking the script or event.'''
-    return members_get_what([ctx.origin.activator], what)
+    me = await ctx.get_member('me')
+    return members_get_what([me], what)
 
 
 @source_from_func(aliases=['them', 'their'])
@@ -136,19 +136,7 @@ async def they_source(ctx: Context, what):
     In context of an OnReact Event, represents the author of the reacted-to message.
     Otherwise, in a context where the triggering message is replying to another message, represents the replied message's author.
     '''
-    them = None
-    if ctx.origin.event and isinstance(ctx.origin.event, OnReaction):
-        # Case 1: OnReact Event: Message author.
-        #   i.e. {them} is the same as {member id={message author_id}}
-        them = ctx.message.author
-    elif ctx.message.reference and ctx.message.reference.message_id:
-        # Case 2: Context message is replying to another message
-        #   i.e. {them} is the same as {member id={that author_id}}
-        msg_id = ctx.message.reference.message_id
-        msg = await ctx.channel.fetch_message(msg_id)
-        them = msg.author
-    else:
-        raise ContextError('No known "them" in the current context.')
+    them = await ctx.get_member('them')
     return members_get_what([them], what)
 
 
@@ -158,10 +146,7 @@ async def they_source(ctx: Context, what):
 )
 async def bot_source(ctx: Context, what):
     '''The name (or other attribute) of the bot's own Discord member.'''
-    bot = ctx.bot.user
-    if ctx.channel.guild:
-        # Member has more contextual info than just User
-        bot = ctx.channel.guild.get_member(bot.id)
+    bot = await ctx.get_member('bot')
     return members_get_what([bot], what)
 
 
@@ -169,7 +154,7 @@ async def bot_source(ctx: Context, what):
 @with_signature(
     n    = Par(int, 1, 'The maximum number of members to return.'),
     what = Par(Multi(MEMBER_WHAT), 'name', '/'.join(MEMBER_WHAT)),
-    id   = Par(int, 0, 'The id to match the member by. If given the number of members return will be at most 1.'),
+    id   = Par(str, None, 'The member\'s unique ID or handle.', required=False),
     name = Par(regex, None, 'A pattern that should match their one of their names.', required=False),
     # rank = Par(...)?
 )
@@ -178,9 +163,12 @@ async def member_source(ctx: Context, n, what, id, name):
     members = ctx.message.guild.members
 
     # Filter if necessary
-    if id:
-        members = [m for m in members if m.id == id]
+    if id is not None and name is not None:
+        raise ValueError('Can only find members by either id or name, not both.')
+    if id is not None:
+        members = [await ctx.get_member(id)]
     if name:
+        # Use the name as a regex to look through the user's display/global names and handle
         members = [
             m for m in members if
             m.nick and name.search(m.nick) or m.global_name and name.search(m.global_name) or name.search(m.name)

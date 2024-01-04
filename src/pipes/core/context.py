@@ -17,7 +17,7 @@ from discord import Message, Member, Interaction, TextChannel, Client
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    # NOTE: These are only here for type annotation purposes, no code can actually access these.
+    # These are only here for type annotations, they're not used in code
     from .events import Event
     from .macros import Macro
     from pipes.views.generic_views import RezbotButton
@@ -75,7 +75,7 @@ class ItemScope:
         # If "conflicting" instances occur (i.e. both {0} and {0!}) give precedence to the {0!}
         # Since the ! is an intentional indicator of what they want to happen; Do not remove the item
         to_be = [ (i, True) for i in self.to_be_removed.difference(self.to_be_ignored) ] + [ (i, False) for i in self.to_be_ignored ]
-        
+
         # Finnicky list logic for ignoring/removing the appropriate indices
         to_be.sort(key=lambda x: x[0], reverse=True)
         ignored = []
@@ -159,7 +159,7 @@ class Context:
 
     button: 'RezbotButton' = None
     'The specific button that triggered this interaction.'
-    
+
     # == Macro context values
 
     macro: 'Macro' = None
@@ -167,6 +167,8 @@ class Context:
 
     arguments: dict[str, str] = None
     'Arguments passed into the current Event or Macro, accessible through {arg param_name}'
+
+    # ====================================== Creating Context ======================================
 
     def __init__(
         self,
@@ -204,9 +206,95 @@ class Context:
         self.macro = macro or self.macro
         self.arguments = arguments if arguments is not None else self.arguments
 
-    def into_macro(self, macro: 'Macro', arguments: dict[str, str]):
+    def into_macro(self, macro: 'Macro', arguments: dict[str, str]) -> 'Context':
         '''Create a new child Context for execution inside the given Macro.'''
         author = None
         if macro.authorId and self.channel:
             author = self.channel.guild.get_member(macro.authorId)
         return Context(self, author=author, macro=macro, arguments=arguments)
+
+    # ======================================== Using Context =======================================
+
+    async def get_member(self, key: str):
+        '''
+        Gets a contextual Discord Member (or sometimes User) from the given 'key'.
+        '''
+        key = key.strip().lower()
+
+        ## CASE 1; ME: The person who activated the script
+        if key in ('me', 'my'):
+            return self.origin.activator
+
+        ## CASE 2; THEY: The person that's being replied to, or reacted on
+        if key in ('they', 'them', 'their'):
+            if self.origin.event and isinstance(self.origin.event, OnReaction):
+                # CASE 2.1: OnReact Event: Reacted message's author.
+                return self.message.author
+            elif self.message.reference and self.message.reference.message_id:
+                # CASE 2.2: Context message is replying to another message, that message's author.
+                msg_id = self.message.reference.message_id
+                msg = await self.channel.fetch_message(msg_id)
+                return msg.author
+            else:
+                raise ContextError('No known "them" in the current context.')
+
+        ## CASE 3; BOT: The bot itself
+        if key == 'bot':
+            bot = self.bot.user
+            if self.channel.guild:
+                # Member has more contextual info than just User
+                bot = self.channel.guild.get_member(bot.id)
+            return bot
+
+        ## FINAL CASE: Member's unique handle or ID
+        members = self.channel.guild.members
+
+        ## FINAL.1: Find by user handle (AKA 'name' in Discord terminology)
+        match = next((m for m in members if m.name == key), None)
+        if match:
+            return match
+
+        ## FINAL.2: Find by ID
+        try:
+            member_id = int(key)
+            match = next((m for m in members if m.id == member_id), None)
+        except:
+            pass
+        if match:
+            return match
+
+        # FINAL: Could not find anyone
+        raise ContextError(f'No Member found by handle or ID "{key}".')
+
+    async def get_message(self, key: str):
+        '''
+        Gets a contextual Discord Message from the given 'key'.
+        '''
+        key = key.strip().lower()
+
+        ## CASE 1; THIS: The current subject message
+        if key == 'this':
+            return self.message
+
+        ## CASE 2; THAT: Either the message being replied to, or the message preceding the current message
+        if key == 'that':
+            if self.message.reference and self.message.reference.message_id:
+                msg_id = self.message.reference.message_id
+                return await self.channel.fetch_message(msg_id)
+            else:
+                # Fetch the 2nd item from history (TODO: Race condition with new messages since this script was invoked)
+                return [ msg async for msg in self.message.channel.history(limit=2) ][1]
+
+        ## FINAL CASE; integer: Message ID in the current channel
+        int_key = None
+        try:
+            int_key = int(key)
+        except:
+            raise ValueError(f'Invalid message key "{key}".')
+
+        return await self.channel.fetch_message(int_key)
+
+
+# Imports down here due to circular dependencies
+from . import templated_string
+from .events import OnReaction
