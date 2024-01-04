@@ -2,7 +2,7 @@ from discord.errors import HTTPException
 from discord.ext.commands import Bot
 
 from .spouts import Par, Context, with_signature, spout_from_func, set_category
-from pipes.core.signature import parse_bool 
+from pipes.core.signature import parse_bool
 import utils.rand as rand
 
 
@@ -20,29 +20,46 @@ async def send_message_spout(ctx: Context, values):
     await ctx.channel.send('\n'.join(values))
 
 
-@spout_from_func({
-    'id':      Par(int, -1, 'The message ID to reply to, -1 for the script\'s subject message.'),
-    'mention': Par(parse_bool, False, 'Whether the reply should mention the person being replied to.'),
-})
+@spout_from_func
+@with_signature(
+    id =      Par(str, 'this', 'The message to reply to: this/that or a message ID.'),
+    mention = Par(parse_bool, False, 'Whether the reply should ping the person being replied to.'),
+)
 async def reply_spout(ctx: Context, values, *, id, mention):
     '''
     Sends input as a Discord message replying to another message.
     If multiple lines of input are given, they're joined with line breaks.
     '''
-    if id > 0:
-        message = await ctx.channel.fetch_message(id)
-    else:
-        message = ctx.message
+    message = await ctx.get_message(id)
     await message.reply('\n'.join(values), mention_author=mention)
 
 
-@spout_from_func({
-    'emote': Par(str, None, 'The emote that you\'d like to use to react. (Emoji or custom emote)'),
-})
-async def react_spout(ctx: Context, values, emote):
+@spout_from_func
+@with_signature(
+    id = Par(str, None, 'The member to send the message to. "me/them" or the member\'s handle or ID.')
+)
+async def direct_message_spout(ctx: Context, values, *, id):
+    '''
+    Sends input as a direct Discord message to someone.
+    If multiple lines of input are given, they're joined with line breaks.
+    '''
+    member = await ctx.get_member(id)
+    # To prevent abuse (?), log every DM
+    print(f'Executing direct_message spout: Sending DM to {member.name}, invoked by {ctx.origin.activator.name}')
+    print('\tMessage content:', values)
+    await member.send('\n'.join(values))
+
+
+@spout_from_func
+@with_signature(
+    emote = Par(str, None, 'The emote that you\'d like to use to react. (Emoji or custom emote)'),
+    id = Par(str, 'this', 'The message to react to: this/that or a message ID.'),
+)
+async def react_spout(ctx: Context, values, *, emote, id):
     ''' Reacts to the message using the specified emote. '''
+    message = await ctx.get_message(id)
     try:
-        await ctx.message.add_reaction(emote)
+        await message.add_reaction(emote)
     except HTTPException as e:
         if e.text == 'Unknown Emoji':
             raise ValueError('Unknown Emote: `{}`'.format(emote))
@@ -53,10 +70,10 @@ async def react_spout(ctx: Context, values, emote):
 @spout_from_func
 @with_signature(
     sticker = Par(str, None, 'Name or ID of the sticker.'),
-    here    = Par(parse_bool, True, 'Whether to restrict to this server\'s stickers.'),
+    here    = Par(parse_bool, True, 'Whether to restrict to this server\'s stickers. Does not work currently.'),
 )
-async def sticker_spout(ctx: Context, values: list[str], *, sticker: str, here :bool):
-    ''' Sends a message with a sticker attached. '''    
+async def sticker_spout(ctx: Context, values, *, sticker: str, here :bool):
+    ''' Sends a message with a sticker attached. '''
     if here:
         stickers = list(ctx.message.guild.stickers)
     else:
