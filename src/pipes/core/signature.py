@@ -256,10 +256,9 @@ class Arguments:
                 args[param] = Arg(implicit, signature[param])
                 args[param].predetermine(errors)
 
-
-        ## Step 4: Check if the Signature simply has one parameter, and it hasn't been assigned yet (⇒ it's non-required)
-        elif len(signature) == 1 and remainder and greedy:
-            [param] = list(signature.keys())
+        ## Step 4: Check if the Signature's first parameter hasn't been assigned yet and try to use the remainder for it
+        elif not errors.terminal and greedy and remainder and len(signature) >= 1:
+            param = next(p for p in signature)
             if param not in args:
                 # Try using the implicit parameter, but if it causes errors, pretend we didn't see anything!
                 maybe_errors = ErrorLog()
@@ -271,7 +270,6 @@ class Arguments:
                 if not maybe_errors.terminal:
                     args[param] = arg
                     remainder = None
-
 
         ## Last step: Fill out default values of unassigned non-required parameters
         for param in signature:

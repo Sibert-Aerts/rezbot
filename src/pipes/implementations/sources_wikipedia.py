@@ -143,9 +143,9 @@ def _wikipedia_get_what(page: WikipediaPage, what, n):
 
 
 @source_from_func({
+    'what': Par(Multi(WIKIPEDIA_WHAT), 'summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
     'language': Par(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
     'lines': Par(int, 1, 'The number of (what) you want ,for summary/content this means number of sentences.'),
-    'what': Par(Multi(WIKIPEDIA_WHAT), 'summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
     'n' : Par(int, 1, 'The number of random pages to fetch')
 })
 async def wikipedia_random_source(ctx, what, language, lines, n):
@@ -171,20 +171,20 @@ async def wikipedia_random_source(ctx, what, language, lines, n):
                     pass
             except:
                 pass
-    
+
     return [ s for page in pages for wh in what for s in _wikipedia_get_what(page, wh, lines) ]
 
 
 @source_from_func({
     'page': Par(str, None, 'The page you want information from. (For a random page, use wikipedia_random.)', lambda s: s),
-    'language': Par(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
     'what': Par(Multi(WIKIPEDIA_WHAT), 'summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
+    'language': Par(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
     'n'   : Par(int, 1, 'The number of (what) you want, for summary/content this means number of sentences.')
 }, depletable=True)
 async def wikipedia_source(ctx, page, what, language, n):
     '''
     Fetches various information from a Wikipedia page.
-    
+
     Donate to wikimedia: https://donate.wikimedia.org/
     '''
     page = get_wikipedia_page(page, language)

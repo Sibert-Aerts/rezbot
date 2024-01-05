@@ -39,8 +39,8 @@ async def that_source(ctx: Context, what):
 
 
 @source_from_func({
+    'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
     'n': Par(int, 1, 'The number of next messages to wait for.', lambda n: n < 1000),
-    'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT))
 })
 async def next_message_source(ctx: Context, n, what):
     '''The next message to be sent in the channel.'''
@@ -69,9 +69,9 @@ async def message_source(ctx: Context, what, id):
 
 
 @source_from_func({
+    'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
     'n': Par(int, 1, 'The number of messages'),
     'i': Par(int, 1, 'From which previous message to start counting. (0 for the message that triggers the script itself)', lambda i: i <= 10000),
-    'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
     'by': Par(int, 0, 'A user id, if given will filter the results down to only that users\' messages within the range of messages (if any).'),
 })
 async def previous_message_source(ctx: Context, n, i, what, by):
@@ -152,8 +152,8 @@ async def bot_source(ctx: Context, what):
 
 @source_from_func(depletable=True)
 @with_signature(
-    n    = Par(int, 1, 'The maximum number of members to return.'),
     what = Par(Multi(MEMBER_WHAT), 'name', '/'.join(MEMBER_WHAT)),
+    n    = Par(int, 1, 'The maximum number of members to return.'),
     id   = Par(str, None, 'The member\'s unique ID or handle.', required=False),
     name = Par(regex, None, 'A pattern that should match their one of their names.', required=False),
     # rank = Par(...)?
