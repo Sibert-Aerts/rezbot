@@ -176,7 +176,7 @@ class Patterns:
 
             elif self.odds.test('knife'):
                 oldWeapon = fight.weapon
-                fight.weapon = '🔪' if fight.leftFacing else '🗡️'
+                fight.weapon = '🔪' if fight.facing_left else '🗡️'
                 await post(fight.status_quo())
 
                 acts = ['unsheathes', 'pulls out', 'reveals', 'whips out']
@@ -197,7 +197,7 @@ class Patterns:
                 break
 
             elif self.odds.test('tool'):
-                if fight.leftFacing:
+                if fight.facing_left:
                     continue
                 fight.weapon = choose('🔨⛏🪓🪚')
                 await post(fight.status_quo())
@@ -219,11 +219,11 @@ class Patterns:
                 break
 
             elif self.odds.test('punch'):
-                fight.weapon = '🤜' if fight.leftFacing else '🤛'
+                fight.weapon = '🤜' if fight.facing_left else '🤛'
                 await post(fight.attacking())
                 await post('`POW!`')
                 if chance(0.5):
-                    await post(fight.left, (':point_left:' if fight.leftFacing else ':point_right:'), fight.right)
+                    await post(fight.left, (':point_left:' if fight.facing_left else ':point_right:'), fight.right)
                     await post('`you are already dead.`')
                 fight.kill_target()
                 await post(fight.no_weapon())
@@ -252,7 +252,7 @@ class Patterns:
                 break
 
             elif self.odds.test('time'):
-                if not fight.leftFacing:
+                if not fight.facing_left:
                     continue
                 await post(fight.status_quo(), ':cyclone::cyclone:')
                 await post('`~bzoom~`')
@@ -271,7 +271,7 @@ class Patterns:
                 kawarimi = chance(0.5)
                 if kawarimi: await post(fight.attacking())
 
-                if fight.leftFacing:
+                if fight.facing_left:
                     await post((':wood:' if kawarimi else ':dash:'), oldWeapon, fight.right)
                     if kawarimi: await post('`Kawarimi no jutsu!`')
                     else: await post('`*teleports behind you*`')
