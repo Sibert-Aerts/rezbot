@@ -61,6 +61,30 @@ class BotCommands(MyCommands):
         await ctx.send('`{}`'.format(util.strip_command(ctx)))
 
 
+    @commands.command(hidden=True)
+    @permissions.check(permissions.owner)
+    async def set_rank(self, ctx: commands.Context, user_handle: str, rank: str):
+        '''
+        Allows bot owners to assign User's ranks, either trusted/default/muted.
+        Ranks are stored in permissions.ini.
+        '''
+        try:
+            user = self.bot.get_user(int(user_handle))
+        except:
+            user = next((u for u in self.bot.users if u.name == user_handle), None)
+        if user is None:
+            await ctx.send(f'No User found by handle/ID "{user_handle}"')
+            return
+        try:
+            permissions.set(user.id, rank, user.name)
+            await ctx.send(f'Assigned rank **{rank}** to user **{user.display_name}**.')
+        except ValueError as e:
+            await ctx.send(str(e))
+        except Exception as e:
+            await ctx.send('Something went wrong.')
+            raise e
+
+
     # TODO: extend this so the bot remembers which of its messages where caused by whom
     # so that you're allowed to >delet the bot's message if you were the one that 'caused' it
     # to self-moderate bot spam, or to fix your own slip-ups
