@@ -1,13 +1,15 @@
 import emoji
-import re
 import random
 from datetime import datetime, timezone, timedelta
 
-from .sources import source_from_func, multi_source, set_category
-from pipes.core.signature import Par, regex
+from .sources import source_from_func, multi_source, set_category, with_signature
+from pipes.core.signature import Par, regex, Multi, Option
 
-from utils.rand import choose, sample 
+from utils.rand import choose, sample
+from utils.util import format_doc
 from utils.texttools import *
+
+import python_weather
 
 
 #####################################################
@@ -62,7 +64,7 @@ async def datetime_source(ctx, format, utc, timestamp, parse, pformat):
             time.replace(tzinfo=timezone.utc)
         time.astimezone(tz)
     else:
-        time = datetime.now(tz) 
+        time = datetime.now(tz)
     return [time.strftime(format)]
 
 
@@ -80,7 +82,7 @@ async def timestamp_source(ctx, utc, parse, pformat):
     if parse is not None:
         time = datetime.strptime(parse, pformat).replace(tzinfo=tz)
     else:
-        time = datetime.now(tz) 
+        time = datetime.now(tz)
     return [str(int(time.timestamp()))]
 
 
@@ -107,7 +109,7 @@ EMOJI_LIST = list(emoji.EMOJI_DATA)
 async def emoji_source(ctx, n, oldest, newest):
     '''
     Random emoji.
-    
+
     For oldest/newest, float values represent "Emoji versions" as defined by the Unicode Consortium.
     '''
     emoji_list = EMOJI_LIST
@@ -116,8 +118,58 @@ async def emoji_source(ctx, n, oldest, newest):
     if oldest > 0.6 or newest < 15:
         def condition(e):
             age = emoji.EMOJI_DATA[e]["E"]
-            return (age >= oldest and age <= newest) 
+            return (age >= oldest and age <= newest)
         emoji_list = list(filter(condition, emoji_list))
 
     return choose(emoji_list, n)
 
+
+WEATHER_WHAT = Option(
+    'temperature',
+    'feels_like',
+    'humidity',
+    'pressure',
+    'date',
+    'timestamp',
+    'country',
+    'location',
+    'description',
+    'precipitation',
+    'kind',
+    'emoji',
+    'ultraviolet',
+    'visibility',
+    'wind_direction',
+    'wind_speed',
+    aliases={'temperature': ['temp']},
+    name='Weather Property',
+    stringy=True,
+)
+
+@source_from_func(command=True)
+@with_signature(
+    location = Par(str, None, 'The Location.'),
+    what = Par(Multi(WEATHER_WHAT), None, 'Which properties to fetch, separated by commas.'),
+)
+@format_doc(options=', '.join(WEATHER_WHAT))
+async def weather_source(ctx, location: str, what: list[str]):
+    '''
+    Current weather info for a given location.
+
+    Available properties: {options}
+    '''
+    async with python_weather.Client() as client:
+        weather = await client.get(location)
+        res = []
+        for w in what:
+            if w == 'emoji':
+                res.append(weather.current.kind.emoji)
+            elif w == 'country':
+                res.append(weather.nearest_area.country)
+            elif w == 'location':
+                res.append(weather.nearest_area.name)
+            elif w == 'timestamp':
+                res.append(str(int((weather.current.date.timestamp()))))
+            else:
+                res.append(str(getattr(weather.current, w)))
+        return res

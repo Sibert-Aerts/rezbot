@@ -20,3 +20,4 @@ CurrencyConverter
 mediawikiapi
 pint
 num2words
+python-weather
