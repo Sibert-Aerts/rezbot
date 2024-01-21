@@ -47,7 +47,7 @@ class PipeGPTComplete:
         return permissions.has(user.id, permissions.trusted)
 
     @with_signature(
-        model             = Par(str, 'ada', 'The GPT model to use, generally: ada/babbage/curie/davinci.'),
+        model             = Par(str, 'babbage-002', 'The GPT model to use, see https://platform.openai.com/docs/models .'),
         n                 = Par(int, 1, 'The number of completions to generate.', check=lambda n: n <= 10),
         max_tokens        = Par(int, 50, 'The limit of tokens to generate per completion, does not include prompt.'),
         temperature       = Par(float, .7, 'Value between 0 and 2 determining how creative/unhinged the generation is.'),
@@ -98,7 +98,7 @@ class PipeGPTChat:
         '''
         Generate a chat completion for the given input.
         The given input is treated as a "user" message, and GPT generates an "assistant" response.
-        
+
         You can fill out existing message history by using the system/user/assistant arguments.
         The "system" message will authoritatively declare what the situation is and how the assistant should behave.
         The "user" and "assistant" messages can be used to provide an example of the assistant's response to a user message.
