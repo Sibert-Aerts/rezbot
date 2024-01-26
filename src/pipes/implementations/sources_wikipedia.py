@@ -99,7 +99,10 @@ def get_wikipedia_page(page, language):
 set_category('WIKI')
 
 
-WIKIPEDIA_WHAT = Option('title', 'url', 'summary', 'content', 'images', 'videos', 'audio', 'links', 'infobox')
+WIKIPEDIA_WHAT = Option(
+    'title', 'url', 'summary', 'content', 'images', 'videos', 'audio', 'links', 'infobox',
+    aliases={'title': ['name'], 'images': ['image', 'pictures', 'picture'], 'videos': ['video']},
+)
 _img_re = re.compile(r'(?i)(png|jpe?g|gif|webp)$')
 _banned_imgs = [
     'https://upload.wikimedia.org/wikipedia/commons/7/74/Red_Pencil_Icon.png',

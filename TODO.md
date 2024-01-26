@@ -6,6 +6,8 @@
 * **WIP features**
 
     * Ability to create/modify events and macros en-masse by uploading a JSON file
+        * Allow uploading JSON to merge with existing file
+        * Allow uploading JSON to replace existing file
 
     * Finish Conditions (see below)
 
@@ -77,7 +79,7 @@
         * "Aggregate" conditions
             * "ANYTHING", "NOTHING", "ALL WHITE/EMPTY/BOOL/TRUE/FALSE/INT/FLOAT"
             * INDEX 10 EXISTS (i.e. len(items) > 10)
-        * How does implicit `{}` tracking work? It should probably just refuse it entirely, right?
+        * WIP: How does implicit `{}` tracking work? It should probably just refuse it entirely, right?
 
     * **PARSING BUGS:**
         * `>> foo > bar x=( > baz` doesn't understand the ( should be a character and not a parenthesis (circumventable by writing `x="("`)

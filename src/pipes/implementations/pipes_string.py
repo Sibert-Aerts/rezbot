@@ -86,7 +86,11 @@ def sub_pipe(text, to, **kwargs):
     return kwargs['from'].sub(to, text)
 
 
-DIRECTION = Option('left', 'center', 'right')
+DIRECTION = Option(
+    'left', 'center', 'right',
+    aliases={'left': ['l'], 'center': ['c'], 'right': ['r']},
+    name="Direction",
+)
 
 @pipe_from_func({
     'width': Par(int, None, 'How many characters to trim each string down to.'),
@@ -169,11 +173,9 @@ def case_pipe(inputs, pattern):
     return case_pattern(pattern, *inputs)
 
 
-TABLE_ALIGN = Option('l', 'c', 'r', name='alignment')
-
 @pipe_from_func({
     'columns':    Par(str, None, 'The names of the different columns separated by commas, OR an integer giving the number of columns.'),
-    'alignments': Par(Multi(TABLE_ALIGN), 'l', 'How the columns should be aligned: l/c/r separated by commas.'),
+    'alignments': Par(Multi(DIRECTION), 'l', 'How the columns should be aligned: l/c/r separated by commas.'),
     'sep':        Par(str, ' │ ', 'The column separator'),
     'max_width':  Par(int, 100, 'The maximum desired width the output table should have, -1 for no limit.'),
     'code_block': Par(parse_bool, True, 'If the table should be wrapped in a Discord code block (triple backticks).'),
@@ -182,7 +184,7 @@ TABLE_ALIGN = Option('l', 'c', 'r', name='alignment')
 def table_pipe(input, columns, alignments, sep, code_block, max_width):
     '''
     Formats input as an ASCII-art table.
-    
+
     If max_width is exceeded, the table will change layout to attempt to remain legible,
     at the cost of no longer strictly adhering to a proper table layout, or in extreme cases, a table layout whatsoever.
     '''
@@ -210,11 +212,11 @@ def table_pipe(input, columns, alignments, sep, code_block, max_width):
 
     formatWidth = len(sep)*(colCount-1) + 2
     tableWidth = sum(colWidths) + formatWidth
-    
+
     def pad(text, width, where, what=' '):
-        if where is TABLE_ALIGN.l: return text.ljust(width, what)
-        if where is TABLE_ALIGN.c: return text.center(width, what)
-        if where is TABLE_ALIGN.r: return text.rjust(width, what)
+        if where is DIRECTION.left: return text.ljust(width, what)
+        if where is DIRECTION.center: return text.center(width, what)
+        if where is DIRECTION.right: return text.rjust(width, what)
 
     if tableWidth <= max_width:
         ### BEST CASE: The ideal table lay-out fits within the max_width.
@@ -236,11 +238,11 @@ def table_pipe(input, columns, alignments, sep, code_block, max_width):
             def w(n, m, i):
                 ''' w equally distributes the spare width `n` over `m` different cells indexed `i` '''
                 return n//m if i >= (n%m) else math.ceil(n/m)
-                
+
             def pad2(text, extra, where, what=' '):
-                if where is TABLE_ALIGN.l: return text.ljust(len(text) + extra, what)
-                if where is TABLE_ALIGN.c: return text.center(len(text) + extra, what)
-                if where is TABLE_ALIGN.r: return text.rjust(len(text) + extra, what)
+                if where is DIRECTION.left: return text.ljust(len(text) + extra, what)
+                if where is DIRECTION.center: return text.center(len(text) + extra, what)
+                if where is DIRECTION.right: return text.rjust(len(text) + extra, what)
 
             rows = []
             if colNames:
@@ -260,7 +262,7 @@ def table_pipe(input, columns, alignments, sep, code_block, max_width):
             rows = []
             for row in table:
                 if colNames:
-                    rows += [ pad(colNames[i], namesWidth, TABLE_ALIGN.r) + ': ' + row[i] for i in range(len(colNames)) ]
+                    rows += [ pad(colNames[i], namesWidth, DIRECTION.right) + ': ' + row[i] for i in range(len(colNames)) ]
                 else:
                     rows += row
                 rows.append('─' * max_width)
@@ -303,7 +305,7 @@ class MapType:
 })
 @one_to_one
 def map_pipe(item: str, map: MapType, case: bool, invert: bool, default: str):
-    ''' 
+    '''
     Map specific items to specific other items via a literal map.
 
     Warning: Crudely implemented, special characters ',' and ':' cannot be escaped.
@@ -330,14 +332,14 @@ def nearest_pipe(text, min, file):
 @pipe_from_func({
     'random': Par(int, None, 'If given, only produces the given number of (possibly repeating) random expansions. ' \
         'If there are a large number of possible expansions and you only want a few random ones, this option is far more efficient '\
-        'than simply generating all of them before randomly choosing some.', 
+        'than simply generating all of them before randomly choosing some.',
         required=False),
 })
 @one_to_many
 def expand_pipe(text, random):
     '''
     Expands [bracket|choice] syntax.
-    
+
     e.g.
     `[Mike|Jay] likes [cat|dog[|go]]s`
     produces

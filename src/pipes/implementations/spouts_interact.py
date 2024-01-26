@@ -23,7 +23,12 @@ class ButtonSpout:
     command = True
     mode = Spout.Mode.aggregated
 
-    ButtonStyleOption = Option('primary', 'secondary', 'success', 'danger', name='ButtonStyle', stringy=True)
+    ButtonStyleOption = Option(
+        'primary', 'secondary', 'success', 'danger',
+        name='ButtonStyle',
+        aliases={'primary': ['blue'], 'secondary': ['grey', 'gray'], 'success': ['green'], 'danger': ['red']},
+        stringy=True,
+    )
 
     class Button(RezbotButton):
         '''Button which executes a given script on click.'''
@@ -170,7 +175,7 @@ class ModalButtonSpout:
     '''
     name = 'modal_button'
     command = True
-    
+
     class Button(RezbotButton):
         def set_config(self, bot, make_modal):
             self.bot = bot
@@ -227,7 +232,7 @@ async def respond_interaction_spout(ctx: Context, values: list[str]):
         raise ValueError('This spout can only be used when an Interaction is present, e.g. from pressing a button.')
     if ctx.interaction.response.is_done():
         raise ValueError('This Interaction has already been responded to.')
-    
+
     content = '\n'.join(values)
     await ctx.interaction.response.send_message(content)
 
@@ -242,7 +247,7 @@ async def whisper_spout(ctx: Context, values: list[str]):
         raise ValueError('This spout can only be used when an Interaction is present, e.g. from pressing a button.')
     if ctx.interaction.response.is_done():
         raise ValueError('This Interaction has already been responded to.')
-    
+
     content = '\n'.join(values)
     await ctx.interaction.response.send_message(content, ephemeral=True)
 
@@ -272,7 +277,7 @@ async def defer_spout(ctx: Context, values: list[str], *, thinking, whisper):
 async def edit_original_response_spout(ctx: Context, values: list[str], *, edit_content, remove_view):
     '''
     Edit a resolved Interaction's original response message.
-    
+
     In case the current Interaction has been responded to with a message via `defer thinking=True` or `whisper`, it will edit that message.
 
     In case the current Interaction has been responded to without a message (e.g. `button`, `modal`, or `defer thinking=False`),
@@ -282,7 +287,7 @@ async def edit_original_response_spout(ctx: Context, values: list[str], *, edit_
         raise ValueError('This spout can only be used when an Interaction is present, e.g. from pressing a button.')
     if not ctx.interaction.response.is_done():
         raise ValueError('This Interaction has not yet been responded to.')
-    
+
     kwargs = {}
     if edit_content:
         kwargs['content'] = '\n'.join(values)
@@ -298,7 +303,7 @@ async def disable_button_spout(ctx: Context, values: list[str]):
     '''
     if not ctx.button:
         raise ValueError('This spout can only be used in context of a button being clicked.')
-    
+
     button: RezbotButton = ctx.button
     button.disabled = True
     await button.view.update_message()
