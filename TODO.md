@@ -17,10 +17,6 @@
     * Probably useful to have some kind of generic RezbotView base class
         * When bot dies (through >die or otherwise?) close (= run ontimeout) ALL UI Views
 
-    * Multiple text inputs on a single modal?
-        * label1, label2, label3, ...?
-        * input_label1, input_label2, input_label3, ...?
-
     * View/Button/Slash command interfaces for browsing/managing uploaded files
 
     * Slash command autocomplete is nice, but make it *try* interpreting a non-autocompleted input too, so you don't have to wait for it if you're certain
@@ -40,7 +36,6 @@
         * Warn if certain parallel pipes are unreachable for the given groupmode
 
     * **Parameters:**
-        * Option-parameters can be smarter (e.g. "nick" counts as "nickname" if it's the unique option starting with "nick")
         * Possibly warn about unused pieces of argstring (e.g. `{txt file=heck hell}` warns about `hell` being there for no reason)
 
     * **Sources:**
@@ -63,6 +58,8 @@
             * Easily enable/disable all events in a namespace at the same time
 
     * **EVENTS:**
+        * Validate/static analysis on code changed by the Edit Event box widget
+        * Now that they're not Pickled anymore, they can be holding on to the PipelineWithOrigin of their respective script, instead of the LRU thing?
         * more types of triggers/conditions: MESSAGE CONTAINS (regex), USER IS (username/id), TIME IS (?), logical operations?? ????
             * `ON CONDITION ({message} ILIKE /^hello/ AND {get {me id}_evil} IS TRUE)`
         * `ON COMMAND !praise name` would allow acces to argument `name` by using `{arg name}`?

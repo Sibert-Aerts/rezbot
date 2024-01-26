@@ -32,6 +32,8 @@ class Event:
     def from_trigger_str(**kwargs) -> 'Event':
         raise NotImplementedError()
 
+    # ================ Usage ================
+
     def update(self, script):
         self.script = script
 
@@ -48,7 +50,7 @@ class Event:
         self.channels = [c for c in self.channels if not c in guild_channels]
 
     def embed(self, *, bot: Client=None, channel: TextChannel=None, **kwargs):
-
+        ''' Make a Discord Embed. '''
         ## Description
         desc_lines = []
         if self.desc:
@@ -81,6 +83,9 @@ class Event:
 
         return embed
 
+    def get_static_errors(self):
+        return PipelineWithOrigin.from_string(self.script).get_static_errors()
+
     # ================ Serialization ================
 
     def serialize(self):
@@ -91,7 +96,7 @@ class Event:
             'desc': self.desc,
             'author_id': self.author_id,
             'channels': self.channels,
-            'script': self.script
+            'script': self.script,
         }
 
     @classmethod
@@ -369,8 +374,7 @@ class Events:
             return True
 
         ## Statically analyse the script for parsing errors and warnings
-        pipeline_with_origin = PipelineWithOrigin.from_string(script)
-        errors = pipeline_with_origin.pipeline.parser_errors
+        errors = PipelineWithOrigin.from_string(script).get_static_errors()
         if errors.terminal:
             await channel.send('Failed to save event due to parsing errors:', embed=errors.embed())
             return True

@@ -142,6 +142,18 @@ class PipelineWithOrigin:
             )
             await context.channel.send(embed=new_errors.embed(name=context.origin.name))
 
+    # =================================== Static analysis methods ==================================
+
+    def get_static_errors(self):
+        '''Gather static errors from both Origin and Pipeline.'''
+        errors = ErrorLog()
+        # 1. Origin errors
+        origins, origin_errors = TemplatedString.parse_origin(self.origin)
+        errors.extend(origin_errors, 'script origin')
+        # 2. Pipeline errors
+        errors.extend(self.pipeline.parser_errors)
+        return errors
+
     # ====================================== Execution method ======================================
 
     async def execute(self, context: 'Context', scope: 'ItemScope'=None):

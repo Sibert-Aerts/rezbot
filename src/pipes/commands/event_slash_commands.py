@@ -56,7 +56,8 @@ class EventSlashCommands(MyCommands):
         name='The name of the new Event',
         event_type='The type of Event',
         trigger='The type-dependent trigger',
-        code='The code which is triggered'
+        code='The code which is triggered',
+        force='Set to True to ignore static errors and save the Event anyway',
     )
     @app_commands.rename(event_type='type')
     async def event_define(self, interaction: Interaction,
@@ -64,6 +65,7 @@ class EventSlashCommands(MyCommands):
         event_type: Literal['OnMessage', 'OnReaction', 'OnInvoke'],
         trigger: str,
         code: str,
+        force: bool=False,
     ):
         ''' Define a new Event and enable it in this channel. '''
         reply = interaction.response.send_message
@@ -73,8 +75,23 @@ class EventSlashCommands(MyCommands):
         if name in events:
             return await reply(f'An Event called `{name}` already exists, try the `/event edit` command.')
 
-        # TODO: Check event script code before saving
-        event = EventType.from_trigger_str(name=name, author_id=interaction.user.id, channels=[interaction.channel.id], script=code, trigger=trigger)
+        ## Instantiate the new Event instance
+        try:
+            event = EventType.from_trigger_str(name=name, author_id=interaction.user.id, channels=[interaction.channel.id], script=code, trigger=trigger)
+        except Exception as e:
+            return await reply(f'Failed to define new Event `{name}`:\n\t{type(e).__name__}: {str(e)}', ephemeral=True)
+
+        ## Check for static errors
+        errors = event.get_static_errors()
+        if not force and errors.terminal:
+            # TODO: View with "force anyway" button
+            return await reply(
+                f'Could not define new Event `{name}` as errors were found.\nYou can either fix these errors, or re-run this command with `force: True`.',
+                embed=errors.embed('code for Event: ' + name),
+                ephemeral=True,
+            )
+
+        ## Finally: Actually assign the event to the registry
         events[name] = event
         view = EventView(self.bot, event, events, interaction.channel)
         view.set_message(await reply(f'Successfully defined a new Event.', embed=event.embed(bot=self.bot, channel=interaction.channel), view=view))
@@ -85,6 +102,7 @@ class EventSlashCommands(MyCommands):
         event_type='If given, the Event\'s new type',
         trigger='If given, the Event\'s new type-dependent trigger',
         code='If given, the Event\'s new code',
+        force='Set to True to ignore static errors and save the Event anyway',
     )
     @app_commands.rename(event_choice='event')
     @app_commands.autocomplete(event_choice=autocomplete_event())
@@ -93,6 +111,7 @@ class EventSlashCommands(MyCommands):
         event_type: Literal['OnMessage', 'OnReaction', 'OnInvoke']=None,
         trigger: str=None,
         code: str=None,
+        force: bool=False
     ):
         ''' Redefine one or more fields on an existing Event. '''
         reply = interaction.response.send_message
@@ -100,10 +119,9 @@ class EventSlashCommands(MyCommands):
         try:
             event, _ = choice_to_scriptoid(event_choice, Event)
         except:
-            return await reply(f'Command failed, likely due to nonexistent Event.', ephemeral=True)
+            return await reply(f'Failed to update Event, likely due to nonexistent Event.', ephemeral=True)
 
-        # TODO: Check event code for errors
-
+        ## Write the various properties
         if event_type is not None:
             EventType = event_type_map[event_type]
             if trigger is None:
@@ -114,6 +132,13 @@ class EventSlashCommands(MyCommands):
             event.set_trigger(trigger)
         if code is not None:
             event.script = code
+            errors = event.get_static_errors()
+            if not force and errors.terminal:
+                # TODO: View with "force anyway" button
+                return await reply(
+                    f'Could not update Event `{event.name}` as errors were found.\nYou can either fix these errors, or re-run this command with `force: True`.',
+                    embed=errors.embed('code for Event: ' + event.name),
+                )
 
         events.write()
         view = EventView(self.bot, event, events, interaction.channel)

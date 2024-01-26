@@ -561,9 +561,9 @@ class TemplatedString:
             return [val], errs
 
     @staticmethod
-    async def evaluate_origin(origin_str: str, context: Context, scope: ItemScope=None) -> tuple[list[str] | None, ErrorLog]:
-        '''Takes a raw source string, expands it if necessary, evaluates {sources} in each one and returns the list of values.'''
-        values = []
+    def parse_origin(origin_str: str) -> tuple[list['TemplatedString'] | None, ErrorLog]:
+        '''Takes a raw source string, expands it if necessary, and already parses each one as a TemplatedString.'''
+        origins = []
         expand = True
         errors = ErrorLog()
 
@@ -580,7 +580,7 @@ class TemplatedString:
                 expanded = ChoiceTree(origin_str, parse_flags=True)
             except ParseBaseException as e:
                 errors.log_parse_exception(e)
-                return values, errors
+                return origins, errors
         else:
             expanded = [origin_str]
 
@@ -589,20 +589,30 @@ class TemplatedString:
         for origin_str in expanded:
             try:
                 origin = TemplatedString.from_string(origin_str)
+                origins.append(origin)
                 errors.extend(origin.pre_errors)
             except ParseBaseException as e:
                 errors.log_parse_exception(e)
-                continue
 
-            if not errors.terminal:
-                if origin.is_source:
-                    vals, errs = await origin.source.evaluate(context, scope)
-                    errors.extend(errs)
-                    if not errors.terminal: values.extend(vals)
-                else:
-                    val, errs = await origin.evaluate(context, scope)
-                    errors.extend(errs)
-                    if not errors.terminal: values.append(val)
+        return origins, errors
+
+    @staticmethod
+    async def evaluate_origin(origin_str: str, context: Context, scope: ItemScope=None) -> tuple[list[str] | None, ErrorLog]:
+        '''Takes a raw source string, expands it if necessary, evaluates {sources} in each one and returns the list of values.'''
+        origins, errors = TemplatedString.parse_origin(origin_str)
+        if errors.terminal:
+            return (None, errors)
+
+        values = []
+        for origin in origins:
+            if origin.is_source:
+                vals, errs = await origin.source.evaluate(context, scope)
+                errors.extend(errs)
+                if not errors.terminal: values.extend(vals)
+            else:
+                val, errs = await origin.evaluate(context, scope)
+                errors.extend(errs)
+                if not errors.terminal: values.append(val)
 
         return values, errors
 

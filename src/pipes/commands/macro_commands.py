@@ -17,23 +17,30 @@ from utils.util import normalize_name
 from mycommands import MyCommands
 
 
-async def check_pipe_macro(code, reply):
+async def check_pipe_macro(code: str, reply):
     ''' Statically analyses pipe macro code for errors or warnings. '''
     errors = Pipeline(code).parser_errors
-    if not errors: 
+    if not errors:
         return True
     if errors.terminal:
-        await reply('Failed to save macro due to parsing errors:', embeds=[errors.embed()])
+        await reply('Failed to save Macro due to parsing errors:', embeds=[errors.embed()])
         return False
     else:
-        await reply('Encountered warnings while parsing macro:', embeds=[errors.embed()])
+        await reply('Encountered warnings while parsing Macro:', embeds=[errors.embed()])
         return True
 
 
-async def check_source_macro(code, reply):
+async def check_source_macro(code: str, reply):
     ''' Statically analyses source macro code for errors or warnings. '''
-    _, code = PipelineWithOrigin.split(code)
-    return await check_pipe_macro(code, reply)
+    errors = PipelineWithOrigin.from_string(code).get_static_errors()
+    if not errors:
+        return True
+    if errors.terminal:
+        await reply('Failed to save Macro due to parsing errors:', embeds=[errors.embed()])
+        return False
+    else:
+        await reply('Encountered warnings while parsing Macro:', embeds=[errors.embed()])
+        return True
 
 
 typedict: dict[str, tuple[Macros, bool, Pipes, Callable]] = {
@@ -279,7 +286,7 @@ class MacroCommands(MyCommands):
             if undesced_macros:
                 infos.append('\nWithout descriptions:')
                 infos += texttools.line_chunk_list(undesced_macros)
-            
+
             for block in texttools.block_chunk_lines(infos): await ctx.send(block)
 
     @commands.command(name='pipe_macros', aliases=['pipe_macro', 'macro_pipes', 'macro_pipe'], hidden=True)

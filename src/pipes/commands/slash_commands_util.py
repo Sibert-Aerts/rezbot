@@ -1,3 +1,4 @@
+import re
 import itertools
 from typing import Callable, Type
 
@@ -12,6 +13,7 @@ from pipes.core.macros import Macros, Macro, pipe_macros, source_macros
 from pipes.core.events import Event, Events, OnMessage, OnReaction, OnInvoke, events
 from .macro_commands import check_pipe_macro, check_source_macro
 from utils.util import normalize_name
+
 
 # ====================================== Scriptoid mappings =======================================
 
@@ -35,8 +37,8 @@ event_type_map: dict[str, Type[OnMessage|OnReaction|OnInvoke]] = {
     'OnInvoke': OnInvoke,
 }
 
-# ===================================== Autocomplete utility ======================================
 
+# ===================================== Autocomplete utility ======================================
 
 def scriptoid_to_choice(scriptoid: Pipeoid|Macro|Event, channel=None):
     # This could be class methods but it's only used in this one file
@@ -67,7 +69,10 @@ def scriptoid_to_choice(scriptoid: Pipeoid|Macro|Event, channel=None):
 
     raise NotImplementedError(repr(scriptoid), repr(type(scriptoid)))
 
-def choice_to_scriptoid(value: str, expect_type=None):
+class TrulyBadScriptoidChoice(ValueError):
+    pass
+
+def strict_choice_to_scriptoid(value: str, expect_type=None):
     '''Performs the inverse lookup of scriptoid_to_choice, given a Choice's value.'''
     scriptoid_type, name = value.strip().split(':')
     scriptoids = scriptoid_type_map[scriptoid_type]
@@ -75,9 +80,41 @@ def choice_to_scriptoid(value: str, expect_type=None):
     scriptoid = scriptoids[name]
 
     if expect_type and not isinstance(scriptoid, expect_type):
-        raise ValueError('Inappropriate scriptoid type.')
-
+        raise TrulyBadScriptoidChoice('Inappropriate scriptoid type.')
     return scriptoid, scriptoids
+
+def choice_to_scriptoid(value: str, expected_type=None):
+    try:
+        return strict_choice_to_scriptoid(value, expect_type=expected_type)
+    except TrulyBadScriptoidChoice:
+        raise
+    except Exception:
+        pass
+
+    def expected(t):
+        return expected_type is None or expected_type is t
+
+    # Try to strip the name down to the barest
+    name = normalize_name(value)
+    name = re.sub('\(.*', '', name).strip()
+
+    # Try to find any kind of match
+    if expected(Pipe) and name in pipes:
+        return pipes[name], pipes
+    if expected(Source) and name in sources:
+        return sources[name], sources
+    if expected(Spout) and name in spouts:
+        return spouts[name], spouts
+    if expected(Macro):
+        if name in pipe_macros:
+            return pipe_macros[name], pipe_macros
+        if name in source_macros:
+            return source_macros[name], source_macros
+    if expected(Event):
+        if name in events:
+            return events[name], events
+    raise ValueError(f'Could not find a relevant scriptoid by name `{name}`.')
+
 
 # ==================================== Autocomplete callbacks =====================================
 
