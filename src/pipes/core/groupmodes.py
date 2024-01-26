@@ -1,9 +1,9 @@
 import re
 from typing import TypeVar
 from random import choice
-from pyparsing import ParseBaseException, ParseResults
+from pyparsing import ParseResults
 
-from .logger import TerminalErrorLogException
+from .logger import ErrorLog
 from .conditions import Condition
 from .context import Context, ItemScope
 from . import grammar
@@ -196,7 +196,9 @@ from . import grammar
 
 class GroupModeError(ValueError):
     '''Something went wrong while parsing or applying a GroupMode.'''
-    pass
+    def __init__(self, message: str=None, errors=None):
+        self.errors = errors
+        super().__init__(message)
 
 T = TypeVar('T')
 P = TypeVar('P')
@@ -582,7 +584,7 @@ class Switch(AssignMode):
         ## Non-strict:  If all conditions fail, either pass to the (n+1)th pipe or leave values unaffected if it is not present
         ## Strict:      If all conditions fail, destroy the values. Raise an error if an (n+1)th pipe was given.
         ## Very strict: If all conditions fail, raise an error. No (n+1)th pipe allowed either.
-
+        errors = ErrorLog()
         c = len(self.conditions)
         p = len(pipes)
         if p != c:
@@ -602,16 +604,15 @@ class Switch(AssignMode):
                     continue
 
                 ## Run over all the conditions to see which one hits first and go with that pipe
+                scope = ItemScope(parent_scope, items)
                 for condition, pipe in zip(self.conditions, pipes):
-                    scope = ItemScope(parent_scope, items)
-                    try:
-                        if await condition.evaluate(context, scope):
-                            out.append((items, pipe))
-                            break
-                    except TerminalErrorLogException as e:
-                        # TODO: Carry errors along there
-                        errors = e.errors
-                        raise GroupModeError(f'Error while evaluating condition `{condition}`.')
+                    cond_value, cond_errors = await condition.evaluate(context, scope)
+                    if errors.extend(cond_errors).terminal:
+                        # TODO: Convey ErrorLog even when not terminal
+                        raise GroupModeError(f'Error while evaluating condition `{condition}`.', errors=errors)
+                    if cond_value:
+                        out.append((items, pipe))
+                        break
                 else:
                 ## None of the conditions matched: Pick a "default" case
                     if overflow_pipe_given:
@@ -621,9 +622,6 @@ class Switch(AssignMode):
                     elif self.strictness == 1:
                         pass # Throw this list of values away!
                     elif self.strictness == 2:
-                        print('VERY STRICT SWITCH ERROR:')
-                        print('VALUES: ', items)
-                        print('CASES: ' + str(self))
                         raise GroupModeError('Very strict switch error: Default case was reached!')
             return out
 
@@ -635,13 +633,12 @@ class Switch(AssignMode):
                     continue
                 scope = ItemScope(parent_scope, items)
                 for (condition, pipe) in zip(self.conditions, pipes):
-                    try:
-                        if await condition.evaluate(context, scope):
-                            out.append((items, pipe))
-                    except TerminalErrorLogException as e:
-                        # TODO: Carry errors along there
-                        errors = e.errors
-                        raise GroupModeError(f'Error while evaluating condition `{condition}`.')
+                    cond_value, cond_errors = await condition.evaluate(context, scope)
+                    if errors.extend(cond_errors).terminal:
+                        # TODO: Convey ErrorLog even when not terminal
+                        raise GroupModeError(f'Error while evaluating condition `{condition}`.', errors=errors)
+                    if cond_value:
+                        out.append((items, pipe))
                 if overflow_pipe_given:
                     out.append((items, pipes[-1]))
             return out
@@ -676,6 +673,7 @@ class IfMode:
         return 'IF (' + str(self.condition) + ')' + '!' * self.strictness
 
     async def apply(self, tuples: list[tuple[T, bool]], context: Context, parent_scope: ItemScope) -> list[tuple[T, bool]]:
+        errors = ErrorLog()
         out = []
         for (items, ignore) in tuples:
             if ignore:
@@ -683,7 +681,11 @@ class IfMode:
                 continue
 
             scope = ItemScope(parent_scope, items)
-            if await self.condition.evaluate(context, scope):
+            cond_value, cond_errors = await self.condition.evaluate(context, scope)
+            if errors.extend(cond_errors).terminal:
+                # TODO: Convey ErrorLog even when not terminal
+                raise GroupModeError(f'Error while evaluating condition `{self.condition}`.', errors=errors)
+            if cond_value:
                 out.append((items, False))
 
             elif not self.strictness:

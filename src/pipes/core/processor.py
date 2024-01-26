@@ -88,10 +88,12 @@ class PipelineProcessor:
 
     # ====================================== Script execution ======================================
 
-    async def execute_script(self, script: str, context: Context, scope: ItemScope=None):
+    @staticmethod
+    async def execute_script(script: str, context: Context, scope: ItemScope=None):
         try:
             pipeline_with_origin = PipelineWithOrigin.from_string(script)
         except Exception as e:
+            # Make a single-use error log so we can use the send_error_log method
             errors = ErrorLog().log(f'🛑 **Unexpected script parsing error:**\n {type(e).__name__}: {e}', terminal=True)
             await PipelineWithOrigin.send_error_log(context, errors)
             raise e
@@ -127,7 +129,7 @@ class PipelineProcessor:
                 context = Context(
                     origin=Context.Origin(
                         type=Context.Origin.Type.DIRECT,
-                        activator=message.author,    
+                        activator=message.author,
                     ),
                     author=message.author,
                     message=message,

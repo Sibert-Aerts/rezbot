@@ -341,7 +341,8 @@ class Pipeline:
             try:
                 applied_group_mode = await group_mode.apply(loose_items, parsed_pipes, context, group_scope)
             except groupmodes.GroupModeError as e:
-                errors.log('GroupModeError: ' + str(e), True)
+                errors.log('In groupmode: ' + str(e), True)
+                if e.errors: errors.extend(e.errors)
                 return NOTHING_BUT_ERRORS
 
             ### The group mode turns the list[item], list[pipe] into  list[Tuple[ list[item], Optional[Pipe] ]]

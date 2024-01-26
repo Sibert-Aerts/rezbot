@@ -14,7 +14,7 @@ from utils.util import parse_bool
 
 
 class Condition:
-    ''' Base Condition class, never instantiated itself, but from_parsed and from_string constructors instantiate appropriately typed Conditions. '''
+    ''' Base Condition class, never instantiated itself, but from_parsed and from_string constructors instantiate appropriate Condition subclasses. '''
 
     @classmethod
     def from_parsed(cls, parse_result: ParseResults):
@@ -36,7 +36,7 @@ class Condition:
     def from_string(cls, string):
         return cls.from_parsed(grammar.condition.parse_string(string, True)[0])
 
-    async def evaluate(self, context: Context, scope: ItemScope) -> bool:
+    async def evaluate(self, context: Context, scope: ItemScope) -> tuple[bool, ErrorLog]:
         raise NotImplementedError()
 
 # ========================================= Root Conditions ========================================
@@ -74,6 +74,7 @@ class Comparison(RootCondition):
         self.op = op
         self.rhs = rhs
 
+        # TODO: Keep our own pre_errors AND make sure our owners use them!
         if lhs.pre_errors or rhs.pre_errors:
             self.pre_errors = ErrorLog()
             self.pre_errors.extend(lhs.pre_errors, 'left-hand side')
@@ -99,32 +100,31 @@ class Comparison(RootCondition):
     def __str__(self):
         return '%s%s%s' % (str(self.lhs), self.op, str(self.rhs))
 
-    async def evaluate(self, context: Context, scope: ItemScope):
+    async def evaluate(self, context: Context, scope: ItemScope) -> tuple[bool, ErrorLog]:
+        errors = ErrorLog()
         lhs, lhs_errors = await self.lhs.evaluate(context, scope)
         rhs, rhs_errors = await self.rhs.evaluate(context, scope)
-
-        if lhs_errors.terminal or rhs_errors.terminal:
-            errors = ErrorLog()
-            errors.extend(lhs_errors, 'left-hand side')
-            errors.extend(rhs_errors, 'right-hand side')
-            raise TerminalErrorLogException(errors)
+        errors.extend(lhs_errors, 'left-hand side')
+        errors.extend(rhs_errors, 'right-hand side')
+        if errors.terminal:
+            return None, errors
 
         if self.op is Operation.STR_EQUALS:
-            return (lhs == rhs)
+            return (lhs == rhs), errors
         if self.op is Operation.STR_NEQUALS:
-            return (lhs != rhs)
+            return (lhs != rhs), errors
         if self.op is Operation.NUM_LT:
-            return (float(lhs) < float(rhs))
+            return (float(lhs) < float(rhs)), errors
         if self.op is Operation.NUM_GT:
-            return (float(lhs) > float(rhs))
+            return (float(lhs) > float(rhs)), errors
         if self.op is Operation.NUM_LTE:
-            return (float(lhs) <= float(rhs))
+            return (float(lhs) <= float(rhs)), errors
         if self.op is Operation.NUM_GTE:
-            return (float(lhs) >= float(rhs))
+            return (float(lhs) >= float(rhs)), errors
         if self.op is Operation.LIKE:
-            return re.search(rhs, lhs)
+            return re.search(rhs, lhs), errors
         if self.op is Operation.NLIKE:
-            return not re.search(rhs, lhs)
+            return not re.search(rhs, lhs), errors
         raise Exception()
 
 
@@ -152,6 +152,7 @@ class Predicate(RootCondition):
         self.negated = negated
         self.category = category
 
+        # TODO: Keep our own pre_errors AND make sure our owners use them!
         if subject.pre_errors:
             self.pre_errors = ErrorLog()
             self.pre_errors.extend(subject.pre_errors)
@@ -176,30 +177,29 @@ class Predicate(RootCondition):
     def __str__(self):
         return '%s IS %s%s' % (str(self.subject), 'NOT ' if self.negated else '', self.category)
 
-    async def evaluate(self, context: Context, scope: ItemScope):
+    async def evaluate(self, context: Context, scope: ItemScope) -> tuple[bool, ErrorLog]:
         subject, errors = await self.subject.evaluate(context, scope)
         neg = self.negated
 
         if errors.terminal:
-            errors = ErrorLog().extend(errors)
-            raise TerminalErrorLogException(errors)
+            return None, errors
 
         if self.category is Predicate.Category.WHITE:
-            return neg ^ (subject.isspace() or not subject)
+            return neg ^ (subject.isspace() or not subject), errors
         elif self.category is Predicate.Category.EMPTY:
-            return neg ^ (not subject)
+            return neg ^ (not subject), errors
         elif self.category is Predicate.Category.BOOL:
-            return neg ^ type_check(subject, parse_bool)
+            return neg ^ type_check(subject, parse_bool), errors
         elif self.category is Predicate.Category.FALSE:
-            try: return neg ^ (parse_bool(subject) is False)
-            except: return neg
+            try: return neg ^ (parse_bool(subject) is False), errors
+            except: return neg, errors
         elif self.category is Predicate.Category.TRUE:
-            try: return neg ^ (parse_bool(subject) is True)
-            except: return neg
+            try: return neg ^ (parse_bool(subject) is True), errors
+            except: return neg, errors
         elif self.category is Predicate.Category.INT:
-            return neg ^ type_check(subject, int)
+            return neg ^ type_check(subject, int), errors
         elif self.category is Predicate.Category.FLOAT:
-            return neg ^ type_check(subject, float)
+            return neg ^ type_check(subject, float), errors
         raise Exception()
 
 
@@ -219,20 +219,28 @@ class JoinedCondition:
 class Conjunction(JoinedCondition):
     joiner = 'AND'
 
-    async def evaluate(self, context: Context, scope: ItemScope):
-        for c in self.children:
-            if not await c.evaluate(context, scope):
-                return False
-        return True
+    async def evaluate(self, context: Context, scope: ItemScope) -> tuple[bool, ErrorLog]:
+        errors = ErrorLog()
+        for child in self.children:
+            value, child_errors = await child.evaluate(context, scope)
+            if errors.extend(child_errors).terminal:
+                return None, errors
+            if not value:
+                return False, errors
+        return True, errors
 
 class Disjunction(JoinedCondition):
     joiner = 'OR'
 
-    async def evaluate(self, context: Context, scope: ItemScope):
-        for c in self.children:
-            if await c.evaluate(context, scope):
-                return True
-        return False
+    async def evaluate(self, context: Context, scope: ItemScope) -> tuple[bool, ErrorLog]:
+        errors = ErrorLog()
+        for child in self.children:
+            value, child_errors = await child.evaluate(context, scope)
+            if errors.extend(child_errors).terminal:
+                return None, errors
+            if value:
+                return True, errors
+        return False, errors
 
 
 class Negation(Condition):
@@ -252,5 +260,6 @@ class Negation(Condition):
     def __str__(self):
         return 'not (' + str(self.child) + ')'
 
-    async def evaluate(self, context: Context, scope: ItemScope):
-        return not await self.child.evaluate(context, scope)
+    async def evaluate(self, context: Context, scope: ItemScope) -> tuple[bool, ErrorLog]:
+        value, errors = await self.child.evaluate(context, scope)
+        return (None if value is None else not value), errors

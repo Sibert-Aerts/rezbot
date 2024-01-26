@@ -83,10 +83,11 @@ async def test_conditional():
 async def test_condition():
 
     cond = Condition.from_string('foo IS NOT TRUE')
-    res = await cond.evaluate(context, scope)
+    value, errors = await cond.evaluate(context, scope)
 
     print(cond)
-    print(res)
+    print(value)
+    print(errors)
 
 
 async def test_groupmode():

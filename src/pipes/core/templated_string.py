@@ -254,8 +254,11 @@ class ParsedConditional:
     # ================ Evaluation
 
     async def evaluate(self, context: Context, scope: ItemScope) -> tuple[ list[str] | None, ErrorLog ]:
-        # TODO: ErrorLog from Condition?
-        if await self.condition.evaluate(context, scope):
+        errors = ErrorLog()
+        cond_value, cond_errors = await self.condition.evaluate(context, scope)
+        if errors.extend(cond_errors, 'condition').terminal:
+            return None, errors
+        if cond_value:
             return await self.case_if.evaluate(context, scope)
         else:
             return await self.case_else.evaluate(context, scope)

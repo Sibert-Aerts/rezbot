@@ -25,6 +25,11 @@ class ErrorLog:
             self.count: int = count
         def __str__(self):
             return ('**(%d)** ' % self.count if self.count > 1 else '') + self.message
+        def __repr__(self):
+            entries = [self.message]
+            if self.count > 1:
+                entries.append(self.count)
+            return f'ErrorMessage({", ".join(entries)})'
 
     #############################################
     ## Error logging methods
@@ -76,8 +81,8 @@ class ErrorLog:
     ## Log transfering methods
     #############################################
 
-    def extend(self, other: 'ErrorLog', context=None):
-        '''extend another error log, prepending the given 'context' for each error.'''
+    def extend(self, other: 'ErrorLog', context: str=None):
+        '''Extend another error log, prepending the given 'context' for each error. Returns `self` for chaining'''
         self.terminal |= other.terminal
         for e in other.errors:
             if context is not None: message = f'**in {context}:** {e.message}'
@@ -99,9 +104,13 @@ class ErrorLog:
 
     def __bool__(self): return len(self.errors) > 0
     def __len__(self): return len(self.errors)
+    def __str__(self):
+        return '\n'.join(str(m) for m in self.errors) if self.errors else 'No warnings!'
+    def __repr__(self):
+        return f'ErrorLog(name={self.name}, errors=[{", ".join(repr(m) for m in self.errors)}])'
 
     def embed(self, name=None):
-        desc = '\n'.join(str(m) for m in self.errors) if self.errors else 'No warnings!'
+        desc = str(self)
 
         if len(desc) > 4000:
             raise Exception('Too many errors to be of reasonable use!')
