@@ -7,7 +7,7 @@
 
     * Ability to create/modify events and macros en-masse by uploading a JSON file
 
-    * Finish Conditionals (see below)
+    * Finish Conditions (see below)
 
 
 * **NEW HOTNESS: VIEWS/BUTTONS**
@@ -61,7 +61,8 @@
             * Easily enable/disable all events in a namespace at the same time
 
     * **EVENTS:**
-        * more types of conditions: MESSAGE CONTAINS (regex), USER IS (username/id), TIME IS (?), logical operations?? ????
+        * more types of triggers/conditions: MESSAGE CONTAINS (regex), USER IS (username/id), TIME IS (?), logical operations?? ????
+            * `ON CONDITION ({message} ILIKE /^hello/ AND {get {me id}_evil} IS TRUE)`
         * `ON COMMAND !praise name` would allow acces to argument `name` by using `{arg name}`?
 
     * **GROUP MODES:**
@@ -70,12 +71,13 @@
         * (same for others???)
 
     * **CONDITIONS:**
-        * WIP: Errors in parsing/applying are not properly handled/bubbled/conveyed.
-            * e.g. errors when casting to float() in number comparisons
+        * WIP: Errors in applying are not properly caught/conveyed.
+            * e.g. Evaluation: Warnings that aren't terminal aren't conveyed
+            * e.g. Evaluation: `foo > 10` raises an uncaught ValueError
         * "Aggregate" conditions
             * "ANYTHING", "NOTHING", "ALL WHITE/EMPTY/BOOL/TRUE/FALSE/INT/FLOAT"
             * INDEX 10 EXISTS (i.e. len(items) > 10)
-        * Are currently in PROTOTYPE/WIP state, as they are not totally integrated with implicit `{}` item tracking yet, and do not properly convey errors yet.
+        * How does implicit `{}` tracking work? It should probably just refuse it entirely, right?
 
     * **PARSING BUGS:**
         * `>> foo > bar x=( > baz` doesn't understand the ( should be a character and not a parenthesis (circumventable by writing `x="("`)

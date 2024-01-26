@@ -509,6 +509,9 @@ class Interval(SplitMode):
 ################ ASSIGNMODES ################
 
 class AssignMode:
+    multiply: bool
+    pre_errors: ErrorLog | None = None
+
     '''An object representing a function that takes lists of items and assigns them to pipes picked from a list.'''
     def __init__(self, multiply):
         self.multiply = multiply
@@ -523,7 +526,6 @@ class AssignMode:
                 return DefaultAssign(multiply)
             case 'assign_switch':
                 strictness = len(result.get('strictness', ''))
-                # TODO: Handle/repackage/distinguish Condition parse errors?
                 conditions = [Condition.from_parsed(cond) for cond in result['conditions']]
                 return Switch(multiply, strictness, conditions)
             case bad_name:
@@ -533,6 +535,7 @@ class AssignMode:
     def from_string(string: str):
         return AssignMode.from_parsed(grammar.gm_assign.parse_string(string, parse_all=True)[0])
 
+    # ================ API
 
     def __str__(self):
         return 'MULTIPLY ' if self.multiply else ''
@@ -569,11 +572,13 @@ class DefaultAssign(AssignMode):
 
 class Switch(AssignMode):
     '''Assign mode that assigns groups to pipes based on logical conditions that each group meets.'''
-
     def __init__(self, multiply: bool, strictness: int, conditions: list[Condition]):
         super().__init__(multiply)
         self.strictness = strictness
         self.conditions = conditions
+        self.pre_errors = ErrorLog()
+        for i, condition in enumerate(conditions):
+            self.pre_errors.extend(condition.get_pre_errors(), f'condition {i}')
 
     def __str__(self):
         return '{}SWITCH ({})'.format(super().__str__(), ' | '.join(str(c) for c in self.conditions))
@@ -657,6 +662,7 @@ class Random(AssignMode):
 class IfMode:
     def __init__(self, condition: Condition, strictness: int):
         self.condition = condition
+        self.pre_errors = condition.get_pre_errors()
         self.strictness = strictness
 
     @staticmethod
@@ -811,9 +817,16 @@ class SortBy:
 class GroupMode:
     '''A class that combines multiple SplitModes, MidModes and an AssignMode'''
     def __init__(self, split_modes: list[SplitMode], mid_modes: list[ IfMode | SortBy | GroupBy], assign_mode: AssignMode):
-        self.split_modes= split_modes
+        self.split_modes = split_modes
         self.mid_modes = mid_modes
         self.assign_mode = assign_mode
+        # Collect parsing errors from modes that can have them
+        self.pre_errors = ErrorLog()
+        for mode in mid_modes:
+            if isinstance(mode, IfMode) and mode.pre_errors:
+                self.pre_errors.extend(mode.pre_errors, 'if mode')
+        if assign_mode.pre_errors:
+            self.pre_errors.extend(assign_mode.pre_errors, 'assign mode')
 
     @staticmethod
     def from_parsed(result: ParseResults):

@@ -106,6 +106,7 @@ class Pipeline:
             except ParseBaseException as e:
                 self.parser_errors.log_parse_exception(e)
                 continue
+            self.parser_errors.extend(groupmode.pre_errors, 'groupmode')
             self.parsed_segments.append((groupmode, parallel))
 
     # =========================================== Parsing ==========================================
@@ -331,7 +332,7 @@ class Pipeline:
             next_items = []
             new_printed_items = []
 
-            # Non-trivial groupmodes add a new context layer
+            # Non-trivial groupmodes add a new item scope layer
             if group_mode.splits_trivially():
                 group_scope = item_scope
             else:
@@ -341,8 +342,8 @@ class Pipeline:
             try:
                 applied_group_mode = await group_mode.apply(loose_items, parsed_pipes, context, group_scope)
             except groupmodes.GroupModeError as e:
-                errors.log('In groupmode: ' + str(e), True)
-                if e.errors: errors.extend(e.errors)
+                errors.log('**in groupmode:** ' + str(e), True)
+                if e.errors: errors.extend(e.errors, 'groupmode')
                 return NOTHING_BUT_ERRORS
 
             ### The group mode turns the list[item], list[pipe] into  list[Tuple[ list[item], Optional[Pipe] ]]

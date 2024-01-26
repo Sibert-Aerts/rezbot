@@ -83,6 +83,8 @@ class ErrorLog:
 
     def extend(self, other: 'ErrorLog', context: str=None):
         '''Extend another error log, prepending the given 'context' for each error. Returns `self` for chaining'''
+        if other is None:
+            return self
         self.terminal |= other.terminal
         for e in other.errors:
             if context is not None: message = f'**in {context}:** {e.message}'
