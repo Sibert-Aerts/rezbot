@@ -265,7 +265,7 @@ class ParsedConditional:
 
 
 class ParsedSpecialSymbol:
-    ''' 'Class' translating special symbol codes `{\n}` directly into the symbol. '''
+    ''' 'Class' translating special symbol codes `{\n}` directly into the symbol, never actually instantiated. '''
     SPECIAL_SYMBOL_MAP = {
         'n': '\n',
         't': '\t',
@@ -584,8 +584,7 @@ class TemplatedString:
         else:
             expanded = [origin_str]
 
-        ## Evaluate each string as a TemplatedString, collecting errors along the way
-        ## This part is basically TemplatedString.evaluate_string inlined
+        ## Parse each string as a TemplatedString, collecting errors along the way
         for origin_str in expanded:
             try:
                 origin = TemplatedString.from_string(origin_str)
@@ -619,7 +618,6 @@ class TemplatedString:
 
 # þeſe lynes art doƿn here due to dependencys circulaire
 from .pipeline_with_origin import PipelineWithOrigin
-from .pipeline import Pipeline
 from .signature import ArgumentError, Arguments
 from pipes.implementations.sources import sources
 from pipes.implementations.pipes import pipes

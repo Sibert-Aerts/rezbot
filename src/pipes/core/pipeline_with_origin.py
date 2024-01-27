@@ -24,12 +24,14 @@ class PipelineWithOrigin:
         * (Rarely) as arguments passed to Pipes in a Pipeline (meta-recursion?)
     '''
     # Static LRU cache holding up to 40 parsed instances... probably don't need any more
-    script_cache: dict['PipelineWithOrigin'] = LRU(40)
+    script_cache: dict[str, 'PipelineWithOrigin'] = LRU(40)
 
     # ======================================== Constructors ========================================
 
-    def __init__(self, origin: str, pipeline: 'Pipeline', script_str: str=None):
-        self.origin = origin
+    def __init__(self, origin_str: str, pipeline: 'Pipeline', script_str: str=None):
+        # NOTE: origin is saved as a string instead of something more advanced and pre-parsed
+        #   because the [?] flag on the ChoiceTree means it may not represent the same TemplatedStrings each time
+        self.origin = origin_str
         self.pipeline = pipeline
         self.script_str = script_str
 
@@ -40,11 +42,11 @@ class PipelineWithOrigin:
             return cls.script_cache[script]
 
         ## Parse
-        origin, pipeline_str = cls.split(script)
+        origin_str, pipeline_str = cls.split(script)
         pipeline = Pipeline(pipeline_str)
 
         ## Instantiate, cache, return
-        pwo = PipelineWithOrigin(origin, pipeline, script)
+        pwo = PipelineWithOrigin(origin_str, pipeline, script)
         cls.script_cache[script] = pwo
         return pwo
 

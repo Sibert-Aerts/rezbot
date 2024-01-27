@@ -296,5 +296,5 @@ class Context:
 
 
 # Imports down here due to circular dependencies
-from . import templated_string
+from . import templated_string # Unused import to ensure dependencies resolve in the correct order
 from .events import OnReaction

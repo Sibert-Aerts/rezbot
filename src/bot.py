@@ -9,7 +9,7 @@ from discord.ext import commands
 
 import permissions
 import patterns
-from pipes import PipelineProcessor
+from pipes.core.processor import PipelineProcessor
 
 
 # Open the config so we can read info from it
@@ -20,10 +20,10 @@ bot_token = config['BOT']['token']
 command_prefix = config['BOT']['prefix']
 pipe_prefix = config['BOT']['pipe_prefix']
 
-patterns_blacklist = []
+patterns_blacklist = set()
 if 'PATTERNS.PY BLACKLIST' in config:
-    for key in config['PATTERNS.PY BLACKLIST']:
-        patterns_blacklist.append(int(config['PATTERNS.PY BLACKLIST'][key]))
+    for value in config['PATTERNS.PY BLACKLIST'].values():
+        patterns_blacklist.add(int(value))
 
 
 # Configure our intents
@@ -124,7 +124,7 @@ async def main():
         await bot.load_extension('pipes.commands.pipe_slash_commands')
         await bot.load_extension('pipes.commands.macro_slash_commands')
         await bot.load_extension('pipes.commands.event_slash_commands')
-        
+
         await bot.load_extension('resource.youtubecaps.commands')
         await bot.load_extension('resource.upload.commands')
         await bot.start(bot_token)
