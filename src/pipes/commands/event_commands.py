@@ -4,6 +4,7 @@ from discord.ext import commands
 from pipes.core.events import events
 from pipes.views import EventView
 from mycommands import MyCommands
+from utils.texttools import chunk_lines
 import permissions
 
 ###############################################################
@@ -26,13 +27,14 @@ class EventCommands(MyCommands):
                 if ctx.channel.id in event.channels: enabled.append(event)
                 else: disabled.append(event)
 
+            infos = []
             if enabled and name != 'disabled':
-                infos = ['**__Enabled:__**'] + [ '• ' + str(e) for e in enabled ]
-                await ctx.send('\n'.join(infos))
+                infos += ['**__Enabled:__**'] + [ '• ' + str(e) for e in enabled ]
             if disabled and name != 'enabled':
-                infos = ['**__Disabled:__**'] + [ ', '.join(e.name for e in disabled) ]
-                await ctx.send('\n'.join(infos))
-        
+                infos += ['**__Disabled:__**'] + [ ', '.join(e.name for e in disabled) ]
+            for chunk in chunk_lines(infos):
+                await ctx.send(chunk)
+
         else:
             ## Print info on a specific event
             if name not in events:
@@ -66,7 +68,7 @@ class EventCommands(MyCommands):
         if succ:
             msg.append('Event{} {} {} been enabled in {}.'.format( 's' if len(succ)>1 else '', fmt(succ), 'have' if len(succ)>1 else 'has', ctx.channel.mention))
             events.write()
-        
+
         await ctx.send('\n'.join(msg))
 
     @commands.command(aliases=['disable_events'], hidden=True)
@@ -101,7 +103,7 @@ class EventCommands(MyCommands):
         if succ:
             msg.append('Event{} {} {} been disabled in {}.'.format( 's' if len(succ)>1 else '', fmt(succ), 'have' if len(succ)>1 else 'has', ctx.channel.mention))
             events.write()
-        
+
         await ctx.send('\n'.join(msg))
 
     @commands.command(aliases=['del_event'], hidden=True)

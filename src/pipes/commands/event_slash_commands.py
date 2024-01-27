@@ -11,9 +11,11 @@ from pipes.core.context import Context, ItemScope
 from pipes.core.processor import PipelineProcessor
 from mycommands import MyCommands
 from utils.util import normalize_name
+from utils.texttools import chunk_lines
 
 from pipes.views import EventView
 from .slash_commands_util import event_type_map, autocomplete_event, choice_to_scriptoid, autocomplete_invoke_command
+
 
 class EventSlashCommands(MyCommands):
 
@@ -29,22 +31,23 @@ class EventSlashCommands(MyCommands):
             return interaction.channel.send(*a, **kw)
 
         if not events:
-            await reply('No events registered.')
-            return
+            return await reply('No events registered.')
 
+        # Collect enabled/disabled events for the current channel
         enabled_events, disabled_events = [], []
         for event in events.values():
             if interaction.channel.id in event.channels: enabled_events.append(event)
             else: disabled_events.append(event)
 
+        infos = []
         if enabled_events and enabled is not False:
-            infos = ['**__Enabled:__**'] + ['• ' + str(e) for e in enabled_events]
-            await reply('\n'.join(infos))
+            infos += ['**__Enabled:__**'] + ['• ' + str(e) for e in enabled_events]
 
         if disabled_events and enabled is not True:
-            infos = ['**__Disabled:__**'] + [', '.join(e.name for e in disabled_events)]
-            await reply('\n'.join(infos))
+            infos += ['**__Disabled:__**'] + [', '.join(e.name for e in disabled_events)]
 
+        for chunk in chunk_lines(infos):
+            await reply(chunk)
 
     # ================================================ Event Management ===============================================
 

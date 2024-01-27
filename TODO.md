@@ -58,6 +58,8 @@
             * Easily enable/disable all events in a namespace at the same time
 
     * **EVENTS:**
+        * Thing where being enabled/disabled is a layered structure with "yes/idk/no" flags per Channel/Server/Global
+            * ie. for a message in a channel it looks up through the chain for the first definite "yes" or "no"
         * Validate/static analysis on code changed by the Edit Event box widget
         * Now that they're not Pickled anymore, they can be holding on to the PipelineWithOrigin of their respective script, instead of the LRU thing?
         * more types of triggers/conditions: MESSAGE CONTAINS (regex), USER IS (username/id), TIME IS (?), logical operations?? ????

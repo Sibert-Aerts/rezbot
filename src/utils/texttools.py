@@ -44,32 +44,37 @@ def line_chunk_list(list, maxlength=100):
     return out
 
 
-def block_chunk_lines(lines):
-    ''' Turn a list of lines into a list of <2000 character code blocks safe to send over discord.'''
-    blocks = []
-    block = []
-    block_length = 0
+def chunk_lines(lines, max_chunk_size=2000):
+    ''' Turn a list of lines into a list of \n joined chunks, each with len < `max_chunk_size`.'''
+    chunks = []
+    current_chunk = []
+    current_chunk_length = 0
 
     for line in lines:
-        # The new line would be too long to fit in the block (anymore).
-        if block_length + len(line) > 1900:
-            # Move on to the next block.
-            if block:
-                blocks.append(block)
-                block = []
-                block_length = 0
-            # Special case: The single line is too big to even fit in a block at all, spread it over multiple.
-            if len(line) > 1900:
-                chunks = chunk_text(line, 1900)
-                for chunk in chunks[:-1]:
-                    blocks.append([chunk])
-                line = chunks[-1]
+        ## The new line would be too long to fit in the chunk (anymore).
+        if current_chunk_length + len(line) + 2 > max_chunk_size:
+            ## Push the current chunk onto the list of chunks, if it contains anything
+            if current_chunk:
+                chunks.append(current_chunk)
+                current_chunk = []
+                current_chunk_length = 0
+            ## Special case: The single line is too big to even fit in a chunk at all, spread it over multiple.
+            if len(line) > max_chunk_size:
+                line_chunks = chunk_text(line, max_chunk_size)
+                for chunk in line_chunks[:-1]:
+                    chunks.append([chunk])
+                line = line_chunks[-1]
 
-        block.append(line)
-        block_length += len(line) + 2
-    
-    blocks.append(block)    
-    return [ block_format('\n'.join(block)) for block in blocks ]
+        current_chunk.append(line)
+        current_chunk_length += len(line) + 2
+
+    chunks.append(current_chunk)
+    return ['\n'.join(block) for block in chunks]
+
+
+def block_chunk_lines(lines):
+    ''' Turn a list of lines into a list of <2000 character code blocks safe to send over discord.'''
+    return [block_format(chunk) for chunk in chunk_lines(lines, 1900)]
 
 
 def split_once_within_length(text: str, splitter: str, max_length: int):
@@ -344,10 +349,10 @@ def case_pattern(pattern, *inputs):
     m = re.match(CASE_RE, pattern)
     if m is None:
         raise ValueError('Invalid case pattern "%s"' % pattern)
-    
+
     head, body, tail = m.groups()
     outputs = []
-    
+
     if body is None:
         ## Simplest case: only a head was given
         for input in inputs:
