@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from discord import Embed
+from discord import Embed, Message
 
 from .spouts import spout_from_class, spout_from_func, set_category, Par, with_signature, Context
 from pipes.core.signature import url, Hex, Multi
@@ -73,3 +73,13 @@ async def tweet_spout(ctx: Context, values, *, name, handle, icon, retweets, lik
     if likes:
         embed.add_field(name='Likes', value=likes)
     await ctx.channel.send(embed=embed)
+
+
+@spout_from_func(aliases=['remove_embed'])
+@with_signature(
+    message = Par(str, 'this', 'The message to react to: this/that or a message ID.'),
+)
+async def remove_embeds_spout(ctx: Context, values, *, message: str):
+    ''' Removes all embeds from the specified message. '''
+    message: Message = await ctx.get_message(message)
+    await message.edit(suppress=True)
