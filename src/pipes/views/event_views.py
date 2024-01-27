@@ -1,7 +1,9 @@
 from discord import Message, Client, TextChannel, ui, ButtonStyle, TextStyle, Interaction
 from discord.interactions import Interaction
 
+from utils.texttools import block_format
 from .generic_views import ConfirmView, RezbotView
+from pipes.core.pipeline_with_origin import PipelineWithOrigin
 from pipes.core.events import Event, Events, OnMessage, OnReaction, OnInvoke
 
 
@@ -29,7 +31,17 @@ class EditEventModal(ui.Modal):
     async def on_submit(self, interaction: Interaction):
         if isinstance(self.event, (OnMessage, OnReaction, OnInvoke)):
             self.event.desc = self.desc_input.value
-            self.event.update(self.script_input.value, self.trigger_input.value)
+            ## Statically check the new script if needed
+            script_value = self.script_input.value
+            if script_value != self.event.script:
+                errors = PipelineWithOrigin.from_string(script_value).get_static_errors()
+                if errors.terminal:
+                    msg = f'Failed to update Event script\n{block_format(script_value)} due to errors:'
+                    # TODO: "save changes anyway" View
+                    return await interaction.response.send_message(msg, embed=errors.embed(), ephemeral=True)
+            ## Save new script + trigger string
+            self.event.update(script_value, self.trigger_input.value)
+
         # events.write() is called by the View
         await interaction.response.edit_message(embed=self.event.embed(bot=self.bot, channel=interaction.channel))
         self.confirmed = True
