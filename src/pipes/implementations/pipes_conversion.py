@@ -42,7 +42,7 @@ class PipeCurrency:
             PipeCurrency._converter = CurrencyConverter(SINGLE_DAY_ECB_URL)
 
         from_ = kwargs['from']
-        return str(PipeCurrency._converter.convert(int(text), from_, to))
+        return format(PipeCurrency._converter.convert(float(text), from_, to), '.2f')
 
 
 UNIT = UnitRegistry(autoconvert_offset_to_baseunit=True)
