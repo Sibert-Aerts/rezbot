@@ -285,6 +285,14 @@ class Context:
                 # Fetch the 2nd item from history (TODO: Race condition with new messages since this script was invoked)
                 return [ msg async for msg in self.message.channel.history(limit=2) ][1]
 
+        ## CASE 3: Starts with poundsign (#): Earmarked message(s)
+        if len(key) > 1 and key.startswith("#"):
+            earmark = key[1:]
+            messages = SourceResources.earmarked_messages.get(earmark)
+            if not messages:
+                raise ValueError(f'Could not find message(s) by earmark "{earmark}".')
+            return messages[0]
+
         ## FINAL CASE; integer: Message ID in the current channel
         int_key = None
         try:
@@ -298,3 +306,4 @@ class Context:
 # Imports down here due to circular dependencies
 from . import templated_string # Unused import to ensure dependencies resolve in the correct order
 from .events import OnReaction
+from ..implementations.sources import SourceResources

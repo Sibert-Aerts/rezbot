@@ -126,6 +126,7 @@ class SourceResources:
     bot: Bot = None
     previous_pipeline_output = defaultdict(list)
     variables = VariableStore('variables.json')
+    earmarked_messages = dict()
 
 
 #####################################################

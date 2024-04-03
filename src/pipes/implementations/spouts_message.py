@@ -1,7 +1,8 @@
 from discord.errors import HTTPException
-from discord.ext.commands import Bot
+
 
 from .spouts import Par, Context, with_signature, spout_from_func, set_category
+from .sources import SourceResources
 from pipes.core.signature import parse_bool
 import utils.rand as rand
 
@@ -12,12 +13,17 @@ import utils.rand as rand
 set_category('MESSAGE')
 
 @spout_from_func
-async def send_message_spout(ctx: Context, values):
+@with_signature(
+    earmark = Par(str, None, 'Earmark to uniquely identify this message in other scripting contexts.', required=False),
+)
+async def send_message_spout(ctx: Context, values, earmark):
     '''
     Sends input as a Discord message.
     If multiple lines of input are given, they're joined with line breaks.
     '''
-    await ctx.channel.send('\n'.join(values))
+    message = await ctx.channel.send('\n'.join(values))
+    if earmark:
+        SourceResources.earmarked_messages[earmark] = [message]
 
 
 @spout_from_func
