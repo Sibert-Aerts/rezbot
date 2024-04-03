@@ -30,21 +30,25 @@ async def send_message_spout(ctx: Context, values, earmark):
 @with_signature(
     id =      Par(str, 'this', 'The message to reply to: this/that or a message ID.'),
     mention = Par(parse_bool, False, 'Whether the reply should ping the person being replied to.'),
+    earmark = Par(str, None, 'Earmark to uniquely identify this message in other scripting contexts.', required=False),
 )
-async def reply_spout(ctx: Context, values, *, id, mention):
+async def reply_spout(ctx: Context, values, *, id, mention, earmark):
     '''
     Sends input as a Discord message replying to another message.
     If multiple lines of input are given, they're joined with line breaks.
     '''
     message = await ctx.get_message(id)
-    await message.reply('\n'.join(values), mention_author=mention)
+    reply = await message.reply('\n'.join(values), mention_author=mention)
+    if earmark:
+        SourceResources.earmarked_messages[earmark] = [reply]
 
 
 @spout_from_func
 @with_signature(
-    id = Par(str, None, 'The member to send the message to. "me/them" or the member\'s handle or ID.')
+    member = Par(str, None, 'The member to send the message to. "me/them" or the member\'s handle or ID.'),
+    earmark = Par(str, None, 'Earmark to uniquely identify this message in other scripting contexts.', required=False),
 )
-async def direct_message_spout(ctx: Context, values, *, id):
+async def direct_message_spout(ctx: Context, values, *, id, earmark):
     '''
     Sends input as a direct Discord message to someone.
     If multiple lines of input are given, they're joined with line breaks.
@@ -53,7 +57,9 @@ async def direct_message_spout(ctx: Context, values, *, id):
     # To prevent abuse (?), log every DM
     print(f'Executing direct_message spout: Sending DM to {member.name}, invoked by {ctx.origin.activator.name}')
     print('\tMessage content:', values)
-    await member.send('\n'.join(values))
+    message = await member.send('\n'.join(values))
+    if earmark:
+        SourceResources.earmarked_messages[earmark] = [message]
 
 
 @spout_from_func
