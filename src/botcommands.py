@@ -353,5 +353,18 @@ class BotCommands(MyCommands):
         await (await ctx.send('\n'.join(output))).add_reaction(smiley)
 
 
+    @commands.command()
+    async def emoji_fight(self, ctx, left: str, right: str, rigged=None):
+        if not left or not right:
+            raise ValueError('Please give two combattants.')
+        if rigged not in (None, 'left', 'right', 'both'):
+            raise ValueError('Invalid value for "rigged".')
+
+        fight = EmojiFight(left, '⚔️', right, rigged=rigged)
+        fight.perform_fight()
+        for line in fight.pop_emit():
+            await ctx.send(line)
+
+
 async def setup(bot):
     await bot.add_cog(BotCommands(bot))

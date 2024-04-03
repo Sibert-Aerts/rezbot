@@ -74,6 +74,9 @@ class EmojiFight:
     @property
     def facing_left(self) -> bool:
         return (self.weapon in self.weapons_left)
+    @property
+    def facing_right(self) -> bool:
+        return not self.facing_left
 
     @property
     def target(self) -> str:
@@ -92,6 +95,17 @@ class EmojiFight:
         else: self.left = value
 
     # ==================================== State-related actions ===================================
+
+    def may_die(self, subj: Literal['left', 'right', 'both']):
+        if subj == 'left':
+            return self.rigged not in ('left', 'both')
+        if subj == 'right':
+            return self.rigged not in ('right', 'both')
+        if subj == 'both':
+            return not self.rigged
+
+    def may_tie(self):
+        return not self.rigged or self.rigged == "both"
 
     def swap_subjects(self) -> None:
         (self.left, self.right) = (self.right, self.left)
@@ -148,7 +162,7 @@ class EmojiFight:
             branch = choice(self.branches, p=self.probs)
 
             if branch == 'attack':
-                if (self.rigged == 'left' and self.facing_left) or (self.rigged == 'right' and not self.facing_left):
+                if (self.facing_left and not self.may_die('left')) or (self.facing_right and not self.may_die('right')):
                     continue
 
                 emit(self.attacking())
@@ -158,7 +172,7 @@ class EmojiFight:
                     emit(self.status_quo())
                     emit('`huh?!`', '`what?!`', '`nani?!`', '`...huh?!`', '`w-what?!`')
 
-                    if r < 0.1 and (not self.rigged or self.rigged == 'both'):
+                    if r < 0.1 and self.may_tie():
                         # Of which a 1/3 chance the fight ends here
                         emit(
                             '`h-he\'s not even scratched !!`',
@@ -178,7 +192,7 @@ class EmojiFight:
 
             elif branch == 'noBullets':
                 # The fight ends with both alive
-                if self.rigged and self.rigged != 'both':
+                if not self.may_tie():
                     continue
 
                 if len(self.state_history) == 1 or self.weapon != '🔫':
@@ -191,7 +205,7 @@ class EmojiFight:
 
             elif branch == 'knife':
                 # The attacker gets eliminated
-                if (self.rigged == 'right' and self.facing_left) or (self.rigged == 'left' or not self.facing_left):
+                if (self.facing_left and not self.may_die('right')) or (self.facing_right and not self.may_die('left')):
                     continue
 
                 old_weapon = self.weapon
@@ -219,7 +233,8 @@ class EmojiFight:
                 if self.facing_left:
                     # These weapons are all left-facing, and we want them to be pulled out in self-defense
                     continue
-                if self.rigged == 'left':
+                if not self.may_die('left'):
+                    # The left subject gets eliminated
                     continue
                 self.weapon = choice(['🔨', '⛏', '🪓', '🪚'])
                 emit(self.status_quo())
@@ -242,7 +257,7 @@ class EmojiFight:
 
             elif branch == 'punch':
                 # The attacker gets eliminated
-                if (self.rigged == 'right' and self.facing_left) or (self.rigged == 'left' or not self.facing_left):
+                if (self.facing_left and not self.may_die('right')) or (self.facing_right and not self.may_die('left')):
                     continue
                 self.weapon = '🤜' if self.facing_left else '🤛'
                 emit(self.attacking())
@@ -255,7 +270,8 @@ class EmojiFight:
                 break
 
             elif branch == 'hero':
-                if self.rigged == 'right':
+                # Right attacker defeats themselves with their gun
+                if not self.may_die('right'):
                     continue
                 if self.weapon != '🔫':
                     continue
@@ -266,7 +282,7 @@ class EmojiFight:
 
             elif branch == 'love':
                 # The fight ends with both alive
-                if self.rigged and self.rigged != 'both':
+                if not self.may_tie():
                     continue
                 emit(self.left + ':bouquet:' + self.right)
                 emit('`must we fight?`', '`why do we fight?`')
@@ -276,7 +292,7 @@ class EmojiFight:
 
             elif branch == 'shake':
                 # The fight ends with both alive
-                if self.rigged and self.rigged != 'both':
+                if not self.may_tie():
                     continue
                 emit(self.no_weapon())
                 emit('`I\'m sorry. I can\'t do it.`', '`I\'m sorry, I can\'t do this.`', '`no, this is wrong.`')
@@ -287,7 +303,7 @@ class EmojiFight:
             elif branch == 'time':
                 if not self.facing_left:
                     continue
-                if self.rigged == 'right':
+                if not self.may_die('right'):
                     continue
                 emit(self.status_quo() + ':cyclone::cyclone:')
                 emit('`~bzoom~`')
