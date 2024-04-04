@@ -105,6 +105,7 @@ class Rezbot(commands.Bot):
             print(f'In {ctx.command.qualified_name}:', file=sys.stderr)
             # traceback.print_tb(error.original.__traceback__)
             print(f'{type(error.original).__name__}: {error.original}', file=sys.stderr)
+            raise error
         else:
             print('Command Error:', error)
 
@@ -114,7 +115,7 @@ async def main():
     bot = Rezbot()
 
     async with bot:
-        await bot.load_extension('botcommands')
+        await bot.load_extension('general_commands')
         # Old text-based commands
         await bot.load_extension('pipes.commands.pipe_commands')
         await bot.load_extension('pipes.commands.macro_commands')

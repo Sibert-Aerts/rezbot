@@ -9,7 +9,7 @@ from pipes.implementations.spouts import spouts
 from pipes.core.macros import pipe_macros, source_macros, Macros
 from pipes.core.signature import Arguments
 from pipes.views import MacroView
-from mycommands import MyCommands
+from rezbot_commands import RezbotCommands
 import utils.texttools as texttools
 import utils.util as util
 
@@ -17,7 +17,7 @@ import utils.util as util
 #            A module providing commands for pipes            #
 ###############################################################
 
-class PipeCommands(MyCommands):
+class PipeCommands(RezbotCommands):
 
     @commands.command(aliases=['pipe_help', 'pipes_info', 'pipe_info', 'pipes_guide', 'pipe_guide'])
     async def pipes_help(self, ctx):
@@ -50,7 +50,7 @@ class PipeCommands(MyCommands):
         elif uname and uname in pipeoids.categories:
             infos = []
             infos.append(f'{types_name} in category {uname}:\n')
-            
+
             category = pipeoids.categories[uname]
             col_w = len(max((p.name for p in category), key=len)) + 3
             for pipe in category:
@@ -68,7 +68,7 @@ class PipeCommands(MyCommands):
         else:
             infos = []
             infos.append('Categories:\n')
-            
+
             col_w = len(max(pipeoids.categories, key=len)) + 2
             for category in pipeoids.categories:
                 info = category.ljust(col_w)
@@ -79,7 +79,7 @@ class PipeCommands(MyCommands):
                 else:
                     info += ', '.join(p.name for p in cat)
                 infos.append(info)
-                
+
             infos.append('')
             infos.append(f'Use >{types_name.lower()} [category name] for the list of {types_name.lower()} in a specific category.')
             infos.append(f'Use >{types_name.lower()} [{type_name.lower()} name] to see more info on a specific {type_name.lower()}.')

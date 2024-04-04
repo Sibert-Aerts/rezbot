@@ -3,7 +3,7 @@ import random
 import discord
 from discord.ext import commands
 
-from mycommands import MyCommands
+from rezbot_commands import RezbotCommands
 import permissions
 import utils.util as util
 import utils.texttools as texttools
@@ -19,7 +19,7 @@ from resource.upload import uploads
 Main command module, contains a bunch of random functionality.
 '''
 
-class BotCommands(MyCommands):
+class BotCommands(RezbotCommands):
 
     ###################################
     ##        HIDDEN COMMANDS        ##
@@ -351,19 +351,6 @@ class BotCommands(MyCommands):
         smiley = {'1': '🤯', '2': '🤩', '3': '😃', '4': '🙂', '5': '😐', '6': '😟', 'X': '😢'}[turns] or '🤔'
 
         await (await ctx.send('\n'.join(output))).add_reaction(smiley)
-
-
-    @commands.command()
-    async def emoji_fight(self, ctx, left: str, right: str, rigged=None):
-        if not left or not right:
-            raise ValueError('Please give two combattants.')
-        if rigged not in (None, 'left', 'right', 'both'):
-            raise ValueError('Invalid value for "rigged".')
-
-        fight = EmojiFight(left, '⚔️', right, rigged=rigged)
-        fight.perform_fight()
-        for line in fight.pop_emit():
-            await ctx.send(line)
 
 
 async def setup(bot):

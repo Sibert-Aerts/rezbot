@@ -3,7 +3,7 @@ from discord.ext import commands
 
 from pipes.core.events import events
 from pipes.views import EventView
-from mycommands import MyCommands
+from rezbot_commands import RezbotCommands
 from utils.texttools import chunk_lines
 import permissions
 
@@ -11,7 +11,7 @@ import permissions
 #            A module providing commands for pipes            #
 ###############################################################
 
-class EventCommands(MyCommands):
+class EventCommands(RezbotCommands):
 
     @commands.command(aliases=['event'], hidden=True)
     async def events(self, ctx: commands.Context, name=''):

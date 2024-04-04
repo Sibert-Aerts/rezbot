@@ -68,7 +68,7 @@ class Pipeoid:
         out = self.doc or ''
         if self.signature:
             out += '\nParameters:\n'
-            out += '\n'.join(f'• {s}: {self.signature[s]}' for s in self.signature)
+            out += '\n'.join(f'• {s.simple_str()}' for s in self.signature.values())
         return out
 
     def _get_github_url(self, func: 'function'):

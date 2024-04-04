@@ -1,6 +1,6 @@
 from discord.ext import commands
 
-from mycommands import MyCommands
+from rezbot_commands import RezbotCommands
 from resource.youtubecaps import youtubeCaps
 import utils.util as util
 import permissions
@@ -21,7 +21,7 @@ Commands for moderating captions:
 '''
 
 
-class YoutubeCommands(MyCommands):
+class YoutubeCommands(RezbotCommands):
     @commands.command(aliases=['yt'])
     async def youtube(self, ctx):
         '''Get a random caption from a youtube video from a list of saved youtube videos'''

@@ -14,7 +14,7 @@ from pipes.implementations.sources import sources
 from pipes.core.macros import Macro, MacroParam, Macros, pipe_macros, source_macros
 import utils.texttools as texttools
 from utils.util import normalize_name
-from mycommands import MyCommands
+from rezbot_commands import RezbotCommands
 
 
 async def check_pipe_macro(code: str, reply):
@@ -52,7 +52,7 @@ typedict: dict[str, tuple[Macros, bool, Pipes, Callable]] = {
 typedict_options = ', '.join('"' + t + '"' for t in typedict)
 
 
-class MacroCommands(MyCommands):
+class MacroCommands(RezbotCommands):
     FORCE_MACRO_CACHE = None
 
     async def what_complain(self, channel):

@@ -28,7 +28,7 @@ async def setup(bot: commands.Bot):
     def pipe_to_func(pipe: Pipe):
         async def func(ctx: commands.Context):
             text = util.strip_command(ctx)
-            execution_context = Context(
+            script_context = Context(
                 origin=Context.Origin(
                     name=pipe.name,
                     type=Context.Origin.Type.COMMAND,
@@ -38,15 +38,11 @@ async def setup(bot: commands.Bot):
                 message=ctx.message,
             )
             # Parse and process arguments from the command string
-            args, text, err = Arguments.from_string(text, pipe.signature, greedy=False)
+            args, text, err = await pipe.signature.parse_and_determine(text, script_context, greedy=False)
             err.name = f'`{pipe.name}`'
-            if err.terminal: return await ctx.send(embed=err.embed())
-            args, err2 = await args.determine(execution_context)
-            err.extend(err2, 'arguments')
-            if text is not None:
-                text, err3 = await text.evaluate(execution_context)
-                err.extend(err3, 'input string')
-            if err.terminal: return await ctx.send(embed=err.embed())
+            if err:
+                await ctx.send(embed=err.embed())
+                if err.terminal: return
 
             if not pipe.may_use(ctx.author):
                 err.log(f'User lacks permission to use Pipe `{pipe.name}`.', True)
@@ -79,7 +75,7 @@ async def setup(bot: commands.Bot):
     def source_to_func(source: Source):
         async def func(ctx: commands.Context):
             text = util.strip_command(ctx)
-            execution_context = Context(
+            script_context = Context(
                 origin=Context.Origin(
                     name=source.name,
                     type=Context.Origin.Type.COMMAND,
@@ -89,12 +85,11 @@ async def setup(bot: commands.Bot):
                 message=ctx.message,
             )
             # Parse and process arguments from the command string
-            args, _, err = Arguments.from_string(text, source.signature, greedy=True)
+            args, _, err = await source.signature.parse_and_determine(text, script_context, greedy=True)
             err.name = f'`{source.name}`'
-            if err.terminal: return await ctx.send(embed=err.embed())
-            args, err2 = await args.determine(execution_context)
-            err.extend(err2, 'arguments')
-            if err.terminal: return await ctx.send(embed=err.embed())
+            if err:
+                await ctx.send(embed=err.embed())
+                if err.terminal: return
 
             if not source.may_use(ctx.author):
                 err.log(f'User lacks permission to use Source `{source.name}`.', True)
@@ -102,7 +97,7 @@ async def setup(bot: commands.Bot):
 
             try:
                 # Apply the source with the given arguments
-                results = await source.generate(execution_context, args)
+                results = await source.generate(script_context, args)
                 await PipelineWithOrigin.send_print_values(ctx.channel, [results])
 
             except Exception as e:
@@ -137,13 +132,11 @@ async def setup(bot: commands.Bot):
                 message=ctx.message,
             )
             # Parse and process arguments from the command string
-            args, text, err = Arguments.from_string(text, spout.signature, greedy=False)
+            args, text, err = await spout.signature.parse_and_determine(text, script_context, greedy=False)
             err.name = f'`{spout.name}`'
-            if err.terminal: return await ctx.send(embed=err.embed())
-            args, err2 = await args.determine(script_context)
-            text, err3 = await text.evaluate(script_context)
-            err.extend(err2, 'arguments'); err.extend(err3, 'input string')
-            if err.terminal: return await ctx.send(embed=err.embed())
+            if err:
+                await ctx.send(embed=err.embed())
+                if err.terminal: return
 
             if not spout.may_use(ctx.author):
                 err.log(f'User lacks permission to use Spout `{spout.name}`.', True)

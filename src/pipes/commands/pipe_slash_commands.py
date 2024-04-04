@@ -11,14 +11,14 @@ from pipes.implementations.sources import sources
 from pipes.implementations.spouts import spouts
 from pipes.core.macros import Macro
 from pipes.core.events import Event
-from mycommands import MyCommands
+from rezbot_commands import RezbotCommands
 import utils.texttools as texttools
 
 from pipes.views import MacroView, EventView
 from .slash_commands_util import autocomplete_scriptoid, choice_to_scriptoid
 
 
-class PipeSlashCommands(MyCommands):
+class PipeSlashCommands(RezbotCommands):
 
     # =========================================== General scriptoid Lookup ============================================
 
@@ -27,12 +27,12 @@ class PipeSlashCommands(MyCommands):
     @app_commands.autocomplete(scriptoid_name=autocomplete_scriptoid)
     @app_commands.rename(scriptoid_name="scriptoid")
     async def lookup(self, interaction: Interaction, scriptoid_name: str):
-        ''' Look up info on a specific Pipe, Source, Spout, Macro or Event. '''        
+        ''' Look up info on a specific Pipe, Source, Spout, Macro or Event. '''
         reply = interaction.response.send_message
         try:
             scriptoid, scriptoids = choice_to_scriptoid(scriptoid_name)
         except:
-            return await reply(f'Command failed, likely due to nonexistent scriptoid.', ephemeral=True)            
+            return await reply(f'Command failed, likely due to nonexistent scriptoid.', ephemeral=True)
 
         # Get embed
         embed = scriptoid.embed(bot=self.bot, channel=interaction.channel)
@@ -58,7 +58,7 @@ class PipeSlashCommands(MyCommands):
     async def _list_scriptoids(self, interaction: Interaction, scriptoids: Pipes|Sources|Spouts, what: str, category_name: str):
         ## List pipes in a specific category
         reply = interaction.response.send_message
-        
+
         if category_name or not scriptoids.categories:
             if category_name:
                 category_name = category_name.upper()
@@ -92,7 +92,7 @@ class PipeSlashCommands(MyCommands):
         else:
             infos = []
             infos.append(f'{what.capitalize()} categories:\n')
-            
+
             col_width = len(max(scriptoids.categories, key=len)) + 2
             for category_name in scriptoids.categories:
                 info = category_name.ljust(col_width)

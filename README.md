@@ -11,14 +11,14 @@ A python-based discord bot using `discord.py` for python 3.11.
 * Go to `src/` and run `py -3.11 ./bot.py`
 
 ## Contains
-* Simple toy commands (`src/botcommands.py`)
+* Simple toy commands (`src/general_commands.py`)
 * Simple script that checks messages for specific patterns to reply/react to (`src/patterns.py`)
 * ~~Downloading, searching through and sampling random captions from youtube videos (`src/resource/youtubecaps`)~~ (currently broken)
 * Users can upload txt files, sample quotes from them, generate Markov chains from, apply NLP analysis, etc. via bot commands (`src/resource/upload`)
 * A unique scripting language designed to be used via discord messages (codenamed as "pipes" `src/pipes/`)
     * One-time scripts can be quickly written or copy-pasted to generate amusing results
-    * Reactive scripts can be made to perform simple toy tasks (e.g. react to every mention of bananas with a banana emoji)  
+    * Reactive scripts can be made to perform simple toy tasks (e.g. react to every mention of bananas with a banana emoji)
     but can be used to script more complicated interactions (e.g. fetching a picture from a matching Wikipedia page when a user says "show me xyz"),
     without ever having to leave the discord message box or write a line of python code.
-    
+
     (See [PIPESGUIDE.md](./PIPESGUIDE.md) for more information)

@@ -4,13 +4,13 @@ import discord
 from discord.ext import commands
 
 import permissions
-from mycommands import MyCommands
+from rezbot_commands import RezbotCommands
 from resource.upload import uploads
 import utils.texttools as texttools
 from utils.util import parse_bool
 
 
-class UploadCommands(MyCommands):
+class UploadCommands(RezbotCommands):
     @commands.command()
     async def upload(self, ctx):
         '''Upload a txt file for the bot to use.'''
@@ -66,7 +66,7 @@ class UploadCommands(MyCommands):
             lines.append('')
             lines.append('Use >file [name] for details on a specific file.')
             lines.append('Use >file [CATEGORY] for the list of files in that category.')
-            
+
             for block in texttools.block_chunk_lines(lines): await ctx.send(block)
             return
 
@@ -94,7 +94,7 @@ class UploadCommands(MyCommands):
 
             lines.append('')
             lines.append('Use >file [name] for details on a specific file.')
-            
+
             for block in texttools.block_chunk_lines(lines): await ctx.send(block)
             return
 
@@ -198,10 +198,10 @@ class UploadCommands(MyCommands):
 
     @commands.command(aliases=['categorise_files'])
     async def categorize_files(self, ctx, category: str, *files: str):
-        ''' Add multiple files to a given category '''        
+        ''' Add multiple files to a given category '''
         category = category.upper()
         succ = []; neut = []; fail = []
-        
+
         for name in files:
             if name not in uploads:
                 fail.append(name)
@@ -226,11 +226,11 @@ class UploadCommands(MyCommands):
         await ctx.send('\n'.join(msg))
 
     @commands.command(aliases=['decategorise_files'])
-    async def decategorize_files(self, ctx, category: str, *files: str):       
-        ''' Remove multiple files from a given category. '''         
+    async def decategorize_files(self, ctx, category: str, *files: str):
+        ''' Remove multiple files from a given category. '''
         category = category.upper()
         succ = []; neut = []; fail = []
-        
+
         for name in files:
             if name not in uploads:
                 fail.append(name)

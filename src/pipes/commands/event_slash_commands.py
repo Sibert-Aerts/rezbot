@@ -9,7 +9,7 @@ from discord import app_commands, Interaction
 from pipes.core.events import Event, events
 from pipes.core.context import Context, ItemScope
 from pipes.core.processor import PipelineProcessor
-from mycommands import MyCommands
+from rezbot_commands import RezbotCommands
 from utils.util import normalize_name
 from utils.texttools import chunk_lines
 
@@ -17,7 +17,7 @@ from pipes.views import EventView
 from .slash_commands_util import event_type_map, autocomplete_event, choice_to_scriptoid, autocomplete_invoke_command
 
 
-class EventSlashCommands(MyCommands):
+class EventSlashCommands(RezbotCommands):
 
     # ================================================= Event Listing =================================================
 

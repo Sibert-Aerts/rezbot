@@ -8,7 +8,7 @@ from discord.ext import commands
 from discord import app_commands, Interaction
 
 from pipes.core.macros import Macro, Macros, MacroParam, pipe_macros, source_macros
-from mycommands import MyCommands
+from rezbot_commands import RezbotCommands
 import utils.texttools as texttools
 from utils.util import normalize_name
 
@@ -17,7 +17,7 @@ from .slash_commands_util import (
     scriptoid_type_map, macro_check_map, autocomplete_macro, choice_to_scriptoid,
 )
 
-class MacroSlashCommands(MyCommands):
+class MacroSlashCommands(RezbotCommands):
 
     # ================================================ Macro Listing ================================================
 
@@ -63,7 +63,7 @@ class MacroSlashCommands(MyCommands):
         if undesced_macros:
             infos.append('\nWithout descriptions:')
             infos += texttools.line_chunk_list(undesced_macros)
-        
+
         first = True
         for block in texttools.block_chunk_lines(infos):
             if first:
@@ -111,17 +111,17 @@ class MacroSlashCommands(MyCommands):
         ''' Define a new Macro. '''
         reply = interaction.response.send_message
         author = interaction.user
-        
+
         natives = scriptoid_type_map[macro_type]
         macros = scriptoid_type_map[macro_type + '_macro']
-        
+
         name = normalize_name(name)
         if name in natives or name in macros:
             return await reply(f'A {macro_type} called `{name}` already exists, try the `/macro edit` command.')
 
         check = macro_check_map[macros.kind]
         if not force and not await check(code, reply):
-            return await interaction.channel.send('Run the command again with `force: True` to save it anyway.')            
+            return await interaction.channel.send('Run the command again with `force: True` to save it anyway.')
 
         macro = Macro(macros.kind, name, code, author.name, author.id, desc=description, visible=not hidden)
         macros[name] = macro
@@ -181,7 +181,7 @@ class MacroSlashCommands(MyCommands):
         ''' Delete a Macro. '''
         reply = interaction.response.send_message
         author = interaction.user
-    
+
         try:
             macro, macros = choice_to_scriptoid(macro_choice, Macro)
         except:

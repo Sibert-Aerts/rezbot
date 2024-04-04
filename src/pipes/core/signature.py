@@ -44,12 +44,42 @@ class Par:
         self.checkfun = check
         self.required = required and (default is None)
 
+    def __repr__(self):
+        attrs = {
+            'name': self.name,
+            'default': self.default,
+            'desc': self.desc,
+            'checkfun': self.checkfun,
+        }
+        if self.default is None:
+            attrs['required'] = self.required
+        attrstr = ', '.join(f'{a}={repr(v)}' for a, v in attrs.items())
+        return f'Par({attrstr})'
+
     def __str__(self):
-        ''' Make the representation string. '''
+        ''' Markdown representation string. '''
         out = [f'* **{self.name}:**']
         if self.desc:
             out.append(' ' + self.desc)
         out.append(' (*' + self.type.__name__ + '*')
+        if self.required:
+            out.append(', REQUIRED')
+        else:
+            if self.type == url:
+                out.append(f', default: "<{self.default}>"')
+            elif isinstance(self.default, str):
+                out.append(f', default: "{self.default}"')
+            else:
+                out.append(f', default: `{self.default}`')
+        out.append(')')
+        return ''.join(out)
+
+    def simple_str(self):
+        ''' Non-markdown representation string. '''
+        out = [f'{self.name}:']
+        if self.desc:
+            out.append(' ' + self.desc)
+        out.append(' (' + self.type.__name__ + '')
         if self.required:
             out.append(', REQUIRED')
         else:
@@ -80,21 +110,45 @@ class Par:
 
 class Signature(dict[str, Par]):
     ''' dict-derived class representing a set of parameters for a single function. '''
-    def __init__(self, params):
+    def __init__(self, params=None, **kwargs):
+        if params and kwargs:
+            raise Exception('Only create a Signature from either a dict or kwargs.')
+        params = params or kwargs
         # Force all keys lowercase
-        params  = {k.lower(): v for (k, v) in params.items()}
+        params  = {k.lower(): v for k, v in params.items()}
         super().__init__(params)
         # Tell each Parameter its name
         for param in params:
             params[param].name = param
+
+    def __repr__(self):
+        return 'Signature(%s)' % ', '.join(f'{p}={repr(a)}' for p, a in self.items())
+    def __str__(self):
+        return ' '.join(f'{p}={a}' for p, a in self.args.items() if p not in self.defaults)
+
+    async def parse_and_determine(self, string: str, ctx: Context, greedy=True) -> tuple[dict[str], str, ErrorLog]:
+        ''' Shortcuts the process of parsing/checking an argstring, determining each argument, and producing an args dict. '''
+        # 1. Creates Arguments object by parsing the string according to the Signature
+        arguments, remainder, errors = Arguments.from_string(string, self, greedy=greedy)
+        if errors.terminal:
+            return None, None, errors
+        # 2. (Optionally) evaluating the remainder string
+        if not greedy and remainder is not None:
+            remainder, rem_errors = await remainder.evaluate(ctx)
+            errors.extend(rem_errors, 'input string')
+        # 3. Evaluate each given argument
+        args, det_errors = await arguments.determine(ctx)
+        errors.extend(det_errors, 'arguments')
+        # Return
+        return args, remainder, errors
 
 
 def with_signature(arg=None, **kwargs: dict[str, Par]):
     ''' Creates a Signature from the given dict or kwargs and stores it on the given function. '''
     if arg and kwargs:
         raise ValueError('with_signature should either specify one arg, or a set of kwargs, not both.')
+    signature = arg if isinstance(arg, Signature) else Signature(arg or kwargs)
     def _with_signature(f: Callable):
-        signature = Signature(arg or kwargs)
         if hasattr(f, '__func__'):
             f.__func__.pipe_signature = signature
         else:
