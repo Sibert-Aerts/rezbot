@@ -44,7 +44,7 @@ class EmojiFightCommands(RezbotCommands):
         contestants = Par(str, None),
     )
     async def emoji_battle_start(self, ctx: commands.Context, *, name: str, contestants: str):
-        contestants = contestants.split(",")
+        contestants = [c.strip() for c in contestants.split(",")]
         await ctx.send(f'## EMOJI BATTLE "{name.upper()}"\n### Contestants:')
         await ctx.send('  '.join(contestants))
 
@@ -171,10 +171,13 @@ class EmojiFightCommands(RezbotCommands):
             output += fight.output
 
         if len(battle.competing) == 0:
-            output.add_text(f'## ...and with that, {battle.name} ends!\n### Victors:')
-            output.add_emoji('  '.join(battle.winners))
-            output.add_text('### Losers:')
-            output.add_emoji('  '.join(battle.losers))
+            output.add_text(f'## ...and with that, {battle.name} ends!')
+            if battle.winners:
+                output.add_text('### Victors:')
+                output.add_emoji('  '.join(battle.winners))
+            if battle.losers:
+                output.add_text('### Losers:')
+                output.add_emoji('  '.join(battle.losers))
 
             del EMOJI_BATTLES[battle.name.lower()]
             CURRENT_BATTLE = None
