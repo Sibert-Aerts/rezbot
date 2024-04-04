@@ -116,6 +116,7 @@ async def main():
 
     async with bot:
         await bot.load_extension('general_commands')
+        await bot.load_extension('emoji_fight_commands')
         # Old text-based commands
         await bot.load_extension('pipes.commands.pipe_commands')
         await bot.load_extension('pipes.commands.macro_commands')

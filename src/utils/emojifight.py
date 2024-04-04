@@ -3,6 +3,8 @@ from numpy.random import choice
 import random
 import re
 
+import discord
+
 from .rand import chance
 
 
@@ -21,6 +23,30 @@ DEFAULT_ODDS = [
     ('kiss',        10),
     ('teleport',    10),
 ]
+
+
+class EmojiOutput:
+    lines: list[tuple[bool, str]]
+    def __init__(self):
+        self.lines = []
+    def add_text(self, text: str):
+        self.lines.append((False, text))
+    def add_emoji(self, emoji: str):
+        self.lines.append((True, emoji))
+    def get_clustered(self):
+        res = []
+        current_state = None
+        for state, string in self.lines:
+            if state != current_state:
+                res.append([])
+                current_state = state
+            res[-1].append(string)
+        return ['\n'.join(r) for r in res]
+    def concat(self, other: 'EmojiOutput'):
+        self.lines.concat(other.lines)
+    def __iadd__(self, other: 'EmojiOutput'):
+        self.lines += other.lines
+        return self
 
 
 class EmojiFight:
@@ -49,8 +75,7 @@ class EmojiFight:
 
     # History
     state_history = None
-    emit_history = None
-    emit_stack = None
+    output: EmojiOutput
 
     def __init__(self, left, weapon, right, odds=None, rigged=None):
         # State
@@ -61,8 +86,7 @@ class EmojiFight:
         self.rigged = rigged
         # History
         self.state_history = []
-        self.emit_history = []
-        self.emit_stack = []
+        self.output = EmojiOutput()
         # Branching config, given as (branch_name, weight) pairs
         odds = odds or DEFAULT_ODDS
         self.branches, self.weights = tuple(zip(*odds))
@@ -135,26 +159,22 @@ class EmojiFight:
     def push_state(self):
         self.state_history.append((self.left, self.weapon, self.right))
 
-    def push_emit(self, *s: list[str]):
-        if len(s):
-            s = choice(s)
-        self.emit_history.append(s)
-        self.emit_stack.append(s)
+    def output_text(self, *lines: list[str]):
+        self.output.add_text(choice(lines))
 
-    def pop_emit(self):
-        res = self.emit_stack
-        self.emit_stack = []
-        return res
+    def output_emoji(self, emoji: str):
+        self.output.add_emoji(emoji)
 
     def perform_fight(self):
-        emit = self.push_emit
+        output_text = self.output_text
+        output_emoji = self.output_emoji
 
         if self.weapon in EmojiFight.weapons_dual:
             ## Start the battle by having one side draw a random weapon
             self.weapon = choice(EmojiFight.weapons_left) if chance(0.5) else choice(EmojiFight.weapons_right)
-            emit(self.status_quo())
+            output_emoji(self.status_quo())
             if chance(0.5):
-                emit('`en guarde!`', '`have at you!`', '`on your guard!`')
+                output_text('`en guarde!`', '`have at you!`', '`on your guard!`')
 
         # Loop until the fight ends somehow
         while True:
@@ -165,16 +185,16 @@ class EmojiFight:
                 if (self.facing_left and not self.may_die('left')) or (self.facing_right and not self.may_die('right')):
                     continue
 
-                emit(self.attacking())
+                output_emoji(self.attacking())
                 r = random.random()
 
                 if r < 0.3 or self.rigged == 'both': # 30% chance the attack is unsuccessful
-                    emit(self.status_quo())
-                    emit('`huh?!`', '`what?!`', '`nani?!`', '`...huh?!`', '`w-what?!`')
+                    output_emoji(self.status_quo())
+                    output_text('`huh?!`', '`what?!`', '`nani?!`', '`...huh?!`', '`w-what?!`')
 
                     if r < 0.1 and self.may_tie():
                         # Of which a 1/3 chance the fight ends here
-                        emit(
+                        output_text(
                             '`h-he\'s not even scratched !!`',
                             '`t-this thing ain\'t human!`',
                             '`i-it\'s invincible !`'
@@ -185,7 +205,7 @@ class EmojiFight:
 
                 elif r < 0.7: # 40% chance they're dead and their corpse is shown
                     self.kill_target()
-                    emit(self.status_quo())
+                    output_emoji(self.status_quo())
 
                 # 30% chance they're dead and their corpse isn't shown
                 break
@@ -197,9 +217,9 @@ class EmojiFight:
 
                 if len(self.state_history) == 1 or self.weapon != '🔫':
                     continue
-                emit(self.status_quo())
-                emit('`*click* *click* *click*`')
-                emit('`... out of bullets !!`')
+                output_emoji(self.status_quo())
+                output_text('`*click* *click* *click*`')
+                output_text('`... out of bullets !!`')
                 # Out of bullets ends the fight
                 break
 
@@ -210,13 +230,13 @@ class EmojiFight:
 
                 old_weapon = self.weapon
                 self.weapon = '🔪' if self.facing_left else '🗡️'
-                emit(self.status_quo())
+                output_emoji(self.status_quo())
 
                 acts = ['unsheathes', 'pulls out', 'reveals', 'whips out']
                 knives = ['katana', 'knife', 'kunai', 'dagger']
-                emit('`*' + choice(acts) + ' ' + choice(knives) + '*`')
+                output_text('`*' + choice(acts) + ' ' + choice(knives) + '*`')
 
-                emit(self.attacking())
+                output_emoji(self.attacking())
 
                 quips = [
                     '`it was knife knowing you.`',
@@ -226,7 +246,7 @@ class EmojiFight:
                 if old_weapon == '🔫': quips += ['`don\'t bring a gun to a knife fight.`']
 
                 if chance(0.5):
-                    emit(choice(quips))
+                    output_text(*quips)
                 break
 
             elif branch == 'tool':
@@ -237,8 +257,8 @@ class EmojiFight:
                     # The left subject gets eliminated
                     continue
                 self.weapon = choice(['🔨', '⛏', '🪓', '🪚'])
-                emit(self.status_quo())
-                emit(self.attacking())
+                output_emoji(self.status_quo())
+                output_emoji(self.attacking())
 
                 quips = [
                     '`don\'t underestimate a craftsman.`',
@@ -252,7 +272,7 @@ class EmojiFight:
                 elif self.weapon == '🪚':
                     quips += ['`I bet you didn\'t saw that one coming.`']
 
-                emit(*quips)
+                output_text(*quips)
                 break
 
             elif branch == 'punch':
@@ -260,13 +280,13 @@ class EmojiFight:
                 if (self.facing_left and not self.may_die('right')) or (self.facing_right and not self.may_die('left')):
                     continue
                 self.weapon = '🤜' if self.facing_left else '🤛'
-                emit(self.attacking())
-                emit('`POW!`')
+                output_emoji(self.attacking())
+                output_text('`POW!`')
                 if chance(0.5):
-                    emit(self.left + (':point_left:' if self.facing_left else ':point_right:') + self.right)
-                    emit('`you are already dead.`')
+                    output_emoji(self.left + (':point_left:' if self.facing_left else ':point_right:') + self.right)
+                    output_text('`you are already dead.`')
                 self.kill_target()
-                emit(self.no_weapon())
+                output_emoji(self.no_weapon())
                 break
 
             elif branch == 'hero':
@@ -275,29 +295,29 @@ class EmojiFight:
                     continue
                 if self.weapon != '🔫':
                     continue
-                emit(self.left + '   ' + self.right + ':gun:')
-                emit('`I\'m fed up with this world.`', '`I can\'t take it anymore.`', '`goodbye cruel world.`')
-                emit(self.left + '   ' + ':boom::gun:')
+                output_emoji(self.left + '   ' + self.right + ':gun:')
+                output_text('`I\'m fed up with this world.`', '`I can\'t take it anymore.`', '`goodbye cruel world.`')
+                output_emoji(self.left + '   ' + ':boom::gun:')
                 break
 
             elif branch == 'love':
                 # The fight ends with both alive
                 if not self.may_tie():
                     continue
-                emit(self.left + ':bouquet:' + self.right)
-                emit('`must we fight?`', '`why do we fight?`')
-                emit(self.left + ':heart:' + self.right)
-                emit('`love conquers all.`', '`love trumps hate.`', '`we will hide our feelings no longer.`')
+                output_emoji(self.left + ':bouquet:' + self.right)
+                output_text('`must we fight?`', '`why do we fight?`')
+                output_emoji(self.left + ':heart:' + self.right)
+                output_text('`love conquers all.`', '`love trumps hate.`', '`we will hide our feelings no longer.`')
                 break
 
             elif branch == 'shake':
                 # The fight ends with both alive
                 if not self.may_tie():
                     continue
-                emit(self.no_weapon())
-                emit('`I\'m sorry. I can\'t do it.`', '`I\'m sorry, I can\'t do this.`', '`no, this is wrong.`')
-                emit(self.left + ':handshake:' + self.right)
-                emit('`let\'s put this behind us, pal.`', '`I hope you can forgive me.`', '`we can find a peaceful solution to our disagreement.`')
+                output_emoji(self.no_weapon())
+                output_text('`I\'m sorry. I can\'t do it.`', '`I\'m sorry, I can\'t do this.`', '`no, this is wrong.`')
+                output_emoji(self.left + ':handshake:' + self.right)
+                output_text('`let\'s put this behind us, pal.`', '`I hope you can forgive me.`', '`we can find a peaceful solution to our disagreement.`')
                 break
 
             elif branch == 'time':
@@ -305,40 +325,40 @@ class EmojiFight:
                     continue
                 if not self.may_die('right'):
                     continue
-                emit(self.status_quo() + ':cyclone::cyclone:')
-                emit('`~bzoom~`')
-                emit(self.status_quo() + self.weapon + self.left)
-                emit('`w-what?!`')
-                emit(self.left + self.weapon + ':boom:' + self.weapon + self.left)
-                emit(self.left + self.weapon + '      ' + self.left)
-                emit('`quick, take their weapon and my time machine.`')
-                emit(':cyclone::cyclone:' + '      ' + self.left)
-                emit('`~bzoom~`')
+                output_emoji(self.status_quo() + ':cyclone::cyclone:')
+                output_text('`~bzoom~`')
+                output_emoji(self.status_quo() + self.weapon + self.left)
+                output_text('`w-what?!`')
+                output_emoji(self.left + self.weapon + ':boom:' + self.weapon + self.left)
+                output_emoji(self.left + self.weapon + '      ' + self.left)
+                output_text('`quick, take their weapon and my time machine.`')
+                output_emoji(':cyclone::cyclone:' + '      ' + self.left)
+                output_text('`~bzoom~`')
                 break
 
             elif branch == 'teleport':
                 if not self.rigged and len(self.state_history) > 3: continue
                 old_weapon = self.weapon
                 kawarimi = chance(0.5)
-                if kawarimi: emit(self.attacking())
+                if kawarimi: output_emoji(self.attacking())
 
                 if self.facing_left:
-                    emit((':wood:' if kawarimi else ':dash:') + old_weapon + self.right)
-                    if kawarimi: emit('`Kawarimi no jutsu!`')
-                    else: emit('`*teleports behind you*`')
+                    output_emoji((':wood:' if kawarimi else ':dash:') + old_weapon + self.right)
+                    if kawarimi: output_text('`Kawarimi no jutsu!`')
+                    else: output_text('`*teleports behind you*`')
                     self.swap_subjects()
                     self.weapon = choice(EmojiFight.weapons_left)
-                    emit(old_weapon + self.left + self.weapon + self.right)
+                    output_emoji(old_weapon + self.left + self.weapon + self.right)
                 else:
-                    emit(self.left + old_weapon + (':wood:' if kawarimi else ':dash:'))
-                    if kawarimi: emit('`Kawarimi no jutsu!`')
-                    else: emit('`*teleports behind you*`')
+                    output_emoji(self.left + old_weapon + (':wood:' if kawarimi else ':dash:'))
+                    if kawarimi: output_text('`Kawarimi no jutsu!`')
+                    else: output_text('`*teleports behind you*`')
                     self.swap_subjects()
                     self.weapon = choice(EmojiFight.weapons_right)
-                    emit(self.left + self.weapon + self.right + old_weapon)
+                    output_emoji(self.left + self.weapon + self.right + old_weapon)
 
                 if chance(0.5):
-                    emit('`nothing personnel.`', '`nothing personal, kid.`', '`psh, nothing personal.`')
+                    output_text('`nothing personnel.`', '`nothing personal, kid.`', '`psh, nothing personal.`')
 
                 continue
 
@@ -349,17 +369,72 @@ class EmojiFight:
 
                 old_target = self.target
                 self.target = choice(kissing_faces)
-                emit(self.left + ':kiss:' + self.right)
-                emit('`mwah!`')
+                output_emoji(self.left + ':kiss:' + self.right)
+                output_text('`mwah!`')
                 self.target = old_target
 
                 reaction_faces = [':blush:', ':flushed:', ':wink:', ':relieved:']
                 old_attacker = self.attacker
                 self.attacker = choice(reaction_faces)
-                emit(self.status_quo())
+                output_emoji(self.status_quo())
                 if chance(0.5):
                     self.attacker = old_attacker
                 continue
 
             else:
                 raise Exception(f'Encountered un-implemented branch: "{branch}"')
+
+
+class EmojiBattle:
+    # Config
+    name: str
+    contestants: list[str]
+
+    # State
+    winners: list[str]
+    competing: list[str]
+    losers: list[str]
+
+    current_left: str
+    current_right: str
+    current_solo: str
+    current_round_message: discord.Message
+    current_round_state = None
+
+    def __init__(self, name, contestants):
+        self.name = name
+        self.contestants = contestants
+
+        # Initialize state
+        self.winners = []
+        self.competing = contestants[:]
+        self.losers = []
+        self.reset_round()
+
+    def reset_round(self):
+        self.current_left = None
+        self.current_right = None
+        self.current_solo = None
+        self.current_round_message = None
+        self.current_round_state = None
+
+    def next_round(self, tier=None):
+        if len(self.competing) == 0:
+            raise Exception('No more competitors left.')
+        if self.current_round_state not in (None, 'done'):
+            raise Exception('A round is ongoing')
+
+        self.reset_round()
+        self.current_round_state = 'started'
+
+        if len(self.competing) == 1:
+            self.current_solo = self.competing[-1]
+            self.competing.remove(self.current_solo)
+            # ...
+            return
+
+        left, right = random.sample(self.competing, 2)
+        self.current_left = left
+        self.current_right = right
+        self.competing.remove(left)
+        self.competing.remove(right)

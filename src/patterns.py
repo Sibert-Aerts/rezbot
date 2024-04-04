@@ -103,7 +103,7 @@ class Patterns:
 
         ## Someone's attacking someone else: Fight!
         fight.perform_fight()
-        for line in fight.pop_emit():
+        for line in fight.output.get_clustered():
             await message.channel.send(line)
 
     def do_reply(text):

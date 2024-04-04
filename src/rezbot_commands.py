@@ -19,9 +19,8 @@ def command_with_signature(arg=None, **kwargs: dict[str, Par]):
     signature = arg if isinstance(arg, Signature) else Signature(arg or kwargs)
 
     def _command_with_signature(f: Callable):
-        async def _f(self: commands.Bot, ctx: commands.Context):
+        async def _f(self: commands.Bot, ctx: commands.Context, *, argstr=''):
             # Parse and determine the entire argstring according to the given Signature
-            argstr = ctx.message.content[len(ctx.prefix) + len(ctx.command.qualified_name):]
             pipes_ctx = Context(
                 origin=Context.Origin(
                     name=ctx.command.name,
