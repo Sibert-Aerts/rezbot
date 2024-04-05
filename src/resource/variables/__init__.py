@@ -3,11 +3,14 @@ import re
 import json
 from typing import Any, List
 
+
 def this_dir(filename=''):
     return os.path.join(os.path.dirname(__file__), filename)
 
+
 class VariableStore:
     ''' Class for getting and setting json representable variables. '''
+
     def __init__(self, filename:str):
         self.filename = filename
         self.vars = {}

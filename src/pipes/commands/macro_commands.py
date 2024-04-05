@@ -323,14 +323,14 @@ async def parse_macro_command(bot, command, message):
     m = re.match(command_regex, command)
     if m is None: return False
 
-    COM, wh, at, name, code = m.groups()
-    what = (wh or '')+at
-    what = what.lower()
-    if COM == 'NEW':
+    command, wh, at, name, code = m.groups()
+    what = ((wh or '') + at).lower()
+
+    if command == 'NEW':
         await mc._define(message, what, name, code)
-    elif COM == 'EDIT':
+    elif command == 'EDIT':
         await mc._redefine(message, what, name, code)
-    elif COM == 'DESC':
+    elif command == 'DESC':
         await mc._describe(message, what, name, code)
 
     return True
