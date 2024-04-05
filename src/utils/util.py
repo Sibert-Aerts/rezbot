@@ -22,7 +22,7 @@ def minima(items: list[T], key=None, min_min: float=None) -> list[T]:
             min_i = [i]
         elif k == min_k:
             min_i.append(i)
-    
+
     return min_i
 
 
@@ -32,12 +32,6 @@ def remove_duplicates(list):
         if l not in out:
             out.append(l)
     return out
-
-
-def strip_command(ctx):
-    '''Takes a Discord.py ctx object and return the message content with the first word (command name) removed.'''
-    s = ctx.message.content.split(' ', 1)
-    return s[1] if len(s) > 1 else ''
 
 
 def parse_bool(s: str) -> bool:

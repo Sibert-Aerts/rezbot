@@ -1,5 +1,4 @@
 import random
-from typing import List, Tuple
 
 
 def chance(x, y=1):

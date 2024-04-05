@@ -26,8 +26,7 @@ async def setup(bot: commands.Bot):
     ###############################################################
 
     def pipe_to_func(pipe: Pipe):
-        async def func(ctx: commands.Context):
-            text = util.strip_command(ctx)
+        async def func(ctx: commands.Context, *, text: str=''):
             script_context = Context(
                 origin=Context.Origin(
                     name=pipe.name,
@@ -73,8 +72,7 @@ async def setup(bot: commands.Bot):
     ###############################################################
 
     def source_to_func(source: Source):
-        async def func(ctx: commands.Context):
-            text = util.strip_command(ctx)
+        async def func(ctx: commands.Context, *, text: str=''):
             script_context = Context(
                 origin=Context.Origin(
                     name=source.name,
@@ -120,8 +118,7 @@ async def setup(bot: commands.Bot):
     ###############################################################
 
     def spout_to_func(spout: Spout):
-        async def func(ctx: commands.Context):
-            text = util.strip_command(ctx)
+        async def func(ctx: commands.Context, *, text: str=''):
             script_context = Context(
                 origin=Context.Origin(
                     name=spout.name,

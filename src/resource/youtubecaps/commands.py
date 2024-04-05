@@ -23,9 +23,8 @@ Commands for moderating captions:
 
 class YoutubeCommands(RezbotCommands):
     @commands.command(aliases=['yt'])
-    async def youtube(self, ctx):
+    async def youtube(self, ctx, *, query: str=''):
         '''Get a random caption from a youtube video from a list of saved youtube videos'''
-        query = util.strip_command(ctx)
         if query.strip() in ['', 'help']:
             await ctx.send(info_string)
         elif query.strip().lower() == 'random':

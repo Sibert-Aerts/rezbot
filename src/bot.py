@@ -103,7 +103,6 @@ class Rezbot(commands.Bot):
             await ctx.author.send('Sorry. This command is disabled and cannot be used.')
         elif isinstance(error, commands.CommandInvokeError):
             print(f'In {ctx.command.qualified_name}:', file=sys.stderr)
-            # traceback.print_tb(error.original.__traceback__)
             print(f'{type(error.original).__name__}: {error.original}', file=sys.stderr)
             raise error
         else:

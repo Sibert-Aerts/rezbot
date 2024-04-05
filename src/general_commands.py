@@ -46,9 +46,8 @@ class BotCommands(RezbotCommands):
 
 
     @commands.command(hidden=True)
-    async def play(self, ctx: commands.Context):
+    async def play(self, ctx: commands.Context, *, game: str=''):
         '''Set the currently played game.'''
-        game = util.strip_command(ctx)
         if game == '':
             await self.bot.change_presence(activity=None)
         else:
@@ -56,9 +55,9 @@ class BotCommands(RezbotCommands):
 
 
     @commands.command(hidden=True)
-    async def echo(self, ctx):
+    async def echo(self, ctx, *, message: str=''):
         '''Repeat your message in a code block (for emoji related purposes).'''
-        await ctx.send('`{}`'.format(util.strip_command(ctx)))
+        await ctx.send('`{}`'.format(message))
 
 
     @commands.command(hidden=True)
@@ -126,11 +125,11 @@ class BotCommands(RezbotCommands):
         if ctx.guild.id != 382291692864274432: return
 
         ## Filter and sort members
-        members: List[discord.Member] = [m for m in ctx.guild.members if m.id not in BotCommands.colourExempt]
+        members: list[discord.Member] = [m for m in ctx.guild.members if m.id not in BotCommands.colourExempt]
         members.sort( key=lambda m: m.display_name.lower() )
 
         ## Get colour roles
-        colours: List[discord.Role] = [ discord.utils.get(ctx.guild.roles, id=id) for id in self.colourRoles ]
+        colours: list[discord.Role] = [ discord.utils.get(ctx.guild.roles, id=id) for id in self.colourRoles ]
 
         ## Assign colour roles
         n = len(members) / len(colours) # Need not be an integer!
@@ -181,9 +180,8 @@ class BotCommands(RezbotCommands):
     ###################################
 
     @commands.command()
-    async def kill(self, ctx):
+    async def kill(self, ctx, *, subject: str=''):
         '''Kill someone'''
-        subject = util.strip_command(ctx)
         if subject.lower() in ["yourself", "self", "myself", "rezbot"]:
             if permissions.has(ctx.author.id, permissions.owner):
                 await ctx.send('killing self.')
@@ -222,9 +220,8 @@ class BotCommands(RezbotCommands):
 
 
     @commands.command()
-    async def simpsons(self, ctx):
+    async def simpsons(self, ctx, *, query: str=''):
         '''Search for a Simpsons screencap and caption matching a query (or a random one if no query is given).'''
-        query = util.strip_command(ctx)
         if query == '':
             im, cap = simpsons.random()
         else:
@@ -234,9 +231,8 @@ class BotCommands(RezbotCommands):
 
 
     @commands.command()
-    async def futurama(self, ctx):
+    async def futurama(self, ctx, *, query: str=''):
         '''Search for a Futurama screencap and caption matching a query (or a random one if no query is given).'''
-        query = util.strip_command(ctx)
         if query == '':
             im, cap = futurama.random()
         else:
@@ -246,9 +242,8 @@ class BotCommands(RezbotCommands):
 
 
     @commands.command()
-    async def dril(self, ctx):
+    async def dril(self, ctx, *, query: str=''):
         '''Search for a dril (@wint) tweet matching a query (or a random one if no query is given).'''
-        query = util.strip_command(ctx)
         if query == '':
             tweet = tweets.dril.random()
         else:
@@ -257,9 +252,8 @@ class BotCommands(RezbotCommands):
 
 
     @commands.command()
-    async def derek(self, ctx):
+    async def derek(self, ctx, *, query: str=''):
         '''Search for a derek (@eedrk) tweet matching a query (or a random one if no query is given).'''
-        query = util.strip_command(ctx)
         if query == '':
             tweet = tweets.derek.random()
         else:
@@ -275,9 +269,8 @@ class BotCommands(RezbotCommands):
 
 
     @commands.command()
-    async def JERKCITY(self, CTX):
+    async def JERKCITY(self, CTX, *, QUERY: str=''):
         '''SEARCH FOR A JERKCITY COMIC BASED ON TITLE OR DIALOGUE (OR NO QUERY FOR A RANDOM ONE)'''
-        QUERY = util.strip_command(CTX)
         if QUERY == '':
             ISSUE = JERKCITY.GET_RANDOM()
         else:
@@ -295,8 +288,7 @@ class BotCommands(RezbotCommands):
 
 
     @commands.command(hidden=True)
-    async def drump(self, ctx):
-        query = util.strip_command(ctx)
+    async def drump(self, ctx, *, query: str=''):
         if query == '': tweet = tweets.dril.random()
         else: tweet = choose(tweets.dril.search(query, 8))
         embed = BotCommands.trump_embed(tweet['text'])

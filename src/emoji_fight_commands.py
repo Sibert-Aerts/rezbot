@@ -1,10 +1,8 @@
-from textwrap import dedent
 import discord
 from discord.ext import commands
 
 from rezbot_commands import RezbotCommands, Par, command_with_signature
 import permissions
-import utils.util as util
 from utils.emojifight import EmojiBattle, EmojiFight, EmojiOutput
 
 
