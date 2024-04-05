@@ -21,7 +21,7 @@ def searchify(text):
 
 class FileInfo:
     '''Metadata class for a File. These are pickled and don't store any of the file's actual contents.'''
-    def __init__(self, name, author_name, author_id, editable=False, sequential=True, sentences=False, splitter=None, categories=''):
+    def __init__(self, name, author_name, author_id, editable=False, sequential=True, sentences=False, splitter=None, categories: str | list=None):
         # File metadata:
         self.version = 2
         self.name = name
@@ -37,11 +37,19 @@ class FileInfo:
         self.sentences = sentences
         self.splitter = splitter or '\n+'
         self.sequential = sequential
-        self.categories = categories.upper().split(',')
+        self.categories = FileInfo.normalize_categories(categories)
 
         # TODO: Making some assumptions here that these are available filenames
         self.pickle_file = name + '.p'
         self.raw_file = name + '.txt'
+
+    @staticmethod
+    def normalize_categories(categories: str|list=None):
+        if not categories:
+            return []
+        if isinstance(categories, str):
+            categories = categories.split(',')
+        return [c.strip().upper() for c in categories if c.strip()]
 
     def write(self):
         # Write contents to a pickle file so that we can find all this info again next boot
@@ -77,7 +85,7 @@ class File:
         self.pos_buckets = None
 
     # ========================================= Life cycle =========================================
-    
+
     @staticmethod
     def new(name, author_name, author_id, raw, **kwargs):
         '''Constructor used when a file is first created.'''
@@ -277,13 +285,16 @@ class Files:
                 file_info.last_modified = datetime.fromtimestamp(1577836800)
                 file_info.categories = []
                 file_info.write()
- 
+
+            # Make sure to normalize categories
+            file_info.categories = FileInfo.normalize_categories(file_info.categories)
+
             self[file_info.name] = File(file_info)
 
         print('%d uploaded files found!' % len(self.files))
 
     @staticmethod
-    def clean_name(name):
+    def clean_name(name: str):
         if name[-4:] == '.txt':
             name = name[:-4]
         return normalize_name(name)

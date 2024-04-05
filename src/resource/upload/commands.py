@@ -4,13 +4,14 @@ import discord
 from discord.ext import commands
 
 import permissions
-from rezbot_commands import RezbotCommands
-from resource.upload import uploads
+from rezbot_commands import RezbotCommands, command_with_signature, Par
+from resource.upload import uploads, Files
 import utils.texttools as texttools
 from utils.util import parse_bool
 
 
 class UploadCommands(RezbotCommands):
+
     @commands.command()
     async def upload(self, ctx):
         '''Upload a txt file for the bot to use.'''
@@ -36,6 +37,7 @@ class UploadCommands(RezbotCommands):
             await ctx.send('File received! Saved %d lines as `%s`' % (len(file.lines), file.info.name))
         except Exception as e:
             await ctx.send('Failed to add file! {}'.format(e))
+
 
     @commands.command()
     async def download(self, ctx, file):
@@ -138,62 +140,55 @@ class UploadCommands(RezbotCommands):
         await ctx.send(text)
 
 
-    # List of attributes modifiable by the below command
-    str_attributes = ['name', 'splitter', 'categories']
-    bool_attributes = ['sequential', 'sentences', 'editable']
-    attributes = str_attributes + bool_attributes
-
     @commands.command(aliases=['set_file'])
-    async def file_set(self, ctx, file, attribute, value):
+    @command_with_signature(
+        file = Par(str, None, 'The file whose attributes to update.'),
+        # File attributes
+        name = Par(Files.clean_name, None, 'How the file is addressed.', required=False),
+        splitter = Par(str, None, 'The regex that determines how the raw file is split into entries.', required=False),
+        categories = Par(str, None, 'Comma-separated list of categories which the file should be filed under.', required=False),
+        sequential = Par(parse_bool, None, 'Boolean determining whether or not the order of the entries in the file matters.', required=False),
+        sentences = Par(parse_bool, None, 'Boolean determining whether the file should be split into sentences, rather than split on the regex splitter.', required=False),
+        editable = Par(parse_bool, None, 'Boolean determining whether the file\'s contents should be able to be edited.', required=False),
+    )
+    async def file_set(self, ctx, *, file, name, splitter, categories, sequential, sentences, editable):
         '''
-        Set an attribute of an uploaded file.
+        Update one or more attributes of an uploaded file.
 
-        Available attributes:
-        name: How the file is addressed.
-        splitter: The regex that determines how the raw file is split into entries.
-        sequential: Boolean determining whether or not the order of the entries in the file matters.
-        sentences: Boolean determining whether the file should be split into sentences, rather than split on the regex splitter.
-        categories: Comma-separated list of categories which the file should be filed under.
-        editable: Boolean determining whether the file's contents should be able to be edited.
-
-        e.g. >file_set oldName name newName
+        e.g. >file_set my_file.txt sequential=True name=new_name.txt
         '''
         if file not in uploads:
-            return await ctx.send('No file by name `%s` found!' % file)
+            return await ctx.send(f'No file by name `{file}` found!')
         file = uploads[file]
 
-        if attribute not in UploadCommands.attributes:
-            return await ctx.send('Second argument must be one of: %s' % ', '.join(UploadCommands.attributes))
-
-        if attribute in UploadCommands.bool_attributes:
-            value = parse_bool(value)
-        elif attribute in UploadCommands.str_attributes:
-            value = value.strip()
-            if value == '':
-                return await ctx.send('Please use a less blank-y value.')
-
-        oldVal = getattr(file.info, attribute)
-        if attribute == 'name':
-            # Special case because names of different files aren't allowed to overlap
-            if value == oldVal: return
-            if value in uploads:
+        if name and name != file.info.name:
+            # Make sure the name doesn't overlap some other existing file
+            if name in uploads:
                 return await ctx.send('That name is already in use.')
-            # Everything seems in order to make this change
-            del uploads[oldVal]
-            uploads[value] = file
-            file.info.name = value
-        elif attribute == 'categories':
-            file.info.categories = value.split(',')
-            ## TODO: refresh files.categories?
-        else:
-            setattr(file.info, attribute, value)
+            # Rename the file, including changing its key
+            del uploads[file.info.name]
+            uploads[name] = file
+            file.info.name = name
 
-        if attribute == 'splitter':
+        if categories is not None:
+            file.info.categories = file.info.normalize_categories(categories)
+
+        if sequential is not None:
+            file.info.sequential = sequential
+        if sentences is not None:
+            file.info.sentences = sentences
+        if editable is not None:
+            file.info.editable = editable
+
+        if splitter is not None:
+            if not splitter:
+                return await ctx.send('Please give a nonempty splitter.')
+            file.info.splitter = splitter
             # Special case, if the splitter changed we have to reload the split lines
             file.lines = None
 
         file.info.write()
-        await ctx.send('Changed {} from `{}` to `{}`!'.format(attribute, str(oldVal), str(value)))
+        await ctx.send(f'Updated {file.info.name}!')
 
 
     @commands.command(aliases=['categorise_files'])
