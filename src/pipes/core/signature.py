@@ -10,10 +10,6 @@ from .context import Context, ItemScope
 from .signature_types import *
 
 
-class ArgumentError(ValueError):
-    '''Special error in case a bad argument is passed.'''
-
-
 #####################################################
 #                     Signature                     #
 #####################################################
@@ -22,6 +18,7 @@ T = TypeVar('T')
 
 class Par:
     ''' Represents a single declared parameter in a signature. '''
+    type: Callable[[str], T]
     name: str
     default: T
     desc: str | None
@@ -31,11 +28,11 @@ class Par:
     def __init__(self, type: Callable[[str], T], default: str | T=None, desc: str=None, check: Callable[[T], bool]=None, required: bool=True):
         '''
         Arguments:
-            type: A "type" as described in signature_types.py; a callable (str -> T) with a __name__.
-            default: The default value of type str or T to be used in case the parameter is not assigned, if `None` the parameter is assumed required.
-            desc: The signature's description string.
-            check: A function (T -> bool) that verifies if the output of `type` meets some arbitrary requirement.
-            required: Set to False if default=None should be interpreted literally; using None is the default value.
+            * type: A "type" as described in `signature_types.py`; a callable `(str -> T)` with a `__name__`.
+            * default: The default value of type str or T to be used in case the parameter is not assigned, if `None` the parameter is assumed required.
+            * desc: The signature's description string.
+            * check: A function `(T -> bool)` that verifies if the output of `type` meets some arbitrary requirement.
+            * required: Set to `False` if `default=None` should be interpreted literally; using `None` as the default value.
         '''
         self.type = type
         self.name = None # Set by Signature
@@ -124,7 +121,7 @@ class Signature(dict[str, Par]):
     def __repr__(self):
         return 'Signature(%s)' % ', '.join(f'{p}={repr(a)}' for p, a in self.items())
     def __str__(self):
-        return ' '.join(f'{p}={a}' for p, a in self.args.items() if p not in self.defaults)
+        return '\n'.join(f'• {p}: {a}' for p, a in self.items())
 
     async def parse_and_determine(self, string: str, ctx: Context, greedy=True) -> tuple[dict[str], str, ErrorLog]:
         ''' Shortcuts the process of parsing/checking an argstring, determining each argument, and producing an args dict. '''

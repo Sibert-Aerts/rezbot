@@ -7,6 +7,11 @@ e.g. `str`, `int` and `float` are "types", but also any function (str -> T) is a
 The two classes below can be used to instantiate simple new "types" as well.
 '''
 
+
+class ArgumentError(ValueError):
+    '''Special error in case a bad argument is passed.'''
+
+
 #####################################################
 #                   Type Functions                  #
 #####################################################
@@ -73,7 +78,7 @@ class Option:
         True
         >>> Color2.red == Color.red
         False
-        
+
     ----
     With `stringy=True`, it essentially acts as a filter/normaliser for a set of strings.
         >>> Color = Option('red', 'green', 'blue', stringy=True)
@@ -117,8 +122,8 @@ class Option:
         if hasattr(self, text):
             return getattr(self, text)
         if len(self._options) <= 8:
-            raise ValueError(f'Must be one of {"/".join(self._options)}')
-        raise ValueError(f'Unknown {self.__name__} "{text}"')
+            raise ArgumentError(f'Must be one of {"/".join(self._options)}')
+        raise ArgumentError(f'Unknown {self.__name__} "{text}"')
 
     def __add__(self, other):
         if not isinstance(other, list):
@@ -167,6 +172,6 @@ class Multi:
                 out.append(self.type(item))
             except Exception as e:
                 if isinstance(self.type, Option) and len(self.type._options) <= 8:
-                    raise ValueError(f'Must be a sequence of items from {"/".join(self.type._options)} separated by "{self.sep}"s.')
-                raise ValueError(f'"{item}" must be of type {self.type.__name__} ({e})')
+                    raise ArgumentError(f'Must be a sequence of items from {"/".join(self.type._options)} separated by "{self.sep}"s.')
+                raise ArgumentError(f'"{item}" must be of type {self.type.__name__} ({e})')
         return out

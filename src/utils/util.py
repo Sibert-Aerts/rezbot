@@ -35,9 +35,10 @@ def remove_duplicates(list):
 
 
 def parse_bool(s: str) -> bool:
+    ''' Sensibly parse a string as a boolean value, allowing 1/0, true/false, t/f, yes/no, y/n, case insensitive. '''
     s = s.lower()
-    if s in ['t', 'true', '1', 'y', 'yes']: return True
-    if s in ['f', 'false', '0', 'n', 'no']: return False
+    if s in ('t', 'true', '1', 'y', 'yes'): return True
+    if s in ('f', 'false', '0', 'n', 'no'): return False
     raise ValueError('Cannot interpret "%s" as a boolean value' % s)
 
 
