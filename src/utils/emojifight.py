@@ -54,7 +54,7 @@ class EmojiFight:
     Helper class for storing the state of an "emoji fight" (see: patterns.py).
     '''
     # Global fight info
-    weapons_left = ['🔨', '⛏', '🪓', '🪚', '🗡️', '🪡', '🪠', '🪒', '📌', '🔫', '🤛', '🏹']
+    weapons_left = ['🔨', '⛏️', '🪓', '🪚', '🗡️', '🪡', '🪠', '🪒', '📌', '🔫', '🤛', '🏹']
     weapons_right = ['🔪', '🤜', '💉']
     weapons_dual = ['⚔️', '⚒️', '🛠️']
 
@@ -256,7 +256,7 @@ class EmojiFight:
                 if not self.may_die('left'):
                     # The left subject gets eliminated
                     continue
-                self.weapon = choice(['🔨', '⛏', '🪓', '🪚'])
+                self.weapon = choice(['🔨', '⛏️', '🪓', '🪚'])
                 output_emoji(self.status_quo())
                 output_emoji(self.attacking())
 
@@ -265,7 +265,7 @@ class EmojiFight:
                 ]
                 if self.weapon == '🔨':
                     quips += ['`hammer time!`', '`get hammered.`']
-                elif self.weapon == '⛏':
+                elif self.weapon == '⛏️':
                     quips += ['`get minecrafted.`', '`get fortnited.`', '`(fortnite default dance)`']
                 elif self.weapon == '🪓':
                     quips += ['`get lumberjacked.`', '`can I "axe" you a question?`', '`hey Paul!`']
