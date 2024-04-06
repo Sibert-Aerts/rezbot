@@ -1,3 +1,5 @@
+import re
+
 import discord
 from discord.ext import commands
 
@@ -10,10 +12,18 @@ EMOJI_BATTLES: dict[str, EmojiBattle] = {}
 CURRENT_BATTLE: EmojiBattle = None
 
 
+CUSTOM_EMOTE_REGEX = re.compile(r'(:\w+:)(\d+)')
+
+
 def count_reactions(reactions: list[discord.Reaction], *emoji: str):
     total = 0
     for reaction in reactions:
-        if str(reaction.emoji) in emoji:
+        reaction_emoji = str(reaction.emoji)
+        custom_emote_match = CUSTOM_EMOTE_REGEX.search(reaction_emoji)
+        if custom_emote_match:
+            if any(custom_emote_match[2] in e for e in emoji):
+                total += reaction.count
+        elif any(reaction_emoji in e for e in emoji):
             total += reaction.count
     return total
 
@@ -32,7 +42,7 @@ class EmojiFightCommands(RezbotCommands):
         for line in fight.output.get_clustered():
             await ctx.send(line)
 
-    @commands.group('emoji_battle')
+    @commands.group('emoji_battle', aliases=['battle'])
     async def emoji_battle(self, ctx: commands.Context):
         pass
 
@@ -42,7 +52,7 @@ class EmojiFightCommands(RezbotCommands):
         contestants = Par(str, None),
     )
     async def emoji_battle_start(self, ctx: commands.Context, *, name: str, contestants: str):
-        contestants = [c.strip() for c in contestants.split(",")]
+        contestants = [c.strip() for c in contestants.split(',')]
         await ctx.send(f'## EMOJI BATTLE "{name.upper()}"\n### Contestants:')
         await ctx.send('  '.join(contestants))
 
@@ -52,7 +62,7 @@ class EmojiFightCommands(RezbotCommands):
         EMOJI_BATTLES[name.lower()] = battle
         CURRENT_BATTLE = battle
 
-    @emoji_battle.command("status")
+    @emoji_battle.command('status')
     @command_with_signature(
         name = Par(str, None, required=False),
     )
@@ -80,7 +90,7 @@ class EmojiFightCommands(RezbotCommands):
         for line in output.get_clustered():
             await ctx.send(line)
 
-    @emoji_battle.command("round")
+    @emoji_battle.command('round')
     @command_with_signature(
         name = Par(str, None, required=False),
     )
@@ -94,21 +104,21 @@ class EmojiFightCommands(RezbotCommands):
         if battle.current_solo:
             # CASE: Solo
             await ctx.send('**One contestant remains, decide their fate:**')
-            message = battle.current_round_message = await ctx.send(f"{battle.current_solo}")
+            message = battle.current_round_message = await ctx.send(f'{battle.current_solo}')
             await message.add_reaction('☮️')
             await message.add_reaction('☠')
 
         else:
             # CASE: Duel
             await ctx.send('**Two contestants emerge, decide who survives:**')
-            message = battle.current_round_message = await ctx.send(f"{battle.current_left}:vs:{battle.current_right}")
+            message = battle.current_round_message = await ctx.send(f'{battle.current_left}:vs:{battle.current_right}')
             try: await message.add_reaction(battle.current_left)
             except: await message.add_reaction('⬅️')
             await message.add_reaction('☮️')
             try: await message.add_reaction(battle.current_right)
             except: await message.add_reaction('➡️')
 
-    @emoji_battle.command("call")
+    @emoji_battle.command('call')
     @command_with_signature(
         name = Par(str, None, required=False),
     )
