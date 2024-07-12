@@ -15,7 +15,7 @@
 * **NEW HOTNESS: VIEWS/BUTTONS**
 
     * Probably useful to have some kind of generic RezbotView base class
-        * When bot dies (through >die or otherwise?) close (= run ontimeout) ALL UI Views
+        * When bot dies (through >die or otherwise?) close (ie. call ontimeout) ALL UI Views
 
     * View/Button/Slash command interfaces for browsing/managing uploaded files
 
@@ -62,7 +62,7 @@
             * ie. for a message in a channel it looks up through the chain for the first definite "yes" or "no"
         * Validate/static analysis on code changed by the Edit Event box widget
         * Now that they're not Pickled anymore, they can be holding on to the PipelineWithOrigin of their respective script, instead of the LRU thing?
-        * more types of triggers/conditions: MESSAGE CONTAINS (regex), USER IS (username/id), TIME IS (?), logical operations?? ????
+        * more types of event triggers: MESSAGE CONTAINS (regex), USER IS (username/id), TIME IS (?), logical operations?? ????
             * `ON CONDITION ({message} ILIKE /^hello/ AND {get {me id}_evil} IS TRUE)`
         * `ON COMMAND !praise name` would allow acces to argument `name` by using `{arg name}`?
 

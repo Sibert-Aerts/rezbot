@@ -59,7 +59,5 @@ class VariableStore:
 
     def write(self) -> None:
         # Write persistent variables to file
-        # TODO: instead of rebuilding this dict each time, actually keep a dict of only persistent variables the entire time?
-        # Would require more logical juggling around of different situations...
         persistent = {p : self.vars[p] for p in self.persistent_names}
         json.dump(persistent, open(this_dir(self.filename), 'w+'))

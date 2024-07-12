@@ -101,6 +101,7 @@ class Context:
         '''
         class Type:
             DIRECT = object()
+            DIRECT_TARGETING_MESSAGE = object()
             COMMAND = object()
             EVENT = object()
             INTERACTION_CALLBACK = object()
@@ -227,7 +228,10 @@ class Context:
 
         ## CASE 2; THEY: The person that's being replied to, or reacted on
         if key in ('they', 'them', 'their'):
-            if self.origin.event and isinstance(self.origin.event, OnReaction):
+            if (
+                self.origin.type is Context.Origin.Type.DIRECT_TARGETING_MESSAGE
+                or (self.origin.event and isinstance(self.origin.event, OnReaction))
+            ):
                 # CASE 2.1: OnReact Event: Reacted message's author.
                 return self.message.author
             elif self.message.reference and self.message.reference.message_id:

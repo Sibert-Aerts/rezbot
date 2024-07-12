@@ -4,7 +4,7 @@ A module providing a collection of slash commands for interacting with Events.
 from typing import Literal
 
 from discord.ext import commands
-from discord import app_commands, Interaction
+from discord import app_commands, Interaction, Message
 
 from pipes.core.events import Event, events
 from pipes.core.context import Context, ItemScope
@@ -240,7 +240,21 @@ class EventSlashCommands(RezbotCommands):
             if not interaction.response.is_done():
                 await interaction.response.send_message("Done.", ephemeral=True)
 
+    async def context_menu_execute_script(self, interaction: Interaction, message: Message):
+        ''' Show a modal allowing a user to write and then execute a script (on the selected message). '''
+        if not self.bot.should_listen_to_user(interaction.user):
+            return
+        await interaction.response.send_modal(ExecuteScriptModal(self.bot, interaction, message))
+
 
 # Load the bot cog
 async def setup(bot: commands.Bot):
-    await bot.add_cog(EventSlashCommands(bot))
+    event_slash_commands = EventSlashCommands(bot)
+    await bot.add_cog(event_slash_commands)
+
+    # Add the context menu command, for some reason it has to be like this
+    bot.tree.add_command(app_commands.context_menu(name="Execute script")(event_slash_commands.context_menu_execute_script))
+
+
+# Down here due to circular dependencies
+from pipes.views.command_views import ExecuteScriptModal
