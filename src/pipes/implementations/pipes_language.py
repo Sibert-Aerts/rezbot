@@ -12,6 +12,7 @@ import num2words
 from .pipes import pipe_from_func, one_to_one, one_to_many, set_category, with_signature
 from pipes.core.signature import Par, Option, Multi
 from utils.util import parse_bool, format_doc
+from utils.google_translate_languages import LANGUAGES_BY_CODE_LOWER, ALL_LANGUAGE_KEYS, get_language
 from resource.upload import uploads
 
 
@@ -32,37 +33,36 @@ def translate_func(text, fro, to):
     response = translate_client.translate(text, source_language=fro, target_language=to, format_="text")
     return response['translatedText']
 
-# Retreived once using translate_client.get_languages().
-#   For some reason that API call takes 20 seconds so we can't just do it on startup each time.
-translate_languages = ['af', 'sq', 'am', 'ar', 'hy', 'as', 'ay', 'az', 'bm', 'eu', 'be',
-'bn', 'bho', 'bs', 'bg', 'ca', 'ceb', 'ny', 'zh', 'zh-TW', 'co', 'hr', 'cs', 'da', 'dv',
-'doi', 'nl', 'en', 'eo', 'et', 'ee', 'tl', 'fi', 'fr', 'fy', 'gl', 'lg', 'ka', 'de', 'el',
-'gn', 'gu', 'ht', 'ha', 'haw', 'iw', 'hi', 'hmn', 'hu', 'is', 'ig', 'ilo', 'id', 'ga',
-'it', 'ja', 'jw', 'kn', 'kk', 'km', 'rw', 'gom', 'ko', 'kri', 'ku', 'ckb', 'ky', 'lo',
-'la', 'lv', 'ln', 'lt', 'lb', 'mk', 'mai', 'mg', 'ms', 'ml', 'mt', 'mi', 'mr', 'mni-Mtei',
-'lus', 'mn', 'my', 'ne', 'nso', 'no', 'or', 'om', 'ps', 'fa', 'pl', 'pt', 'pa', 'qu', 'ro',
-'ru', 'sm', 'sa', 'gd', 'sr', 'st', 'sn', 'sd', 'si', 'sk', 'sl', 'so', 'es', 'su', 'sw',
-'sv', 'tg', 'ta', 'tt', 'te', 'th', 'ti', 'ts', 'tr', 'tk', 'ak', 'uk', 'ur', 'ug', 'uz',
-'vi', 'cy', 'xh', 'yi', 'yo', 'zu', 'he', 'jv', 'zh-CN']
 
-LANGUAGE = Option(*translate_languages, name='language', stringy=True)
+LANGUAGE = Option(*ALL_LANGUAGE_KEYS, name='language', stringy=True)
 
 @pipe_from_func({
-    'from': Par(LANGUAGE + ['auto'], 'auto', 'The language code to translate from, "auto" to automatically detect the language.'),
-    'to':   Par(LANGUAGE + ['random'], 'en', 'The language code to translate to, "random" for a random language.'),
+    'from': Par(LANGUAGE + ['auto'], 'auto', 'The language to translate from, "auto" to automatically detect the language.'),
+    'to':   Par(LANGUAGE + ['random'], 'en', 'The language to translate to, "random" for a random language.'),
 }, command=True)
 @one_to_one
 def translate_pipe(text, to, **kwargs):
     '''
     Translates text using Google Translate.
     A list of languages can be browsed at https://cloud.google.com/translate/docs/languages
+    or https://github.com/Sibert-Aerts/rezbot/blob/master/src/utils/google_translate_languages.py
     '''
+    # Trivial cases
     if translate_client is None: return text
     if not text.strip(): return text
 
-    fro = kwargs['from'] # Can't have a variable named 'from' because it's a keyword
-    if fro == 'auto': fro = ''
-    if to == 'random': to = random.choice(translate_languages)
+    # kwarg 'from' is not allowed since it's a keyword
+    fro = kwargs['from']
+
+    # Ensure fro and to are language codes
+    if fro == 'auto':
+        fro = ''
+    else:
+        fro = get_language(fro)['language']
+    if to == 'random':
+        to = random.choice(list(LANGUAGES_BY_CODE_LOWER))
+    else:
+        to = get_language(to)['language']
 
     return translate_func(text, fro, to)
 
