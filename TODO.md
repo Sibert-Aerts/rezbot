@@ -30,7 +30,7 @@
 
 * **SCRIPTING:**
 
-    * Objects need a ".full_name" or something e.g. `Pipe: convert`, `Pipe Macro: smoog`, `OnMessage Event: spinkus`
+    * Objects need a ".display_name" or something e.g. `Pipe: convert`, `Pipe Macro: smoog`, `OnMessage Event: spinkus`
 
     * **Script analysis:**
         * Warn if certain parallel pipes are unreachable for the given groupmode
@@ -58,7 +58,7 @@
             * Easily enable/disable all events in a namespace at the same time
 
     * **EVENTS:**
-        * Thing where being enabled/disabled is a layered structure with "yes/idk/no" flags per Channel/Server/Global
+        * Thing where being enabled/disabled is a layered structure with "yes/unset/no" flags per Channel/Server/Global
             * ie. for a message in a channel it looks up through the chain for the first definite "yes" or "no"
         * Validate/static analysis on code changed by the Edit Event box widget
         * Now that they're not Pickled anymore, they can be holding on to the PipelineWithOrigin of their respective script, instead of the LRU thing?
@@ -82,10 +82,9 @@
 
     * **PARSING BUGS:**
         * `>> foo > bar x=( > baz` doesn't understand the ( should be a character and not a parenthesis (circumventable by writing `x="("`)
-        * `>> foo > bar x='"' > baz` similarly, the " is interpreted as opening a string that is never closed, circumvented by adding a closing " afterwards but that's stupid
 
     * **SPECULATIVE:**
-        * Allow pipe(line)s as arguments, somehow
+        * Allow pipe(line)s as arguments, somehow?
             * e.g. `sub_func from=\b(\w) to=( convert fraktur )`
         * Option to post minimal warnings logs + command to show most recent warnings log
             * Per Channel/per Event?

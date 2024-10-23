@@ -18,8 +18,6 @@ class PipelineProcessor:
     def __init__(self, bot: Client, prefix: str):
         self.bot = bot
         self.prefix = prefix
-        bot.pipeline_processor = self
-        SourceResources.bot = bot
         Context.bot = bot
 
     # ========================================= Event hooks ========================================

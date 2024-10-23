@@ -83,7 +83,7 @@ class ButtonSpout:
         buttons = []
         for _, args in values_and_args_list:
             script, label, emoji, style, lockout, defer = itemgetter('script', 'label', 'emoji', 'style', 'lockout', 'defer')(args)
-            # TODO: This error should be emitted at hook time, not right now
+            # TODO: This error should somehow be emitted at hook time, not right now
             if not label and not emoji:
                 raise ValueError('A button should have at least a `label` or `emoji`.')
             button = ButtonSpout.Button(label=label, emoji=emoji, style=getattr(ButtonStyle, style))
@@ -165,7 +165,7 @@ class ModalSpout:
 
         await ctx.interaction.response.send_modal(modal)
 
-# TODO: Make this one work aggregated too
+
 @spout_from_class
 class ModalButtonSpout:
     '''

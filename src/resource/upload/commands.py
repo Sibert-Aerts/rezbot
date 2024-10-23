@@ -109,7 +109,7 @@ class UploadCommands(RezbotCommands):
         lines = name.get()
 
         # TODO: make this a little File.embed() ?
-        # TODO: make this a little view, even?
+        # TODO: make this a little View, even?
         text = '**File:** ' + info.name
         text += ', **Uploader:** ' + info.author_name + '\n'
         text += '**Order:** ' + ('Sequential' if info.sequential else 'Random')

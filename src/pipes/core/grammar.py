@@ -81,7 +81,6 @@ implicit_string_bit = Combine(ZeroOrMore(White()) + OneOrMore(escaped_symbol | R
 implicit_arg = Group( OneOrMore( ~explicit_arg + (templated_element | implicit_string_bit) )('implicit_arg') ).set_name('Implicit Argument')
 'Literally anything that is not an explicit argument assignment, but immediately parsed as a stripped templated string.'
 
-# TODO: THE LAST ARG CATCHES TRAILING SPACES! {foo arg=bar } IS THE SAME AS {foo arg="bar "} !?!?
 argument_list = optional_white + ZeroOrMore(explicit_arg | implicit_arg).set_name('Argument List')
 'A free mixture of explicit and implicit argument assignments.'
 
