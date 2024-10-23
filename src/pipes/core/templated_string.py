@@ -1,23 +1,6 @@
 '''
-File containing the TemplatedString class, and the 'Templated Element' classes that constitute a TemplatedString.
-
 A TemplatedString is a sequence of static strings and Templated Elements, meant to be evaluated to a single string.
 Templated Elements need to be evaluated to yield strings, and may vary depending state, context or randomization.
-
-There are four types of Templated Elements:
-    * Item: e.g. {}, {0}, {^1}, {2!}, {^^3!}
-        These are (implicit) indexes pointing out items to use from the provided ItemScope.
-
-    * Source: e.g. {word}, {word query=foo}, {txt bible sequential=false}
-        These are evaluated as calls to their respective Source.
-
-    * Conditional: e.g. {?foo if {0}=='bar' else baz}, {?{word} if {arg 1} LIKE /^foo/ and {get baz} != zip else {arg 2}}
-        These represent an (if_case: TemplatedString, condition: Condition, else_case: TemplatedString) tuple,
-            the Condition is evaluated based on both ItemScope and Context, and then depending on its value,
-            either `if_case` or `else_case` is evaluated.
-
-    * Special: e.g. {\n}, {\t}
-        These are simply replaced by respective '\n' and '\t' special characters at parse time.
 '''
 
 
@@ -28,313 +11,40 @@ from utils.choicetree import ChoiceTree
 from .logger import ErrorLog
 from .context import Context, ItemScope, ItemScopeError
 from . import grammar
-
-
-class ParsedItem:
-    ''' Class representing an Item inside a TemplatedString. '''
-    carrots: int
-    explicitly_indexed: bool
-    index: int | None
-    bang: bool
-
-    def __init__(self, carrots: int, explicitly_indexed: bool, index: int|None, bang: bool):
-        self.carrots = carrots
-        self.explicitly_indexed = explicitly_indexed
-        self.index = index
-        self.bang = bang
-
-    @staticmethod
-    def from_parsed(result: ParseResults):
-        carrots = len(result.get('carrots', ''))
-        explicitly_indexed = 'index' in result
-        index = int(result['index']) if 'index' in result else None
-        bang = result.get('bang', '') == '!'
-        return ParsedItem(carrots, explicitly_indexed, index, bang)
-
-    def __repr__(self):
-        return f'Item(%s%s%s)' % ('^'*self.carrots, self.index if self.explicitly_indexed else '', '!' if self.bang else '')
-    def __str__(self):
-        return '{%s%s%s}' % ('^'*self.carrots, self.index if self.explicitly_indexed else '', '!' if self.bang else '')
-
-    def evaluate(self, scope: ItemScope) -> str:
-        if scope is None: raise ItemScopeError('No scope!')
-        return scope.get_item(self.carrots, self.index, self.bang)
-
-
-class ParsedSource:
-    ''' Class representing a Source inside a TemplatedString. '''
-    NATIVE_SOURCE = object()
-    MACRO_SOURCE  = object()
-    NATIVE_PIPE   = object()
-    MACRO_PIPE    = object()
-    UNKNOWN       = object()
-
-    name: str
-    amount: str | int | None
-    args: 'Arguments'
-    pre_errors: ErrorLog
-    type: object
-
-    def __init__(self, name: str, args: 'Arguments', amount: str | int | None=None, remainder: 'TemplatedString'=None):
-        self.name = name.lower()
-        self.amount = amount
-        self.remainder = remainder
-        self.args = args
-        self.pre_errors = ErrorLog()
-
-        if self.name in sources:
-            self.type = ParsedSource.NATIVE_SOURCE
-            self.source = sources[self.name]
-        elif self.name in pipes:
-            self.type = ParsedSource.NATIVE_PIPE
-            self.pipe = pipes[self.name]
-        elif self.name in pipe_macros:
-            self.type = ParsedSource.MACRO_PIPE
-        elif self.name in source_macros:
-            self.type = ParsedSource.MACRO_SOURCE
-        else:
-            self.type = ParsedSource.UNKNOWN
-
-    @staticmethod
-    def from_parsed(parsed: ParseResults):
-        name = parsed['source_name'].lower()
-
-        # Determine the "amount"
-        if 'amount' in parsed:
-            amt = parsed['amount']
-            if amt == 'ALL': amount = 'all'
-            else: amount = int(amt)
-        else: amount = None
-
-        # Parse the Arguments, for which we need to know if it's a Source or a Pipe (if either)
-        signature = None
-        greedy = True
-        if name in sources:
-            signature = sources[name].signature
-        if name in pipes:
-            signature = pipes[name].signature
-            greedy = False
-        args, remainder, pre_errors = Arguments.from_parsed(parsed.get('args'), signature, greedy=greedy)
-
-        parsed_source = ParsedSource(name, args, amount, remainder)
-        parsed_source.pre_errors.extend(pre_errors)
-        return parsed_source
-
-    def __repr__(self):
-        bits = [self.name, repr(self.args)]
-        if self.amount is not None: bits.append(self.amount)
-        return 'Source(%s)' % ', '.join(bits)
-    def __str__(self):
-        bits = []
-        if self.amount is not None: bits.append(self.amount)
-        bits.append(self.name)
-        if self.args: bits.append(str(self.args))
-        return '{%s}' % ' '.join(bits)
-
-    # ================ Evaluation
-
-    async def evaluate(self, context: Context, scope: ItemScope, args: dict=None) -> tuple[ list[str] | None, ErrorLog ]:
-        '''
-        Evaluate this `{source}` expression, there are four cases:
-        * We are a native Source: Straightforwardly call Source.generate
-        * We are a native Pipe: Evaluate the Arguments' remainder, and feed it into the Pipe.apply
-        * We are a Source Macro: Perform a variant of PipelineWithOrigin.execute
-        * We are a Pipe Macro: Evaluate the Arguments' remainder, and feet it into Pipeline.apply
-        '''
-        errors = ErrorLog()
-        errors.extend(self.pre_errors)
-        NOTHING_BUT_ERRORS = (None, errors)
-        if errors.terminal: return NOTHING_BUT_ERRORS
-
-        ## Determine the arguments if needed
-        if args is None:
-            args, arg_errors = await self.args.determine(context, scope)
-            errors.extend(arg_errors, self.name)
-            if errors.terminal: return NOTHING_BUT_ERRORS
-
-        ### CASE: Native Source
-        if self.type == ParsedSource.NATIVE_SOURCE:
-            try:
-                return await self.source.generate(context, args, n=self.amount), errors
-            except Exception as e:
-                errors.log(f'Failed to evaluate Source `{self.name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
-                return NOTHING_BUT_ERRORS
-
-        ### CASE: Native Pipe
-        elif self.type == ParsedSource.NATIVE_PIPE:
-            # Evaluate the remainder first
-            remainder_str, remainder_errors = await self.remainder.evaluate(context, scope)
-            errors.extend(remainder_errors, self.name)
-            if errors.terminal: return NOTHING_BUT_ERRORS
-            try:
-                return await self.pipe.apply([remainder_str], **args), errors
-            except Exception as e:
-                errors.log(f'Failed to evaluate Pipe-as-Source `{self.name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
-                return NOTHING_BUT_ERRORS
-
-        ### CASE: Macro Source
-        elif self.name in source_macros:
-            macro = source_macros[self.name]
-            ## STEP 1: Ensure arguments are passed to the Macro
-            try:
-                # NEWFANGLED: Get the set of arguments and put them in Context
-                # TODO: Put the implicit 'amount' argument in args
-                args = macro.apply_signature(args)
-                macro_ctx = context.into_macro(macro, args)
-                # DEPRECATED: Insert arguments into Macro string
-                code = macro.apply_args(args)
-            except ArgumentError as e:
-                errors.log(e, True, context=self.name)
-                return NOTHING_BUT_ERRORS
-
-            #### Fast-tracked, no-side-effect version of PipelineWithOrigin.execute:
-            origin, code = PipelineWithOrigin.split(code)
-
-            ## STEP 2: Get the values from the Macro's origin
-            values, origin_errors = await TemplatedString.evaluate_origin(origin, macro_ctx)
-            errors.extend(origin_errors, self.name)
-            if errors.terminal: return NOTHING_BUT_ERRORS
-
-            ## STEP 3: Apply
-            pipeline = source_macros.pipeline_from_code(code)
-            values, pl_errors, _ = await pipeline.apply(values, macro_ctx)
-            errors.extend(pl_errors, self.name)
-            return values, errors
-
-        ## CASE: Macro Pipe
-        elif self.name in pipe_macros:
-            macro = pipe_macros[self.name]
-            ## STEP 1: Ensure arguments are passed to the Macro
-            try:
-                # NEWFANGLED: Get the set of arguments and put them in Context
-                args = macro.apply_signature(args)
-                macro_ctx = context.into_macro(macro, args)
-                # DEPRECATED: Insert arguments into Macro string
-                code = macro.apply_args(args)
-            except ArgumentError as e:
-                errors.log(e, True, context=self.name)
-                return NOTHING_BUT_ERRORS
-
-            ## STEP 2: Evaluate the remainder
-            remainder_str, remainder_errors = await self.remainder.evaluate(context, scope)
-            errors.extend(remainder_errors, self.name)
-            if errors.terminal: return NOTHING_BUT_ERRORS
-
-            ## STEP 3: Apply
-            pipeline = pipe_macros.pipeline_from_code(code)
-            values, pl_errors, _ = await pipeline.apply([remainder_str], macro_ctx)
-            errors.extend(pl_errors, self.name)
-            return values, errors
-
-        else:
-            errors(f'Unknown source `{self.name}`.', True)
-            return NOTHING_BUT_ERRORS
-
-
-class ParsedConditional:
-    ''' Class representing an inline IF/ELSE conditional expression inside a TemplatedString. '''
-
-    def __init__(self, case_if: 'TemplatedString', condition: 'Condition', case_else: 'TemplatedString'):
-        self.case_if = case_if
-        self.condition = condition
-        self.case_else = case_else
-
-    @staticmethod
-    def from_parsed(parsed: ParseResults):
-        case_if = TemplatedString.from_parsed(parsed['case_if'][0])
-        condition = Condition.from_parsed(parsed['condition'])
-        case_else = TemplatedString.from_parsed(parsed['case_else'][0])
-        return ParsedConditional(case_if, condition, case_else)
-
-    def __repr__(self):
-        return 'Conditional(%s, %s, %s)' % (repr(self.case_if), repr(self.condition), repr(self.case_else))
-    def __str__(self):
-        return '{? %s if %s else %s}' % (str(self.case_if), str(self.condition), str(self.case_else))
-
-    # ================ Evaluation
-
-    async def evaluate(self, context: Context, scope: ItemScope) -> tuple[ list[str] | None, ErrorLog ]:
-        errors = ErrorLog()
-        cond_value, cond_errors = await self.condition.evaluate(context, scope)
-        if errors.extend(cond_errors, 'condition').terminal:
-            return None, errors
-        if cond_value:
-            return await self.case_if.evaluate(context, scope)
-        else:
-            return await self.case_else.evaluate(context, scope)
-
-
-class ParsedSpecialSymbol:
-    ''' 'Class' translating special symbol codes `{\n}` directly into the symbol, never actually instantiated. '''
-    SPECIAL_SYMBOL_MAP = {
-        'n': '\n',
-        't': '\t',
-    }
-
-    @staticmethod
-    def from_parsed(result: ParseResults):
-        name = result.get('name')
-        symbol = ParsedSpecialSymbol.SPECIAL_SYMBOL_MAP.get(name)
-        if symbol is None:
-            raise ValueError(f'Unknown special symbol "\{name}".')
-        return symbol
-
-
-class ParsedInlineScript:
-    ''' Class representing an inline script inside a TemplatedString. '''
-
-    def __init__(self, script: 'PipelineWithOrigin'):
-        self.script = script
-
-    @staticmethod
-    def from_parsed(parsed: ParseResults):
-        return ParsedInlineScript(PipelineWithOrigin.from_parsed_simple_script(parsed['inline_script']))
-
-    def __repr__(self):
-        return 'InlScript(%s)' % repr(self.script)
-    def __str__(self):
-        return '{>> %s}' % str(self.script)
-
-    # ================ Evaluation
-
-    async def evaluate(self, context: Context, scope: ItemScope) -> tuple[ list[str] | None, ErrorLog ]:
-        values, errors, spout_state = await self.script.execute_without_side_effects(context, scope)
-        return values, errors
+from .templated_element import ParsedItem, ParsedSource, ParsedConditional, ParsedInlineScript, ParsedSpecialSymbol, ParsedTemplatedElement
 
 
 class TemplatedString:
     '''
-    Class representing a string that may contain Sources or Items, which may be evaluated to yield strings.
+    Class representing a string that may contain TemplatedElements, and which can be evaluated to yield strings.
 
-    Preferably instantiated via the `from_string` or `from_parsed` static methods.
+    A primitive data structure of Rezbot Scripts, but also theoretically capable of touching on nearly any kind of scripting feature.
 
     If there is no need to hold on to the parsed TemplatedString, the static methods `evaluate_string` and `evaluate_origin` can be used instead.
     '''
 
-    pieces: list[str | ParsedItem | ParsedConditional | ParsedSource | ParsedInlineScript]
+    pieces: list[str | ParsedTemplatedElement]
     pre_errors: ErrorLog
     end_index: int = -1
 
     is_string = False
     string: str = None
     is_source = False
-    source: ParsedSource = None
+    source: 'ParsedSource' = None
     is_inline_script = False
-    inline_script: ParsedInlineScript = None
+    inline_script: 'ParsedInlineScript' = None
 
-    def __init__(self, pieces: list[str | ParsedItem | ParsedConditional | ParsedSource], start_index: int=0, index_items=True, pre_errors=None):
+    def __init__(self, pieces: list[str | ParsedTemplatedElement], start_index: int=0, index_items=True, pre_errors=None):
         self.pieces = pieces
         self.pre_errors = ErrorLog() if pre_errors is None else pre_errors
-
         if index_items:
             self.assign_implicit_item_indices(start_index)
-
         self._flush()
 
     @staticmethod
     def from_parsed(result: ParseResults=[], start_index=0):
         pre_errors = ErrorLog()
-        pieces = []
+        pieces: list[str | ParsedTemplatedElement] = []
 
         def append_string(s):
             if not pieces or not isinstance(pieces[-1], str):
@@ -384,6 +94,8 @@ class TemplatedString:
         parsed = grammar.absolute_templated_string.parse_string(string, parse_all=True)
         return TemplatedString.from_parsed(parsed)
 
+    # ================ Initialization
+
     def assign_implicit_item_indices(self, start_index):
         ''' Runs through all implicitly indexed items and assigns them increasing indices, or recursively adjusts existing ones. '''
         item_index = start_index
@@ -417,6 +129,8 @@ class TemplatedString:
                 piece.index += new_start_index
         self.end_index += new_start_index
         return self.end_index
+
+    # ================ Representation
 
     def __repr__(self):
         return 'TStr(%s)' % ', '.join(repr(x) for x in self.pieces)
@@ -531,7 +245,7 @@ class TemplatedString:
     # ================ Evaluation
 
     async def evaluate(self, context: Context, scope: ItemScope=None) -> tuple[str|None, ErrorLog]:
-        ''' Evaluate the TemplatedString into a string '''
+        ''' Evaluate the TemplatedString into a single string. '''
         errors = ErrorLog()
         errors.extend(self.pre_errors)
         NOTHING_BUT_ERRORS = (None, errors)
@@ -625,6 +339,9 @@ class TemplatedString:
         if not force_single and template.is_source:
             vals, errs = await template.source.evaluate(context, scope)
             return vals, errs
+        elif not force_single and template.is_inline_script:
+            vals, errs = await template.inline_script.evaluate(context, scope)
+            return vals, errs
         else:
             val, errs = await template.evaluate(context, scope)
             return [val], errs
@@ -695,12 +412,3 @@ class TemplatedString:
                 if not errors.terminal: values.append(val)
 
         return (values if not errors.terminal else None, errors)
-
-
-# þeſe lynes art doƿn here due to dependencys circulaire
-from .pipeline_with_origin import PipelineWithOrigin
-from .signature import ArgumentError, Arguments
-from pipes.implementations.sources import sources
-from pipes.implementations.pipes import pipes
-from .macros import source_macros, pipe_macros
-from .conditions import Condition

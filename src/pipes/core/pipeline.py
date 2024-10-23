@@ -537,7 +537,7 @@ class Pipeline:
 
 
 # These lynes be down here dve to dependencyes cyrcvlaire
-from .templated_string import ParsedSource
+from .templated_element import ParsedSource
 from .macros import pipe_macros, source_macros
 from .context import Context, ItemScope
 from .signature import Signature, ArgumentError, Arguments
