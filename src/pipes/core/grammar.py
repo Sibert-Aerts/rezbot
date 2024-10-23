@@ -27,8 +27,9 @@ escaped_symbol  = Suppress('~') + Char('{}~"\'/')
 question_mark   = Suppress('?')
 colon           = Suppress(':')
 backslash       = Suppress('\\')
+chevron         = Suppress('>')
 
-# Needed before elements where .leave_whitespace() has been used
+# Needed around elements where .leave_whitespace() has been used
 optional_white  = Suppress(Opt(White()))
 
 identifier      = Word(alphas + '_', alphanums + '_').set_name('identifier')
@@ -39,6 +40,8 @@ interval        = Group(Opt(integer)('start') + (colon | Suppress('..')) + Opt(i
 # ============================================= Grammar ============================================
 
 # ======================== Forward definitions
+
+simple_script: ParserElement = Forward().set_name('Simple Script')
 
 templated_element: ParserElement = Forward().set_name('Templated Element')
 
@@ -55,25 +58,30 @@ def make_quoted_ts(q):
 quoted_templated_string = (make_quoted_ts('"""') | make_quoted_ts('"') | make_quoted_ts("'") | make_quoted_ts('/')).set_name('Quoted Templated String')
 'A templated string, wrapped in either triple quotes """, regular quotes ", single quotes \' or forward slashes /'
 
-string_bit_no_space = Combine(OneOrMore(escaped_symbol | Regex('[^{}\s]', re.S)))('string_bit').leave_whitespace()
+string_bit_no_space = Combine(OneOrMore(escaped_symbol | Regex('[^{}>\s]', re.S)))('string_bit').leave_whitespace()
 unquoted_spaceless_templated_string = OneOrMore(templated_element | string_bit_no_space)('value').set_name('Inline Templated String')
-'A nonempty templated string, without wrapping quotes, without any spaces in the literal parts, (nb. containing sources and items may have spaces)'
+'A nonempty templated string, without wrapping quotes, without any spaces or chevrons in the literal parts, (nb. containing sources and items may have spaces or chevrons)'
 
-string_bit = Combine(OneOrMore(escaped_symbol | Regex('[^{}]', re.S)))('string_bit').leave_whitespace()
-absolute_templated_string = (OneOrMore(templated_element | string_bit) | Empty())('value').set_name('Templated String')
+absolute_string_bit = Combine(OneOrMore(escaped_symbol | Regex('[^{}]', re.S)))('string_bit').leave_whitespace()
+absolute_templated_string = (OneOrMore(templated_element | absolute_string_bit) | Empty())('value').set_name('Templated String')
 'A templated string, parsed in a context where we are supposed to take the ENTIRE thing as the templated string, without enclosing quotes.'
+
+origin_safe_string_bit = Combine(OneOrMore(escaped_symbol | Regex('[^{}>]', re.S)))('string_bit').leave_whitespace()
+origin_safe_templated_string = (OneOrMore(templated_element | origin_safe_string_bit) | Empty())('value').set_name('Templated String')
+'A templated string whose literal parts may contain anything but the > symbol.'
 
 
 # ======================== Argument Assignments
 
 arg_value = (quoted_templated_string | unquoted_spaceless_templated_string).leave_whitespace().set_name('Argument Value')
-explicit_arg = Group(identifier('param_name') + eq.leave_whitespace() - arg_value).set_name('Argument Assignment')
+explicit_arg = Group(identifier('param_name') + eq.leave_whitespace() - arg_value + optional_white).set_name('Argument Assignment')
 'An explicity "param=<templated_string>" assignment'
 
-implicit_string_bit = Combine(ZeroOrMore(White()) + OneOrMore(escaped_symbol | Regex('[^{}\s]', re.S)) | OneOrMore(White()))('string_bit').leave_whitespace()
+implicit_string_bit = Combine(ZeroOrMore(White()) + OneOrMore(escaped_symbol | Regex('[^{}\s>]', re.S)) | OneOrMore(White()))('string_bit').leave_whitespace()
 implicit_arg = Group( OneOrMore( ~explicit_arg + (templated_element | implicit_string_bit) )('implicit_arg') ).set_name('Implicit Argument')
 'Literally anything that is not an explicit argument assignment, but immediately parsed as a stripped templated string.'
 
+# TODO: THE LAST ARG CATCHES TRAILING SPACES! {foo arg=bar } IS THE SAME AS {foo arg="bar "} !?!?
 argument_list = optional_white + ZeroOrMore(explicit_arg | implicit_arg).set_name('Argument List')
 'A free mixture of explicit and implicit argument assignments.'
 
@@ -86,6 +94,10 @@ item = Group( left_brace + Opt(Word('^'))('carrots') + Opt(integer)('index') + O
 
 source_amount = Word(nums) | CaselessKeyword('ALL')
 source = Group( left_brace + Opt(source_amount)('amount') + identifier('source_name') + Opt(argument_list('args')) + right_brace )('source').set_name('Templated Source')
+
+# ======================== Templated Element: Inline script
+
+te_script = Group( left_brace + Suppress('>>') + Group(simple_script)('inline_script') + right_brace)('te_script').set_name('Templated Inline Script')
 
 # ======================== Templated Element: Special Symbol
 
@@ -101,7 +113,7 @@ comp_op_num  = Literal('<=') | Literal('>=') | Literal('<') | Literal('>')
 comp_op_like = Combine(Opt(Keyword('NOT')) + (Keyword('LIKE')), adjacent=False)
 comp_op = (comp_op_eq | comp_op_num | comp_op_like).set_name('Comparison Operator')
 
-string_bit_cond_safe = Combine(OneOrMore(escaped_symbol | ~(comp_op_eq | comp_op_num) + Regex('[^{}=|()\s]', re.S)))('string_bit').leave_whitespace()
+string_bit_cond_safe = Combine(OneOrMore(escaped_symbol | ~(comp_op_eq | comp_op_num) + Regex('[^{}=|()<>\s]', re.S)))('string_bit').leave_whitespace()
 unquoted_spaceless_cond_safe_templated_string = OneOrMore(templated_element | string_bit_cond_safe)('value').set_name('Inline Templated String')
 'A nonempty templated string, without wrapping quotes, without any spaces in the literal parts, (nb. containing sources and items may have spaces)'
 
@@ -136,7 +148,7 @@ conditional = Group( left_brace + question_mark - conditional_body + right_brace
 
 # ======================== Templated Element
 
-templated_element <<= FollowedBy(left_brace) - (te_special | conditional | item | source)
+templated_element <<= FollowedBy(left_brace) - (te_special | te_script | conditional | item | source)
 
 
 # ======================== Group Mode
@@ -187,6 +199,14 @@ groupmode = Group(gm_split + gm_mid + gm_assign)('groupmode').set_name('Groupmod
 groupmode_and_remainder = groupmode + Regex('.*', flags=re.S)('remainder')
 
 
+# ======================== Scripts
+
+simple_origin = Group(quoted_templated_string | origin_safe_templated_string)('simple_origin').set_name('Simple Origin')
+simple_pipe = Group(Opt(groupmode('groupmode')) + identifier('pipe_name') + Opt(argument_list('args'))).set_name('Simple Pipe')
+simple_script <<= (simple_origin + Group(ZeroOrMore(chevron + (simple_pipe | Empty())))('simple_pipes')).set_name('Simple Script')
+
+
+
 '''
 Note to self about Rezbot Script's grammar and the current model:
 
@@ -196,8 +216,8 @@ The above grammar is currently used via three entry points:
     Given a string, interpret the entire thing as an Arguments object
 
 That does not however cover the entire grammar.
-There's places that can still be grammaticised, e.g. a grammar for GroupModes could be defined,
-    which would replace the third use case by "Given a string, consume the leading GroupMode".
+There's places in code where some form of manual parsing is done, often in a naive way that does not
+    account for recursion, escaping, grammar errors, or other conveniences that a precisely defined grammar gives.
 
 At that point however, things get more complicated, as any attempt at grammaticising higher up
     the scripting language's structure hits the wall of ChoiceTree expansions being wielded.
@@ -212,7 +232,8 @@ ANALYSIS OF THE CURRENT NON-PYPARSING GRAMMARS RESPONSIBLE FOR PARSING A SCRIPT:
         2. ChoiceTree expand
         3. Put triple-quoted and parenthesized substrings back
         Effectively, this is like a variant ChoiceTree grammar that acknowledges "ChoiceTree-invariant substrings"(!)
-    4. Then a really simple .split() followed by a grammar parse turns each one into a (pipe_name, Arguments)
+    4. Then a really simple .split() followed by a grammar parse turns each one into a (pipe_name, Arguments),
+        or a recursive parse for parenthesized sub-pipelines.
 
 Points 1 and 3 can each individually be improved by making a real grammar out of what is currently a manual ordeal.
 Hpwever, these would be grammars acting independently of the main grammar, and would not simply slot into the current grammar.

@@ -268,7 +268,7 @@ class Arguments:
                 start_index = remainder_piece.end_index
                 args[param] = remainder_piece
             else:
-                remainder_piece = TemplatedString.from_parsed(arg['implicit_arg'], start_index)
+                remainder_piece = TemplatedString.from_parsed(arg['implicit_arg'], start_index).strip()
                 errors.extend(remainder_piece.pre_errors, 'implicit arg')
                 start_index = remainder_piece.end_index
                 remainder_pieces.append(remainder_piece)

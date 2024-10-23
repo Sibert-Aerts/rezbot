@@ -1,6 +1,6 @@
 import re
 from typing import Union
-from pyparsing import ParseBaseException
+from pyparsing import ParseBaseException, ParseResults
 
 import permissions
 from utils.choicetree import ChoiceTree
@@ -25,51 +25,64 @@ class ParsedPipe:
     MACRO_SOURCE    = object()
     UNKNOWN         = object()
 
-    def __init__(self, pipestr: str):
-        ''' Parse a string of the form `[name] [argstr]` '''
-        name, *args = pipestr.strip().split(' ', 1)
-        self.name = name.lower()
-        self.argstr = args[0] if args else ''
+    def __init__(self, name: str, arguments: 'Arguments', *, errors: ErrorLog=None):
+        self.errors = errors if errors is not None else ErrorLog()
+        self.arguments = arguments
 
-        self.errors = ErrorLog()
-        self.arguments: Arguments | None = None
-
+        # Validate name
+        self.name = name.strip().lower()
         if self.name and not re.match(r'^[_a-z]\w*$', self.name):
             self.errors.log(f'Invalid pipe name "{self.name}"', True)
 
         ## (Attempt to) determine what kind of pipe it is ahead of time
         if self.name in ['', 'nop', 'print']:
             self.type = ParsedPipe.SPECIAL
-            # Special pipes don't have arguments
         elif self.name in pipes:
             self.type = ParsedPipe.NATIVE_PIPE
             self.pipe = pipes[self.name]
-            self.arguments, _, errors = Arguments.from_string(self.argstr, self.pipe.signature)
-            self.errors.extend(errors, self.name)
         elif self.name in spouts:
             self.type = ParsedPipe.SPOUT
             self.pipe = spouts[self.name]
-            self.arguments, _, errors = Arguments.from_string(self.argstr, self.pipe.signature)
-            self.errors.extend(errors, self.name)
         elif self.name in sources:
             self.type = ParsedPipe.NATIVE_SOURCE
             self.pipe = sources[self.name]
-            self.arguments, _, errors = Arguments.from_string(self.argstr, self.pipe.signature)
-            self.errors.extend(errors, self.name)
         elif self.name in pipe_macros:
             self.type = ParsedPipe.MACRO_PIPE
-            self.arguments, _, errors = Arguments.from_string(self.argstr)
-            self.errors.extend(errors, self.name)
         elif self.name in source_macros:
             self.type = ParsedPipe.MACRO_SOURCE
-            self.arguments, _, errors = Arguments.from_string(self.argstr)
-            self.errors.extend(errors, self.name)
         else:
             self.type = ParsedPipe.UNKNOWN
-            self.arguments, _, errors = Arguments.from_string(self.argstr)
-            self.errors.extend(errors, self.name)
-            # This one will keep being posted repeatedly even if the name eventually is defined, so don't uncomment it
-            # self.errors.warn(f'`{self.name}` is no known pipe, source, spout or macro at the time of parsing.')
+            # NOTE: Don't issue a warning here, since the warning will be repeated even once the pipe name is found
+
+    @staticmethod
+    def find_signature(name: str) -> Union['Signature', None]:
+        '''Determine pipeoid signature, if any.'''
+        if name in ['', 'nop']:
+            return None
+        if name in pipes:
+            return pipes[name].signature
+        if name in spouts:
+            return spouts[name].signature
+        if name in sources:
+            return sources[name].signature
+        # Else: A macro, or an unknown/invalid pipe
+        return None
+
+    @staticmethod
+    def from_string(pipestr: str) -> 'ParsedPipe':
+        name, *args = pipestr.strip().split(' ', 1)
+        name = name.lower()
+        argstr = args[0] if args else ''
+        signature = ParsedPipe.find_signature(name)
+        arguments, _, errors = Arguments.from_string(argstr, signature)
+        return ParsedPipe(name, arguments, errors=errors)
+
+    @staticmethod
+    def from_parsed(result: ParseResults) -> 'ParsedPipe':
+        name = result['pipe_name'].strip().lower()
+        signature = ParsedPipe.find_signature(name)
+        arguments, _, errors = Arguments.from_parsed(result['args'], signature)
+        return ParsedPipe(name, arguments, errors=errors)
 
 
 class Pipeline:
@@ -80,34 +93,42 @@ class Pipeline:
         * An internal representation of the script using ParsedPipes, GroupModes, Pipelines, Arguments, etc.
         * An ErrorLog containing warnings and errors encountered during parsing.
     '''
-    def __init__(self, string: str, iterations: str=None):
-        self.parser_errors = ErrorLog()
-
-        self.iterations = int(iterations or 1)
+    def __init__(self, parsed_segments: list[tuple['groupmodes.GroupMode', list[Union[ParsedPipe, 'Pipeline']]]], *, parser_errors: ErrorLog=None, iterations: int=1):
+        self.parsed_segments = parsed_segments
+        self.parser_errors = parser_errors
+        self.iterations = iterations
         if self.iterations < 0:
             self.parser_errors.log('Negative iteration counts are not allowed.', True)
 
+    @staticmethod
+    def from_string(string: str, iterations: str=None):
+        errors = ErrorLog()
+        iterations = int(iterations or 1)
+
         ### Split the pipeline into segments (segment > segment > segment)
-        segments = self.split_into_segments(string)
+        segments = Pipeline.split_into_segments(string)
 
         ### For each segment, parse the group mode, expand the parallel pipes and parse each parallel pipe.
-        self.parsed_segments: list[tuple[ groupmodes.GroupMode, list[ParsedPipe | Pipeline] ]] = []
+        parsed_segments: list[tuple[ groupmodes.GroupMode, list[ParsedPipe | Pipeline] ]] = []
         for segment in segments:
             try:
                 groupmode, segment = groupmodes.GroupMode.from_string_with_remainder(segment)
             except ParseBaseException as e:
-                self.parser_errors.log_parse_exception(e)
+                errors.log_parse_exception(e)
                 continue
             except groupmodes.GroupModeError as e:
-                self.parser_errors.log(e, True)
+                errors.log(e, True)
                 continue
             try:
-                parallel = self.parse_segment(segment)
+                parallel, segment_errors = Pipeline.parse_segment(segment)
             except ParseBaseException as e:
-                self.parser_errors.log_parse_exception(e)
+                errors.log_parse_exception(e)
                 continue
-            self.parser_errors.extend(groupmode.pre_errors, 'groupmode')
-            self.parsed_segments.append((groupmode, parallel))
+            errors.extend(groupmode.pre_errors, 'groupmode')
+            errors.extend(segment_errors)
+            parsed_segments.append((groupmode, parallel))
+
+        return Pipeline(parsed_segments, parser_errors=errors, iterations=iterations)
 
     # =========================================== Parsing ==========================================
 
@@ -117,47 +138,79 @@ class Pipeline:
         Split the sequence of pipes (one big string) into a list of pipes (list of strings).
         Doesn't split on >'s inside quote blocks or within parentheses, and inserts "print"s on ->'s.
         '''
-        # This is an extremely hand-written extremely low-level parser for the basic structure of a pipeline.
-        # There are NO ESCAPE SEQUENCES. Every quotation mark is taken as one. Every parenthesis outside of quotation marks is 100% real.
-        # TODO: NOTE: This causes terrible parsing inconsistencies. e.g.    foo > bar x=( > baz     only splits on the first >
+        OPEN_PAREN, CLOSE_PAREN = '()'
+        OPEN_BRACE, CLOSE_BRACE = '{}'
+        OPEN_BRACK, CLOSE_BRACK = '[]'
+        TRIPLE_QUOTES = ('"""', "'''")
+        SINGLE_QUOTES = ('"', "'")
+        ALL_QUOTES = ('"""', "'''", '"', "'")
 
-        segments: list[str] = []
-        quotes = False
-        parens = 0
-        start = 0
+        stack = []
+        segments = []
+        segment_start = 0
+        i = 0
 
-        for i in range(len(string)):
+        while i < len(string):
             c = string[i]
+            escaped = i > 0 and string[i-1] == '~'
 
-            ## If quotes are open, only check for closing quotes.
-            if quotes:
-                ## Close quotes
-                if c == '"': quotes = False
+            ## Parentheses: Only top-level or within other parentheses, unescapable
+            if c == OPEN_PAREN and (not stack or stack[-1] == OPEN_PAREN):
+                stack.append(c)
+                i += 1; continue
+            if c == CLOSE_PAREN and stack and stack[-1] == OPEN_PAREN:
+                stack.pop()
+                i += 1; continue
 
-            ## Open quotes
-            elif c == '"':
-                quotes = True
+            if not escaped:
+                ## Braces and brackets
+                if c in (OPEN_BRACE, OPEN_BRACK):
+                    stack.append(c)
+                    i += 1; continue
+                if c == CLOSE_BRACE and stack and stack[-1] == OPEN_BRACE:
+                    stack.pop()
+                    i += 1; continue
+                if c == CLOSE_BRACK and stack and stack[-1] == OPEN_BRACK:
+                    stack.pop()
+                    i += 1; continue
 
-            ## Open parentheses
-            elif c == '(':
-                parens += 1
+                # Triple quotes
+                if (ccc := string[i:i+3]) in TRIPLE_QUOTES:
+                    if not stack or stack[-1] not in ALL_QUOTES:
+                        stack.append(ccc)
+                        i += 3; continue
+                    if stack and stack[-1] == ccc:
+                        stack.pop()
+                        i += 3; continue
 
-            ## Close parentheses
-            elif c == ')':
-                if parens > 0: parens -= 1
+                # Single quotes
+                if c in SINGLE_QUOTES:
+                    if not stack or stack[-1] not in ALL_QUOTES:
+                        stack.append(c)
+                        i += 1; continue
+                    if stack and stack[-1] == c:
+                        stack.pop()
+                        i += 1; continue
 
-            ## New segment
-            elif parens == 0 and c == '>':
-                if i > 0 and string[i-1] == '-': # The > is actually the head of a ->
-                    segments.append(string[start:i-1].strip())
+            ## Un-nested >, ending the segment
+            if not stack and c == '>':
+                if i > 0 and string[i-1] == '-':
+                    segments.append(string[segment_start:i-1])
                     segments.append('print')
                 else:
-                    segments.append(string[start:i].strip())
-                start = i+1 # Clip off the >
+                    segments.append(string[segment_start:i])
+                i += 1
+                segment_start = i
+                continue
 
-        ## Add the final segment, disregarding quotes or parentheses left open
-        segments.append(string[start:].strip())
-        return segments
+            ## Nothing special
+            i += 1
+
+        ## Add the final segment, regardless of unclosed delimiters on the stack
+        if final_segment := string[segment_start:]:
+            segments.append(final_segment)
+
+        return [s.strip() for s in segments]
 
     # Matches the first (, until either the last ) or if there are no ), the end of the string
     # Use of this regex relies on the knowledge/assumption that the nested parentheses in the string are matched
@@ -241,14 +294,16 @@ class Pipeline:
         bereft = cls.rq_regex.sub(lambda m: stolen[int(m[1])], bereft)
         return bereft.replace('!§!', '§')
 
-    def parse_segment(self, segment: str) -> list[Union[ParsedPipe, 'Pipeline']]:
+    @classmethod
+    def parse_segment(cls, segment: str) -> list[Union[ParsedPipe, 'Pipeline']] | ErrorLog:
         '''Turn a single string describing one or more parallel pipes into a list of ParsedPipes or Pipelines.'''
         #### True and utter hack: Steal triple-quoted strings and parentheses wrapped strings out of the segment string.
         # This way these types of substrings are not affected by ChoiceTree expansion, because we only put them back afterwards.
         # For triple quotes: This allows us to pass string arguments containing [|] without having to escape them, which is nice to have.
         # For parentheses: This allows us to use parallel segments inside of inline pipelines, giving them a lot more power and utility.
-        segment, stolen_parens = self.steal_parentheses(segment)
-        segment, stolen_quotes = self.steal_triple_quotes(segment)
+        errors = ErrorLog()
+        segment, stolen_parens = cls.steal_parentheses(segment)
+        segment, stolen_quotes = cls.steal_triple_quotes(segment)
 
         ### Parse the simultaneous pipes into a usable form: A list[Union[Pipeline, ParsedPipe]]
         parsed_pipes: list[ParsedPipe | Pipeline] = []
@@ -256,8 +311,8 @@ class Pipeline:
         # ChoiceTree expands the segment into the different parallel pipes
         for pipestr in ChoiceTree(segment):
             ## Put the stolen triple-quoted strings and parentheses back.
-            pipestr = self.restore_triple_quotes(pipestr, stolen_quotes)
-            pipestr = self.restore_parentheses(pipestr, stolen_parens)
+            pipestr = cls.restore_triple_quotes(pipestr, stolen_quotes)
+            pipestr = cls.restore_parentheses(pipestr, stolen_parens)
             pipestr = pipestr.strip()
 
             ## Inline pipeline: (foo > bar > baz)
@@ -266,17 +321,17 @@ class Pipeline:
                 m = re.match(Pipeline.wrapping_parens_regex, pipestr)
                 pipeline = m[2] or m[4]
                 # Immediately attempt to parse the inline pipeline (recursion call!)
-                parsed = Pipeline(pipeline, m[3])
-                self.parser_errors.steal(parsed.parser_errors, context='parens')
+                parsed = Pipeline.from_string(pipeline, m[3])
+                errors.steal(parsed.parser_errors, context='parens')
                 parsed_pipes.append(parsed)
 
             ## Normal pipe: foo [bar=baz]*
             else:
-                parsed = ParsedPipe(pipestr)
-                self.parser_errors.steal(parsed.errors)
+                parsed = ParsedPipe.from_string(pipestr)
+                errors.steal(parsed.errors, context=parsed.name)
                 parsed_pipes.append(parsed)
 
-        return parsed_pipes
+        return parsed_pipes, errors
 
     # ========================================= Application ========================================
 
@@ -485,7 +540,7 @@ class Pipeline:
 from .templated_string import ParsedSource
 from .macros import pipe_macros, source_macros
 from .context import Context, ItemScope
-from .signature import ArgumentError, Arguments
+from .signature import Signature, ArgumentError, Arguments
 from .pipe import Pipe, Source, Spout
 from . import groupmodes
 

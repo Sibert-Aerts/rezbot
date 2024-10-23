@@ -19,7 +19,7 @@ from rezbot_commands import RezbotCommands
 
 async def check_pipe_macro(code: str, reply):
     ''' Statically analyses pipe macro code for errors or warnings. '''
-    errors = Pipeline(code).parser_errors
+    errors = Pipeline.from_string(code).parser_errors
     if not errors:
         return True
     if errors.terminal:

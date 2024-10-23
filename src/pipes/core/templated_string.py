@@ -274,10 +274,32 @@ class ParsedSpecialSymbol:
     @staticmethod
     def from_parsed(result: ParseResults):
         name = result.get('name')
-        result = ParsedSpecialSymbol.SPECIAL_SYMBOL_MAP.get(name)
-        if result is None:
+        symbol = ParsedSpecialSymbol.SPECIAL_SYMBOL_MAP.get(name)
+        if symbol is None:
             raise ValueError(f'Unknown special symbol "\{name}".')
-        return result
+        return symbol
+
+
+class ParsedInlineScript:
+    ''' Class representing an inline script inside a TemplatedString. '''
+
+    def __init__(self, script: 'PipelineWithOrigin'):
+        self.script = script
+
+    @staticmethod
+    def from_parsed(parsed: ParseResults):
+        return ParsedInlineScript(PipelineWithOrigin.from_parsed_simple_script(parsed['inline_script']))
+
+    def __repr__(self):
+        return 'InlScript(%s)' % repr(self.script)
+    def __str__(self):
+        return '{>> %s}' % str(self.script)
+
+    # ================ Evaluation
+
+    async def evaluate(self, context: Context, scope: ItemScope) -> tuple[ list[str] | None, ErrorLog ]:
+        values, errors, spout_state = await self.script.execute_without_side_effects(context, scope)
+        return values, errors
 
 
 class TemplatedString:
@@ -289,7 +311,7 @@ class TemplatedString:
     If there is no need to hold on to the parsed TemplatedString, the static methods `evaluate_string` and `evaluate_origin` can be used instead.
     '''
 
-    pieces: list[str | ParsedItem | ParsedConditional | ParsedSource]
+    pieces: list[str | ParsedItem | ParsedConditional | ParsedSource | ParsedInlineScript]
     pre_errors: ErrorLog
     end_index: int = -1
 
@@ -297,24 +319,17 @@ class TemplatedString:
     string: str = None
     is_source = False
     source: ParsedSource = None
+    is_inline_script = False
+    inline_script: ParsedInlineScript = None
 
-    def __init__(self, pieces: list[str | ParsedItem | ParsedConditional | ParsedSource], start_index: int=0, index_items=True):
+    def __init__(self, pieces: list[str | ParsedItem | ParsedConditional | ParsedSource], start_index: int=0, index_items=True, pre_errors=None):
         self.pieces = pieces
-        self.pre_errors = ErrorLog()
+        self.pre_errors = ErrorLog() if pre_errors is None else pre_errors
 
         if index_items:
             self.assign_implicit_item_indices(start_index)
 
-        # For simplicity, an empty list is normalised to an empty string
-        self.pieces = self.pieces or ['']
-
-        ## Determine if we're a very simple kind of TemplatedString
-        if len(self.pieces) == 1:
-            self.is_string = isinstance(self.pieces[0], str)
-            if self.is_string: self.string = self.pieces[0]
-
-            self.is_source = isinstance(self.pieces[0], ParsedSource)
-            if self.is_source: self.source = self.pieces[0]
+        self._flush()
 
     @staticmethod
     def from_parsed(result: ParseResults=[], start_index=0):
@@ -341,6 +356,10 @@ class TemplatedString:
                     except ValueError as v:
                         pre_errors.log(str(v), terminal=True)
 
+                case 'te_script':
+                    item = ParsedInlineScript.from_parsed(result_piece)
+                    pieces.append(item)
+
                 case 'item':
                     item = ParsedItem.from_parsed(result_piece)
                     pieces.append(item)
@@ -358,12 +377,7 @@ class TemplatedString:
                 case _:
                     raise Exception()
 
-        string = TemplatedString(pieces, start_index)
-        string.pre_errors.extend(pre_errors)
-        # Catch edge case: A TS with pre_errors cannot be a string
-        if string.pre_errors:
-            string.is_string = False
-        return string
+        return TemplatedString(pieces, start_index, pre_errors=pre_errors)
 
     @staticmethod
     def from_string(string: str):
@@ -405,7 +419,7 @@ class TemplatedString:
         return self.end_index
 
     def __repr__(self):
-        return 'Tstr(%s)' % ', '.join(repr(x) for x in self.pieces)
+        return 'TStr(%s)' % ', '.join(repr(x) for x in self.pieces)
     def __str__(self):
         return '"' + ''.join(str(x) for x in self.pieces) + '"'
     def __bool__(self):
@@ -414,19 +428,62 @@ class TemplatedString:
 
     # ================ Manipulation
 
-    @staticmethod
-    def join(tstrings: list['TemplatedString']) -> 'TemplatedString':
-        ''' Joins the TemplatedStrings together as one long TemplatedString, without re-indexing implicit items. '''
-        result = TemplatedString([piece for ts in tstrings for piece in ts.pieces], index_items=False)
-        for ts in tstrings:
-            result.pre_errors.extend(ts.pre_errors)
-        # Catch edge case: A TS with pre_errors cannot be a string
-        if result.pre_errors:
-            result.is_string = False
-        return result
+    def _flush(self):
+        '''Performs minor optimizations and simplifications either after creation or after modification.'''
 
-    def unquote(self) -> 'TemplatedString':
-        ''' Modifies the TemplatedString to remove wrapping string delimiters, if present. '''
+        ## For simplicity, an empty list is normalised to an empty string
+        self.pieces = self.pieces or ['']
+
+        ## Join consecutive strings
+        new_pieces = []
+        running_str = []
+        for piece in self.pieces:
+            if isinstance(piece, str):
+                running_str.append(piece)
+            else:
+                if running_str:
+                    new_pieces.append("".join(running_str))
+                    running_str.clear()
+                new_pieces.append(piece)
+        if running_str:
+            new_pieces.append("".join(running_str))
+            running_str.clear()
+        self.pieces = new_pieces
+
+        ## Determine if we're a very simple kind of TemplatedString
+        if len(self.pieces) == 1:
+            self.is_string = isinstance(self.pieces[0], str) and not self.pre_errors
+            if self.is_string: self.string = self.pieces[0]
+
+            self.is_source = isinstance(self.pieces[0], ParsedSource)
+            if self.is_source: self.source = self.pieces[0]
+
+            self.is_inline_script = isinstance(self.pieces[0], ParsedInlineScript)
+            if self.is_inline_script: self.inline_script = self.pieces[0]
+
+        return self
+
+    @staticmethod
+    def join(tstrings: list['TemplatedString'], sep=" ") -> 'TemplatedString':
+        ''' Joins the TemplatedStrings together as one long TemplatedString, without re-indexing implicit items. '''
+
+        # Gather each TString's pieces in a single list, with separators between them
+        pieces = []
+        first = True
+        for ts in tstrings:
+            if not first and sep: pieces.append(sep)
+            first = False
+            pieces += ts.pieces
+
+        # Gather each TString's pre-errors
+        pre_errors = ErrorLog()
+        for ts in tstrings:
+            pre_errors.extend(ts.pre_errors)
+
+        return TemplatedString(pieces, index_items=False, pre_errors=pre_errors)
+
+    def unquote(self):
+        ''' Modifies the TemplatedString in-place to remove wrapping string delimiters, if any. '''
         pieces = self.pieces
 
         if isinstance(pieces[0], str) and isinstance(pieces[-1], str):
@@ -436,10 +493,17 @@ class TemplatedString:
             elif pieces[0][:1] == pieces[-1][-1:] in ('"', "'", '/') and not (self.is_string and len(pieces[0]) < 2):
                 pieces[0] = pieces[0][1:]
                 pieces[-1] = pieces[-1][:-1]
-            if self.is_string:
-                self.string: str = self.pieces[0]
 
-        return self
+        return self._flush()
+
+    def strip(self):
+        ''' Modifies the TemplatedString in-place to remove leading or trailing spaces in static parts, if any. '''
+        pieces = self.pieces
+        if isinstance(pieces[0], str):
+            pieces[0] = pieces[0].lstrip()
+        if isinstance(pieces[-1], str):
+            pieces[-1] = pieces[-1].rstrip()
+        return self._flush()
 
     def split_implicit_arg(self, greedy: bool) -> tuple['TemplatedString', 'TemplatedString | None']:
         ''' Splits the TemplatedString into an implicit arg and a "remainder" TemplatedString. '''
@@ -479,6 +543,7 @@ class TemplatedString:
 
         SOURCE_FUTURE = object()
         COND_FUTURE = object()
+        SCRIPT_FUTURE = object()
         results = []
         futures = []
 
@@ -494,6 +559,10 @@ class TemplatedString:
                 except ItemScopeError as e:
                     msg = f'Error filling in item `{piece}`:\n\tItemScopeError: {e}'
                     errors.log(msg, True)
+
+            elif isinstance(piece, ParsedInlineScript) and not errors.terminal:
+                results.append(SCRIPT_FUTURE)
+                futures.append(piece.evaluate(context, scope))
 
             elif isinstance(piece, ParsedConditional) and not errors.terminal:
                 results.append(COND_FUTURE)
@@ -513,7 +582,7 @@ class TemplatedString:
         strings = []
         future_index = 0
         for result in results:
-            if result is SOURCE_FUTURE:
+            if result in (SOURCE_FUTURE, SCRIPT_FUTURE):
                 items, src_errors = future_results[future_index]
                 errors.extend(src_errors)
                 if not errors.terminal:
@@ -597,23 +666,35 @@ class TemplatedString:
 
     @staticmethod
     async def evaluate_origin(origin_str: str, context: Context, scope: ItemScope=None) -> tuple[list[str] | None, ErrorLog]:
-        '''Takes a raw source string, expands it if necessary, evaluates {sources} in each one and returns the list of values.'''
+        '''Takes a raw source string, expands it, evaluates {sources} in each one and returns the combined values.'''
         origins, errors = TemplatedString.parse_origin(origin_str)
         if errors.terminal:
             return (None, errors)
+        values, map_errors = await TemplatedString.map_evaluate(origins, context, scope)
+        errors.extend(map_errors)
+        return values, errors
+
+    @staticmethod
+    async def map_evaluate(tstrings: list['TemplatedString'], context: Context, scope: ItemScope=None) -> tuple[list[str] | None, ErrorLog]:
+        '''Evaluates and aggregates each TemplatedString in an iterable sequentially, pure Source TStrings can yield multiple strings.'''
+        errors = ErrorLog()
 
         values = []
-        for origin in origins:
-            if origin.is_source:
-                vals, errs = await origin.source.evaluate(context, scope)
+        for tstring in tstrings:
+            if tstring.is_source:
+                vals, errs = await tstring.source.evaluate(context, scope)
+                errors.extend(errs)
+                if not errors.terminal: values.extend(vals)
+            if tstring.is_inline_script:
+                vals, errs = await tstring.inline_script.evaluate(context, scope)
                 errors.extend(errs)
                 if not errors.terminal: values.extend(vals)
             else:
-                val, errs = await origin.evaluate(context, scope)
+                val, errs = await tstring.evaluate(context, scope)
                 errors.extend(errs)
                 if not errors.terminal: values.append(val)
 
-        return values, errors
+        return (values if not errors.terminal else None, errors)
 
 
 # þeſe lynes art doƿn here due to dependencys circulaire

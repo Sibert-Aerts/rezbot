@@ -1,8 +1,10 @@
 from lru import LRU
-from discord import Client, TextChannel
+from discord import TextChannel
+from pyparsing import ParseResults
 
 # More import statements at the bottom of the file, due to circular dependencies.
 from .logger import ErrorLog
+from .groupmodes import GroupMode
 from .context import Context, ItemScope
 from .spout_state import SpoutState
 import utils.texttools as texttools
@@ -28,11 +30,13 @@ class PipelineWithOrigin:
 
     # ======================================== Constructors ========================================
 
-    def __init__(self, origin_str: str, pipeline: 'Pipeline', script_str: str=None):
-        # NOTE: origin is saved as a string instead of something more advanced and pre-parsed
-        #   because the [?] flag on the ChoiceTree means it may not represent the same TemplatedStrings each time
-        self.origin = origin_str
+    def __init__(self, origin: str | list['TemplatedString'], pipeline: 'Pipeline', *, origin_errors: ErrorLog=None, script_str: str=None):
+        # NOTE: Origin may be a string instead of a list of TemplatedStrings
+        #   because the "[?]" ChoiceTree flag means it may not represent the same TemplatedStrings each time.
+        # NOTE: (We could hang on to the parsed choicetree?)
+        self.origin = origin
         self.pipeline = pipeline
+        self.origin_errors = origin_errors
         self.script_str = script_str
 
     @classmethod
@@ -43,12 +47,28 @@ class PipelineWithOrigin:
 
         ## Parse
         origin_str, pipeline_str = cls.split(script)
-        pipeline = Pipeline(pipeline_str)
+        pipeline = Pipeline.from_string(pipeline_str)
 
         ## Instantiate, cache, return
-        pwo = PipelineWithOrigin(origin_str, pipeline, script)
+        pwo = PipelineWithOrigin(origin_str, pipeline, script_str=script)
         cls.script_cache[script] = pwo
         return pwo
+
+    @classmethod
+    def from_parsed_simple_script(cls, parsed: ParseResults) -> 'PipelineWithOrigin':
+        parse_errors = ErrorLog()
+        simple_origin = TemplatedString.from_parsed(parsed['simple_origin']).strip()
+        parse_errors.extend(simple_origin.pre_errors, 'origin')
+
+        parsed_segments = []
+        for simple_pipe in parsed['simple_pipes']:
+            groupmode = GroupMode.from_parsed(simple_pipe['groupmode'])
+            parsed_pipe = ParsedPipe.from_parsed(simple_pipe)
+            parsed_segments.append((groupmode, (parsed_pipe,)))
+            parse_errors.extend(groupmode.pre_errors, "groupmode")
+            parse_errors.extend(parsed_pipe.errors, parsed_pipe.name)
+
+        return PipelineWithOrigin([simple_origin], Pipeline(parsed_segments))
 
     # =================================== Static utility methods ===================================
 
@@ -72,16 +92,59 @@ class PipelineWithOrigin:
         # So I would simply like to assume people don't put enough quotes AND >'s in their texts for this to be a problem....
         # ...because what we've been doing so far is: look at quotes as non-nesting and just split on the first non-wrapped >
         # Anyway here is a neutered version of the script used to parse Pipelines.
-        quoted = False
-        p = None
-        for i in range(len(script)):
+
+        OPEN_BRACE, CLOSE_BRACE = '{}'
+        OPEN_BRACK, CLOSE_BRACK = '[]'
+        TRIPLE_QUOTES = ('"""', "'''")
+        SINGLE_QUOTES = ('"', "'")
+        ALL_QUOTES = ('"""', "'''", '"', "'")
+
+        stack = []
+        i = 0
+
+        while i < len(script):
             c = script[i]
-            if c == '"': quoted ^= True; continue
-            if not quoted and c =='>':
-                if p == '-':
-                    return script[:i-1].strip(), 'print>'+script[i+1:]
+            escaped = i > 0 and script[i-1] == '~'
+
+            if not escaped:
+                # Braces and brackets
+                if c in (OPEN_BRACE, OPEN_BRACK):
+                    stack.append(c)
+                    i += 1; continue
+                if c == CLOSE_BRACE and stack and stack[-1] == OPEN_BRACE:
+                    stack.pop()
+                    i += 1; continue
+                if c == CLOSE_BRACK and stack and stack[-1] == OPEN_BRACK:
+                    stack.pop()
+                    i += 1; continue
+
+                # Triple quotes
+                if (ccc := script[i:i+3]) in TRIPLE_QUOTES:
+                    if not stack or stack[-1] not in ALL_QUOTES:
+                        stack.append(ccc)
+                        i += 3; continue
+                    if stack and stack[-1] == ccc:
+                        stack.pop()
+                        i += 3; continue
+
+                # Single quotes
+                if c in SINGLE_QUOTES:
+                    if not stack or stack[-1] not in ALL_QUOTES:
+                        stack.append(c)
+                        i += 1; continue
+                    if stack and stack[-1] == c:
+                        stack.pop()
+                        i += 1; continue
+
+            # Un-nested >
+            if not stack and c == '>':
+                if i > 0 and script[i-1] == '-':
+                    return script[:i-1].strip(), 'print >' + script[i+1:]
                 return script[:i].strip(), script[i+1:]
-            p = c
+
+            # Move up one character
+            i += 1
+
         return script.strip(), ''
 
     @staticmethod
@@ -150,8 +213,11 @@ class PipelineWithOrigin:
         '''Gather static errors from both Origin and Pipeline.'''
         errors = ErrorLog()
         # 1. Origin errors
-        origins, origin_errors = TemplatedString.parse_origin(self.origin)
-        errors.extend(origin_errors, 'script origin')
+        if isinstance(self.origin, str):
+            _, origin_errors = TemplatedString.parse_origin(self.origin)
+            errors.extend(origin_errors, 'script origin')
+        if self.origin_errors is not None:
+            errors.extend(self.origin_errors, 'script origin')
         # 2. Pipeline errors
         errors.extend(self.pipeline.parser_errors)
         return errors
@@ -168,22 +234,17 @@ class PipelineWithOrigin:
         All while handling and communicating any errors that may arise during that process.
         '''
         errors = ErrorLog()
-        pipeline, origin = self.pipeline, self.origin
 
         try:
-            ### STEP 1: GET STARTING VALUES
-            values, origin_errors = await TemplatedString.evaluate_origin(origin, context, scope)
-            errors.extend(origin_errors, 'script origin')
+            ## STEP 1 & 2: Execute the pipeline
+            values, exec_errors, spout_state = await self.execute_without_side_effects(context, scope)
+            errors.extend(exec_errors)
             if errors.terminal: raise TerminalError()
 
-            ### STEP 2: APPLY PIPELINE TO STARTING VALUES
-            values, pl_errors, spout_state = await pipeline.apply(values, context, scope)
-            errors.extend(pl_errors)
-            if errors.terminal: raise TerminalError()
-
-            ### STEP 3: JOB'S DONE, PERFORM SIDE-EFFECTS!
+            ### STEP 3: Perform the side-effects
             side_errors = await self.perform_side_effects(context, spout_state, values)
             errors.extend(side_errors)
+            if errors.terminal: raise TerminalError()
 
             ## Post warning output to the channel if any
             if errors:
@@ -203,7 +264,28 @@ class PipelineWithOrigin:
             await self.send_error_log(context, errors)
             raise e
 
-    async def perform_side_effects(self, context: 'Context', spout_state: SpoutState, end_values) -> ErrorLog:
+    async def execute_without_side_effects(self, context: 'Context', scope: 'ItemScope'=None) -> tuple[ list[str], ErrorLog, SpoutState ]:
+        '''
+        Performs the PipelineWithOrigin purely functionally, with its side-effects and final values to be handled by the caller.
+        '''
+        errors = ErrorLog()
+
+        ### STEP 1: Get origin values
+        if isinstance(self.origin, str):
+            values, origin_errors = await TemplatedString.evaluate_origin(self.origin, context, scope)
+        else:
+            values, origin_errors = await TemplatedString.map_evaluate(self.origin, context, scope)
+        errors.extend(origin_errors, 'script origin')
+        if errors.terminal: return None, errors, None
+
+        ### STEP 2: Apply pipeline to values
+        values, pl_errors, spout_state = await self.pipeline.apply(values, context, scope)
+        errors.extend(pl_errors)
+        if errors.terminal: return None, errors, None
+
+        return values, errors, spout_state
+
+    async def perform_side_effects(self, context: 'Context', spout_state: SpoutState, end_values: list[str]) -> ErrorLog:
             '''
             This function performs the side-effects of executing a script:
                 * Storing the output values somewhere
@@ -242,7 +324,7 @@ class PipelineWithOrigin:
 
 
 # These lynes be down here dve to dependencyes cyrcvlaire
-from .pipeline import Pipeline
+from .pipeline import ParsedPipe, Pipeline
 from .templated_string import TemplatedString
 from pipes.implementations.spouts import spouts
 from pipes.implementations.sources import SourceResources
