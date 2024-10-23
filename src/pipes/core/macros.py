@@ -7,6 +7,8 @@ from lru import LRU
 from discord import Embed, TextChannel, Client
 from .signature import ArgumentError
 from .pipeline import Pipeline
+from .pipeline_with_origin import PipelineWithOrigin
+from .logger import ErrorLog
 import utils.texttools as texttools
 import permissions
 
@@ -119,7 +121,15 @@ class Macro:
         '''Test whether or not the given user is authorised to modify this macro.'''
         return permissions.has(user.id, permissions.owner) or user.id == int(self.authorId)
 
-    # ================ Serialization ================
+    # ========================================= Validation =========================================
+
+    def get_static_errors(self) -> ErrorLog:
+        if self.kind == "Pipe":
+            return Pipeline.from_string(self.code).parser_errors
+        elif self.kind == "Source":
+            return PipelineWithOrigin.from_string(self.code).get_static_errors()
+
+    # ======================================== Serialization =======================================
 
     def serialize(self):
         return {
@@ -197,7 +207,7 @@ class Macros:
     def pipeline_from_code(self, code: str) -> Pipeline:
         '''Parses the code to a Pipeline, but cached.'''
         if code not in self.pipeline_cache:
-            self.pipeline_cache[code] = Pipeline(code)
+            self.pipeline_cache[code] = Pipeline.from_string(code)
         return self.pipeline_cache[code]
 
     def visible(self):

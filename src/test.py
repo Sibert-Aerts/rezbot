@@ -6,6 +6,7 @@ Actual rezbot scripting test suite: Someday, maybe, surely.
 
 import timeit
 import asyncio
+import itertools
 
 import pipes.core.processor
 import pipes.core.grammar as grammar
@@ -16,6 +17,9 @@ from pipes.core.spout_state import SpoutState
 from pipes.core.templated_string import TemplatedString
 from pipes.core.conditions import Condition
 from pipes.core.pipeline_with_origin import PipelineWithOrigin
+
+from pipes.core.macros import Macro, source_macros, pipe_macros
+from pipes.core.events import Event, events
 
 
 #### Stub values and methods
@@ -175,8 +179,34 @@ async def time_groupmode_parse():
     print('OLD TIME:', timeit.timeit('parse()', globals={'parse': old_parse}, number=1))
     print('NEW TIME:', timeit.timeit('parse()', globals={'parse': new_parse}, number=1))
 
+async def statically_analyse_all_macros_and_events():
 
-async def test_pipeline(pl_str):
+    bad_macros: list[tuple[Macro, ErrorLog]] = list()
+    for macro in itertools.chain(pipe_macros.values(), source_macros.values()):
+        errors = macro.get_static_errors()
+        if errors:
+            bad_macros.append((macro, errors))
+
+    bad_events: list[tuple[Event, ErrorLog]] = list()
+    for event in events.values():
+        errors = event.get_static_errors()
+        if errors:
+            bad_events.append((event, errors))
+
+    for macro, errors in bad_macros:
+        print()
+        print("Bad Macro:", macro.name)
+        print(errors)
+        print()
+
+    for event, errors in bad_events:
+        print()
+        print("Bad Event:", event.name)
+        print(errors)
+        print()
+
+
+async def test_script(pl_str):
     pl = PipelineWithOrigin.from_string(pl_str)
 
     pl.perform_side_effects = print_side_effects
@@ -185,11 +215,14 @@ async def test_pipeline(pl_str):
     await pl.execute(context)
 
 
-async def test_pipeline_cli():
+async def test_script_cli():
+    '''
+    Interactive script execution CLI.
+    '''
     try:
         while True:
-            pl = input('Please input your pipeline:\n>>')
-            await test_pipeline(pl)
+            pl = input('Please input your script:\n>>')
+            await test_script(pl)
             print()
     except EOFError:
         print()
@@ -206,7 +239,9 @@ if __name__ == '__main__':
         # asyncio.run(test_groupmode())
         # asyncio.run(time_groupmode_parse())
 
-        asyncio.run(test_pipeline_cli())
+        asyncio.run(statically_analyse_all_macros_and_events())
+
+        # asyncio.run(test_script_cli())
 
     except KeyboardInterrupt:
         pass
