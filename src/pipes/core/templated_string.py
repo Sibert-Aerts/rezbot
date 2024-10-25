@@ -402,7 +402,7 @@ class TemplatedString:
                 vals, errs = await tstring.source.evaluate(context, scope)
                 errors.extend(errs)
                 if not errors.terminal: values.extend(vals)
-            if tstring.is_inline_script:
+            elif tstring.is_inline_script:
                 vals, errs = await tstring.inline_script.evaluate(context, scope)
                 errors.extend(errs)
                 if not errors.terminal: values.extend(vals)
