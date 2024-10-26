@@ -30,13 +30,12 @@ class PipelineWithOrigin:
 
     # ======================================== Constructors ========================================
 
-    def __init__(self, origin: str | list['TemplatedString'], pipeline: 'Pipeline', *, origin_errors: ErrorLog=None, script_str: str=None):
+    def __init__(self, origin: str | list['TemplatedString'], pipeline: 'Pipeline', *, static_errors: ErrorLog=None, script_str: str=None):
         # NOTE: Origin may be a string instead of a list of TemplatedStrings
         #   because the "[?]" ChoiceTree flag means it may not represent the same TemplatedStrings each time.
-        # NOTE: (We could hang on to the parsed choicetree?)
         self.origin = origin
         self.pipeline = pipeline
-        self.origin_errors = origin_errors
+        self.static_errors = static_errors
         self.script_str = script_str
 
     @classmethod
@@ -57,9 +56,12 @@ class PipelineWithOrigin:
     @classmethod
     def from_parsed_simple_script(cls, parsed: ParseResults) -> 'PipelineWithOrigin':
         parse_errors = ErrorLog()
-        simple_origin = TemplatedString.from_parsed(parsed['simple_origin']).strip()
-        parse_errors.extend(simple_origin.pre_errors, 'origin')
 
+        # Parse origin
+        simple_origin = TemplatedString.from_parsed(parsed['simple_origin']).strip()
+        parse_errors.extend(simple_origin.pre_errors, 'script origin')
+
+        # Parse pipe segments
         parsed_segments = []
         for simple_pipe in parsed['simple_pipes']:
             groupmode = GroupMode.from_parsed(simple_pipe['groupmode'])
@@ -68,7 +70,7 @@ class PipelineWithOrigin:
             parse_errors.extend(groupmode.pre_errors, "groupmode")
             parse_errors.extend(parsed_pipe.errors, parsed_pipe.name)
 
-        return PipelineWithOrigin([simple_origin], Pipeline(parsed_segments))
+        return PipelineWithOrigin([simple_origin], Pipeline(parsed_segments), static_errors=parse_errors)
 
     # =================================== Static utility methods ===================================
 
@@ -216,8 +218,8 @@ class PipelineWithOrigin:
         if isinstance(self.origin, str):
             _, origin_errors = TemplatedString.parse_origin(self.origin)
             errors.extend(origin_errors, 'script origin')
-        if self.origin_errors is not None:
-            errors.extend(self.origin_errors, 'script origin')
+        if self.static_errors is not None:
+            errors.extend(self.static_errors)
         # 2. Pipeline errors
         errors.extend(self.pipeline.parser_errors)
         return errors

@@ -451,7 +451,7 @@ class Column(SplitMode):
 
 class Interval(SplitMode):
     # Magic object
-    END = 'END'
+    END = object()
 
     def __init__(self, strictness: int, start: str, end: str):
         super().__init__(strictness)

@@ -35,6 +35,7 @@ optional_white  = Suppress(Opt(White()))
 identifier      = Word(alphas + '_', alphanums + '_').set_name('identifier')
 pos_integer     = Word(nums).set_name('positive integer')
 integer         = Combine(Opt(Literal('-')) + Word(nums)).set_name('integer')
+# TODO: Get rid of '..' as a range indicator
 interval        = Group(Opt(integer)('start') + (colon | Suppress('..')) + Opt(integer)('end')).set_name('interval')
 
 # ============================================= Grammar ============================================
@@ -87,7 +88,13 @@ argument_list = optional_white + ZeroOrMore(explicit_arg | implicit_arg).set_nam
 
 # ======================== Templated Element: Items
 
-item = Group( left_brace + Opt(Word('^'))('carrots') + Opt(integer)('index') + Opt('!')('bang') + right_brace )('item').set_name('Templated Item')
+item_index = Group(Opt(Word('^'))('carrots') + (interval('interval') | integer('index')) + Opt('!')('bang'))('item_index').set_name('Item Index')
+
+# TODO: Deprecate carrots, and maybe even bang from implicit_item
+implicit_item = Group(left_brace + Opt(Word('^'))('carrots') + Opt('!')('bang') + right_brace)('implicit_item')
+explicit_item = Group(left_brace + Group(delimited_list(item_index, ','))('indices') + right_brace)('explicit_item')
+
+item = (implicit_item | explicit_item).set_name('Templated Item')
 
 # ======================== Templated Element: Sources
 

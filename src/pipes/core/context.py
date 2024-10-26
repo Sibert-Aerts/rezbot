@@ -61,7 +61,7 @@ class ItemScope:
 
         count = len(scope.items)
         # Make sure the index fits in the scope's range of items
-        if index >= count: raise ItemScopeError('Out of range: References item {} out of only {} items.'.format(index, count))
+        if index >= count: raise ItemScopeError('Out of range: Item index {} out of only {} items.'.format(index, count))
         if index < 0: index += count
         if index < 0: raise ItemScopeError('Out of range: Negative index {} for only {} items.'.format(index-count, count))
 
@@ -69,6 +69,33 @@ class ItemScope:
         if scope is self:
             (self.to_be_ignored if bang else self.to_be_removed).add(index)
         return scope.items[index]
+
+    def get_items(self, carrots: int, start: int | None, end: int | None, bang: bool) -> list[str]:
+        '''Retrieves a range of items from this scope or a parent's scope, and possibly marks it for ignoring/removal.'''
+        scope = self
+        # For each ^ go up a scope
+        for _ in range(carrots):
+            if scope.parent is None: raise ItemScopeError('Out of scope: References a parent scope beyond scope.')
+            scope = scope.parent
+
+        count = len(scope.items)
+        # Make sure the start index fits in the scope's range of items
+        if start is None: start = 0
+        else:
+            if start >= count: raise ItemScopeError('Out of range: Item start index {} out of only {} items.'.format(start, count))
+            if start < 0: start += count
+            if start < 0: raise ItemScopeError('Out of range: Negative start index {} for only {} items.'.format(start-count, count))
+        # Make sure the end index fits in the scope's range of items
+        if end is None: end = count
+        else:
+            if end > count: raise ItemScopeError('Out of range: Item end index {} out of only {} items.'.format(end, count))
+            if end < 0: end += count
+            if end < 0: raise ItemScopeError('Out of range: Negative end index {} for only {} items.'.format(end-count, count))
+
+        # Only flag items to be ignored if we're in the current scope (idk how it would work with higher scopes)
+        if scope is self:
+            (self.to_be_ignored if bang else self.to_be_removed).update(range(start, end))
+        return scope.items[start:end]
 
     def extract_ignored(self) -> tuple[set[str], list[str]]:
         ### Merge the sets into a clear view:

@@ -29,8 +29,13 @@ class TemplatedString:
 
     is_string = False
     string: str = None
+
+    is_item = False
+    item: 'ParsedItem' = None
+
     is_source = False
     source: 'ParsedSource' = None
+
     is_inline_script = False
     inline_script: 'ParsedInlineScript' = None
 
@@ -60,6 +65,8 @@ class TemplatedString:
 
             match result_piece._name:
                 case 'te_special':
+                    # TODO: This approach, though efficient and cute, allows {\n} to be removed in the .strip() call
+                    #   for implicit args (e.g. `join {\n}`), replace with an unstrippable symbolic object.
                     try:
                         item = ParsedSpecialSymbol.from_parsed(result_piece)
                         append_string(item)
@@ -67,10 +74,11 @@ class TemplatedString:
                         pre_errors.log(str(v), terminal=True)
 
                 case 'te_script':
-                    item = ParsedInlineScript.from_parsed(result_piece)
-                    pieces.append(item)
+                    inline_script = ParsedInlineScript.from_parsed(result_piece)
+                    pieces.append(inline_script)
+                    pre_errors.extend(inline_script.script.get_static_errors(), 'inline script')
 
-                case 'item':
+                case 'implicit_item' | 'explicit_item':
                     item = ParsedItem.from_parsed(result_piece)
                     pieces.append(item)
 
@@ -85,7 +93,7 @@ class TemplatedString:
                     pre_errors.steal(source.pre_errors, source.name)
 
                 case _:
-                    raise Exception()
+                    raise Exception(f'Unexpected ParseResults._name: {result_piece._name}')
 
         return TemplatedString(pieces, start_index, pre_errors=pre_errors)
 
@@ -99,24 +107,25 @@ class TemplatedString:
     def assign_implicit_item_indices(self, start_index):
         ''' Runs through all implicitly indexed items and assigns them increasing indices, or recursively adjusts existing ones. '''
         item_index = start_index
-        explicit_item, implicit_item = False, False
+        has_explicit, has_implicit = False, False
         # TODO: this currently does not work as intended due to nesting:
         # "{} {roll max={}} {}" == "{0} {roll max={0}} {1}"
+        # TODO: Maybe literally just not allow implicit indices outside of top-level templatedstrings
         for piece in self.pieces:
             # TODO: Account for ParsedConditional
             if isinstance(piece, ParsedSource):
                 item_index = piece.args.adjust_implicit_item_indices(item_index)
             elif isinstance(piece, ParsedItem):
-                if piece.explicitly_indexed:
-                    explicit_item = True
+                if not piece.is_implicit:
+                    has_explicit = True
                 else:
-                    implicit_item = True
-                    piece.index = item_index
+                    has_implicit = True
+                    piece.implicit_index = item_index
                     item_index += 1
 
         self.end_index = item_index
 
-        if explicit_item and implicit_item:
+        if has_explicit and has_implicit:
             self.pre_errors.log('Do not mix empty `{}`\'s with numbered `{}`\'s!', True)
 
     def adjust_implicit_item_indices(self, new_start_index):
@@ -125,8 +134,8 @@ class TemplatedString:
             # TODO: Account for ParsedConditional
             if isinstance(piece, ParsedSource):
                 piece.args.adjust_implicit_item_indices(new_start_index)
-            elif isinstance(piece, ParsedItem) and not piece.explicitly_indexed:
-                piece.index += new_start_index
+            elif isinstance(piece, ParsedItem) and piece.is_implicit:
+                piece.implicit_index += new_start_index
         self.end_index += new_start_index
         return self.end_index
 
@@ -145,10 +154,7 @@ class TemplatedString:
     def _flush(self):
         '''Performs minor optimizations and simplifications either after creation or after modification.'''
 
-        ## For simplicity, an empty list is normalised to an empty string
-        self.pieces = self.pieces or ['']
-
-        ## Join consecutive strings
+        ## Join consecutive strings, drop empty strings
         new_pieces = []
         running_str = []
         for piece in self.pieces:
@@ -156,18 +162,24 @@ class TemplatedString:
                 running_str.append(piece)
             else:
                 if running_str:
-                    new_pieces.append("".join(running_str))
+                    if joint := ''.join(running_str): new_pieces.append(joint)
                     running_str.clear()
                 new_pieces.append(piece)
         if running_str:
-            new_pieces.append("".join(running_str))
+            if joint := ''.join(running_str): new_pieces.append(joint)
             running_str.clear()
         self.pieces = new_pieces
+
+        ## Normalise an empty list as a list of a single empty string
+        self.pieces = self.pieces or ['']
 
         ## Determine if we're a very simple kind of TemplatedString
         if len(self.pieces) == 1:
             self.is_string = isinstance(self.pieces[0], str) and not self.pre_errors
             if self.is_string: self.string = self.pieces[0]
+
+            self.is_item = isinstance(self.pieces[0], ParsedItem)
+            if self.is_item: self.item = self.pieces[0]
 
             self.is_source = isinstance(self.pieces[0], ParsedSource)
             if self.is_source: self.source = self.pieces[0]
@@ -269,7 +281,8 @@ class TemplatedString:
 
             elif isinstance(piece, ParsedItem):
                 try:
-                    results.append(piece.evaluate(scope))
+                    items = piece.evaluate(scope)
+                    results.append(items[0] if items else '')
                 except ItemScopeError as e:
                     msg = f'Error filling in item `{piece}`:\n\tItemScopeError: {e}'
                     errors.log(msg, True)
@@ -336,15 +349,19 @@ class TemplatedString:
             errors.log_parse_exception(e)
             return NOTHING_BUT_ERRORS
 
-        if not force_single and template.is_source:
-            vals, errs = await template.source.evaluate(context, scope)
-            return vals, errs
-        elif not force_single and template.is_inline_script:
-            vals, errs = await template.inline_script.evaluate(context, scope)
-            return vals, errs
-        else:
-            val, errs = await template.evaluate(context, scope)
-            return [val], errs
+        if not force_single:
+            if template.is_item:
+                vals = template.item.evaluate(scope)
+                return vals, errors
+            elif template.is_source:
+                vals, errs = await template.source.evaluate(context, scope)
+                return vals, errors.extend(errs)
+            elif template.is_inline_script:
+                vals, errs = await template.inline_script.evaluate(context, scope)
+                return vals, errors.extend(errs)
+
+        val, errs = await template.evaluate(context, scope)
+        return [val], errors.extend(errs)
 
     @staticmethod
     def parse_origin(origin_str: str) -> tuple[list['TemplatedString'] | None, ErrorLog]:
@@ -398,7 +415,14 @@ class TemplatedString:
 
         values = []
         for tstring in tstrings:
-            if tstring.is_source:
+            if tstring.is_item:
+                try:
+                    vals = tstring.item.evaluate(scope)
+                except ItemScopeError as e:
+                    msg = f'Error filling in item `{tstring.item}`:\n\tItemScopeError: {e}'
+                    errors.log(msg, True)
+                if not errors.terminal: values.extend(vals)
+            elif tstring.is_source:
                 vals, errs = await tstring.source.evaluate(context, scope)
                 errors.extend(errs)
                 if not errors.terminal: values.extend(vals)
