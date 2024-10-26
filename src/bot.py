@@ -59,17 +59,15 @@ class Rezbot(commands.Bot):
         print('======================================================================================')
         print()
 
-    def should_listen_to_user(self, user):
-        # Do not listen to self.
-        if user.id == self.user.id:
-            return False
-        # Do not listen to bots.
-        if user.bot:
-            return False
-        # Do not listen to muted users.
-        if permissions.is_muted(user.id):
-            return False
-        return True
+    def should_listen_to_user(self, user: discord.User | discord.Member):
+        return not (
+            # Do not listen to self
+            user.id == self.user.id
+            # Do not listen to bots
+            or user.bot
+            # Do not listen to muted users
+            or permissions.is_muted(user.id)
+        )
 
     async def on_message(self, message: discord.Message):
         if not self.should_listen_to_user(message.author):

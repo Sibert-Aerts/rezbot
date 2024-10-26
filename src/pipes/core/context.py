@@ -166,7 +166,7 @@ class Context:
     macro: 'Macro' = None
     'Inside a Macro call, the Macro that is being called'
 
-    arguments: dict[str, str] = None
+    arguments: dict[str, str|None] = None
     'Arguments passed into the current Event or Macro, accessible through {arg param_name}'
 
     # ====================================== Creating Context ======================================
@@ -182,7 +182,7 @@ class Context:
         button=None,
 
         macro: 'Macro'=None,
-        arguments: 'Macro'=None,
+        arguments: dict[str, str|None]=None,
     ):
         if (not origin and not parent) or (origin and parent):
             raise ValueError('Context must have either an Origin or a parent Context.')

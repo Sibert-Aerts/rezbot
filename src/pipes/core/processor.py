@@ -26,33 +26,31 @@ class PipelineProcessor:
         '''Check if an incoming message triggers any custom Events.'''
         for event in events.on_message_events:
             match: re.Match = event.test(message)
-            if match:
-                if match is not True and (groups := match.groups(default='')):
-                    # If match is indeed a regex Match object with regex Match groups:
-                    #   Fill the starting items with the groups in order of appearance ({i} == match[i+1]) (LEGACY, do not change numbering!)
-                    #   Fill the arguments with each group, mapped both by index ({arg i} == match[i]) and by name ({arg name} == match[name]).
-                    items = list(groups)
-                    arguments = {str(i+1): m for i, m in enumerate(match.groups())}
-                    arguments['0'] = match[0]
-                    arguments.update(match.groupdict())
-                else:
-                    # No Match groups: Item 0 is the message content (LEGACY!), arg 0 is the full match
-                    items = [message.content]
-                    arguments = {'0': match[0]}
-                # Fetch Event's author
-                author = message.guild.get_member(event.author_id) or self.bot.get_user(event.author_id)
-                # Create execution context
-                context = Context(
-                    origin=Context.Origin(
-                        type=Context.Origin.Type.EVENT,
-                        activator=message.author,
-                        event=event,
-                    ),
-                    author=author,
-                    message=message,
-                    arguments=arguments,
-                )
-                await self.execute_script(event.script, context, ItemScope(items=items))
+            if not match: continue
+            if isinstance(match, re.Match):
+                # Fill the starting items with the groups in order of appearance ({i} == match[i+1]) (LEGACY, do not change numbering!),
+                #   unless there are no match groups at all, in which case {0} is filled in as the full message (inconsistent, but LEGACY)
+                items = match.groups(default='') or (message.content,)
+                # Fill the arguments with each group, mapped both by index ({arg i} == match[i]) and by name ({arg name} == match[name]).
+                #   Note: Argument values may be None, which is a special case that can be handled via {arg x default='...'}
+                arguments = {str(i+1): m for i, m in enumerate(match.groups())}
+                arguments['0'] = match[0]
+                arguments.update(match.groupdict())
+
+            # Fetch the Event's author
+            author = message.guild.get_member(event.author_id) or self.bot.get_user(event.author_id)
+            # Create execution context
+            context = Context(
+                origin=Context.Origin(
+                    type=Context.Origin.Type.EVENT,
+                    activator=message.author,
+                    event=event,
+                ),
+                author=author,
+                message=message,
+                arguments=arguments,
+            )
+            await self.execute_script(event.script, context, ItemScope(items=items))
 
     async def on_reaction(self, channel: TextChannel, emoji: str, user_id: int, msg_id: int):
         '''Check if an incoming reaction triggers any custom Events.'''
@@ -68,7 +66,7 @@ class PipelineProcessor:
                 # Only once we fetch the member can we test if we have them muted, to call the whole thing off
                 if not self.bot.should_listen_to_user(member):
                     return
-            # Fetch Event's author
+            # Fetch the Event's author
             author = channel.guild.get_member(event.author_id) or self.bot.get_user(event.author_id)
             # Create execution context
             context = Context(
@@ -140,5 +138,4 @@ class PipelineProcessor:
 # These lynes be down here dve to dependencyes cyrcvlaire
 from .pipeline_with_origin import PipelineWithOrigin
 from .events import events
-from pipes.implementations.sources import SourceResources
 from pipes.commands.macro_commands import parse_macro_command
