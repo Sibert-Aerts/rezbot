@@ -6,7 +6,7 @@ from typing import Literal
 from discord.ext import commands
 from discord import app_commands, Interaction, Message
 
-from pipes.core.events import Event, events
+from pipes.core.events import Event, ALL_EVENTS
 from pipes.core.context import Context, ItemScope
 from pipes.core.processor import PipelineProcessor
 from rezbot_commands import RezbotCommands
@@ -30,12 +30,12 @@ class EventSlashCommands(RezbotCommands):
                 return interaction.response.send_message(*a, **kw)
             return interaction.channel.send(*a, **kw)
 
-        if not events:
+        if not ALL_EVENTS:
             return await reply('No events registered.')
 
         # Collect enabled/disabled events for the current channel
         enabled_events, disabled_events = [], []
-        for event in events.values():
+        for event in ALL_EVENTS.values():
             if interaction.channel.id in event.channels: enabled_events.append(event)
             else: disabled_events.append(event)
 
@@ -75,7 +75,7 @@ class EventSlashCommands(RezbotCommands):
         EventType = event_type_map[event_type]
 
         name = normalize_name(name)
-        if name in events:
+        if name in ALL_EVENTS:
             return await reply(f'An Event called `{name}` already exists, try the `/event edit` command.')
 
         ## Instantiate the new Event instance
@@ -95,8 +95,8 @@ class EventSlashCommands(RezbotCommands):
             )
 
         ## Finally: Actually assign the event to the registry
-        events[name] = event
-        view = EventView(self.bot, event, events, interaction.channel)
+        ALL_EVENTS[name] = event
+        view = EventView(self.bot, event, ALL_EVENTS, interaction.channel)
         view.set_message(await reply(f'Successfully defined a new Event.', embed=event.embed(bot=self.bot, channel=interaction.channel), view=view))
 
     @event_group.command(name='edit')
@@ -130,7 +130,7 @@ class EventSlashCommands(RezbotCommands):
             if trigger is None:
                 return await reply(f'When changing Event Type, the trigger must be given as well.')
             event = EventType.from_trigger_str(name=event.name, desc=event.desc, author_id=event.author_id, channels=event.channels, script=event.script, trigger=trigger)
-            events[event.name] = event
+            ALL_EVENTS[event.name] = event
         elif trigger is not None:
             event.set_trigger(trigger)
         if code is not None:
@@ -143,8 +143,8 @@ class EventSlashCommands(RezbotCommands):
                     embed=errors.embed('code for Event: ' + event.name),
                 )
 
-        events.write()
-        view = EventView(self.bot, event, events, interaction.channel)
+        ALL_EVENTS.write()
+        view = EventView(self.bot, event, ALL_EVENTS, interaction.channel)
         view.set_message(await reply(f'Successfully edited the Event.', embed=event.embed(bot=self.bot, channel=interaction.channel), view=view))
 
     @event_group.command(name='delete')
@@ -160,7 +160,7 @@ class EventSlashCommands(RezbotCommands):
         except:
             return await reply(f'Command failed, likely due to nonexistent Event.', ephemeral=True)
 
-        del events[event.name]
+        del ALL_EVENTS[event.name]
         await reply(f'Successfully deleted Event `{event.name}`.')
 
     async def _event_set_enabled(self, interaction: Interaction, event_choice: str, enable: bool):
@@ -176,14 +176,14 @@ class EventSlashCommands(RezbotCommands):
                 await reply(f'Event {event.name} is already enabled in {interaction.channel.mention}.')
             else:
                 event.channels.append(interaction.channel.id)
-                events.write()
+                ALL_EVENTS.write()
                 await reply(f'Event {event.name} has been enabled in {interaction.channel.mention}.')
         else:
             if interaction.channel.id not in event.channels:
                 await reply(f'Event {event.name} is already disabled in {interaction.channel.mention}.')
             else:
                 event.channels.remove(interaction.channel.id)
-                events.write()
+                ALL_EVENTS.write()
                 await reply(f'Event {event.name} has been disabled in {interaction.channel.mention}.')
 
     @event_group.command(name='enable')
@@ -216,7 +216,7 @@ class EventSlashCommands(RezbotCommands):
         if not self.bot.should_listen_to_user(interaction.user):
             return
 
-        for event in events.on_invoke_events:
+        for event in ALL_EVENTS.on_invoke_events:
             if not event.test(interaction.channel, command):
                 continue
             # Fetch Event's author

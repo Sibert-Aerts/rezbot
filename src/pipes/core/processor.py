@@ -24,7 +24,7 @@ class PipelineProcessor:
 
     async def on_message(self, message: Message):
         '''Check if an incoming message triggers any custom Events.'''
-        for event in events.on_message_events:
+        for event in ALL_EVENTS.on_message_events:
             match: re.Match = event.test(message)
             if not match: continue
             if isinstance(match, re.Match):
@@ -57,7 +57,7 @@ class PipelineProcessor:
         # For efficiency we only fetch the message/member once we know that this is
         #   a reaction that we actually care about
         message = member = None
-        for event in events.on_reaction_events:
+        for event in ALL_EVENTS.on_reaction_events:
             if not event.test(channel, emoji):
                 continue
             if message is None or member is None:
@@ -112,7 +112,7 @@ class PipelineProcessor:
                 pass
             ##### EVENT DEFINITION:
             # >> (NEW|EDIT) EVENT <name> ON MESSAGE <regex> :: <code>
-            elif await events.parse_command(self.bot, script, message):
+            elif await ALL_EVENTS.parse_command(self.bot, script, message):
                 pass
             ##### ERROR:
             # Our script clearly resembles a script-like command but isn't one!
@@ -137,5 +137,5 @@ class PipelineProcessor:
 
 # These lynes be down here dve to dependencyes cyrcvlaire
 from .pipeline_with_origin import PipelineWithOrigin
-from .events import events
+from .events import ALL_EVENTS
 from pipes.commands.macro_commands import parse_macro_command

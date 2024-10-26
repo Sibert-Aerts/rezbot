@@ -1,14 +1,11 @@
 from discord.ext import commands
 
-import utils.util as util
-
 from pipes.core.pipeline_with_origin import PipelineWithOrigin
 from pipes.core.pipe import Pipe, Source, Spout
 from pipes.core.context import Context
-from pipes.core.signature import Arguments
-from pipes.implementations.pipes import pipes
-from pipes.implementations.sources import sources
-from pipes.implementations.spouts import spouts
+from pipes.implementations.pipes import NATIVE_PIPES
+from pipes.implementations.sources import NATIVE_SOURCES
+from pipes.implementations.spouts import NATIVE_SPOUTS
 
 
 # Load the bot cog
@@ -61,7 +58,7 @@ async def setup(bot: commands.Bot):
         return func
 
     # Turn those pipes into discord.py bot commands!
-    for pipe in pipes.commands:
+    for pipe in NATIVE_PIPES.commands:
         func = pipe_to_func(pipe)
         # manually call the function decorator to make func into a command
         command = commands.command()(func)
@@ -107,7 +104,7 @@ async def setup(bot: commands.Bot):
         return func
 
     # Turn those sources into discord.py bot commands!
-    for source in sources.commands:
+    for source in NATIVE_SOURCES.commands:
         func = source_to_func(source)
         # manually call the function decorator to make func into a command
         command = commands.command()(func)
@@ -152,7 +149,7 @@ async def setup(bot: commands.Bot):
         return func
 
     # Turn those spouts into discord.py bot commands!
-    for spout in spouts.commands:
+    for spout in NATIVE_SPOUTS.commands:
         func = spout_to_func(spout)
         # manually call the function decorator to make func into a command
         command = commands.command()(func)

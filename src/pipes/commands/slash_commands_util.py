@@ -6,11 +6,11 @@ from discord import Interaction
 from discord.app_commands import Choice
 
 from pipes.core.pipe import Pipeoid, Pipe, Source, Spout, Pipes, Sources, Spouts
-from pipes.implementations.pipes import pipes
-from pipes.implementations.sources import sources
-from pipes.implementations.spouts import spouts
-from pipes.core.macros import Macros, Macro, pipe_macros, source_macros
-from pipes.core.events import Event, Events, OnMessage, OnReaction, OnInvoke, events
+from pipes.implementations.pipes import NATIVE_PIPES
+from pipes.implementations.sources import NATIVE_SOURCES
+from pipes.implementations.spouts import NATIVE_SPOUTS
+from pipes.core.macros import Macros, Macro, MACRO_PIPES, MACRO_SOURCES
+from pipes.core.events import Event, Events, OnMessage, OnReaction, OnInvoke, ALL_EVENTS
 from .macro_commands import check_pipe_macro, check_source_macro
 from utils.util import normalize_name
 
@@ -18,12 +18,12 @@ from utils.util import normalize_name
 # ====================================== Scriptoid mappings =======================================
 
 scriptoid_type_map: dict[str, Pipes|Sources|Spouts|Macros|Events]  = {
-    'Pipe': pipes,
-    'Source': sources,
-    'Spout': spouts,
-    'Pipe_macro': pipe_macros,
-    'Source_macro': source_macros,
-    'Event': events,
+    'Pipe': NATIVE_PIPES,
+    'Source': NATIVE_SOURCES,
+    'Spout': NATIVE_SPOUTS,
+    'Pipe_macro': MACRO_PIPES,
+    'Source_macro': MACRO_SOURCES,
+    'Event': ALL_EVENTS,
 }
 
 macro_check_map: dict[str, Callable] = {
@@ -99,20 +99,19 @@ def choice_to_scriptoid(value: str, expected_type=None):
     name = re.sub('\(.*', '', name).strip()
 
     # Try to find any kind of match
-    if expected(Pipe) and name in pipes:
-        return pipes[name], pipes
-    if expected(Source) and name in sources:
-        return sources[name], sources
-    if expected(Spout) and name in spouts:
-        return spouts[name], spouts
+    if expected(Pipe) and name in NATIVE_PIPES:
+        return NATIVE_PIPES[name], NATIVE_PIPES
+    if expected(Source) and name in NATIVE_SOURCES:
+        return NATIVE_SOURCES[name], NATIVE_SOURCES
+    if expected(Spout) and name in NATIVE_SPOUTS:
+        return NATIVE_SPOUTS[name], NATIVE_SPOUTS
     if expected(Macro):
-        if name in pipe_macros:
-            return pipe_macros[name], pipe_macros
-        if name in source_macros:
-            return source_macros[name], source_macros
-    if expected(Event):
-        if name in events:
-            return events[name], events
+        if name in MACRO_PIPES:
+            return MACRO_PIPES[name], MACRO_PIPES
+        if name in MACRO_SOURCES:
+            return MACRO_SOURCES[name], MACRO_SOURCES
+    if expected(Event)and name in ALL_EVENTS:
+        return ALL_EVENTS[name], ALL_EVENTS
     raise ValueError(f'Could not find a relevant scriptoid by name `{name}`.')
 
 
@@ -132,7 +131,7 @@ async def autocomplete_scriptoid(interaction: Interaction, name: str):
 async def autocomplete_macro(interaction: Interaction, name: str):
     name = name.lower()
     results: list[Choice] = []
-    for macro in itertools.chain(pipe_macros.values(), source_macros.values()):
+    for macro in itertools.chain(MACRO_PIPES.values(), MACRO_SOURCES.values()):
         if name in macro.name:
             results.append(scriptoid_to_choice(macro))
             if len(results) >= 25:
@@ -143,7 +142,7 @@ def autocomplete_event(*, enabled=None):
     async def _autocomplete_event(interaction: Interaction, name: str):
         name = name.lower()
         results = []
-        for event in events.values():
+        for event in ALL_EVENTS.values():
             if enabled is not None and event.is_enabled(interaction.channel) != enabled:
                 continue
             if name in event.name:
@@ -157,7 +156,7 @@ async def autocomplete_invoke_command(interaction: Interaction, name: str):
     name = name.lower()
 
     commands = set()
-    for event in events.on_invoke_events:
+    for event in ALL_EVENTS.on_invoke_events:
         if event.is_enabled(interaction.channel) and name in event.command:
             commands.add(event.command)
 

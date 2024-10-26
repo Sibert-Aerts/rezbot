@@ -246,5 +246,5 @@ class Macros:
         return len(self.macros)
 
 
-pipe_macros = Macros(DIR, 'Pipe', 'pipe_macros')
-source_macros = Macros(DIR, 'Source', 'source_macros')
+MACRO_PIPES = Macros(DIR, 'Pipe', 'pipe_macros')
+MACRO_SOURCES = Macros(DIR, 'Source', 'source_macros')

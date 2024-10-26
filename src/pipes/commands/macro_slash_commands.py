@@ -7,7 +7,7 @@ from typing import Literal
 from discord.ext import commands
 from discord import app_commands, Interaction
 
-from pipes.core.macros import Macro, Macros, MacroParam, pipe_macros, source_macros
+from pipes.core.macros import Macro, Macros, MacroParam, MACRO_PIPES, MACRO_SOURCES
 from rezbot_commands import RezbotCommands
 import utils.texttools as texttools
 from utils.util import normalize_name
@@ -76,13 +76,13 @@ class MacroSlashCommands(RezbotCommands):
     @app_commands.describe(hidden='If true, shows (only) hidden macros', mine='If true, only shows your authored macros')
     async def pipe_macros(self, interaction: Interaction, hidden: bool=False, mine: bool=False):
         ''' Display a list of Pipe Macros. '''
-        await self._list_macros(interaction, pipe_macros, hidden, mine)
+        await self._list_macros(interaction, MACRO_PIPES, hidden, mine)
 
     @app_commands.command()
     @app_commands.describe(hidden='If true, shows (only) hidden macros', mine='If true, only shows your authored macros')
     async def source_macros(self, interaction: Interaction, hidden: bool=False, mine: bool=False):
         ''' Display a list of Source Macros. '''
-        await self._list_macros(interaction, source_macros, hidden, mine)
+        await self._list_macros(interaction, MACRO_SOURCES, hidden, mine)
 
 
     # ================================================ Macro Management ===============================================

@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 
-from pipes.core.events import events
+from pipes.core.events import ALL_EVENTS
 from pipes.views import EventView
 from rezbot_commands import RezbotCommands
 from utils.texttools import chunk_lines
@@ -16,14 +16,14 @@ class EventCommands(RezbotCommands):
     @commands.command(aliases=['event'], hidden=True)
     async def events(self, ctx: commands.Context, name=''):
         ''' List all Events, active status and triggers. '''
-        if not events:
+        if not ALL_EVENTS:
             await ctx.send('No events registered.')
             return
 
         if not name or name in ['enabled', 'disabled']:
             ## Print all events
             enabled = []; disabled = []
-            for event in events.values():
+            for event in ALL_EVENTS.values():
                 if ctx.channel.id in event.channels: enabled.append(event)
                 else: disabled.append(event)
 
@@ -37,11 +37,11 @@ class EventCommands(RezbotCommands):
 
         else:
             ## Print info on a specific event
-            if name not in events:
+            if name not in ALL_EVENTS:
                 await ctx.send('Event not found.')
                 return
-            event = events[name]
-            view = EventView(self.bot, event, events, ctx.channel)
+            event = ALL_EVENTS[name]
+            view = EventView(self.bot, event, ALL_EVENTS, ctx.channel)
             view.set_message(await ctx.send(embed=event.embed(bot=ctx.bot, channel=ctx.channel), view=view))
 
     @commands.command(aliases=['enable_events'], hidden=True)
@@ -51,9 +51,9 @@ class EventCommands(RezbotCommands):
         fail = []; meh = []; succ = []
 
         for name in names:
-            if name not in events:
+            if name not in ALL_EVENTS:
                 fail.append(name); continue
-            event = events[name]
+            event = ALL_EVENTS[name]
             if ctx.channel.id in event.channels:
                 meh.append(name); continue
             event.channels.append(ctx.channel.id)
@@ -67,7 +67,7 @@ class EventCommands(RezbotCommands):
             msg.append('Event{} {} {} already enabled in this channel.'.format( 's' if len(meh)>1 else '', fmt(meh), 'are' if len(meh)>1 else 'is'))
         if succ:
             msg.append('Event{} {} {} been enabled in {}.'.format( 's' if len(succ)>1 else '', fmt(succ), 'have' if len(succ)>1 else 'has', ctx.channel.mention))
-            events.write()
+            ALL_EVENTS.write()
 
         await ctx.send('\n'.join(msg))
 
@@ -77,7 +77,7 @@ class EventCommands(RezbotCommands):
         ''' Disables one or more events in the current channel, given as a list of names separated by spaces, or * to disable all events. '''
         if names and names[0] == '*':
             ## Disable ALL events in this channel
-            for event in events.values():
+            for event in ALL_EVENTS.values():
                 if ctx.channel.id in event.channels:
                     event.channels.remove(ctx.channel.id)
             await ctx.send('Disabled all events in {}'.format(ctx.channel.mention))
@@ -86,9 +86,9 @@ class EventCommands(RezbotCommands):
         fail = []; meh = []; succ = []
 
         for name in names:
-            if name not in events:
+            if name not in ALL_EVENTS:
                 fail.append(name); continue
-            event = events[name]
+            event = ALL_EVENTS[name]
             if ctx.channel.id not in event.channels:
                 meh.append(name); continue
             event.channels.remove(ctx.channel.id)
@@ -102,7 +102,7 @@ class EventCommands(RezbotCommands):
             msg.append('Event{} {} {} already disabled in this channel.'.format( 's' if len(meh)>1 else '', fmt(meh), 'are' if len(meh)>1 else 'is'))
         if succ:
             msg.append('Event{} {} {} been disabled in {}.'.format( 's' if len(succ)>1 else '', fmt(succ), 'have' if len(succ)>1 else 'has', ctx.channel.mention))
-            events.write()
+            ALL_EVENTS.write()
 
         await ctx.send('\n'.join(msg))
 
@@ -111,10 +111,10 @@ class EventCommands(RezbotCommands):
     @permissions.check(permissions.owner)
     async def delete_event(self, ctx, name):
         ''' Deletes the specified event entirely. '''
-        if name not in events:
+        if name not in ALL_EVENTS:
             await ctx.send('No event "{}" found.'.format(name)); return
-        e = events[name]
-        del events[name]
+        e = ALL_EVENTS[name]
+        del ALL_EVENTS[name]
         await ctx.send('Deleted event "{}"'.format(e.name))
 
     @commands.command(aliases=['event_set_author'], hidden=True)
@@ -122,20 +122,20 @@ class EventCommands(RezbotCommands):
     @permissions.check(permissions.owner)
     async def set_event_author(self, ctx: commands.Context, name: str, author_id: int):
         ''' Assigns an Event's author by ID. '''
-        if name not in events:
+        if name not in ALL_EVENTS:
             return await ctx.send(f'No event "{name}" found.')
-        event = events[name]
+        event = ALL_EVENTS[name]
         author = ctx.guild.get_member(author_id) or self.bot.get_user(author_id)
         if not author:
             return await ctx.send(f'Invalid author ID "{author_id}".')
         event.author_id = author.id
-        events.write()
+        ALL_EVENTS.write()
         await ctx.send(f'Assigned {author.display_name} as author of event "{event.name}".')
 
     @commands.command(hidden=True)
     async def dump_events(self, ctx):
         ''' Uploads the source file containing all serialised Events, for backup/debug purposes. '''
-        await ctx.send(file=discord.File(events.DIR(events.json_filename)))
+        await ctx.send(file=discord.File(ALL_EVENTS.DIR(ALL_EVENTS.json_filename)))
 
 
 # Load the bot cog

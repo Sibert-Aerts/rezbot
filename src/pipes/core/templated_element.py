@@ -77,15 +77,15 @@ class ParsedSource:
         self.args = args
         self.pre_errors = ErrorLog()
 
-        if self.name in sources:
+        if self.name in NATIVE_SOURCES:
             self.type = ParsedSource.NATIVE_SOURCE
-            self.source = sources[self.name]
-        elif self.name in pipes:
+            self.source = NATIVE_SOURCES[self.name]
+        elif self.name in NATIVE_PIPES:
             self.type = ParsedSource.NATIVE_PIPE
-            self.pipe = pipes[self.name]
-        elif self.name in pipe_macros:
+            self.pipe = NATIVE_PIPES[self.name]
+        elif self.name in MACRO_PIPES:
             self.type = ParsedSource.MACRO_PIPE
-        elif self.name in source_macros:
+        elif self.name in MACRO_SOURCES:
             self.type = ParsedSource.MACRO_SOURCE
         else:
             self.type = ParsedSource.UNKNOWN
@@ -104,10 +104,10 @@ class ParsedSource:
         # Parse the Arguments, for which we need to know if it's a Source or a Pipe (if either)
         signature = None
         greedy = True
-        if name in sources:
-            signature = sources[name].signature
-        if name in pipes:
-            signature = pipes[name].signature
+        if name in NATIVE_SOURCES:
+            signature = NATIVE_SOURCES[name].signature
+        if name in NATIVE_PIPES:
+            signature = NATIVE_PIPES[name].signature
             greedy = False
         args, remainder, pre_errors = Arguments.from_parsed(parsed.get('args'), signature, greedy=greedy)
 
@@ -168,8 +168,8 @@ class ParsedSource:
                 return NOTHING_BUT_ERRORS
 
         ### CASE: Macro Source
-        elif self.name in source_macros:
-            macro = source_macros[self.name]
+        elif self.name in MACRO_SOURCES:
+            macro = MACRO_SOURCES[self.name]
             ## STEP 1: Ensure arguments are passed to the Macro
             try:
                 # NEWFANGLED: Get the set of arguments and put them in Context
@@ -191,14 +191,14 @@ class ParsedSource:
             if errors.terminal: return NOTHING_BUT_ERRORS
 
             ## STEP 3: Apply
-            pipeline = source_macros.pipeline_from_code(code)
+            pipeline = MACRO_SOURCES.pipeline_from_code(code)
             values, pl_errors, _ = await pipeline.apply(values, macro_ctx)
             errors.extend(pl_errors, self.name)
             return values, errors
 
         ## CASE: Macro Pipe
-        elif self.name in pipe_macros:
-            macro = pipe_macros[self.name]
+        elif self.name in MACRO_PIPES:
+            macro = MACRO_PIPES[self.name]
             ## STEP 1: Ensure arguments are passed to the Macro
             try:
                 # NEWFANGLED: Get the set of arguments and put them in Context
@@ -216,7 +216,7 @@ class ParsedSource:
             if errors.terminal: return NOTHING_BUT_ERRORS
 
             ## STEP 3: Apply
-            pipeline = pipe_macros.pipeline_from_code(code)
+            pipeline = MACRO_PIPES.pipeline_from_code(code)
             values, pl_errors, _ = await pipeline.apply([remainder_str], macro_ctx)
             errors.extend(pl_errors, self.name)
             return values, errors
@@ -305,7 +305,7 @@ ParsedTemplatedElement: TypeAlias = ParsedItem | ParsedSource | ParsedConditiona
 from .templated_string import TemplatedString
 from .pipeline_with_origin import PipelineWithOrigin
 from .signature import ArgumentError, Arguments
-from pipes.implementations.sources import sources
-from pipes.implementations.pipes import pipes
-from .macros import source_macros, pipe_macros
+from pipes.implementations.sources import NATIVE_SOURCES
+from pipes.implementations.pipes import NATIVE_PIPES
+from .macros import MACRO_SOURCES, MACRO_PIPES
 from .conditions import Condition

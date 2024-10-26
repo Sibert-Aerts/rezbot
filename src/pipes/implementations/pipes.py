@@ -51,7 +51,7 @@ def word_to_word(func):
         return ''.join(split)
     return one_to_one(_word_to_word)
 
-pipes = Pipes()
+NATIVE_PIPES = Pipes()
 'The canonical object storing/indexing all `Pipe` instances.'
 
 _PIPE_CATEGORY = 'NONE'
@@ -67,14 +67,14 @@ def pipe_from_func(signature: dict[str, Par]=None, /, *, command=False, **kwargs
         (func, signature) = (signature, None)
 
     def _pipe_from_func(func: Callable):
-        global pipes, _PIPE_CATEGORY
+        global NATIVE_PIPES, _PIPE_CATEGORY
         # Name is the function name with the _pipe bit cropped off
         name = func.__name__.rsplit('_', 1)[0].lower()
         doc = func.__doc__
         # Signature may be set using @with_signature, given directly, or not given at all
-        sig = get_signature(func, Signature(signature or {}))    
+        sig = get_signature(func, Signature(signature or {}))
         pipe = Pipe(sig, func, name=name, doc=doc, category=_PIPE_CATEGORY, **kwargs)
-        pipes.add(pipe, command)
+        NATIVE_PIPES.add(pipe, command)
         return func
 
     if func: return _pipe_from_func(func)
@@ -102,7 +102,7 @@ def pipe_from_class(cls: type[T]) -> type[T]:
     '''
     def get(key, default=None):
         return getattr(cls, key, default)
-    
+
     pipe = Pipe(
         get_signature(cls.pipe_function),
         cls.pipe_function,
@@ -112,7 +112,7 @@ def pipe_from_class(cls: type[T]) -> type[T]:
         aliases=get('aliases'),
         may_use=get('may_use'),
     )
-    pipes.add(pipe, get('command', False))
+    NATIVE_PIPES.add(pipe, get('command', False))
     return cls
 
 

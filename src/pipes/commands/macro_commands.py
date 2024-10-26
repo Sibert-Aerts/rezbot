@@ -9,9 +9,9 @@ from pipes.views import MacroView
 from pipes.core.pipe import Pipes
 from pipes.core.pipeline import Pipeline
 from pipes.core.pipeline_with_origin import PipelineWithOrigin
-from pipes.implementations.pipes import pipes
-from pipes.implementations.sources import sources
-from pipes.core.macros import Macro, MacroParam, Macros, pipe_macros, source_macros
+from pipes.implementations.pipes import NATIVE_PIPES
+from pipes.implementations.sources import NATIVE_SOURCES
+from pipes.core.macros import Macro, MacroParam, Macros, MACRO_PIPES, MACRO_SOURCES
 import utils.texttools as texttools
 from utils.util import normalize_name
 from rezbot_commands import RezbotCommands
@@ -44,10 +44,10 @@ async def check_source_macro(code: str, reply):
 
 
 typedict: dict[str, tuple[Macros, bool, Pipes, Callable]] = {
-    'pipe':         (pipe_macros, True,  pipes, check_pipe_macro),
-    'hiddenpipe':   (pipe_macros, False, pipes, check_pipe_macro),
-    'source':       (source_macros, True,  sources, check_source_macro),
-    'hiddensource': (source_macros, False, sources, check_source_macro),
+    'pipe':         (MACRO_PIPES, True,  NATIVE_PIPES, check_pipe_macro),
+    'hiddenpipe':   (MACRO_PIPES, False, NATIVE_PIPES, check_pipe_macro),
+    'source':       (MACRO_SOURCES, True,  NATIVE_SOURCES, check_source_macro),
+    'hiddensource': (MACRO_SOURCES, False, NATIVE_SOURCES, check_source_macro),
 }
 typedict_options = ', '.join('"' + t + '"' for t in typedict)
 
@@ -305,12 +305,12 @@ class MacroCommands(RezbotCommands):
     @commands.command(hidden=True)
     async def dump_pipe_macros(self, ctx):
         '''Uploads the raw file containing all pipe macros, for archival/backup/debug purposes.'''
-        await ctx.send(file=discord.File(pipe_macros.DIR(pipe_macros.json_filename)))
+        await ctx.send(file=discord.File(MACRO_PIPES.DIR(MACRO_PIPES.json_filename)))
 
     @commands.command(hidden=True)
     async def dump_source_macros(self, ctx):
         '''Uploads the raw file containing all source macros, for archival/backup/debug purposes.'''
-        await ctx.send(file=discord.File(source_macros.DIR(source_macros.json_filename)))
+        await ctx.send(file=discord.File(MACRO_SOURCES.DIR(MACRO_SOURCES.json_filename)))
 
 
 

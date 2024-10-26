@@ -19,7 +19,7 @@ class ParsedPipe:
     # Different types of ParsedPipe, determined at moment of parsing
     SPECIAL         = object()
     NATIVE_PIPE     = object()
-    SPOUT           = object()
+    NATIVE_SPOUT    = object()
     NATIVE_SOURCE   = object()
     MACRO_PIPE      = object()
     MACRO_SOURCE    = object()
@@ -37,18 +37,18 @@ class ParsedPipe:
         ## (Attempt to) determine what kind of pipe it is ahead of time
         if self.name in ['', 'nop', 'print']:
             self.type = ParsedPipe.SPECIAL
-        elif self.name in pipes:
+        elif self.name in NATIVE_PIPES:
             self.type = ParsedPipe.NATIVE_PIPE
-            self.pipe = pipes[self.name]
-        elif self.name in spouts:
-            self.type = ParsedPipe.SPOUT
-            self.pipe = spouts[self.name]
-        elif self.name in sources:
+            self.pipe = NATIVE_PIPES[self.name]
+        elif self.name in NATIVE_SPOUTS:
+            self.type = ParsedPipe.NATIVE_SPOUT
+            self.pipe = NATIVE_SPOUTS[self.name]
+        elif self.name in NATIVE_SOURCES:
             self.type = ParsedPipe.NATIVE_SOURCE
-            self.pipe = sources[self.name]
-        elif self.name in pipe_macros:
+            self.pipe = NATIVE_SOURCES[self.name]
+        elif self.name in MACRO_PIPES:
             self.type = ParsedPipe.MACRO_PIPE
-        elif self.name in source_macros:
+        elif self.name in MACRO_SOURCES:
             self.type = ParsedPipe.MACRO_SOURCE
         else:
             self.type = ParsedPipe.UNKNOWN
@@ -59,12 +59,12 @@ class ParsedPipe:
         '''Determine pipeoid signature, if any.'''
         if name in ['', 'nop']:
             return None
-        if name in pipes:
-            return pipes[name].signature
-        if name in spouts:
-            return spouts[name].signature
-        if name in sources:
-            return sources[name].signature
+        if name in NATIVE_PIPES:
+            return NATIVE_PIPES[name].signature
+        if name in NATIVE_SPOUTS:
+            return NATIVE_SPOUTS[name].signature
+        if name in NATIVE_SOURCES:
+            return NATIVE_SOURCES[name].signature
         # Else: A macro, or an unknown/invalid pipe
         return None
 
@@ -449,7 +449,7 @@ class Pipeline:
                 elif name == 'print':
                     next_items.extend(items)
                     new_printed_items.extend(items)
-                    spouts['print'].hook(spout_state, items)
+                    NATIVE_SPOUTS['print'].hook(spout_state, items)
 
                 ## A NATIVE PIPE
                 elif parsed_pipe.type == ParsedPipe.NATIVE_PIPE:
@@ -464,7 +464,7 @@ class Pipeline:
                         return NOTHING_BUT_ERRORS
 
                 ## A SPOUT
-                elif parsed_pipe.type == ParsedPipe.SPOUT:
+                elif parsed_pipe.type == ParsedPipe.NATIVE_SPOUT:
                     spout: Spout = parsed_pipe.pipe
                     # Hook the spout into the SpoutState
                     spout.hook(spout_state, items, **args)
@@ -487,8 +487,8 @@ class Pipeline:
                         return NOTHING_BUT_ERRORS
 
                 ## A PIPE MACRO
-                elif name in pipe_macros:
-                    macro = pipe_macros[name]
+                elif name in MACRO_PIPES:
+                    macro = MACRO_PIPES[name]
                     try:
                         # NEWFANGLED: Get the set of arguments and put them in Context
                         args = macro.apply_signature(args)
@@ -499,7 +499,7 @@ class Pipeline:
                         errors.log(e, True, context=name)
                         return NOTHING_BUT_ERRORS
 
-                    macro_pl = pipe_macros.pipeline_from_code(code)
+                    macro_pl = MACRO_PIPES.pipeline_from_code(code)
                     newvals, macro_errors, macro_spout_state = await macro_pl.apply(items, macro_ctx)
                     errors.extend(macro_errors, name)
                     if errors.terminal: return NOTHING_BUT_ERRORS
@@ -509,8 +509,8 @@ class Pipeline:
                     spout_state.extend(macro_spout_state, extend_print=group_mode.is_singular())
 
                 ## A SOURCE MACRO
-                elif name in source_macros:
-                    macro = source_macros[name]
+                elif name in MACRO_SOURCES:
+                    macro = MACRO_SOURCES[name]
 
                     # Source Macro functioning is implemented in ParsedSource
                     temp_parsed_source = ParsedSource(name, None)
@@ -538,12 +538,12 @@ class Pipeline:
 
 # These lynes be down here dve to dependencyes cyrcvlaire
 from .templated_element import ParsedSource
-from .macros import pipe_macros, source_macros
+from .macros import MACRO_PIPES, MACRO_SOURCES
 from .context import Context, ItemScope
 from .signature import Signature, ArgumentError, Arguments
 from .pipe import Pipe, Source, Spout
 from . import groupmodes
 
-from pipes.implementations.sources import sources
-from pipes.implementations.pipes import pipes
-from pipes.implementations.spouts import spouts
+from pipes.implementations.sources import NATIVE_SOURCES
+from pipes.implementations.pipes import NATIVE_PIPES
+from pipes.implementations.spouts import NATIVE_SPOUTS

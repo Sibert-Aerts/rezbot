@@ -435,7 +435,7 @@ class Events:
         return len(self.events)
 
 
-events = Events(DIR, 'events')
+ALL_EVENTS = Events(DIR, 'events')
 'The canonical object managing all Event instances, responsible for serialising and deserialising them.'
 
 

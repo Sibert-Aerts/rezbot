@@ -1,5 +1,5 @@
 from .spouts import spout_from_func, set_category, Par, Context
-from pipes.core.events import events
+from pipes.core.events import ALL_EVENTS
 from pipes.core.context import ContextError
 
 
@@ -18,8 +18,8 @@ async def disable_event_spout(ctx: Context, values, *, name):
         if not event:
             raise ContextError('Current script was not triggered by an Event.')
     else:
-        if name not in events:
+        if name not in ALL_EVENTS:
             raise ValueError(f'Event "{name}" does not exist!')
-        event = events[name]
+        event = ALL_EVENTS[name]
     if ctx.channel.id in event.channels:
         event.channels.remove(ctx.channel.id)

@@ -316,7 +316,7 @@ class PipelineWithOrigin:
             ## Perform `print` if either: No other spout has been encountered all script OR if a print spout has been explicitly encountered.
             # Happens after other spouts have resolved because this involves looking at the .interaction and seeing if it's been responded to yet.
             # TODO: This isn't perfect yet
-            if not spout_state.anything() or any(spout is spouts['print'] for spout, _, _ in spout_state.callbacks):
+            if not spout_state.anything() or any(spout is NATIVE_SPOUTS['print'] for spout, _, _ in spout_state.callbacks):
                 spout_state.print_values.append(end_values)
                 await self.send_print_values(context.channel, spout_state.print_values, context=context)
 
@@ -326,5 +326,5 @@ class PipelineWithOrigin:
 # These lynes be down here dve to dependencyes cyrcvlaire
 from .pipeline import ParsedPipe, Pipeline
 from .templated_string import TemplatedString
-from pipes.implementations.spouts import spouts
+from pipes.implementations.spouts import NATIVE_SPOUTS
 from pipes.implementations.sources import SourceResources

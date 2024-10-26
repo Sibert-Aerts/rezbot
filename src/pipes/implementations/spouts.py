@@ -9,7 +9,7 @@ from pipes.core.context import Context
 #                     Decorations                     #
 #######################################################
 
-spouts = Spouts()
+NATIVE_SPOUTS = Spouts()
 'The canonical object storing/indexing all `Spout` instances.'
 
 _SPOUT_CATEGORY = 'NONE'
@@ -25,14 +25,14 @@ def spout_from_func(signature: dict[str, Par]=None, /, *, command=False, **kwarg
         (func, signature) = (signature, None)
 
     def _spout_from_func(func):
-        global spouts, _SPOUT_CATEGORY
+        global NATIVE_SPOUTS, _SPOUT_CATEGORY
         # Name is the function name with the _spout bit cropped off
         name = func.__name__.rsplit('_', 1)[0].lower()
         doc = func.__doc__
         # Signature may be set using @with_signature, given directly, or not given at all
-        sig = get_signature(func, Signature(signature or {}))    
+        sig = get_signature(func, Signature(signature or {}))
         spout = Spout(sig, func, name=name, doc=doc, category=_SPOUT_CATEGORY, **kwargs)
-        spouts.add(spout, command)
+        NATIVE_SPOUTS.add(spout, command)
         return func
 
     if func: return _spout_from_func(func)
@@ -61,7 +61,7 @@ def spout_from_class(cls: type[T]) -> type[T]:
     '''
     def get(key, default=None):
         return getattr(cls, key, default)
-    
+
     spout = Spout(
         get_signature(cls.spout_function),
         cls.spout_function,
@@ -72,7 +72,7 @@ def spout_from_class(cls: type[T]) -> type[T]:
         aliases=get('aliases'),
         may_use=get('may_use'),
     )
-    spouts.add(spout, get('command', False))
+    NATIVE_SPOUTS.add(spout, get('command', False))
     return cls
 
 

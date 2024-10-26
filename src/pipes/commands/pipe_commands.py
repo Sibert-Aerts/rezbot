@@ -1,17 +1,13 @@
 from discord.ext import commands
 
-from pipes.core.pipeline_with_origin import PipelineWithOrigin
-from pipes.core.pipe import Pipe, Source, Spout, PipeoidStore
-from pipes.core.context import Context
-from pipes.implementations.pipes import pipes
-from pipes.implementations.sources import sources, SourceResources
-from pipes.implementations.spouts import spouts
-from pipes.core.macros import pipe_macros, source_macros, Macros
-from pipes.core.signature import Arguments
+from pipes.core.pipe import PipeoidStore
+from pipes.implementations.pipes import NATIVE_PIPES
+from pipes.implementations.sources import NATIVE_SOURCES, SourceResources
+from pipes.implementations.spouts import NATIVE_SPOUTS
+from pipes.core.macros import MACRO_PIPES, MACRO_SOURCES, Macros
 from pipes.views import MacroView
 from rezbot_commands import RezbotCommands
 import utils.texttools as texttools
-import utils.util as util
 
 ###############################################################
 #            A module providing commands for pipes            #
@@ -94,29 +90,29 @@ class PipeCommands(RezbotCommands):
 
         # SPECIAL CASE: >pipe also allows you to look up ANY kind of pipeoid or macro, for convenience
         ## Info on a specific pipe, spout or source
-        if name and name in pipes or name in spouts or name in sources:
-            embed = (pipes if name in pipes else spouts if name in spouts else sources)[name].embed(bot=self.bot)
+        if name and name in NATIVE_PIPES or name in NATIVE_SPOUTS or name in NATIVE_SOURCES:
+            embed = (NATIVE_PIPES if name in NATIVE_PIPES else NATIVE_SPOUTS if name in NATIVE_SPOUTS else NATIVE_SOURCES)[name].embed(bot=self.bot)
             return await ctx.send(embed=embed)
 
         ## Info on a pipe macro or source macro
-        elif name and name in pipe_macros or name in source_macros:
-            macros = pipe_macros if name in pipe_macros	else source_macros
+        elif name and name in MACRO_PIPES or name in MACRO_SOURCES:
+            macros = MACRO_PIPES if name in MACRO_PIPES	else MACRO_SOURCES
             macro = macros[name]
             view = MacroView(macro, macros)
             embed = macro.embed(bot=self.bot, channel=ctx.channel)
             return view.set_message(await ctx.send(embed=embed, view=view))
 
-        await self._list_pipeoids(ctx, name, pipes, pipe_macros)
+        await self._list_pipeoids(ctx, name, NATIVE_PIPES, MACRO_PIPES)
 
     @commands.command(aliases=['source'])
     async def sources(self, ctx: commands.Context, name=''):
         '''Print a list of all sources and their descriptions, or details on a specific source.'''
-        await self._list_pipeoids(ctx, name, sources, source_macros)
+        await self._list_pipeoids(ctx, name, NATIVE_SOURCES, MACRO_SOURCES)
 
     @commands.command(aliases=['spout'])
     async def spouts(self, ctx, name=''):
         '''Print a list of all spouts and their descriptions, or details on a specific source.'''
-        await self._list_pipeoids(ctx, name, spouts)
+        await self._list_pipeoids(ctx, name, NATIVE_SPOUTS)
 
 
     # ========================== Variables management (message-commands) ==========================

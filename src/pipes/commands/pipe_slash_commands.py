@@ -6,9 +6,9 @@ from discord import app_commands, Interaction, utils
 from discord.app_commands import Choice
 
 from pipes.core.pipe import Pipeoid, Pipes, Sources, Spouts
-from pipes.implementations.pipes import pipes
-from pipes.implementations.sources import sources
-from pipes.implementations.spouts import spouts
+from pipes.implementations.pipes import NATIVE_PIPES
+from pipes.implementations.sources import NATIVE_SOURCES
+from pipes.implementations.spouts import NATIVE_SPOUTS
 from pipes.core.macros import Macro
 from pipes.core.events import Event
 from rezbot_commands import RezbotCommands
@@ -112,24 +112,24 @@ class PipeSlashCommands(RezbotCommands):
 
     @app_commands.command()
     @app_commands.describe(category="The specific category of Pipes to list")
-    @app_commands.choices(category=[Choice(name=cat, value=cat) for cat in pipes.categories])
+    @app_commands.choices(category=[Choice(name=cat, value=cat) for cat in NATIVE_PIPES.categories])
     async def pipes(self, interaction: Interaction, category: str=None):
         ''' Display a list of native Pipes, which can be used in scripts. '''
-        await self._list_scriptoids(interaction, pipes, 'pipe', category)
+        await self._list_scriptoids(interaction, NATIVE_PIPES, 'pipe', category)
 
     @app_commands.command()
     @app_commands.describe(category="The specific category of Sources to list")
-    @app_commands.choices(category=[Choice(name=cat, value=cat) for cat in sources.categories])
+    @app_commands.choices(category=[Choice(name=cat, value=cat) for cat in NATIVE_SOURCES.categories])
     async def sources(self, interaction: Interaction, category: str=None):
         ''' Display a list of native Sources, which can be used in scripts. '''
-        await self._list_scriptoids(interaction, sources, 'source', category)
+        await self._list_scriptoids(interaction, NATIVE_SOURCES, 'source', category)
 
     @app_commands.command()
     @app_commands.describe(category="The specific category of Spouts to list")
-    @app_commands.choices(category=[Choice(name=cat, value=cat) for cat in spouts.categories])
+    @app_commands.choices(category=[Choice(name=cat, value=cat) for cat in NATIVE_SPOUTS.categories])
     async def spouts(self, interaction: Interaction, category: str=None):
         ''' Display a list of native Spouts, which can be used in scripts. '''
-        await self._list_scriptoids(interaction, spouts, 'spout', category)
+        await self._list_scriptoids(interaction, NATIVE_SPOUTS, 'spout', category)
 
 
 # Load the bot cog

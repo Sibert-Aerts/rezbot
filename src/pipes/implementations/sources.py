@@ -43,7 +43,7 @@ def get_which(get_what):
         return [x for y in zip(*w) for x in y]
     return _get_which
 
-sources = Sources()
+NATIVE_SOURCES = Sources()
 'The canonical object storing/indexing all `Source` instances.'
 
 _CATEGORY = 'NONE'
@@ -67,14 +67,14 @@ def source_from_func(signature: dict[str, Par]=None, /, *, command=False, **kwar
         (func, signature) = (signature, None)
 
     def _source_from_func(func):
-        global sources, _CATEGORY
+        global NATIVE_SOURCES, _CATEGORY
         # Name is the function name with the _source bit cropped off
         name = func.__name__.rsplit('_', 1)[0].lower()
         doc = func.__doc__
         # Signature may be set using @with_signature, given directly, or not given at all
         sig = get_signature(func, Signature(signature or {}))
         source = Source(sig, func, name=name, doc=doc, category=_CATEGORY, **kwargs)
-        sources.add(source, command)
+        NATIVE_SOURCES.add(source, command)
         return func
 
     if func: return _source_from_func(func)
@@ -116,7 +116,7 @@ def source_from_class(cls: type[T]) -> type[T]:
         depletable=get('depletable', False),
         may_use=get('may_use'),
     )
-    sources.add(source, get('command', False))
+    NATIVE_SOURCES.add(source, get('command', False))
     return cls
 
 

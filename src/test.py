@@ -18,8 +18,8 @@ from pipes.core.templated_string import TemplatedString
 from pipes.core.conditions import Condition
 from pipes.core.pipeline_with_origin import PipelineWithOrigin
 
-from pipes.core.macros import Macro, source_macros, pipe_macros
-from pipes.core.events import Event, events
+from pipes.core.macros import Macro, MACRO_SOURCES, MACRO_PIPES
+from pipes.core.events import Event, ALL_EVENTS
 
 
 #### Stub values and methods
@@ -182,13 +182,13 @@ async def time_groupmode_parse():
 async def statically_analyse_all_macros_and_events():
 
     bad_macros: list[tuple[Macro, ErrorLog]] = list()
-    for macro in itertools.chain(pipe_macros.values(), source_macros.values()):
+    for macro in itertools.chain(MACRO_PIPES.values(), MACRO_SOURCES.values()):
         errors = macro.get_static_errors()
         if errors:
             bad_macros.append((macro, errors))
 
     bad_events: list[tuple[Event, ErrorLog]] = list()
-    for event in events.values():
+    for event in ALL_EVENTS.values():
         errors = event.get_static_errors()
         if errors:
             bad_events.append((event, errors))
