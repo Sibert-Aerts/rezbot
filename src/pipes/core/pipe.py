@@ -153,7 +153,7 @@ class Source(Pipeoid):
 
     def generate(self, context: Context, args: dict[str, Any], n=None):
         ''' Call the Source to produce items using a parsed dict of arguments. '''
-        if n:
+        if n is not None:
             # Handle the `n` that may be given using the {n sources} notation
             if isinstance(n, str) and n.lower() == 'all':
                 if self.depletable: n = -1
