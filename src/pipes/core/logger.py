@@ -81,7 +81,7 @@ class ErrorLog:
     ## Log transfering methods
     #############################################
 
-    def extend(self, other: 'ErrorLog', context: str=None):
+    def extend(self, other: 'ErrorLog | None', context: str=None):
         '''Extend another error log, prepending the given 'context' for each error. Returns `self` for chaining'''
         if other is None:
             return self

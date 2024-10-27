@@ -7,6 +7,7 @@ Actual rezbot scripting test suite: Someday, maybe, surely.
 import timeit
 import asyncio
 import itertools
+from pprint import pprint
 
 import pipes.core.processor
 import pipes.core.grammar as grammar
@@ -179,6 +180,22 @@ async def time_groupmode_parse():
     print('OLD TIME:', timeit.timeit('parse()', globals={'parse': old_parse}, number=1))
     print('NEW TIME:', timeit.timeit('parse()', globals={'parse': new_parse}, number=1))
 
+
+async def test_multiple_evaluate():
+
+    # NOTE: Multiple-evaluates to 200k strings
+    ts = TemplatedString.from_string('----{20 words}/{20 words}/{10 words}/{50 words}-----')
+
+    s, _ = await ts.evaluate(context, scope)
+    print("SINGLE EVALUATE")
+    pprint(s)
+
+    start = timeit.default_timer()
+    strings, _ = await ts.multiple_evaluate(context, scope)
+    end = timeit.default_timer()
+    print('TIME:', end-start, 'COUNT:', len(strings))
+
+
 async def statically_analyse_all_macros_and_events():
 
     bad_macros: list[tuple[Macro, ErrorLog]] = list()
@@ -214,7 +231,6 @@ async def test_script(pl_str):
 
     await pl.execute(context)
 
-
 async def test_script_cli():
     '''
     Interactive script execution CLI.
@@ -239,7 +255,9 @@ if __name__ == '__main__':
         # asyncio.run(test_groupmode())
         # asyncio.run(time_groupmode_parse())
 
-        asyncio.run(statically_analyse_all_macros_and_events())
+        asyncio.run(test_multiple_evaluate())
+
+        # asyncio.run(statically_analyse_all_macros_and_events())
 
         # asyncio.run(test_script_cli())
 

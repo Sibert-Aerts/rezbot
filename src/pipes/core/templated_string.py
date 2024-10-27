@@ -6,6 +6,8 @@ Templated Elements need to be evaluated to yield strings, and may vary depending
 
 import asyncio
 from pyparsing import ParseBaseException, ParseResults
+from itertools import product as iter_product
+from enum import Enum
 
 from utils.choicetree import ChoiceTree
 from .logger import ErrorLog
@@ -14,11 +16,13 @@ from . import grammar
 from .templated_element import ParsedItem, ParsedSource, ParsedConditional, ParsedInlineScript, ParsedSpecialSymbol, ParsedTemplatedElement
 
 
-# Sentinel objects used inside TemplatedString.evaluate()
-SOURCE_FUTURE = object()
-COND_FUTURE = object()
-SCRIPT_FUTURE = object()
+# Sentinel objects used by TemplatedString.evaluate()
+class FutureSentinel(Enum):
+    SOURCE = object()
+    COND = object()
+    SCRIPT = object()
 
+CHOICE_SENTINEL = object()
 
 class TemplatedString:
     '''
@@ -173,6 +177,7 @@ class TemplatedString:
 
         ## Determine if we're a very simple kind of TemplatedString
         if len(self.pieces) == 1:
+            # TODO: Account for ParsedSpecialSymbols as well
             self.is_string = isinstance(self.pieces[0], str) and not self.pre_errors
             if self.is_string: self.string = self.pieces[0]
 
@@ -256,6 +261,44 @@ class TemplatedString:
 
     async def evaluate(self, context: Context, scope: ItemScope=None) -> tuple[str|None, ErrorLog]:
         ''' Evaluate the TemplatedString into a single string. '''
+        if self.is_string:
+            return self.string, ErrorLog()
+
+        intermediate, errors = await self._intermediate_evaluate(context, scope)
+        if errors.terminal:
+            return None, errors
+
+        # Flatten the intermediate values down to a single string,
+        #   only taking the first string out of any list of choices, or the empty string for an empty choice.
+        flattened_str = ''.join(x if isinstance(x, str) else x[0] if x else '' for x in intermediate)
+        return flattened_str, errors
+
+    async def multiple_evaluate(self, context: Context, scope: ItemScope=None) -> tuple[list[str]|None, ErrorLog]:
+        ''' Evaluate the TemplatedString into a list of strings, one for every combination of the templated element's produced values. '''
+        if self.is_string:
+            return [self.string], ErrorLog()
+
+        intermediate, errors = await self._intermediate_evaluate(context, scope)
+        if errors.terminal:
+            return None, errors
+
+        # Convert intermediate values to all be lists of strings (even if single strings)
+        choices_list: list[list[str]] = []
+        for item in intermediate:
+            if isinstance(item, str):
+                choices_list.append((item,))
+            else:
+                choices_list.append(item)
+
+        strings = []
+        # Double reversed because we want the combinations to vary left-to-right
+        for combo in iter_product(*reversed(choices_list)):
+            strings.append(''.join(reversed(combo)))
+
+        return strings, errors
+
+    async def _intermediate_evaluate(self, context: Context, scope: ItemScope=None) -> tuple[list[str|list[str]]|None, ErrorLog]:
+        ''' Evaluate the TemplatedString into an intermediate form, either to be flattened or multiplied later. '''
         errors = ErrorLog()
         errors.extend(self.pre_errors)
         NOTHING_BUT_ERRORS = (None, errors)
@@ -263,38 +306,38 @@ class TemplatedString:
         if errors.terminal:
             return NOTHING_BUT_ERRORS
         if self.is_string:
-            return self.string, errors
+            return [self.string], errors
 
-        results = []
+        pieces: list[str|list[str]|FutureSentinel] = []
         futures = []
 
         ## Go through our pieces and collect either immediately retrievable strings,
-        #   or string-determining coroutines (i.e. futures).
+        #   lists of strings, or coroutines (i.e. futures).
         for piece in self.pieces:
             if isinstance(piece, str):
-                results.append(piece)
+                pieces.append(piece)
 
             elif isinstance(piece, ParsedSpecialSymbol):
-                results.append(piece.symbol)
+                pieces.append(piece.symbol)
 
             elif isinstance(piece, ParsedItem):
                 try:
                     items = piece.evaluate(scope)
-                    results.append(items[0] if items else '')
+                    pieces.append(items)
                 except ItemScopeError as e:
                     msg = f'Error filling in item `{piece}`:\n\tItemScopeError: {e}'
                     errors.log(msg, True)
 
-            elif isinstance(piece, ParsedInlineScript) and not errors.terminal:
-                results.append(SCRIPT_FUTURE)
+            elif isinstance(piece, ParsedSource) and not errors.terminal:
+                pieces.append(FutureSentinel.SOURCE)
                 futures.append(piece.evaluate(context, scope))
 
             elif isinstance(piece, ParsedConditional) and not errors.terminal:
-                results.append(COND_FUTURE)
+                pieces.append(FutureSentinel.COND)
                 futures.append(piece.evaluate(context, scope))
 
-            elif isinstance(piece, ParsedSource) and not errors.terminal:
-                results.append(SOURCE_FUTURE)
+            elif isinstance(piece, ParsedInlineScript) and not errors.terminal:
+                pieces.append(FutureSentinel.SCRIPT)
                 futures.append(piece.evaluate(context, scope))
 
         if errors.terminal:
@@ -304,28 +347,33 @@ class TemplatedString:
         future_results = await asyncio.gather(*futures)
 
         ## Correctly interleave the collected results and future results
-        strings = []
+        results: list[str|list[str]] = []
         future_index = 0
-        for result in results:
-            if result in (SOURCE_FUTURE, SCRIPT_FUTURE):
+        for piece in pieces:
+            if isinstance(piece, (str, list)):
+                results.append(piece)
+
+            elif piece in (FutureSentinel.SOURCE, FutureSentinel.SCRIPT):
                 items, src_errors = future_results[future_index]
                 errors.extend(src_errors)
                 if not errors.terminal:
-                    strings.append(items[0] if items else '')
+                    results.append(items)
                 future_index += 1
-            elif result is COND_FUTURE:
+
+            elif piece is FutureSentinel.COND:
                 string, cond_errors = future_results[future_index]
                 errors.extend(cond_errors)
                 if not errors.terminal:
-                    strings.append(string)
+                    results.append(string)
                 future_index += 1
+
             else:
-                strings.append(result)
+                raise Exception()
 
         if errors.terminal:
             return NOTHING_BUT_ERRORS
 
-        return ''.join(strings), errors
+        return results, errors
 
     # ================ Specific fast-tracked use cases
 
