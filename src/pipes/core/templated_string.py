@@ -14,6 +14,12 @@ from . import grammar
 from .templated_element import ParsedItem, ParsedSource, ParsedConditional, ParsedInlineScript, ParsedSpecialSymbol, ParsedTemplatedElement
 
 
+# Sentinel objects used inside TemplatedString.evaluate()
+SOURCE_FUTURE = object()
+COND_FUTURE = object()
+SCRIPT_FUTURE = object()
+
+
 class TemplatedString:
     '''
     Class representing a string that may contain TemplatedElements, and which can be evaluated to yield strings.
@@ -51,25 +57,17 @@ class TemplatedString:
         pre_errors = ErrorLog()
         pieces: list[str | ParsedTemplatedElement] = []
 
-        def append_string(s):
-            if not pieces or not isinstance(pieces[-1], str):
-                pieces.append(s)
-            else:
-                pieces[-1] += s
-
         # Match and parse the different kinds of pieces that make up the TemplatedString
         for result_piece in result:
             if isinstance(result_piece, str):
-                append_string(result_piece)
+                pieces.append(result_piece)
                 continue
 
             match result_piece._name:
                 case 'te_special':
-                    # TODO: This approach, though efficient and cute, allows {\n} to be removed in the .strip() call
-                    #   for implicit args (e.g. `join {\n}`), replace with an unstrippable symbolic object.
                     try:
-                        item = ParsedSpecialSymbol.from_parsed(result_piece)
-                        append_string(item)
+                        symbol = ParsedSpecialSymbol.from_parsed(result_piece)
+                        pieces.append(symbol)
                     except ValueError as v:
                         pre_errors.log(str(v), terminal=True)
 
@@ -102,7 +100,7 @@ class TemplatedString:
         parsed = grammar.absolute_templated_string.parse_string(string, parse_all=True)
         return TemplatedString.from_parsed(parsed)
 
-    # ================ Initialization
+    # ================ Initialization: Implicit item indices
 
     def assign_implicit_item_indices(self, start_index):
         ''' Runs through all implicitly indexed items and assigns them increasing indices, or recursively adjusts existing ones. '''
@@ -152,7 +150,7 @@ class TemplatedString:
     # ================ Manipulation
 
     def _flush(self):
-        '''Performs minor optimizations and simplifications either after creation or after modification.'''
+        '''Performs minor optimizations and simplifications either after creation or modification.'''
 
         ## Join consecutive strings, drop empty strings
         new_pieces = []
@@ -267,9 +265,6 @@ class TemplatedString:
         if self.is_string:
             return self.string, errors
 
-        SOURCE_FUTURE = object()
-        COND_FUTURE = object()
-        SCRIPT_FUTURE = object()
         results = []
         futures = []
 
@@ -278,6 +273,9 @@ class TemplatedString:
         for piece in self.pieces:
             if isinstance(piece, str):
                 results.append(piece)
+
+            elif isinstance(piece, ParsedSpecialSymbol):
+                results.append(piece.symbol)
 
             elif isinstance(piece, ParsedItem):
                 try:
@@ -305,7 +303,7 @@ class TemplatedString:
         ## Await all future results at once
         future_results = await asyncio.gather(*futures)
 
-        ## Join the collected results and future results
+        ## Correctly interleave the collected results and future results
         strings = []
         future_index = 0
         for result in results:

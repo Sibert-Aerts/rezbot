@@ -113,6 +113,7 @@ class ParsedItem:
                 items.extend(scope.get_items(index.carrots, index.start, index.end, index.bang))
         return items
 
+
 class ParsedSource:
     ''' Class representing a Source inside a TemplatedString. '''
     NATIVE_SOURCE = object()
@@ -323,13 +324,24 @@ class ParsedSpecialSymbol:
         't': '\t',
     }
 
+    __slots__ = ('symbol')
+    symbol: str
+
+    def __init__(self, symbol: str):
+        self.symbol = symbol
+
     @staticmethod
     def from_parsed(result: ParseResults):
         name = result.get('name')
         symbol = ParsedSpecialSymbol.SPECIAL_SYMBOL_MAP.get(name)
         if symbol is None:
             raise ValueError(f'Unknown special symbol "\{name}".')
-        return symbol
+        return ParsedSpecialSymbol(symbol)
+
+    def __repr__(self):
+        return 'SpecialSymbol(%s)' % repr(self.symbol)
+    def __str__(self):
+        return '{%s}' % repr(self.symbol)[1:-1]
 
 
 class ParsedInlineScript:
@@ -355,7 +367,7 @@ class ParsedInlineScript:
 
 
 # NOTE: No ParsedSpecialSymbol since that class is never instantiated
-ParsedTemplatedElement: TypeAlias = ParsedItem | ParsedSource | ParsedConditional | ParsedInlineScript
+ParsedTemplatedElement: TypeAlias = ParsedItem | ParsedSource | ParsedConditional | ParsedSpecialSymbol | ParsedInlineScript
 
 
 # þeſe lynes art doƿn here due to dependencys circulaire
