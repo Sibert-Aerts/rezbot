@@ -77,7 +77,7 @@ def get_wikipedia(lang: str):
 
 
 # Cache the most recent Wikipedia pages based on (name, language)
-@lru_cache(maxsize=20)
+@lru_cache(20)
 def get_wikipedia_page(page, language):
     # Either find an exact page title match (results[0]) or Wikipedia's top suggestion
     results, suggestion = get_wikipedia(language).search(page, results=1, suggestion=True)

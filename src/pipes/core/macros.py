@@ -110,7 +110,7 @@ class Macro:
             raise ArgumentError(f'Missing required parameter{"s" if len(missing)>1 else ""}: {" ".join("`%s`"%p for p in missing)}')
         return result_args
 
-    def apply_args(self, args: dict) -> str:
+    def apply_args__DEPRECATED(self, args: dict) -> str:
         '''Insert arguments into macro code by replacing instances of '$arg$' with its value in `args`.'''
         code = self.code
         for arg in args:
@@ -157,7 +157,6 @@ class Macros:
         self.DIR = DIR
         self.kind = kind
         self.json_filename = filename + '.json'
-        self.pipeline_cache = LRU(60)
         self.read_macros_from_file()
 
     # ================ Reading/writing ================
@@ -203,12 +202,6 @@ class Macros:
         self.macros = {macro.name: macro for macro in macros}
 
     # ================ Interface ================
-
-    def pipeline_from_code(self, code: str) -> Pipeline:
-        '''Parses the code to a Pipeline, but cached.'''
-        if code not in self.pipeline_cache:
-            self.pipeline_cache[code] = Pipeline.from_string(code)
-        return self.pipeline_cache[code]
 
     def visible(self):
         return [i for i in self.macros if self.macros[i].visible]

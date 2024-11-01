@@ -1,6 +1,7 @@
 import re
 from typing import Union
 from pyparsing import ParseBaseException, ParseResults
+from functools import lru_cache
 
 import permissions
 from utils.choicetree import ChoiceTree
@@ -100,6 +101,7 @@ class Pipeline:
         if self.iterations < 0:
             self.parser_errors.log('Negative iteration counts are not allowed.', True)
 
+    @lru_cache(100)
     @staticmethod
     def from_string(string: str, iterations: str=None):
         errors = ErrorLog()
@@ -494,12 +496,12 @@ class Pipeline:
                         args = macro.apply_signature(args)
                         macro_ctx = context.into_macro(macro, args)
                         # DEPRECATED: Insert arguments into Macro string
-                        code = macro.apply_args(args)
+                        code = macro.apply_args__DEPRECATED(args)
                     except ArgumentError as e:
                         errors.log(e, True, context=name)
                         return NOTHING_BUT_ERRORS
 
-                    macro_pl = MACRO_PIPES.pipeline_from_code(code)
+                    macro_pl = Pipeline.from_string(code)
                     newvals, macro_errors, macro_spout_state = await macro_pl.apply(items, macro_ctx)
                     errors.extend(macro_errors, name)
                     if errors.terminal: return NOTHING_BUT_ERRORS

@@ -235,24 +235,15 @@ class ParsedSource:
                 args = macro.apply_signature(args)
                 macro_ctx = context.into_macro(macro, args)
                 # DEPRECATED: Insert arguments into Macro string
-                code = macro.apply_args(args)
+                code = macro.apply_args__DEPRECATED(args)
             except ArgumentError as e:
                 errors.log(e, True, context=self.name)
                 return NOTHING_BUT_ERRORS
 
-            #### Fast-tracked, no-side-effect version of PipelineWithOrigin.execute:
-            origin, code = PipelineWithOrigin.split(code)
-
-            ## STEP 2: Get the values from the Macro's origin
-            values, origin_errors = await TemplatedString.evaluate_origin(origin, macro_ctx)
-            errors.extend(origin_errors, self.name)
-            if errors.terminal: return NOTHING_BUT_ERRORS
-
-            ## STEP 3: Apply
-            pipeline = MACRO_SOURCES.pipeline_from_code(code)
-            values, pl_errors, _ = await pipeline.apply(values, macro_ctx)
-            errors.extend(pl_errors, self.name)
-            return values, errors
+            ## STEP 2: Execute PipelineWithOrigin without side effects
+            pipeline_with_origin = PipelineWithOrigin.from_string(code)
+            values, pwo_errors, _ = await pipeline_with_origin.execute_without_side_effects(macro_ctx)
+            return values, errors.extend(pwo_errors, self.name)
 
         ## CASE: Macro Pipe
         elif self.name in MACRO_PIPES:
@@ -263,7 +254,7 @@ class ParsedSource:
                 args = macro.apply_signature(args)
                 macro_ctx = context.into_macro(macro, args)
                 # DEPRECATED: Insert arguments into Macro string
-                code = macro.apply_args(args)
+                code = macro.apply_args__DEPRECATED(args)
             except ArgumentError as e:
                 errors.log(e, True, context=self.name)
                 return NOTHING_BUT_ERRORS
@@ -273,11 +264,10 @@ class ParsedSource:
             errors.extend(remainder_errors, self.name)
             if errors.terminal: return NOTHING_BUT_ERRORS
 
-            ## STEP 3: Apply
-            pipeline = MACRO_PIPES.pipeline_from_code(code)
+            ## STEP 3: Apply Pipeline
+            pipeline = Pipeline.from_string(code)
             values, pl_errors, _ = await pipeline.apply([remainder_str], macro_ctx)
-            errors.extend(pl_errors, self.name)
-            return values, errors
+            return values, errors.extend(pl_errors, self.name)
 
         else:
             errors(f'Unknown source `{self.name}`.', True)
@@ -372,7 +362,7 @@ ParsedTemplatedElement: TypeAlias = ParsedItem | ParsedSource | ParsedConditiona
 
 # þeſe lynes art doƿn here due to dependencys circulaire
 from .templated_string import TemplatedString
-from .pipeline_with_origin import PipelineWithOrigin
+from .pipeline_with_origin import PipelineWithOrigin, Pipeline
 from .signature import ArgumentError, Arguments
 from pipes.implementations.sources import NATIVE_SOURCES
 from pipes.implementations.pipes import NATIVE_PIPES

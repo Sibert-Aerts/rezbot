@@ -28,7 +28,7 @@ except Exception as e:
     print(e)
     print('[WARNING] Failed to initialise Google Cloud Translate client, translate features will be unavailable!')
 
-@lru_cache(maxsize=100)
+@lru_cache(100)
 def translate_func(text, fro, to):
     response = translate_client.translate(text, source_language=fro, target_language=to, format_="text")
     return response['translatedText']
