@@ -132,13 +132,18 @@ pred_category = (Keyword('WHITE') | Keyword('EMPTY') | Keyword('TRUE') | Keyword
 pred_is_category = Combine(Keyword('IS') - Opt(Keyword('NOT'))('not') + pred_category, adjacent=False)
 predicate = Group(cond_safe_templated_string + pred_is_category)('predicate').set_name('Predicate')
 
+# ======== Root Conditions: Aggregate predicate
+
+simple_agg_predicate = Group(Opt(Keyword('NOT'))('not') + (Keyword('ANYTHING') | Keyword('NOTHING'))('type'))('simple_agg_predicate')
+agg_predicate = Group(simple_agg_predicate)('agg_predicate').set_name('Aggregate Predicate')
+
 # ======== Composite Conditions
 
 kw_and = SuppKeyword('and', caseless=True)
 kw_or  = SuppKeyword('or', caseless=True)
 kw_not = Keyword('not', caseless=True)
 
-root_condition      = (left_paren + condition + right_paren).set_name('Nested Condition') | (predicate | comparison).set_name('Root Condition')
+root_condition      = (left_paren + condition + right_paren).set_name('Nested Condition') | (agg_predicate | predicate | comparison).set_name('Root Condition')
 cond_negation       = (Group(OneOrMore(kw_not) - root_condition)('negation') | root_condition).set_name('Condition')
 cond_conjunction    = (Group(cond_negation + OneOrMore(kw_and - cond_negation))('conjunction') | cond_negation).set_name('Condition')
 condition         <<= (Group(cond_conjunction + OneOrMore(kw_or - cond_conjunction))('disjunction') | cond_conjunction).set_name('Condition')

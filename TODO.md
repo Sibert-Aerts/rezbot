@@ -75,9 +75,9 @@
         * WIP: Errors in applying are not properly caught/conveyed.
             * e.g. Evaluation: Warnings that aren't terminal aren't conveyed
             * e.g. Evaluation: `foo > 10` raises an uncaught ValueError
-        * "Aggregate" conditions
-            * "ANYTHING", "NOTHING", "ALL WHITE/EMPTY/BOOL/TRUE/FALSE/INT/FLOAT"
-            * INDEX 10 EXISTS (i.e. len(items) > 10)
+        * More aggregate conditions
+            * "ALL ARE WHITE/EMPTY/BOOL/TRUE/FALSE/INT/FLOAT"
+            * "COUNT > 10"
         * WIP: How does implicit `{}` tracking work? It should probably just refuse it entirely, right?
 
     * **PARSING BUGS:**

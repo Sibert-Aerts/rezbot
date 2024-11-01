@@ -33,6 +33,8 @@ class Condition:
                 return Negation.from_parsed(parse_result)
             case 'comparison':
                 return Comparison.from_parsed(parse_result)
+            case 'agg_predicate':
+                return AggregatePredicate.from_parsed(parse_result)
             case 'predicate':
                 return Predicate.from_parsed(parse_result)
             case bad_name:
@@ -166,7 +168,7 @@ class Predicate(RootCondition):
     def from_parsed(cls, result: ParseResults):
         subject = TemplatedString.from_parsed(result[0])
         negated = bool(result.get('not'))
-        category = result['pred_category']
+        category = getattr(Predicate.Category, result['pred_category'])
         return Predicate(subject, negated, category)
 
     @classmethod
@@ -201,6 +203,42 @@ class Predicate(RootCondition):
             return neg ^ type_check(subject, int), errors
         elif self.category is Predicate.Category.FLOAT:
             return neg ^ type_check(subject, float), errors
+        raise Exception()
+
+
+# ======================== Aggregate Predicate
+
+class AggregatePredicate(RootCondition):
+    class Type:
+        ANYTHING = 'ANYTHING'
+        NOTHING = 'NOTHING'
+
+    def __init__(self, negated: bool, type: Type):
+        self.negated = negated
+        self.type = type
+
+    @classmethod
+    def from_parsed(cls, result: ParseResults):
+        simple_agg = result['simple_agg_predicate']
+        negated = bool(simple_agg.get('not'))
+        type = getattr(AggregatePredicate.Type, simple_agg['type'])
+        return AggregatePredicate(negated, type)
+
+    @classmethod
+    def from_string(cls, string: str):
+        return cls.from_parsed(grammar.agg_predicate.parse_string(string, True))
+
+    def __repr__(self):
+        return 'AggregatePredicate(%s%s)' % ('NOT ' if self.negated else '', self.type)
+    def __str__(self):
+        return '%s%s' % ('NOT ' if self.negated else '', self.type)
+
+    async def evaluate(self, context: Context, scope: ItemScope) -> tuple[bool, ErrorLog]:
+        neg = self.negated
+        if self.type is AggregatePredicate.Type.ANYTHING:
+            return neg ^ bool(scope.items), None
+        if self.type is AggregatePredicate.Type.NOTHING:
+            return neg ^ (not scope.items), None
         raise Exception()
 
 
