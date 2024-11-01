@@ -255,11 +255,11 @@ if __name__ == '__main__':
         # asyncio.run(test_groupmode())
         # asyncio.run(time_groupmode_parse())
 
-        asyncio.run(test_multiple_evaluate())
+        # asyncio.run(test_multiple_evaluate())
 
         # asyncio.run(statically_analyse_all_macros_and_events())
 
-        # asyncio.run(test_script_cli())
+        asyncio.run(test_script_cli())
 
     except KeyboardInterrupt:
         pass

@@ -79,7 +79,7 @@ explicit_arg = Group(identifier('param_name') + eq.leave_whitespace() - arg_valu
 'An explicity "param=<templated_string>" assignment'
 
 implicit_string_bit = Combine(ZeroOrMore(White()) + OneOrMore(escaped_symbol | Regex('[^{}\s>]', re.S)) | OneOrMore(White()))('string_bit').leave_whitespace()
-implicit_arg = Group( OneOrMore( ~explicit_arg + (templated_element | implicit_string_bit) )('implicit_arg') ).set_name('Implicit Argument')
+implicit_arg = Group( OneOrMore( ~explicit_arg + (templated_element | quoted_templated_string | implicit_string_bit) )('implicit_arg') ).set_name('Implicit Argument')
 'Literally anything that is not an explicit argument assignment, but immediately parsed as a stripped templated string.'
 
 argument_list = optional_white + ZeroOrMore(explicit_arg | implicit_arg).set_name('Argument List')
