@@ -83,17 +83,12 @@ class PipelineWithOrigin:
 
     @staticmethod
     def split(script: str) -> tuple[str, str]:
-        '''Splits a script into the origin and pipeline.'''
-        # So here's the deal:
-        #    ORIGIN > PIPE > PIPE > PIPE > ETC...
-        # We only need to split on the first >, but this can be escaped by wrapping the entire thing in quotes!
-        #    "ORI > GIN" > PIPE
-        # We want to split on the LAST pipe there... The issue is parsing this is kinda hard maybe, because of weird cases:
-        #    ORI ">" GIN    or    "ORI">"GIN" ???
-        # AND also: ORIGIN -> PIPE should parse as ORIGIN > print > PIPE
-        # So I would simply like to assume people don't put enough quotes AND >'s in their texts for this to be a problem....
-        # ...because what we've been doing so far is: look at quotes as non-nesting and just split on the first non-wrapped >
-        # Anyway here is a neutered version of the script used to parse Pipelines.
+        '''
+        Splits a script into the origin and pipeline.
+
+        See also: Pipeline.split_into_segments()
+        '''
+        script = script.strip()
 
         OPEN_BRACE, CLOSE_BRACE = '{}'
         OPEN_BRACK, CLOSE_BRACK = '[]'
@@ -109,7 +104,7 @@ class PipelineWithOrigin:
             escaped = i > 0 and script[i-1] == '~'
 
             if not escaped:
-                # Braces and brackets
+                # Braces and brackets (nesting)
                 if c in (OPEN_BRACE, OPEN_BRACK):
                     stack.append(c)
                     i += 1; continue
@@ -120,21 +115,21 @@ class PipelineWithOrigin:
                     stack.pop()
                     i += 1; continue
 
-                # Triple quotes
+                # Triple quotes (only top-level, wrapping the entire origin str)
                 if (ccc := script[i:i+3]) in TRIPLE_QUOTES:
-                    if not stack or stack[-1] not in ALL_QUOTES:
+                    if i == 0:
                         stack.append(ccc)
                         i += 3; continue
-                    if stack and stack[-1] == ccc:
+                    elif stack and stack[-1] == ccc:
                         stack.pop()
                         i += 3; continue
 
-                # Single quotes
+                # Single quotes (only top-level, wrapping the entire origin str)
                 if c in SINGLE_QUOTES:
-                    if not stack or stack[-1] not in ALL_QUOTES:
+                    if i == 0:
                         stack.append(c)
                         i += 1; continue
-                    if stack and stack[-1] == c:
+                    elif stack and stack[-1] == c:
                         stack.pop()
                         i += 1; continue
 
@@ -146,6 +141,10 @@ class PipelineWithOrigin:
 
             # Move up one character
             i += 1
+
+        # NOTE: At this point we could take issue with the stack not being empty,
+        #   but since it implies the entire script is considered the origin str,
+        #   the worst outcome is that the script itself is printed as output.
 
         return script.strip(), ''
 

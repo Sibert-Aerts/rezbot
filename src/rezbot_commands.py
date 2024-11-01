@@ -21,7 +21,7 @@ def command_with_signature(arg=None, **kwargs: dict[str, Par]):
     def _command_with_signature(f: Callable):
         async def _f(self: commands.Bot, ctx: commands.Context, *, argstr=''):
             # Parse and determine the entire argstring according to the given Signature
-            pipes_ctx = Context(
+            script_ctx = Context(
                 origin=Context.Origin(
                     name=ctx.command.name,
                     type=Context.Origin.Type.COMMAND,
@@ -30,7 +30,7 @@ def command_with_signature(arg=None, **kwargs: dict[str, Par]):
                 author=ctx.author,
                 message=ctx.message,
             )
-            args, _, errs = await signature.parse_and_determine(argstr, pipes_ctx)
+            args, _, errs = await signature.parse_and_determine(argstr, script_ctx)
             errs.name = f'`{ctx.command.name}`'
             if errs:
                 await ctx.send(embed=errs.embed())
