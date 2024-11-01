@@ -110,13 +110,6 @@ class Macro:
             raise ArgumentError(f'Missing required parameter{"s" if len(missing)>1 else ""}: {" ".join("`%s`"%p for p in missing)}')
         return result_args
 
-    def apply_args__DEPRECATED(self, args: dict) -> str:
-        '''Insert arguments into macro code by replacing instances of '$arg$' with its value in `args`.'''
-        code = self.code
-        for arg in args:
-            code = code.replace('$'+arg+'$', args[arg])
-        return code
-
     def authorised(self, user):
         '''Test whether or not the given user is authorised to modify this macro.'''
         return permissions.has(user.id, permissions.owner) or user.id == int(self.authorId)

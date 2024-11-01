@@ -314,35 +314,6 @@ class MacroCommands(RezbotCommands):
         await ctx.send(file=discord.File(MACRO_SOURCES.DIR(MACRO_SOURCES.json_filename)))
 
 
-    # ============================== Utility =============================
-
-    @commands.command(hidden=True)
-    async def show_deprecated_arg_macros(self, ctx):
-        deprecated_arg_re = re.compile(r"\$(\w+)\$")
-
-        macros = []
-        for macro in itertools.chain(MACRO_PIPES.values(), MACRO_SOURCES.values()):
-            if deprecated_arg_re.search(macro.code):
-                macros.append(macro)
-        await ctx.send(f'Found {len(macros)} with deprecated args:\n{ ", ".join(m.name for m in macros) }')
-
-    @commands.command(hidden=True)
-    async def next_deprecated_arg_macros(self, ctx):
-        deprecated_arg_re = re.compile(r"\$(\w+)\$")
-
-        for macro in itertools.chain(MACRO_PIPES.values(), MACRO_SOURCES.values()):
-            if deprecated_arg_re.search(macro.code):
-
-                view = MacroView(macro, MACRO_PIPES if macro.name in MACRO_PIPES else MACRO_SOURCES)
-                view.set_message(await ctx.send(embed=macro.embed(bot=self.bot, channel=ctx.channel), view=view))
-
-                fixed_code = deprecated_arg_re.sub(r"{arg \1}", macro.code)
-                await ctx.send(f'Proposed new code:\n{texttools.block_format(fixed_code)}')
-                return
-
-        await ctx.send("No more deprecated args detected!")
-
-
 command_regex = re.compile(r'\s*(NEW|EDIT|DESC)\s+(hidden)?(pipe|source)\s+([_a-z]\w+)\s*::\s*(.*)', re.S | re.I)
 #                                ^^^command^^^     ^^^^^^^^what^^^^^^^^     ^^name^^^         code
 

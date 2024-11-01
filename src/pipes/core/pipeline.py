@@ -492,16 +492,14 @@ class Pipeline:
                 elif name in MACRO_PIPES:
                     macro = MACRO_PIPES[name]
                     try:
-                        # NEWFANGLED: Get the set of arguments and put them in Context
+                        # Get the set of arguments and put them in Context
                         args = macro.apply_signature(args)
                         macro_ctx = context.into_macro(macro, args)
-                        # DEPRECATED: Insert arguments into Macro string
-                        code = macro.apply_args__DEPRECATED(args)
                     except ArgumentError as e:
                         errors.log(e, True, context=name)
                         return NOTHING_BUT_ERRORS
 
-                    macro_pl = Pipeline.from_string(code)
+                    macro_pl = Pipeline.from_string(macro.code)
                     newvals, macro_errors, macro_spout_state = await macro_pl.apply(items, macro_ctx)
                     errors.extend(macro_errors, name)
                     if errors.terminal: return NOTHING_BUT_ERRORS

@@ -230,18 +230,16 @@ class ParsedSource:
             macro = MACRO_SOURCES[self.name]
             ## STEP 1: Ensure arguments are passed to the Macro
             try:
-                # NEWFANGLED: Get the set of arguments and put them in Context
+                # Get the set of arguments and put them in Context
                 # TODO: Put the implicit 'amount' argument in args
                 args = macro.apply_signature(args)
-                macro_ctx = context.into_macro(macro, args)
-                # DEPRECATED: Insert arguments into Macro string
-                code = macro.apply_args__DEPRECATED(args)
             except ArgumentError as e:
                 errors.log(e, True, context=self.name)
                 return NOTHING_BUT_ERRORS
 
             ## STEP 2: Execute PipelineWithOrigin without side effects
-            pipeline_with_origin = PipelineWithOrigin.from_string(code)
+            pipeline_with_origin = PipelineWithOrigin.from_string(macro.code)
+            macro_ctx = context.into_macro(macro, args)
             values, pwo_errors, _ = await pipeline_with_origin.execute_without_side_effects(macro_ctx)
             return values, errors.extend(pwo_errors, self.name)
 
@@ -250,11 +248,8 @@ class ParsedSource:
             macro = MACRO_PIPES[self.name]
             ## STEP 1: Ensure arguments are passed to the Macro
             try:
-                # NEWFANGLED: Get the set of arguments and put them in Context
                 args = macro.apply_signature(args)
                 macro_ctx = context.into_macro(macro, args)
-                # DEPRECATED: Insert arguments into Macro string
-                code = macro.apply_args__DEPRECATED(args)
             except ArgumentError as e:
                 errors.log(e, True, context=self.name)
                 return NOTHING_BUT_ERRORS
@@ -265,7 +260,7 @@ class ParsedSource:
             if errors.terminal: return NOTHING_BUT_ERRORS
 
             ## STEP 3: Apply Pipeline
-            pipeline = Pipeline.from_string(code)
+            pipeline = Pipeline.from_string(macro.code)
             values, pl_errors, _ = await pipeline.apply([remainder_str], macro_ctx)
             return values, errors.extend(pl_errors, self.name)
 
