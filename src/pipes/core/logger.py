@@ -57,7 +57,7 @@ class ErrorLog:
         ''' Bespoke formatting for a not-uncommon terminal exception. '''
         print('Logging parse exception:', str(e))
         ### Create a human-readable error message
-        error_msg = e.msg[0].lower() + e.msg[1:]
+        error_msg = e.msg and (e.msg[0].lower() + e.msg[1:])
         if isinstance(e.parserElement, StringEnd):
             message = f'ParseException: Likely unclosed expression at position {e.loc}:\n­\t'
         elif e.col-1 == len(e.line):

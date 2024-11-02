@@ -267,11 +267,18 @@ class Arguments:
                 errors.extend(remainder_piece.pre_errors, param)
                 start_index = remainder_piece.end_index
                 args[param] = remainder_piece
-            else:
+            elif arg._name == 'quoted_implicit_arg':
+                remainder_piece = TemplatedString.from_parsed(arg, start_index)
+                errors.extend(remainder_piece.pre_errors, 'implicit arg')
+                start_index = remainder_piece.end_index
+                remainder_pieces.append(remainder_piece)
+            elif arg._name == 'implicit_arg':
                 remainder_piece = TemplatedString.from_parsed(arg['implicit_arg'], start_index).strip()
                 errors.extend(remainder_piece.pre_errors, 'implicit arg')
                 start_index = remainder_piece.end_index
                 remainder_pieces.append(remainder_piece)
+            else:
+                Exception()
 
         remainder = TemplatedString.join(remainder_pieces)
 
