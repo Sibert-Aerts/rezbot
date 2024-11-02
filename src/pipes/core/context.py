@@ -61,9 +61,10 @@ class ItemScope:
 
         count = len(scope.items)
         # Make sure the index fits in the scope's range of items
-        if index >= count: raise ItemScopeError('Out of range: Item index {} out of only {} items.'.format(index, count))
+        if count == 0: raise ItemScopeError('No items in scope.')
+        if index >= count: raise ItemScopeError('Out of range: Index {} out of only {} items.'.format(index, count))
         if index < 0: index += count
-        if index < 0: raise ItemScopeError('Out of range: Negative index {} for only {} items.'.format(index-count, count))
+        if index < 0: raise ItemScopeError('Out of range: Negative index {} out of only {} items.'.format(index-count, count))
 
         # Only flag items to be ignored if we're in the current scope (idk how it would work with higher scopes)
         if scope is self:
@@ -82,15 +83,15 @@ class ItemScope:
         # Make sure the start index fits in the scope's range of items
         if start is None: start = 0
         else:
-            if start >= count: raise ItemScopeError('Out of range: Item start index {} out of only {} items.'.format(start, count))
+            if start > count: raise ItemScopeError('Out of range: Start index {} out of only {} items.'.format(start, count))
             if start < 0: start += count
-            if start < 0: raise ItemScopeError('Out of range: Negative start index {} for only {} items.'.format(start-count, count))
+            if start < 0: raise ItemScopeError('Out of range: Negative start index {} out of only {} items.'.format(start-count, count))
         # Make sure the end index fits in the scope's range of items
         if end is None: end = count
         else:
-            if end > count: raise ItemScopeError('Out of range: Item end index {} out of only {} items.'.format(end, count))
+            if end > count: raise ItemScopeError('Out of range: End index {} out of only {} items.'.format(end, count))
             if end < 0: end += count
-            if end < 0: raise ItemScopeError('Out of range: Negative end index {} for only {} items.'.format(end-count, count))
+            if end < 0: raise ItemScopeError('Out of range: Negative end index {} out of only {} items.'.format(end-count, count))
 
         # Only flag items to be ignored if we're in the current scope (idk how it would work with higher scopes)
         if scope is self:

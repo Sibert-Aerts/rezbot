@@ -188,7 +188,7 @@ class Pipeline:
 
     @lru_cache(100)
     @staticmethod
-    def from_string(string: str, iterations: str=None, *, start_with_origin=False):
+    def from_string(string: str, *, iterations: str=None, start_with_origin=False):
         errors = ErrorLog()
 
         segments: list[ParsedOrigin | PipeSegment] = []
@@ -215,6 +215,10 @@ class Pipeline:
             segments.append((groupmode, parallel))
 
         return Pipeline(segments, parser_errors=errors, iterations=int(iterations or 1))
+
+    @staticmethod
+    def from_string_with_origin(string: str, *, iterations: str=None):
+        return Pipeline.from_string(string, iterations=iterations, start_with_origin=True)
 
     # =========================================== Parsing ==========================================
 
@@ -435,7 +439,7 @@ class Pipeline:
                 m = re.match(Pipeline.wrapping_parens_regex, pipestr)
                 pipeline = m[2] or m[4]
                 # Immediately parse the inline pipeline (recursion call!)
-                parsed = Pipeline.from_string(pipeline, m[3])
+                parsed = Pipeline.from_string(pipeline, iterations=m[3])
                 parsed_pipes.append(parsed)
 
             ## Normal pipe: foo bar=baz n=10

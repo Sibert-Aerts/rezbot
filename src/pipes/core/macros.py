@@ -120,7 +120,7 @@ class Macro:
         if self.kind == "Pipe":
             return Pipeline.from_string(self.code).get_static_errors()
         elif self.kind == "Source":
-            return ExecutableScript.from_string(self.code).get_static_errors()
+            return Pipeline.from_string_with_origin(self.code).get_static_errors()
 
     # ======================================== Serialization =======================================
 

@@ -233,15 +233,15 @@ class ParsedSource:
                 # Get the set of arguments and put them in Context
                 # TODO: Put the implicit 'amount' argument in args
                 args = macro.apply_signature(args)
+                macro_ctx = context.into_macro(macro, args)
             except ArgumentError as e:
                 errors.log(e, True, context=self.name)
                 return NOTHING_BUT_ERRORS
 
-            ## STEP 2: Execute ExecutableScript without side effects
-            executable_script = ExecutableScript.from_string(macro.code)
-            macro_ctx = context.into_macro(macro, args)
-            values, script_errors, _ = await executable_script.execute_without_side_effects(macro_ctx)
-            return values, errors.extend(script_errors, self.name)
+            ## STEP 2: Apply Pipeline
+            pipeline = Pipeline.from_string_with_origin(macro.code)
+            values, pl_errors, _ = await pipeline.apply((), macro_ctx)
+            return values, errors.extend(pl_errors, self.name)
 
         ## CASE: Macro Pipe
         elif self.name in MACRO_PIPES:

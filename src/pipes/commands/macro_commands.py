@@ -1,6 +1,5 @@
 import re
 from typing import Callable
-import itertools
 
 import discord
 from discord.ext import commands
@@ -9,7 +8,6 @@ from pipes.views import MacroView
 
 from pipes.core.pipe import Pipes
 from pipes.core.pipeline import Pipeline
-from pipes.core.executable_script import ExecutableScript
 from pipes.implementations.pipes import NATIVE_PIPES
 from pipes.implementations.sources import NATIVE_SOURCES
 from pipes.core.macros import Macro, MacroParam, Macros, MACRO_PIPES, MACRO_SOURCES
@@ -33,7 +31,7 @@ async def check_pipe_macro(code: str, reply):
 
 async def check_source_macro(code: str, reply):
     ''' Statically analyses source macro code for errors or warnings. '''
-    errors = ExecutableScript.from_string(code).get_static_errors()
+    errors = Pipeline.from_string_with_origin(code).get_static_errors()
     if not errors:
         return True
     if errors.terminal:

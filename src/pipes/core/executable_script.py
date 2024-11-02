@@ -32,10 +32,9 @@ class ExecutableScript:
         self.pipeline = pipeline
         self.script_str = script_str
 
-    @lru_cache(100)
     @staticmethod
     def from_string(script: str) -> 'ExecutableScript':
-        pipeline = Pipeline.from_string(script, start_with_origin=True)
+        pipeline = Pipeline.from_string_with_origin(script)
         return ExecutableScript(pipeline, script_str=script)
 
     @staticmethod
