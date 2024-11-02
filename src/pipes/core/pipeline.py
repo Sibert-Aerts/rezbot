@@ -95,14 +95,70 @@ class ParsedOrigin:
     origin: str | list['TemplatedString']
 
     def __init__(self, origin: str | list['TemplatedString']):
-        # NOTE: String may be a string instead of a list of TemplatedStrings
-        #   because the "[?]" ChoiceTree flag means it may not represent the same TemplatedStrings each time.
-        # But sometimes it may, and then it's a list[TemplatedString].
+        # NOTE: Origin may be a single str or a list of TemplatedStrings.
+        # We keep the str case because the "[?]" ChoiceTree flag has special behaviour
+        #   that we can't/don't want to emulate (yet?) by expanding it to a list of TemplatedStrings.
         self.origin = origin
 
-    async def evaluate(self, context: 'Context', scope: 'ItemScope') -> tuple[list[str], ErrorLog]:
+    def process_str_origin(self) -> tuple[list['TemplatedString'] | None, ErrorLog]:
+        '''
+        Expands the str-type origin and parses each one as a TemplatedString.
+        '''
+        origins = []
+        expand = True
+        errors = ErrorLog()
+        origin_str: str = self.origin
+
+        ## Get rid of wrapping quotes or triple quotes
+        if len(origin_str) >= 6 and origin_str[:3] == origin_str[-3:] == '"""':
+            origin_str = origin_str[3:-3]
+            expand = False
+        elif len(origin_str) >= 2 and origin_str[0] == origin_str[-1] in ('"', "'", '/'):
+            origin_str = origin_str[1:-1]
+
+        ## ChoiceTree expand
+        if expand:
+            try:
+                expanded = ChoiceTree(origin_str, parse_flags=True)
+            except ParseBaseException as e:
+                errors.log_parse_exception(e)
+                return origins, errors
+        else:
+            expanded = [origin_str]
+
+        ## Parse each string as a TemplatedString, collecting errors along the way
+        for origin_str in expanded:
+            try:
+                origin = TemplatedString.from_string(origin_str)
+                origins.append(origin)
+                errors.extend(origin.pre_errors)
+            except ParseBaseException as e:
+                errors.log_parse_exception(e)
+
+        return origins, errors
+
+    def get_static_errors(self) -> ErrorLog:
+        '''
+        Collects errors that can be known before execution time.
+        '''
         if isinstance(self.origin, str):
-            return await TemplatedString.evaluate_origin(self.origin, context, scope)
+            _, origin_errors = self.process_str_origin()
+            return origin_errors
+        else:
+            errors = ErrorLog()
+            for ts in self.origin:
+                errors.extend(ts.pre_errors)
+            return errors
+
+    async def evaluate(self, context: 'Context', scope: 'ItemScope') -> tuple[list[str], ErrorLog]:
+        '''
+        Evaluates the origin.
+        '''
+        if isinstance(self.origin, str):
+            origins, errors = self.process_str_origin()
+            if errors.terminal: return (None, errors)
+            values, map_errors = await TemplatedString.map_evaluate(origins, context, scope)
+            return values, errors.extend(map_errors)
         else:
             return await TemplatedString.map_evaluate(self.origin, context, scope)
 
@@ -125,7 +181,7 @@ class Pipeline:
 
     def __init__(self, segments: list[ParsedOrigin | PipeSegment], *, parser_errors: ErrorLog=None, iterations: int=1):
         self.segments = segments
-        self.parser_errors = parser_errors
+        self.parser_errors = parser_errors if parser_errors is not None else ErrorLog()
         self.iterations = iterations
         if self.iterations < 0:
             self.parser_errors.log('Negative iteration counts are not allowed.', True)
@@ -157,12 +213,10 @@ class Pipeline:
                 continue
             try:
                 ## Parse (parallel) pipe(lines)
-                parallel, segment_errors = Pipeline.parse_segment(segment_str)
+                parallel = Pipeline.parse_segment(segment_str)
             except ParseBaseException as e:
                 errors.log_parse_exception(e)
                 continue
-            errors.extend(groupmode.pre_errors, 'groupmode')
-            errors.extend(segment_errors)
             segments.append((groupmode, parallel))
 
         return Pipeline(segments, parser_errors=errors, iterations=iterations)
@@ -361,13 +415,12 @@ class Pipeline:
         return bereft.replace('!§!', '§')
 
     @classmethod
-    def parse_segment(cls, segment: str) -> list[Union[ParsedPipe, 'Pipeline']] | ErrorLog:
+    def parse_segment(cls, segment: str) -> list[Union[ParsedPipe, 'Pipeline']]:
         '''Turn a single string describing one or more parallel pipes into a list of ParsedPipes or Pipelines.'''
         #### True and utter hack: Steal triple-quoted strings and parentheses wrapped strings out of the segment string.
         # This way these types of substrings are not affected by ChoiceTree expansion, because we only put them back afterwards.
         # For triple quotes: This allows us to pass string arguments containing [|] without having to escape them, which is nice to have.
         # For parentheses: This allows us to use parallel segments inside of inline pipelines, giving them a lot more power and utility.
-        errors = ErrorLog()
         segment, stolen_parens = cls.steal_parentheses(segment)
         segment, stolen_quotes = cls.steal_triple_quotes(segment)
 
@@ -386,18 +439,38 @@ class Pipeline:
                 # TODO: This shouldn't happen via regex.
                 m = re.match(Pipeline.wrapping_parens_regex, pipestr)
                 pipeline = m[2] or m[4]
-                # Immediately attempt to parse the inline pipeline (recursion call!)
+                # Immediately parse the inline pipeline (recursion call!)
                 parsed = Pipeline.from_string(pipeline, m[3])
-                errors.steal(parsed.parser_errors, context='parens')
                 parsed_pipes.append(parsed)
 
-            ## Normal pipe: foo [bar=baz]*
+            ## Normal pipe: foo bar=baz n=10
             else:
                 parsed = ParsedPipe.from_string(pipestr)
-                errors.steal(parsed.errors, context=parsed.name)
                 parsed_pipes.append(parsed)
 
-        return parsed_pipes, errors
+        return parsed_pipes
+
+    # ======================================= Representation =======================================
+
+    def get_static_errors(self) -> ErrorLog:
+        '''
+        Collects errors that can be known before execution time.
+        '''
+        errors = ErrorLog()
+        if self.parser_errors:
+            errors.extend(self.parser_errors)
+        for segment in self.segments:
+            if isinstance(segment, ParsedOrigin):
+                errors.extend(segment.get_static_errors(), 'origin')
+            else:
+                groupmode, pipes = segment
+                errors.extend(groupmode.pre_errors, 'groupmode')
+                for pipe in pipes:
+                    if isinstance(pipe, ParsedPipe):
+                        errors.extend(pipe.errors, pipe.name)
+                    else:
+                        errors.extend(pipe.get_static_errors(), 'parens')
+        return errors
 
     # ========================================= Application ========================================
 
@@ -416,6 +489,7 @@ class Pipeline:
         spout_state = SpoutState()
 
         NOTHING_BUT_ERRORS = (None, errors, None)
+        # TODO: Re-gathering the static errors each time actually does seem kind of stupid
         errors.extend(self.parser_errors)
         if errors.terminal: return NOTHING_BUT_ERRORS
 
@@ -464,6 +538,10 @@ class Pipeline:
             next_items = []
             new_printed_items = []
 
+            # GroupMode errors
+            errors.extend(group_mode.pre_errors, 'groupmode')
+            if errors.terminal: return NOTHING_BUT_ERRORS
+
             # Non-trivial groupmodes add a new item scope layer
             if group_mode.splits_trivially():
                 group_scope = item_scope
@@ -493,7 +571,7 @@ class Pipeline:
                 ## CASE: The pipe is itself an inlined Pipeline (recursion!)
                 if isinstance(parsed_pipe, Pipeline):
                     items, pl_errors, pl_spout_state = await parsed_pipe.apply(items, context, group_scope)
-                    errors.extend(pl_errors, 'braces')
+                    errors.extend(pl_errors, 'parens')
                     if errors.terminal: return NOTHING_BUT_ERRORS
                     next_items.extend(items)
                     # group_mode.is_singular is a special case where we can safely extend print values, otherwise they're discarded here
@@ -503,6 +581,8 @@ class Pipeline:
 
                 ## CASE: The pipe is a ParsedPipe: something of the form "name [argument_list]"
                 name = parsed_pipe.name
+                errors.extend(parsed_pipe.errors, parsed_pipe.name)
+                if errors.terminal: return NOTHING_BUT_ERRORS
 
                 #### Determine the arguments (if needed)
                 if parsed_pipe.arguments is not None:

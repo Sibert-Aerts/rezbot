@@ -265,7 +265,7 @@ class ParsedSource:
             return values, errors.extend(pl_errors, self.name)
 
         else:
-            errors(f'Unknown source `{self.name}`.', True)
+            errors.log(f'Unknown source `{self.name}`.', True)
             return NOTHING_BUT_ERRORS
 
 

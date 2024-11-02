@@ -42,14 +42,15 @@ def fmt_list(l, base_indent=0):
     return ('\n' + ' '*indent).join(items) + '\n' + ' ' * base_indent + ']'
 
 async def print_side_effects(ctx, spout_state: SpoutState, end_values):
-    print('SIDE EFFECTS:')
+    print('\nSIDE EFFECTS:')
     print('    CALLBACKS:', fmt_list(spout_state.callbacks, base_indent=4))
     print('    AGGREGATED:', dict(spout_state.aggregated))
     print('    END VALUES:', fmt_list(end_values, base_indent=4))
     return ErrorLog()
 
 async def print_error_log(ctx, errors: ErrorLog):
-    pass
+    if not errors: return
+    print('\nERROR LOG:\n' + str(errors))
 
 
 #### Test functions
@@ -225,6 +226,9 @@ async def statically_analyse_all_macros_and_events():
 
 async def test_script(pl_str):
     pl = PipelineWithOrigin.from_string(pl_str)
+
+    if static_errors := pl.get_static_errors():
+        print('\nSTATIC ERRORS:\n' + str(static_errors))
 
     pl.perform_side_effects = print_side_effects
     pl.send_error_log = print_error_log

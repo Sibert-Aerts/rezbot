@@ -9,17 +9,12 @@ class TerminalErrorLogException(Exception):
 
 
 class ErrorLog:
-    '''Class for storing warning and error messages related to Rezbot scripting.'''
-    def __init__(self, name=None):
-        self.name = name
-        self.clear()
+    '''
+    Class for storing and conveying warning and error messages in Rezbot scripting.
+    '''
 
-    def clear(self):
-        self.errors: list[ErrorLog.ErrorMessage] = []
-        self.terminal = False
-        self.time = datetime.now(tz=timezone.utc)
-
-    class ErrorMessage:
+    class Message:
+        __slots__ = ('message', 'count')
         def __init__(self, message: str, count=1):
             self.message: str = message
             self.count: int = count
@@ -29,7 +24,21 @@ class ErrorLog:
             entries = [self.message]
             if self.count > 1:
                 entries.append(self.count)
-            return f'ErrorMessage({", ".join(entries)})'
+            return f'ErrorLog.Message({", ".join(entries)})'
+
+    __slots__ = ('name', 'errors', 'terminal')
+
+    name: str | None
+    errors: list['ErrorLog.Message']
+    terminal: bool
+
+    def __init__(self, name=None):
+        self.name = name
+        self.clear()
+
+    def clear(self):
+        self.errors: list[ErrorLog.Message] = []
+        self.terminal = False
 
     #############################################
     ## Error logging methods
@@ -43,11 +52,12 @@ class ErrorLog:
             self.errors[-1].count += 1
         else:
             print(datetime.now().strftime('[%X]'), 'Error' if terminal else 'Warning', 'logged:', message)
-            self.errors.append(ErrorLog.ErrorMessage(message))
+            self.errors.append(ErrorLog.Message(message))
         self.terminal |= terminal
         return self
 
     def __call__(self, message, terminal=False):
+        # DEPRECATED
         return self.log(message, terminal=terminal)
 
     def warn(self, message):
@@ -92,12 +102,13 @@ class ErrorLog:
             if self.errors and self.errors[-1].message == message:
                 self.errors[-1].count += e.count
             else:
-                self.errors.append(ErrorLog.ErrorMessage(message, e.count))
+                self.errors.append(ErrorLog.Message(message, e.count))
         return self
 
-    def steal(self, other, *args, **kwargs):
+    def steal(self, other: 'ErrorLog', *args, **kwargs):
         self.extend(other, *args, **kwargs)
-        other.clear()
+        if other is not None:
+            other.clear()
         return self
 
     #############################################
@@ -109,9 +120,11 @@ class ErrorLog:
     def __str__(self):
         return '\n'.join(str(m) for m in self.errors) if self.errors else 'No warnings!'
     def __repr__(self):
-        return f'ErrorLog(name={self.name}, errors=[{", ".join(repr(m) for m in self.errors)}])'
+        msgs = '\n'.join('\n    ' + repr(m) + ',' for m in self.errors)
+        if msgs: msgs += '\n'
+        return f'ErrorLog(name={self.name}, terminal={self.terminal}, errors=[{msgs}])'
 
-    def embed(self, name=None):
+    def embed(self, name=None) -> discord.Embed:
         desc = str(self)
 
         if len(desc) > 4000:
@@ -121,7 +134,9 @@ class ErrorLog:
             embed = discord.Embed(title='Error log', description=desc, color=0xff3366)
         else:
             embed = discord.Embed(title='Warning log', description=desc, color=0xffdd33)
-        # embed.timestamp = self.time
+
         name = name or self.name
-        if name: embed.title += ' for ' + name
+        if name:
+            embed.title += ' for ' + name
+
         return embed

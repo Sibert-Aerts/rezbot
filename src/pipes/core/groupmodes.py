@@ -820,13 +820,14 @@ class GroupMode:
         self.split_modes = split_modes
         self.mid_modes = mid_modes
         self.assign_mode = assign_mode
-        # Collect parsing errors from modes that can have them
+        # Collect pre-execution errors from modes that can have them
         self.pre_errors = ErrorLog()
         for mode in mid_modes:
-            if isinstance(mode, IfMode) and mode.pre_errors:
+            if isinstance(mode, IfMode):
                 self.pre_errors.extend(mode.pre_errors, 'if mode')
-        if assign_mode.pre_errors:
-            self.pre_errors.extend(assign_mode.pre_errors, 'assign mode')
+        self.pre_errors.extend(assign_mode.pre_errors, 'assign mode')
+        if not self.pre_errors:
+            self.pre_errors = None
 
     @staticmethod
     def from_parsed(result: ParseResults):

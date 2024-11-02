@@ -410,51 +410,6 @@ class TemplatedString:
         return [val], errors.extend(errs)
 
     @staticmethod
-    def parse_origin(origin_str: str) -> tuple[list['TemplatedString'] | None, ErrorLog]:
-        '''Takes a raw source string, expands it if necessary, and already parses each one as a TemplatedString.'''
-        origins = []
-        expand = True
-        errors = ErrorLog()
-
-        ## Get rid of wrapping quotes or triple quotes
-        if len(origin_str) >= 6 and origin_str[:3] == origin_str[-3:] == '"""':
-            origin_str = origin_str[3:-3]
-            expand = False
-        elif len(origin_str) >= 2 and origin_str[0] == origin_str[-1] in ('"', "'", '/'):
-            origin_str = origin_str[1:-1]
-
-        ## ChoiceTree expand
-        if expand:
-            try:
-                expanded = ChoiceTree(origin_str, parse_flags=True)
-            except ParseBaseException as e:
-                errors.log_parse_exception(e)
-                return origins, errors
-        else:
-            expanded = [origin_str]
-
-        ## Parse each string as a TemplatedString, collecting errors along the way
-        for origin_str in expanded:
-            try:
-                origin = TemplatedString.from_string(origin_str)
-                origins.append(origin)
-                errors.extend(origin.pre_errors)
-            except ParseBaseException as e:
-                errors.log_parse_exception(e)
-
-        return origins, errors
-
-    @staticmethod
-    async def evaluate_origin(origin_str: str, context: Context, scope: ItemScope=None) -> tuple[list[str] | None, ErrorLog]:
-        '''Takes a raw source string, expands it, evaluates {sources} in each one and returns the combined values.'''
-        origins, errors = TemplatedString.parse_origin(origin_str)
-        if errors.terminal:
-            return (None, errors)
-        values, map_errors = await TemplatedString.map_evaluate(origins, context, scope)
-        errors.extend(map_errors)
-        return values, errors
-
-    @staticmethod
     async def map_evaluate(tstrings: list['TemplatedString'], context: Context, scope: ItemScope=None) -> tuple[list[str] | None, ErrorLog]:
         '''Evaluates and aggregates each TemplatedString in an iterable sequentially, pure Source TStrings can yield multiple strings.'''
         errors = ErrorLog()

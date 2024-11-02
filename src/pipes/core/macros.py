@@ -118,7 +118,7 @@ class Macro:
 
     def get_static_errors(self) -> ErrorLog:
         if self.kind == "Pipe":
-            return Pipeline.from_string(self.code).parser_errors
+            return Pipeline.from_string(self.code).get_static_errors()
         elif self.kind == "Source":
             return PipelineWithOrigin.from_string(self.code).get_static_errors()
 

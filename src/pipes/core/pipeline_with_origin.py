@@ -1,4 +1,3 @@
-from lru import LRU
 from discord import TextChannel
 from pyparsing import ParseResults
 from functools import lru_cache
@@ -29,30 +28,27 @@ class PipelineWithOrigin:
 
     # ======================================== Constructors ========================================
 
-    def __init__(self, origin: 'ParsedOrigin', pipeline: 'Pipeline', *, static_errors: ErrorLog=None, script_str: str=None):
+    def __init__(self, origin: 'ParsedOrigin', pipeline: 'Pipeline', *, script_str: str=None):
         self.origin = origin
         self.pipeline = pipeline
-        self.static_errors = static_errors
         self.script_str = script_str
 
     @lru_cache(100)
     @staticmethod
     def from_string(script: str) -> 'PipelineWithOrigin':
-        ## Split
-        origin_str, *segments = Pipeline.split_into_segments(script, start_in_origin_str=True)
+        # The kwarg guarantees the first segment is a ParsedOrigin
+        origin, *segments = Pipeline.split_into_segments(script, start_in_origin_str=True)
         pipeline = Pipeline.from_split_segments(segments)
-
-        ## Instantiate, cache, return
-        pwo = PipelineWithOrigin(origin_str, pipeline, script_str=script)
-        return pwo
+        return PipelineWithOrigin(origin, pipeline, script_str=script)
 
     @staticmethod
     def from_parsed_simple_script(parsed: ParseResults) -> 'PipelineWithOrigin':
-        parse_errors = ErrorLog()
-
         # Parse origin
-        simple_origin = TemplatedString.from_parsed(parsed['simple_origin']).strip()
-        parse_errors.extend(simple_origin.pre_errors, 'script origin')
+        simple_origin_parsed = parsed['simple_origin']
+        if 'quoted_simple_origin' in simple_origin_parsed:
+            simple_origin = TemplatedString.from_parsed(simple_origin_parsed['quoted_simple_origin'])
+        else:
+            simple_origin = TemplatedString.from_parsed(simple_origin_parsed).strip()
 
         # Parse pipe segments
         parsed_segments = []
@@ -60,10 +56,8 @@ class PipelineWithOrigin:
             groupmode = GroupMode.from_parsed(simple_pipe['groupmode'])
             parsed_pipe = ParsedPipe.from_parsed(simple_pipe)
             parsed_segments.append((groupmode, (parsed_pipe,)))
-            parse_errors.extend(groupmode.pre_errors, "groupmode")
-            parse_errors.extend(parsed_pipe.errors, parsed_pipe.name)
 
-        return PipelineWithOrigin(ParsedOrigin([simple_origin]), Pipeline(parsed_segments), static_errors=parse_errors)
+        return PipelineWithOrigin(ParsedOrigin([simple_origin]), Pipeline(parsed_segments))
 
     # =================================== Static utility methods ===================================
 
@@ -137,16 +131,12 @@ class PipelineWithOrigin:
     # =================================== Static analysis methods ==================================
 
     def get_static_errors(self):
-        '''Gather static errors from both Origin and Pipeline.'''
+        '''
+        Collects errors that can be known before execution time.
+        '''
         errors = ErrorLog()
-        # 1. Origin errors
-        if isinstance(self.origin.origin, str):
-            _, origin_errors = TemplatedString.parse_origin(self.origin.origin)
-            errors.extend(origin_errors, 'script origin')
-        if self.static_errors is not None:
-            errors.extend(self.static_errors)
-        # 2. Pipeline errors
-        errors.extend(self.pipeline.parser_errors)
+        errors.extend(self.origin.get_static_errors(), 'script origin')
+        errors.extend(self.pipeline.get_static_errors())
         return errors
 
     # ====================================== Execution method ======================================
