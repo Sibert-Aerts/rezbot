@@ -31,7 +31,7 @@ context = Context(
         name='Test context',
         activator=None,
     ),
-    arguments={'1': 'one', '2': 'two', 'small': 'small ', 'page': 'dog'}
+    arguments={'1': 'one', '2': 'two', 'small': 'small ', 'page': 'dog'},
 )
 scope = ItemScope(items=['ix', 'nox', 'flux'])
 

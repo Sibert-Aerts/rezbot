@@ -188,16 +188,11 @@ class Pipeline:
 
     @lru_cache(100)
     @staticmethod
-    def from_string(string: str, iterations: str=None):
-        segment_strs = Pipeline.split_into_segments(string)
-        return Pipeline.from_split_segments(segment_strs, iterations=iterations)
-
-    @staticmethod
-    def from_split_segments(segment_strs: list[str | ParsedOrigin], iterations: str=None):
+    def from_string(string: str, iterations: str=None, *, start_with_origin=False):
         errors = ErrorLog()
-        iterations = int(iterations or 1)
 
         segments: list[ParsedOrigin | PipeSegment] = []
+        segment_strs = Pipeline.split_into_segments(string, start_with_origin=start_with_origin)
         for segment_str in segment_strs:
             if isinstance(segment_str, ParsedOrigin):
                 segments.append(segment_str)
@@ -219,12 +214,12 @@ class Pipeline:
                 continue
             segments.append((groupmode, parallel))
 
-        return Pipeline(segments, parser_errors=errors, iterations=iterations)
+        return Pipeline(segments, parser_errors=errors, iterations=int(iterations or 1))
 
     # =========================================== Parsing ==========================================
 
     @classmethod
-    def split_into_segments(cls, string: str, start_in_origin_str=False) -> list[str | ParsedOrigin]:
+    def split_into_segments(cls, string: str, start_with_origin=False) -> list[str | ParsedOrigin]:
         '''
         Split the pipeline into top-level segments (segment > segment > segment)
         '''
@@ -240,7 +235,7 @@ class Pipeline:
         stack = []
         start = 0
         i = 0
-        in_origin_str = start_in_origin_str
+        in_origin_str = start_with_origin
 
         def append_segment(s: str):
             s = s.strip()

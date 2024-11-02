@@ -28,6 +28,7 @@ question_mark   = Suppress('?')
 colon           = Suppress(':')
 backslash       = Suppress('\\')
 chevron         = Suppress('>')
+double_chevron  = Suppress('>>')
 
 # Needed around elements where .leave_whitespace() has been used
 optional_white  = Suppress(Opt(White()))
@@ -214,8 +215,9 @@ groupmode_and_remainder = groupmode + Regex('.*', flags=re.S)('remainder')
 # ======================== Scripts
 
 simple_origin = Group(Group(quoted_templated_string)('quoted_simple_origin') | origin_safe_templated_string)('simple_origin').set_name('Simple Origin')
-simple_pipe = Group(Opt(groupmode('groupmode')) + identifier('pipe_name') + Opt(argument_list('args'))).set_name('Simple Pipe')
-simple_script <<= (simple_origin + Group(ZeroOrMore(chevron + (simple_pipe | Empty())))('simple_pipes')).set_name('Simple Script')
+simple_pipe = Group(Opt(groupmode('groupmode')) + identifier('pipe_name') + Opt(argument_list('args')))('simple_pipe').set_name('Simple Pipe')
+simple_segment = Group((double_chevron - simple_origin) | (chevron - (simple_pipe | Group(Empty())('nop'))))
+simple_script <<= (simple_origin + Group(ZeroOrMore(simple_segment))('simple_segments')).set_name('Simple Script')
 
 
 

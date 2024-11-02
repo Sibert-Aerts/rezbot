@@ -16,9 +16,9 @@ class TerminalError(Exception):
 
 class PipelineWithOrigin:
     '''
-    Class representing a complete "Rezbot script" that may be executed:
-        * An origin (str) which may be expanded and evaluated.
-        * A Pipeline which may be applied to that result.
+    Class representing a complete "Rezbot script" that may be executed.
+    Functionally just a wrapper around a parsed Pipeline object with additional methods
+        for performing side-effects, catching execution errors, etc.
 
     These occur from:
         * Manual script invocation (messages starting with >>)
@@ -28,36 +28,48 @@ class PipelineWithOrigin:
 
     # ======================================== Constructors ========================================
 
-    def __init__(self, origin: 'ParsedOrigin', pipeline: 'Pipeline', *, script_str: str=None):
-        self.origin = origin
+    def __init__(self, pipeline: 'Pipeline', *, script_str: str=None):
         self.pipeline = pipeline
         self.script_str = script_str
 
     @lru_cache(100)
     @staticmethod
     def from_string(script: str) -> 'PipelineWithOrigin':
-        # The kwarg guarantees the first segment is a ParsedOrigin
-        origin, *segments = Pipeline.split_into_segments(script, start_in_origin_str=True)
-        pipeline = Pipeline.from_split_segments(segments)
-        return PipelineWithOrigin(origin, pipeline, script_str=script)
+        pipeline = Pipeline.from_string(script, start_with_origin=True)
+        return PipelineWithOrigin(pipeline, script_str=script)
 
     @staticmethod
     def from_parsed_simple_script(parsed: ParseResults) -> 'PipelineWithOrigin':
+        parsed_segments = []
+
         # Parse origin
         simple_origin_parsed = parsed['simple_origin']
         if 'quoted_simple_origin' in simple_origin_parsed:
-            simple_origin = TemplatedString.from_parsed(simple_origin_parsed['quoted_simple_origin'])
+            origin_tstr = TemplatedString.from_parsed(simple_origin_parsed['quoted_simple_origin'])
         else:
-            simple_origin = TemplatedString.from_parsed(simple_origin_parsed).strip()
+            origin_tstr = TemplatedString.from_parsed(simple_origin_parsed).strip()
+        parsed_segments.append(ParsedOrigin([origin_tstr]))
 
         # Parse pipe segments
-        parsed_segments = []
-        for simple_pipe in parsed['simple_pipes']:
-            groupmode = GroupMode.from_parsed(simple_pipe['groupmode'])
-            parsed_pipe = ParsedPipe.from_parsed(simple_pipe)
-            parsed_segments.append((groupmode, (parsed_pipe,)))
+        for simple_segment in parsed['simple_segments']:
+            if 'simple_pipe' in simple_segment:
+                simple_pipe_parsed = simple_segment['simple_pipe']
+                groupmode = GroupMode.from_parsed(simple_pipe_parsed['groupmode'])
+                parsed_pipe = ParsedPipe.from_parsed(simple_pipe_parsed)
+                parsed_segments.append((groupmode, (parsed_pipe,)))
+            elif 'simple_origin' in simple_segment:
+                simple_origin_parsed = simple_segment['simple_origin']
+                if 'quoted_simple_origin' in simple_origin_parsed:
+                    origin_tstr = TemplatedString.from_parsed(simple_origin_parsed['quoted_simple_origin'])
+                else:
+                    origin_tstr = TemplatedString.from_parsed(simple_origin_parsed).strip()
+                parsed_segments.append(ParsedOrigin([origin_tstr]))
+            elif 'nop' in simple_segment:
+                continue
+            else:
+                raise Exception()
 
-        return PipelineWithOrigin(ParsedOrigin([simple_origin]), Pipeline(parsed_segments))
+        return PipelineWithOrigin(Pipeline(parsed_segments))
 
     # =================================== Static utility methods ===================================
 
@@ -135,7 +147,6 @@ class PipelineWithOrigin:
         Collects errors that can be known before execution time.
         '''
         errors = ErrorLog()
-        errors.extend(self.origin.get_static_errors(), 'script origin')
         errors.extend(self.pipeline.get_static_errors())
         return errors
 
@@ -185,19 +196,8 @@ class PipelineWithOrigin:
         '''
         Performs the PipelineWithOrigin purely functionally, with its side-effects and final values to be handled by the caller.
         '''
-        errors = ErrorLog()
-
-        ### STEP 1: Get origin values
-        values, origin_errors = await self.origin.evaluate(context, scope)
-        errors.extend(origin_errors, 'script origin')
-        if errors.terminal: return None, errors, None
-
-        ### STEP 2: Apply pipeline to values
-        values, pl_errors, spout_state = await self.pipeline.apply(values, context, scope)
-        errors.extend(pl_errors)
-        if errors.terminal: return None, errors, None
-
-        return values, errors, spout_state
+        initial_values = scope.items if scope is not None else ()
+        return await self.pipeline.apply(initial_values, context, scope)
 
     async def perform_side_effects(self, context: 'Context', spout_state: SpoutState, end_values: list[str]) -> ErrorLog:
             '''
