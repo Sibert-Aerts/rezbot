@@ -7,7 +7,7 @@ from discord import Embed, Guild, TextChannel, Message, Client
 
 from utils.util import normalize_name
 from utils.texttools import block_format
-from .pipeline_with_origin import PipelineWithOrigin
+from .executable_script import ExecutableScript
 
 
 def DIR(filename=''):
@@ -84,7 +84,7 @@ class Event:
         return embed
 
     def get_static_errors(self):
-        return PipelineWithOrigin.from_string(self.script).get_static_errors()
+        return ExecutableScript.from_string(self.script).get_static_errors()
 
     # ================ Serialization ================
 
@@ -374,7 +374,7 @@ class Events:
             return True
 
         ## Statically analyse the script for parsing errors and warnings
-        errors = PipelineWithOrigin.from_string(script).get_static_errors()
+        errors = ExecutableScript.from_string(script).get_static_errors()
         if errors.terminal:
             await channel.send('Failed to save event due to parsing errors:', embed=errors.embed())
             return True

@@ -191,7 +191,7 @@ class ParsedSource:
         Evaluate this `{source}` expression, there are four cases:
         * We are a native Source: Straightforwardly call Source.generate
         * We are a native Pipe: Evaluate the Arguments' remainder, and feed it into the Pipe.apply
-        * We are a Source Macro: Perform a variant of PipelineWithOrigin.execute
+        * We are a Source Macro: Perform a variant of ExecutableScript.execute
         * We are a Pipe Macro: Evaluate the Arguments' remainder, and feet it into Pipeline.apply
         '''
         errors = ErrorLog()
@@ -237,11 +237,11 @@ class ParsedSource:
                 errors.log(e, True, context=self.name)
                 return NOTHING_BUT_ERRORS
 
-            ## STEP 2: Execute PipelineWithOrigin without side effects
-            pipeline_with_origin = PipelineWithOrigin.from_string(macro.code)
+            ## STEP 2: Execute ExecutableScript without side effects
+            executable_script = ExecutableScript.from_string(macro.code)
             macro_ctx = context.into_macro(macro, args)
-            values, pwo_errors, _ = await pipeline_with_origin.execute_without_side_effects(macro_ctx)
-            return values, errors.extend(pwo_errors, self.name)
+            values, script_errors, _ = await executable_script.execute_without_side_effects(macro_ctx)
+            return values, errors.extend(script_errors, self.name)
 
         ## CASE: Macro Pipe
         elif self.name in MACRO_PIPES:
@@ -332,12 +332,12 @@ class ParsedSpecialSymbol:
 class ParsedInlineScript:
     ''' Class representing an inline script inside a TemplatedString. '''
 
-    def __init__(self, script: 'PipelineWithOrigin'):
+    def __init__(self, script: 'ExecutableScript'):
         self.script = script
 
     @staticmethod
     def from_parsed(parsed: ParseResults):
-        return ParsedInlineScript(PipelineWithOrigin.from_parsed_simple_script(parsed['inline_script']))
+        return ParsedInlineScript(ExecutableScript.from_parsed_simple_script(parsed['inline_script']))
 
     def __repr__(self):
         return 'InlScript(%s)' % repr(self.script)
@@ -357,7 +357,7 @@ ParsedTemplatedElement: TypeAlias = ParsedItem | ParsedSource | ParsedConditiona
 
 # þeſe lynes art doƿn here due to dependencys circulaire
 from .templated_string import TemplatedString
-from .pipeline_with_origin import PipelineWithOrigin, Pipeline
+from .executable_script import ExecutableScript, Pipeline
 from .signature import ArgumentError, Arguments
 from pipes.implementations.sources import NATIVE_SOURCES
 from pipes.implementations.pipes import NATIVE_PIPES

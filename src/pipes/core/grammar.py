@@ -238,7 +238,7 @@ At that point however, things get more complicated, as any attempt at grammatici
 
 ANALYSIS OF THE CURRENT NON-PYPARSING GRAMMARS RESPONSIBLE FOR PARSING A SCRIPT:
     1. The "butcher grammar", which does not care about the finer aspects of the script, merely cares about chopping it into [origin, pipe_chunk, pipe_chunk, ...]
-        This is implemented via extremely simple state machines in PipelineWithOrigin.split and Pipeline.split_into_segments.
+        This is implemented via extremely simple state machines in ExecutableScript.split and Pipeline.split_into_segments.
         Currently, essentially, these very naively consider quotation marks and nested parentheses to determine "legit, top level >'s" to split on.
     2. Parse each "pipe chunk"'s leading GroupMode
     3. Then, for each "pipe chunk":

@@ -3,7 +3,7 @@ from discord.interactions import Interaction
 
 from utils.texttools import block_format
 from .generic_views import ConfirmView, RezbotView
-from pipes.core.pipeline_with_origin import PipelineWithOrigin
+from pipes.core.executable_script import ExecutableScript
 from pipes.core.events import Event, Events, OnMessage, OnReaction, OnInvoke
 
 
@@ -34,7 +34,7 @@ class EditEventModal(ui.Modal):
             ## Statically check the new script if needed
             script_value = self.script_input.value
             if script_value != self.event.script:
-                errors = PipelineWithOrigin.from_string(script_value).get_static_errors()
+                errors = ExecutableScript.from_string(script_value).get_static_errors()
                 if errors.terminal:
                     msg = f'Failed to update Event script\n{block_format(script_value)} due to errors:'
                     # TODO: "save changes anyway" View

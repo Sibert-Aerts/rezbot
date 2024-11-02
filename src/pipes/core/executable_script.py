@@ -14,7 +14,7 @@ class TerminalError(Exception):
     '''Special error that serves as a signal to end script execution but contains no information.'''
 
 
-class PipelineWithOrigin:
+class ExecutableScript:
     '''
     Class representing a complete "Rezbot script" that may be executed.
     Functionally just a wrapper around a parsed Pipeline object with additional methods
@@ -34,12 +34,12 @@ class PipelineWithOrigin:
 
     @lru_cache(100)
     @staticmethod
-    def from_string(script: str) -> 'PipelineWithOrigin':
+    def from_string(script: str) -> 'ExecutableScript':
         pipeline = Pipeline.from_string(script, start_with_origin=True)
-        return PipelineWithOrigin(pipeline, script_str=script)
+        return ExecutableScript(pipeline, script_str=script)
 
     @staticmethod
-    def from_parsed_simple_script(parsed: ParseResults) -> 'PipelineWithOrigin':
+    def from_parsed_simple_script(parsed: ParseResults) -> 'ExecutableScript':
         parsed_segments = []
 
         # Parse origin
@@ -69,7 +69,7 @@ class PipelineWithOrigin:
             else:
                 raise Exception()
 
-        return PipelineWithOrigin(Pipeline(parsed_segments))
+        return ExecutableScript(Pipeline(parsed_segments))
 
     # =================================== Static utility methods ===================================
 
@@ -142,13 +142,11 @@ class PipelineWithOrigin:
 
     # =================================== Static analysis methods ==================================
 
-    def get_static_errors(self):
+    def get_static_errors(self) -> ErrorLog:
         '''
         Collects errors that can be known before execution time.
         '''
-        errors = ErrorLog()
-        errors.extend(self.pipeline.get_static_errors())
-        return errors
+        return self.pipeline.get_static_errors()
 
     # ====================================== Execution method ======================================
 
@@ -194,7 +192,7 @@ class PipelineWithOrigin:
 
     async def execute_without_side_effects(self, context: 'Context', scope: 'ItemScope'=None) -> tuple[ list[str], ErrorLog, SpoutState ]:
         '''
-        Performs the PipelineWithOrigin purely functionally, with its side-effects and final values to be handled by the caller.
+        Performs the ExecutableScript purely functionally, with its side-effects and final values to be handled by the caller.
         '''
         initial_values = scope.items if scope is not None else ()
         return await self.pipeline.apply(initial_values, context, scope)

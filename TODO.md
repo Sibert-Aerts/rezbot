@@ -61,7 +61,7 @@
         * Thing where being enabled/disabled is a layered structure with "yes/unset/no" flags per Channel/Server/Global
             * ie. for a message in a channel it looks up through the chain for the first definite "yes" or "no"
         * Validate/static analysis on code changed by the Edit Event box widget
-        * Now that they're not Pickled anymore, they can be holding on to the PipelineWithOrigin of their respective script, instead of the LRU thing?
+        * Now that they're not Pickled anymore, they can be holding on to the ExecutableScript of their respective script, instead of the LRU thing?
         * more types of event triggers: MESSAGE CONTAINS (regex), USER IS (username/id), TIME IS (?), logical operations?? ????
             * `ON CONDITION ({message} ILIKE /^hello/ AND {get {me id}_evil} IS TRUE)`
         * `ON COMMAND !praise name` would allow acces to argument `name` by using `{arg name}`?

@@ -3,7 +3,7 @@ from discord import Interaction, ui, ButtonStyle, TextStyle
 
 from .spouts import spout_from_class, spout_from_func, set_category, with_signature, Par, Context, Spout
 from pipes.core.signature import Option, parse_bool
-from pipes.core.pipeline_with_origin import PipelineWithOrigin
+from pipes.core.executable_script import ExecutableScript
 from pipes.core.context import ItemScope
 from pipes.views.generic_views import RezbotButton, RezbotView
 
@@ -32,7 +32,7 @@ class ButtonSpout:
 
     class Button(RezbotButton):
         '''Button which executes a given script on click.'''
-        def set_spout_args(self, ctx: Context, script: PipelineWithOrigin, lockout: bool, defer: bool):
+        def set_spout_args(self, ctx: Context, script: ExecutableScript, lockout: bool, defer: bool):
             # NOTE: These values may hang around for a while, be wary of memory leaks
             self.original_context = ctx
             self.script = script
@@ -67,7 +67,7 @@ class ButtonSpout:
             self.locked = False
 
     @with_signature(
-        script  = Par(PipelineWithOrigin.from_string, required=False, desc='Script to execute when the button is pressed.'),
+        script  = Par(ExecutableScript.from_string, required=False, desc='Script to execute when the button is pressed.'),
         label   = Par(str, required=False, desc='The label'),
         emoji   = Par(str, required=False, desc='The button\'s emoji'),
         style   = Par(ButtonStyleOption, default='primary', desc='The button\'s style: primary/secondary/success/danger.'),
@@ -108,7 +108,7 @@ class ModalSpout:
     name = 'modal'
 
     class Modal(ui.Modal):
-        def set_spout_args(self, ctx: Context, script: PipelineWithOrigin, defer: bool):
+        def set_spout_args(self, ctx: Context, script: ExecutableScript, defer: bool):
             # NOTE: These values may hang around for a while, be wary of memory leaks
             self.original_context = ctx
             self.script = script
@@ -139,7 +139,7 @@ class ModalSpout:
             await self.script.execute(context, scope)
 
     @with_signature(
-        script   = Par(PipelineWithOrigin.from_string, required=False, desc='Script to execute when the button is pressed.'),
+        script   = Par(ExecutableScript.from_string, required=False, desc='Script to execute when the button is pressed.'),
         title    = Par(str, default='Modal', desc='The modal\'s title'),
         label    = Par(str, default='Text', desc='The text field\'s label'),
         default  = Par(str, required=False, desc='The text field\'s default content'),
@@ -187,7 +187,7 @@ class ModalButtonSpout:
             await interaction.response.send_modal(self.make_modal())
 
     @with_signature(
-        script = Par(PipelineWithOrigin.from_string, required=False, desc='Script to execute when the button is pressed.'),
+        script = Par(ExecutableScript.from_string, required=False, desc='Script to execute when the button is pressed.'),
         title = Par(str, default='Modal', desc='The modal\'s title'),
         button_label = Par(str, default='Button', desc='The button\'s label'),
         button_style = Par(ButtonSpout.ButtonStyleOption, default='primary', desc='The button\'s style: primary/secondary/success/danger.'),

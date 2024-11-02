@@ -1,6 +1,6 @@
 from discord.ext import commands
 
-from pipes.core.pipeline_with_origin import PipelineWithOrigin
+from pipes.core.executable_script import ExecutableScript
 from pipes.core.pipe import Pipe, Source, Spout
 from pipes.core.context import Context
 from pipes.implementations.pipes import NATIVE_PIPES
@@ -47,7 +47,7 @@ async def setup(bot: commands.Bot):
             try:
                 # Apply the pipe to what remains of the command string
                 results = await pipe.apply([text], **args)
-                await PipelineWithOrigin.send_print_values(ctx.channel, [results])
+                await ExecutableScript.send_print_values(ctx.channel, [results])
 
             except Exception as e:
                 err.log(f'With args {args}:\n\t{type(e).__name__}: {e}', True)
@@ -93,7 +93,7 @@ async def setup(bot: commands.Bot):
             try:
                 # Apply the source with the given arguments
                 results = await source.generate(script_context, args)
-                await PipelineWithOrigin.send_print_values(ctx.channel, [results])
+                await ExecutableScript.send_print_values(ctx.channel, [results])
 
             except Exception as e:
                 err.log(f'With args {args}:\n\t{type(e).__name__}: {e}', True)

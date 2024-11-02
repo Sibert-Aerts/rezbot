@@ -7,7 +7,7 @@ from lru import LRU
 from discord import Embed, TextChannel, Client
 from .signature import ArgumentError
 from .pipeline import Pipeline
-from .pipeline_with_origin import PipelineWithOrigin
+from .executable_script import ExecutableScript
 from .logger import ErrorLog
 import utils.texttools as texttools
 import permissions
@@ -120,7 +120,7 @@ class Macro:
         if self.kind == "Pipe":
             return Pipeline.from_string(self.code).get_static_errors()
         elif self.kind == "Source":
-            return PipelineWithOrigin.from_string(self.code).get_static_errors()
+            return ExecutableScript.from_string(self.code).get_static_errors()
 
     # ======================================== Serialization =======================================
 

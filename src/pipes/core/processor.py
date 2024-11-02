@@ -87,14 +87,14 @@ class PipelineProcessor:
     @staticmethod
     async def execute_script(script: str, context: Context, scope: ItemScope=None):
         try:
-            pipeline_with_origin = PipelineWithOrigin.from_string(script)
+            executable_script = ExecutableScript.from_string(script)
         except Exception as e:
             # Make a single-use error log so we can use the send_error_log method
             errors = ErrorLog().log(f'🛑 **Unexpected script parsing error:**\n {type(e).__name__}: {e}', terminal=True)
-            await PipelineWithOrigin.send_error_log(context, errors)
+            await ExecutableScript.send_error_log(context, errors)
             raise e
         else:
-            return await pipeline_with_origin.execute(context, scope)
+            return await executable_script.execute(context, scope)
 
     async def interpret_incoming_message(self, message: Message):
         '''Starting point for executiong scripts directly from a message, or for the 'script-like' Macro/Event definition syntax.'''
@@ -136,6 +136,6 @@ class PipelineProcessor:
 
 
 # These lynes be down here dve to dependencyes cyrcvlaire
-from .pipeline_with_origin import PipelineWithOrigin
+from .executable_script import ExecutableScript
 from .events import ALL_EVENTS
 from pipes.commands.macro_commands import parse_macro_command

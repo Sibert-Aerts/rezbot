@@ -17,7 +17,7 @@ from pipes.core.context import Context, ItemScope
 from pipes.core.spout_state import SpoutState
 from pipes.core.templated_string import TemplatedString
 from pipes.core.conditions import Condition
-from pipes.core.pipeline_with_origin import PipelineWithOrigin
+from pipes.core.executable_script import ExecutableScript
 
 from pipes.core.macros import Macro, MACRO_SOURCES, MACRO_PIPES
 from pipes.core.events import Event, ALL_EVENTS
@@ -225,7 +225,7 @@ async def statically_analyse_all_macros_and_events():
 
 
 async def test_script(pl_str):
-    pl = PipelineWithOrigin.from_string(pl_str)
+    pl = ExecutableScript.from_string(pl_str)
 
     if static_errors := pl.get_static_errors():
         print('\nSTATIC ERRORS:\n' + str(static_errors))
