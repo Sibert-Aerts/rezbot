@@ -1,5 +1,5 @@
 import re
-from typing import Union
+from typing import Union, TypeAlias
 from pyparsing import ParseBaseException, ParseResults
 from functools import lru_cache
 
@@ -86,6 +86,30 @@ class ParsedPipe:
         return ParsedPipe(name, arguments, errors=errors)
 
 
+class ParsedOrigin:
+    '''
+    Holds an 'origin' for a script (better name pending).
+    '''
+    __slots__ = ('origin',)
+
+    origin: str | list['TemplatedString']
+
+    def __init__(self, origin: str | list['TemplatedString']):
+        # NOTE: String may be a string instead of a list of TemplatedStrings
+        #   because the "[?]" ChoiceTree flag means it may not represent the same TemplatedStrings each time.
+        # But sometimes it may, and then it's a list[TemplatedString].
+        self.origin = origin
+
+    async def evaluate(self, context: 'Context', scope: 'ItemScope') -> tuple[list[str], ErrorLog]:
+        if isinstance(self.origin, str):
+            return await TemplatedString.evaluate_origin(self.origin, context, scope)
+        else:
+            return await TemplatedString.map_evaluate(self.origin, context, scope)
+
+
+PipeSegment: TypeAlias = tuple['groupmodes.GroupMode', list[Union[ParsedPipe, 'Pipeline']]]
+
+
 class Pipeline:
     '''
     The Pipeline class parses a pipeline script into a reusable, applicable Pipeline object.
@@ -94,8 +118,13 @@ class Pipeline:
         * An internal representation of the script using ParsedPipes, GroupModes, Pipelines, Arguments, etc.
         * An ErrorLog containing warnings and errors encountered during parsing.
     '''
-    def __init__(self, parsed_segments: list[tuple['groupmodes.GroupMode', list[Union[ParsedPipe, 'Pipeline']]]], *, parser_errors: ErrorLog=None, iterations: int=1):
-        self.parsed_segments = parsed_segments
+
+    segments: list[ParsedOrigin | PipeSegment]
+    parser_errors: ErrorLog
+    iterations: int
+
+    def __init__(self, segments: list[ParsedOrigin | PipeSegment], *, parser_errors: ErrorLog=None, iterations: int=1):
+        self.segments = segments
         self.parser_errors = parser_errors
         self.iterations = iterations
         if self.iterations < 0:
@@ -104,17 +133,22 @@ class Pipeline:
     @lru_cache(100)
     @staticmethod
     def from_string(string: str, iterations: str=None):
+        segment_strs = Pipeline.split_into_segments(string)
+        return Pipeline.from_split_segments(segment_strs, iterations=iterations)
+
+    @staticmethod
+    def from_split_segments(segment_strs: list[str | ParsedOrigin], iterations: str=None):
         errors = ErrorLog()
         iterations = int(iterations or 1)
 
-        ### Split the pipeline into segments (segment > segment > segment)
-        segments = Pipeline.split_into_segments(string)
-
-        ### For each segment, parse the group mode, expand the parallel pipes and parse each parallel pipe.
-        parsed_segments: list[tuple[ groupmodes.GroupMode, list[ParsedPipe | Pipeline] ]] = []
-        for segment in segments:
+        segments: list[ParsedOrigin | PipeSegment] = []
+        for segment_str in segment_strs:
+            if isinstance(segment_str, ParsedOrigin):
+                segments.append(segment_str)
+                continue
             try:
-                groupmode, segment = groupmodes.GroupMode.from_string_with_remainder(segment)
+                ## Parse groupmode
+                groupmode, segment_str = groupmodes.GroupMode.from_string_with_remainder(segment_str)
             except ParseBaseException as e:
                 errors.log_parse_exception(e)
                 continue
@@ -122,23 +156,23 @@ class Pipeline:
                 errors.log(e, True)
                 continue
             try:
-                parallel, segment_errors = Pipeline.parse_segment(segment)
+                ## Parse (parallel) pipe(lines)
+                parallel, segment_errors = Pipeline.parse_segment(segment_str)
             except ParseBaseException as e:
                 errors.log_parse_exception(e)
                 continue
             errors.extend(groupmode.pre_errors, 'groupmode')
             errors.extend(segment_errors)
-            parsed_segments.append((groupmode, parallel))
+            segments.append((groupmode, parallel))
 
-        return Pipeline(parsed_segments, parser_errors=errors, iterations=iterations)
+        return Pipeline(segments, parser_errors=errors, iterations=iterations)
 
     # =========================================== Parsing ==========================================
 
     @classmethod
-    def split_into_segments(cls, string: str):
+    def split_into_segments(cls, string: str, start_in_origin_str=False) -> list[str | ParsedOrigin]:
         '''
-        Split the sequence of pipes (one big string) into a list of pipes (list of strings).
-        Doesn't split on >'s inside quote blocks or within parentheses, and inserts "print"s on ->'s.
+        Split the pipeline into top-level segments (segment > segment > segment)
         '''
         OPEN_PAREN, CLOSE_PAREN = '()'
         OPEN_BRACE, CLOSE_BRACE = '{}'
@@ -147,22 +181,36 @@ class Pipeline:
         SINGLE_QUOTES = ('"', "'")
         ALL_QUOTES = ('"""', "'''", '"', "'")
 
-        stack = []
         segments = []
-        segment_start = 0
+
+        stack = []
+        start = 0
         i = 0
+        in_origin_str = start_in_origin_str
+
+        def append_segment(s: str):
+            s = s.strip()
+            segments.append(s if not in_origin_str else ParsedOrigin(s))
+
+        def find_next_segment_start():
+            nonlocal i, start
+            ls = len(string)
+            while i < ls and string[i].isspace():
+                i += 1
+            start = i
 
         while i < len(string):
             c = string[i]
             escaped = i > 0 and string[i-1] == '~'
 
-            ## Parentheses: Only top-level or within other parentheses, unescapable
-            if c == OPEN_PAREN and (not stack or stack[-1] == OPEN_PAREN):
-                stack.append(c)
-                i += 1; continue
-            if c == CLOSE_PAREN and stack and stack[-1] == OPEN_PAREN:
-                stack.pop()
-                i += 1; continue
+            if not in_origin_str:
+                ## Parentheses: Only top-level or within other parentheses, unescapable
+                if c == OPEN_PAREN and (not stack or stack[-1] == OPEN_PAREN):
+                    stack.append(c)
+                    i += 1; continue
+                if c == CLOSE_PAREN and stack and stack[-1] == OPEN_PAREN:
+                    stack.pop()
+                    i += 1; continue
 
             if not escaped:
                 ## Braces and brackets
@@ -176,9 +224,15 @@ class Pipeline:
                     stack.pop()
                     i += 1; continue
 
+                may_open_quotes = (
+                    i == start
+                    if in_origin_str else
+                    not stack or stack[-1] not in ALL_QUOTES
+                )
+
                 # Triple quotes
                 if (ccc := string[i:i+3]) in TRIPLE_QUOTES:
-                    if not stack or stack[-1] not in ALL_QUOTES:
+                    if may_open_quotes:
                         stack.append(ccc)
                         i += 3; continue
                     if stack and stack[-1] == ccc:
@@ -187,7 +241,7 @@ class Pipeline:
 
                 # Single quotes
                 if c in SINGLE_QUOTES:
-                    if not stack or stack[-1] not in ALL_QUOTES:
+                    if may_open_quotes:
                         stack.append(c)
                         i += 1; continue
                     if stack and stack[-1] == c:
@@ -197,22 +251,32 @@ class Pipeline:
             ## Un-nested >, ending the segment
             if not stack and c == '>':
                 if i > 0 and string[i-1] == '-':
-                    segments.append(string[segment_start:i-1])
-                    segments.append('print')
+                    # Special case: '->' is shorthand for '> print >'
+                    append_segment(string[start:i-1])
+                    append_segment('print')
                 else:
-                    segments.append(string[segment_start:i])
-                i += 1
-                segment_start = i
+                    append_segment(string[start:i])
+
+                if string[i:i+2] == '>>':
+                    # Start a new OriginString segment
+                    in_origin_str = True
+                    i += 2
+                else:
+                    # Start a new pipe segment
+                    in_origin_str = False
+                    i += 1
+
+                find_next_segment_start()
                 continue
 
             ## Nothing special
             i += 1
 
         ## Add the final segment, regardless of unclosed delimiters on the stack
-        if final_segment := string[segment_start:]:
-            segments.append(final_segment)
+        if final_segment := string[start:]:
+            append_segment(final_segment)
 
-        return [s.strip() for s in segments]
+        return segments
 
     # Matches the first (, until either the last ) or if there are no ), the end of the string
     # Use of this regex relies on the knowledge/assumption that the nested parentheses in the string are matched
@@ -385,7 +449,18 @@ class Pipeline:
         self.check_items(loose_items, context)
 
         ### This loop iterates over the pipeline's segments as they are applied in sequence. (first > second > third)
-        for group_mode, parsed_pipes in self.parsed_segments:
+        for segment in self.segments:
+
+            ## CASE: Origin String
+            if isinstance(segment, ParsedOrigin):
+                item_scope.set_items(loose_items)
+                loose_items, origin_errors = await segment.evaluate(context, item_scope)
+                if errors.extend(origin_errors, 'origin').terminal:
+                    return NOTHING_BUT_ERRORS
+                continue
+
+            ## CASE: Groupmode and a set of parallel pipes or pipelines
+            group_mode, parsed_pipes = segment
             next_items = []
             new_printed_items = []
 
@@ -538,6 +613,7 @@ class Pipeline:
 
 # These lynes be down here dve to dependencyes cyrcvlaire
 from .templated_element import ParsedSource
+from .templated_string import TemplatedString
 from .macros import MACRO_PIPES, MACRO_SOURCES
 from .context import Context, ItemScope
 from .signature import Signature, ArgumentError, Arguments

@@ -80,9 +80,6 @@
             * "COUNT > 10"
         * WIP: How does implicit `{}` tracking work? It should probably just refuse it entirely, right?
 
-    * **PARSING BUGS:**
-        * `>> foo > bar x=( > baz` doesn't understand the ( should be a character and not a parenthesis (circumventable by writing `x="("`)
-
     * **SPECULATIVE:**
         * Allow pipe(line)s as arguments, somehow?
             * e.g. `sub_func from=\b(\w) to=( convert fraktur )`

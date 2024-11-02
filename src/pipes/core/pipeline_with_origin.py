@@ -1,6 +1,7 @@
 from lru import LRU
 from discord import TextChannel
 from pyparsing import ParseResults
+from functools import lru_cache
 
 # More import statements at the bottom of the file, due to circular dependencies.
 from .logger import ErrorLog
@@ -25,36 +26,28 @@ class PipelineWithOrigin:
         * Source Macros, Events
         * (Rarely) as arguments passed to Pipes in a Pipeline (meta-recursion?)
     '''
-    # Static LRU cache holding up to 40 parsed instances... probably don't need any more
-    script_cache: dict[str, 'PipelineWithOrigin'] = LRU(40)
 
     # ======================================== Constructors ========================================
 
-    def __init__(self, origin: str | list['TemplatedString'], pipeline: 'Pipeline', *, static_errors: ErrorLog=None, script_str: str=None):
-        # NOTE: Origin may be a string instead of a list of TemplatedStrings
-        #   because the "[?]" ChoiceTree flag means it may not represent the same TemplatedStrings each time.
+    def __init__(self, origin: 'ParsedOrigin', pipeline: 'Pipeline', *, static_errors: ErrorLog=None, script_str: str=None):
         self.origin = origin
         self.pipeline = pipeline
         self.static_errors = static_errors
         self.script_str = script_str
 
-    @classmethod
-    def from_string(cls, script: str) -> 'PipelineWithOrigin':
-        ## No need to re-parse the same script
-        if script in cls.script_cache:
-            return cls.script_cache[script]
-
-        ## Parse
-        origin_str, pipeline_str = cls.split(script)
-        pipeline = Pipeline.from_string(pipeline_str)
+    @lru_cache(100)
+    @staticmethod
+    def from_string(script: str) -> 'PipelineWithOrigin':
+        ## Split
+        origin_str, *segments = Pipeline.split_into_segments(script, start_in_origin_str=True)
+        pipeline = Pipeline.from_split_segments(segments)
 
         ## Instantiate, cache, return
         pwo = PipelineWithOrigin(origin_str, pipeline, script_str=script)
-        cls.script_cache[script] = pwo
         return pwo
 
-    @classmethod
-    def from_parsed_simple_script(cls, parsed: ParseResults) -> 'PipelineWithOrigin':
+    @staticmethod
+    def from_parsed_simple_script(parsed: ParseResults) -> 'PipelineWithOrigin':
         parse_errors = ErrorLog()
 
         # Parse origin
@@ -70,7 +63,7 @@ class PipelineWithOrigin:
             parse_errors.extend(groupmode.pre_errors, "groupmode")
             parse_errors.extend(parsed_pipe.errors, parsed_pipe.name)
 
-        return PipelineWithOrigin([simple_origin], Pipeline(parsed_segments), static_errors=parse_errors)
+        return PipelineWithOrigin(ParsedOrigin([simple_origin]), Pipeline(parsed_segments), static_errors=parse_errors)
 
     # =================================== Static utility methods ===================================
 
@@ -80,73 +73,6 @@ class PipelineWithOrigin:
             script = script if len(script) < 50 else script[:47] + '...'
             return f'RezbotScript({script})'
         return f'RezbotScript(id={id(self)})'
-
-    @staticmethod
-    def split(script: str) -> tuple[str, str]:
-        '''
-        Splits a script into the origin and pipeline.
-
-        See also: Pipeline.split_into_segments()
-        '''
-        script = script.strip()
-
-        OPEN_BRACE, CLOSE_BRACE = '{}'
-        OPEN_BRACK, CLOSE_BRACK = '[]'
-        TRIPLE_QUOTES = ('"""', "'''")
-        SINGLE_QUOTES = ('"', "'")
-        ALL_QUOTES = ('"""', "'''", '"', "'")
-
-        stack = []
-        i = 0
-
-        while i < len(script):
-            c = script[i]
-            escaped = i > 0 and script[i-1] == '~'
-
-            if not escaped:
-                # Braces and brackets (nesting)
-                if c in (OPEN_BRACE, OPEN_BRACK):
-                    stack.append(c)
-                    i += 1; continue
-                if c == CLOSE_BRACE and stack and stack[-1] == OPEN_BRACE:
-                    stack.pop()
-                    i += 1; continue
-                if c == CLOSE_BRACK and stack and stack[-1] == OPEN_BRACK:
-                    stack.pop()
-                    i += 1; continue
-
-                # Triple quotes (only top-level, wrapping the entire origin str)
-                if (ccc := script[i:i+3]) in TRIPLE_QUOTES:
-                    if i == 0:
-                        stack.append(ccc)
-                        i += 3; continue
-                    elif stack and stack[-1] == ccc:
-                        stack.pop()
-                        i += 3; continue
-
-                # Single quotes (only top-level, wrapping the entire origin str)
-                if c in SINGLE_QUOTES:
-                    if i == 0:
-                        stack.append(c)
-                        i += 1; continue
-                    elif stack and stack[-1] == c:
-                        stack.pop()
-                        i += 1; continue
-
-            # Un-nested >
-            if not stack and c == '>':
-                if i > 0 and script[i-1] == '-':
-                    return script[:i-1].strip(), 'print >' + script[i+1:]
-                return script[:i].strip(), script[i+1:]
-
-            # Move up one character
-            i += 1
-
-        # NOTE: At this point we could take issue with the stack not being empty,
-        #   but since it implies the entire script is considered the origin str,
-        #   the worst outcome is that the script itself is printed as output.
-
-        return script.strip(), ''
 
     @staticmethod
     async def send_print_values(channel: TextChannel, values: list[list[str]], context: Context=None):
@@ -214,8 +140,8 @@ class PipelineWithOrigin:
         '''Gather static errors from both Origin and Pipeline.'''
         errors = ErrorLog()
         # 1. Origin errors
-        if isinstance(self.origin, str):
-            _, origin_errors = TemplatedString.parse_origin(self.origin)
+        if isinstance(self.origin.origin, str):
+            _, origin_errors = TemplatedString.parse_origin(self.origin.origin)
             errors.extend(origin_errors, 'script origin')
         if self.static_errors is not None:
             errors.extend(self.static_errors)
@@ -272,10 +198,7 @@ class PipelineWithOrigin:
         errors = ErrorLog()
 
         ### STEP 1: Get origin values
-        if isinstance(self.origin, str):
-            values, origin_errors = await TemplatedString.evaluate_origin(self.origin, context, scope)
-        else:
-            values, origin_errors = await TemplatedString.map_evaluate(self.origin, context, scope)
+        values, origin_errors = await self.origin.evaluate(context, scope)
         errors.extend(origin_errors, 'script origin')
         if errors.terminal: return None, errors, None
 
@@ -325,7 +248,7 @@ class PipelineWithOrigin:
 
 
 # These lynes be down here dve to dependencyes cyrcvlaire
-from .pipeline import ParsedPipe, Pipeline
+from .pipeline import ParsedOrigin, ParsedPipe, Pipeline
 from .templated_string import TemplatedString
 from pipes.implementations.spouts import NATIVE_SPOUTS
 from pipes.implementations.sources import SourceResources
