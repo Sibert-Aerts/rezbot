@@ -94,10 +94,12 @@ class PipelineProcessor:
             await ExecutableScript.send_error_log(context, errors)
             raise e
         else:
-            return await executable_script.execute(context, scope)
+            await executable_script.execute(context, scope)
 
     async def interpret_incoming_message(self, message: Message):
-        '''Starting point for executiong scripts directly from a message, or for the 'script-like' Macro/Event definition syntax.'''
+        '''
+        Starting point for executing scripts directly from a message, or for the 'script-like' Macro/Event definition syntax.
+        '''
 
         # Test for the script prefix and remove it (pipe_prefix in config.ini, default: '>>')
         if not message.content.startswith(self.prefix):

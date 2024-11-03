@@ -189,10 +189,10 @@ class ParsedSource:
     async def evaluate(self, context: Context, scope: ItemScope, args: dict=None) -> tuple[ list[str] | None, ErrorLog ]:
         '''
         Evaluate this `{source}` expression, there are four cases:
-        * We are a native Source: Straightforwardly call Source.generate
-        * We are a native Pipe: Evaluate the Arguments' remainder, and feed it into the Pipe.apply
-        * We are a Source Macro: Perform a variant of ExecutableScript.execute
-        * We are a Pipe Macro: Evaluate the Arguments' remainder, and feet it into Pipeline.apply
+        * We are a Native Source: Straightforwardly call Source.generate
+        * We are a Native Pipe: Evaluate the Arguments' remainder, and feed it into the Pipe.apply
+        * We are a Macro Source: Perform Pipeline.apply on no values
+        * We are a Macro Pipe: Evaluate the Arguments' remainder, and feed it into Pipeline.apply
         '''
         errors = ErrorLog()
         errors.extend(self.pre_errors)

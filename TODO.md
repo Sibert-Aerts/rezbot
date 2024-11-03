@@ -51,6 +51,7 @@
         * Allow structured files (json)
 
     * **Macros:**
+        * Warn about static errors in Macros at edit time, the same way as happens for Events
         * Way of easily turning macros into commands
         * Custom namespaces for macros and events
             * Decreases clutter of the global macros/events lists

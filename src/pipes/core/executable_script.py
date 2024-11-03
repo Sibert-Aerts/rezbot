@@ -1,6 +1,5 @@
 from discord import TextChannel
 from pyparsing import ParseResults
-from functools import lru_cache
 
 # More import statements at the bottom of the file, due to circular dependencies.
 from .logger import ErrorLog
@@ -150,26 +149,25 @@ class ExecutableScript:
     async def execute(self, context: 'Context', scope: 'ItemScope'=None):
         '''
         This function connects the three major steps of executing a script:
-            * Evaluating the origin
-            * Running the result through the pipeline
-            * Performing any Spout callbacks
+            * Executing the pipeline
+            * Performing side effects
 
         All while handling and communicating any errors that may arise during that process.
         '''
         errors = ErrorLog()
 
         try:
-            ## STEP 1 & 2: Execute the pipeline
+            ## Execute the pipeline
             values, exec_errors, spout_state = await self.execute_without_side_effects(context, scope)
             errors.extend(exec_errors)
             if errors.terminal: raise TerminalError()
 
-            ### STEP 3: Perform the side-effects
+            ## Perform the side-effects
             side_errors = await self.perform_side_effects(context, spout_state, values)
             errors.extend(side_errors)
             if errors.terminal: raise TerminalError()
 
-            ## Post warning output to the channel if any
+            ## Post warning output, if any
             if errors:
                 await self.send_error_log(context, errors)
 
