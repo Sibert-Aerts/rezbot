@@ -26,6 +26,8 @@ class ParsedPipe:
     MACRO_SOURCE    = object()
     UNKNOWN         = object()
 
+    __slots__ = ('name', 'type', 'arguments', 'errors', 'pipe')
+
     def __init__(self, name: str, arguments: 'Arguments', *, errors: ErrorLog=None):
         self.errors = errors if errors is not None else ErrorLog()
         self.arguments = arguments
@@ -85,6 +87,13 @@ class ParsedPipe:
         arguments, _, errors = Arguments.from_parsed(result['args'], signature)
         return ParsedPipe(name, arguments, errors=errors)
 
+    # ======================================= Representation =======================================
+
+    def __repr__(self):
+        return 'ParsedPipe(%s, %s)' % (repr(self.name), repr(self.arguments))
+    def __str__(self):
+        return self.name + ((' ' + str(self.arguments)) if self.arguments else '')
+
 
 class ParsedOrigin:
     '''
@@ -137,6 +146,8 @@ class ParsedOrigin:
 
         return origins, errors
 
+    # ======================================= Representation =======================================
+
     def get_static_errors(self) -> ErrorLog:
         '''
         Collects errors that can be known before execution time.
@@ -149,6 +160,13 @@ class ParsedOrigin:
             for ts in self.origin:
                 errors.extend(ts.pre_errors)
             return errors
+
+    def __repr__(self):
+        return 'ParsedOrigin(%s)' % repr(self.origin)
+    def __str__(self):
+        return str(self.origin)
+
+    # ========================================= Application ========================================
 
     async def evaluate(self, context: 'Context', scope: 'ItemScope') -> tuple[list[str], ErrorLog]:
         '''
@@ -470,6 +488,30 @@ class Pipeline:
                     else:
                         errors.extend(pipe.get_static_errors(), 'parens')
         return errors
+
+    def __repr__(self):
+        return 'Pipeline(%s)' % repr(self.segments)
+    def __str__(self):
+        pieces = []
+        for segment in self.segments:
+            if isinstance(segment, ParsedOrigin):
+                pieces.append('>>')
+                pieces.append(str(segment))
+            else:
+                gm, pipes = segment
+                pieces.append('>')
+                pieces.append(str(gm))
+                pipes_strs = []
+                for pipe in pipes:
+                    if isinstance(pipe, Pipeline):
+                        pipes_strs.append('( ' + str(pipe) + ' )')
+                    else:
+                        pipes_strs.append(str(pipe))
+                if len(pipes_strs) == 1:
+                    pieces.append(pipes_strs[0])
+                else:
+                    pieces.append('[ ' + ' | '.join(pipes_strs) + ' ]')
+        return ' '.join(pieces[1:]) # Crop off the leading >> or >
 
     # ========================================= Application ========================================
 

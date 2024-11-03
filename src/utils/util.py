@@ -73,6 +73,31 @@ def normalize_name(name: str):
     return name
 
 
+def repr_list_pretty(l: list, base_indent=0) -> str:
+    '''
+    Reprs a list prettily based on number of entries, so either of the form
+    `[]`
+    or
+    `[x]`
+    or
+    ```
+    [
+        x,
+        y,
+        z,
+    ]
+    ```
+    '''
+    return repr_list_of_reprs_pretty([repr(x) for x in l], base_indent=base_indent)
+
+def repr_list_of_reprs_pretty(l: list[str], base_indent=0) -> str:
+    if not l: return '[]'
+    if len(l) == 1:
+        return '[%s]' % l[0]
+    indent = (base_indent+1) * '    '
+    return '[' + ''.join('\n%s%s,' % (indent, x) for x in l) + '\n' + base_indent*'    ' + ']'
+
+
 theSheriff = '''
 ⠀　　　:cowboy:
 　　:100::100::100:

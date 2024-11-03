@@ -2,6 +2,7 @@ import re
 from typing import TypeVar
 from random import choice
 from pyparsing import ParseResults
+import itertools
 
 from .logger import ErrorLog
 from .conditions import Condition
@@ -194,19 +195,26 @@ from . import grammar
 #         ｇａｍｍａ
 #         delta
 
+
 class GroupModeError(ValueError):
     '''Something went wrong while parsing or applying a GroupMode.'''
     def __init__(self, message: str=None, errors=None):
         self.errors = errors
         super().__init__(message)
 
+
 T = TypeVar('T')
 P = TypeVar('P')
+
 
 ################ SPLITMODES ################
 
 class SplitMode:
-    '''An object representing a function that turns a list of item into smaller lists.'''
+    '''
+    Abstract class.
+    Splitmodes are objects representing methods of turning a list of items into smaller lists.
+    '''
+    __slots__ = ('strictness')
     def __init__(self, strictness: int):
         self.strictness = strictness
 
@@ -236,14 +244,14 @@ class SplitMode:
                 return Interval(strictness, '0', '0')
             case 'split_tail':
                 return Interval(strictness, '-0', '-0')
-            case bad_name:
+            case _:
                 raise Exception()
 
     @staticmethod
     def from_string(string: str):
         return SplitMode.from_parsed(grammar.gm_single_split.parse_string(string, parse_all=True)[0])
 
-    def __str__(self):
+    def strictness_as_readable_str(self) -> str:
         if self.strictness == 0: return ''
         if self.strictness == 1: return 'STRICT '
         if self.strictness == 2: return 'VERY STRICT '
@@ -253,14 +261,19 @@ class SplitMode:
 
 
 class Row(SplitMode):
+    __slots__ = ('size', 'padding')
     def __init__(self, strictness: int, size: int, padding: bool=False):
         super().__init__(strictness)
         if size < 1: raise GroupModeError('Row size must be at least 1.')
         self.size = size
         self.padding = padding
 
+    def __repr__(self):
+        return 'Row(%s, %s, %s)' % (self.strictness, self.size, self.padding)
     def __str__(self):
-        return '{}ROWS SIZE {}{}'.format(super().__str__(), self.size, ' WITH PADDING' if self.padding else '')
+        return '(%s%s)%s' % ('0' if self.padding else '', self.size, self.strictness * '!')
+    def as_readable_str(self):
+        return '{}ROWS SIZE {}{}'.format(self.strictness_as_readable_str(), self.size, ' WITH PADDING' if self.padding else '')
 
     def apply(self, items: list[P]) -> list[tuple[list[P], bool]]:
         length = len(items)     # The number of items we want to split
@@ -298,15 +311,21 @@ class Row(SplitMode):
         ## Slice our input into groups of the desired size.
         return [(items[i: i+size], False) for i in range(0, length, size)]
 
+
 class Divide(SplitMode):
+    __slots__ = ('count', 'padding')
     def __init__(self, strictness, count, padding):
         super().__init__(strictness)
         if count < 1: raise GroupModeError('Divide count must be at least 1.')
         self.count = count
         self.padding = padding
 
+    def __repr__(self):
+        return 'Divide(%s, %s, %s)' % (self.strictness, self.count, self.padding)
     def __str__(self):
-        return '{}DIVIDE INTO {}{}'.format(super().__str__(), self.count, ' WITH PADDING' if self.padding else '')
+        return '/%s%s%s' % ('0' if self.padding else '', self.count, self.strictness * '!')
+    def as_readable_str(self):
+        return '{}DIVIDE INTO {}{}'.format(self.strictness_as_readable_str(), self.count, ' WITH PADDING' if self.padding else '')
 
     def apply(self, items: list[P]) -> list[tuple[list[P], bool]]:
         length = len(items)     # The number of items we want to split
@@ -353,15 +372,21 @@ class Divide(SplitMode):
             out.append( (items[left:right], False) )
         return out
 
+
 class Modulo(SplitMode):
+    __slots__ = ('modulo', 'padding')
     def __init__(self, strictness, modulo, padding):
         super().__init__(strictness)
         if modulo < 1: raise GroupModeError('Modulo value must be at least 1.')
         self.modulo = modulo
         self.padding = padding
 
+    def __repr__(self):
+        return 'Modulo(%s, %s, %s)' % (self.strictness, self.modulo, self.padding)
     def __str__(self):
-        return '{}MODULO {}{}'.format(super().__str__(), self.modulo, ' WITH PADDING' if self.padding else '')
+        return '%%%s%s%s' % ('0' if self.padding else '', self.modulo, self.strictness * '!')
+    def as_readable_str(self):
+        return '{}MODULO {}{}'.format(self.strictness_as_readable_str(), self.modulo, ' WITH PADDING' if self.padding else '')
 
     def apply(self, items: list[P]) -> list[tuple[list[P], bool]]:
         length = len(items)    # The number of items we want to split
@@ -401,15 +426,21 @@ class Modulo(SplitMode):
             out.append((vals, False))
         return out
 
+
 class Column(SplitMode):
+    __slots__ = ('size', 'padding')
     def __init__(self, strictness, size, padding):
         super().__init__(strictness)
         if size < 1: raise GroupModeError('Column size must be at least 1.')
         self.size = size
         self.padding = padding
 
+    def __repr__(self):
+        return 'Column(%s, %s, %s)' % (self.strictness, self.size, self.padding)
     def __str__(self):
-        return '{}COLUMNS SIZE {}{}'.format(super().__str__(), self.size, ' WITH PADDING' if self.padding else '')
+        return '\\%s%s%s' % ('0' if self.padding else '', self.size, self.strictness * '!')
+    def as_readable_str(self):
+        return '{}COLUMNS SIZE {}{}'.format(self.strictness_as_readable_str(), self.size, ' WITH PADDING' if self.padding else '')
 
     def apply(self, items: list[P]) -> list[tuple[list[P], bool]]:
         length = len(items)     # The number of items we want to split
@@ -449,10 +480,12 @@ class Column(SplitMode):
             out.append((vals, False))
         return out
 
+
 class Interval(SplitMode):
-    # Magic object
+    # Sentry object
     END = object()
 
+    __slots__ = ('start', 'end')
     def __init__(self, strictness: int, start: str, end: str):
         super().__init__(strictness)
         ## start is empty: START
@@ -463,9 +496,13 @@ class Interval(SplitMode):
         ## end is empty or -0: END
         self.end = None if end is None else Interval.END if end in ['-0', ''] else int(end)
 
+    def __repr__(self):
+        return 'Interval(%s, %s, %s)' % (self.strictness, '-0' if self.start is Interval.END else self.start, '' if self.end is Interval.END else self.end)
     def __str__(self):
-        if self.end is None: return '{}INDEX AT {}'.format(super().__str__(), self.start)
-        return '{}INTERVAL FROM {} TO {}'.format(super().__str__(), self.start, self.end)
+        return '#%s:%s%s' % ('-0' if self.start is Interval.END else self.start, '' if self.end is Interval.END else self.end, self.strictness * '!')
+    def __as_readable_str__(self):
+        if self.end is None: return '{}INDEX AT {}'.format(self.strictness_as_readable_str(), self.start)
+        return '{}INTERVAL FROM {} TO {}'.format(self.strictness_as_readable_str(), self.start, self.end)
 
     def apply(self, items: list[P]) -> list[tuple[list[P], bool]]:
         length = len(items)
@@ -506,13 +543,17 @@ class Interval(SplitMode):
         ## Strict: Throw away the items outside of the selected range.
         return [(items[start: end], False)]
 
+
 ################ ASSIGNMODES ################
 
 class AssignMode:
+    '''
+    Abstract class.
+    AssignMode objects represent methods for taking lists of items and assigns them to pipes picked from another list.
+    '''
     multiply: bool
     pre_errors: ErrorLog | None = None
 
-    '''An object representing a function that takes lists of items and assigns them to pipes picked from a list.'''
     def __init__(self, multiply):
         self.multiply = multiply
 
@@ -537,7 +578,7 @@ class AssignMode:
 
     # ================ API
 
-    def __str__(self):
+    def as_readable_str(self):
         return 'MULTIPLY ' if self.multiply else ''
 
     def is_trivial(self):
@@ -550,8 +591,13 @@ class AssignMode:
 
 class DefaultAssign(AssignMode):
     '''Assign mode that sends the n'th group to the (n%P)'th pipe with P the number of pipes.'''
+
+    def __repr__(self):
+        return 'DefaultAssign(multiply=%s)' % self.multiply
     def __str__(self):
-        return super().__str__() + 'DEFAULT'
+        return '*' if self.multiply else ''
+    def as_readable_str(self):
+        return super().as_readable_str() + 'DEFAULT'
 
     def is_trivial(self):
         return not self.multiply
@@ -570,6 +616,7 @@ class DefaultAssign(AssignMode):
                 i += 1
         return out
 
+
 class Switch(AssignMode):
     '''Assign mode that assigns groups to pipes based on logical conditions that each group meets.'''
     def __init__(self, multiply: bool, strictness: int, conditions: list[Condition]):
@@ -580,8 +627,12 @@ class Switch(AssignMode):
         for i, condition in enumerate(conditions):
             self.pre_errors.extend(condition.get_pre_errors(), f'condition {i}')
 
+    def __repr__(self):
+        return 'Switch(multiply=%s, strictness=%s, %s)' % (self.multiply, self.strictness, repr(self.conditions))
     def __str__(self):
-        return '{}SWITCH ({})'.format(super().__str__(), ' | '.join(str(c) for c in self.conditions))
+        return '%sSWITCH(%s)%s' % ('*' if self.multiply else '', ' | '.join(str(c) for c in self.conditions), self.strictness * '!')
+    def as_readable_str(self):
+        return '{}SWITCH ({})'.format(super().as_readable_str(), ' | '.join(str(c) for c in self.conditions))
 
     async def apply(self, tuples: list[tuple[T, bool]], pipes: list[P], context: Context, parent_scope: ItemScope) -> list[tuple[T, P | None]]:
         #### Sends ALL VALUES as a single group to the FIRST pipe whose corresponding condition succeeds
@@ -648,9 +699,15 @@ class Switch(AssignMode):
                     out.append((items, pipes[-1]))
             return out
 
+
 class Random(AssignMode):
     '''Assign mode that sends each group to a random pipe.'''
+
+    def __repr__(self):
+        return 'Random()'
     def __str__(self):
+        return '?'
+    def as_readable_str(self):
         return 'RANDOM'
 
     async def apply(self, tuples: list[tuple[T, bool]], pipes: list[P], *args) -> list[tuple[T, P | None]]:
@@ -675,8 +732,12 @@ class IfMode:
     def from_string(string: str):
         return IfMode.from_parsed(grammar.gm_mid_if.parse_string(string, parse_all=True)[0])
 
+    def __repr__(self):
+        return 'IfMode(%s, strictness=%s)' % (repr(self.condition), self.strictness)
     def __str__(self):
-        return 'IF (' + str(self.condition) + ')' + '!' * self.strictness
+        return 'IF(%s)%s' % (str(self.condition), self.strictness * '!')
+    def as_readable_str(self):
+        return str(self)
 
     async def apply(self, tuples: list[tuple[T, bool]], context: Context, parent_scope: ItemScope) -> list[tuple[T, bool]]:
         errors = ErrorLog()
@@ -698,6 +759,7 @@ class IfMode:
                 out.append((items, True))
 
         return out
+
 
 class GroupBy:
     # Stringy enum
@@ -726,8 +788,12 @@ class GroupBy:
     def from_string(string: str):
         return GroupBy.from_parsed(grammar.gm_mid_group_by.parse_string(string, parse_all=True)[0])
 
+    def __repr__(self):
+        return 'GroupBy(%s, %s)' % (repr(self.mode), repr(self.indices))
     def __str__(self):
-        return self.mode + ' BY ' + ', '.join(str(i) for i in self.indices)
+        return '%s BY %s'  % (self.mode, ', '.join(str(i) for i in self.indices))
+    def as_readable_str(self):
+        return str(self)
 
     async def apply(self, tuples: list[tuple[T, bool]], context: Context, parent_scope: ItemScope) -> list[tuple[T, bool]]:
         out = []
@@ -765,6 +831,7 @@ class GroupBy:
 
         return out
 
+
 class SortBy:
     def __init__(self, indices: str | list[str]):
         # The set of indices
@@ -791,8 +858,14 @@ class SortBy:
     def from_string(string: str):
         return SortBy.from_parsed(grammar.gm_mid_sort_by.parse_string(string, parse_all=True)[0])
 
+    def indices_as_strs(self):
+        return [('+' + str(i) if self.is_numeric[i] else str(i)) for i in self.indices]
+    def __repr__(self):
+        return 'SortBy(%s)' % repr(self.indices_as_strs())
     def __str__(self):
-        return 'SORT BY ' + ', '.join(('+'+str(i) if self.is_numeric[i] else str(i)) for i in self.indices)
+        return 'SORT BY %s' % ','.join(self.indices_as_strs())
+    def as_readable_str(self):
+        return str(self)
 
     async def apply(self, tuples: list[tuple[T, bool]], context: Context, parent_scope: ItemScope) -> list[tuple[T, bool]]:
         head = []
@@ -852,12 +925,18 @@ class GroupMode:
         remainder = result[1]
         return groupmode, remainder
 
-    def __str__(self):
+    # ======================================= Representation =======================================
+
+    def __repr__(self) -> str:
+        return 'GroupMode(%s, %s, %s)' % (repr(self.split_modes), repr(self.mid_modes), repr(self.assign_mode))
+    def __str__(self) -> str:
+        return ' '.join(str(s) for s in itertools.chain(self.split_modes, self.mid_modes)) + ((' ' + a) if (a := str(self.assign_mode)) else '')
+    def as_readable_str(self) -> str:
         if self.splits_trivially() and self.assign_mode.is_trivial():
             return 'TRIVIAL'
-        split_modes = ' > '.join(str(s) for s in self.split_modes)
-        mid_modes = (' × ' + ' > '.join(str(s) for s in self.mid_modes))
-        assign_mode = ' × ' + str(self.assign_mode)
+        split_modes = ' > '.join(s.as_readable_str() for s in self.split_modes)
+        mid_modes = (' × ' + ' > '.join(s.as_readable_str() for s in self.mid_modes))
+        assign_mode = ' × ' + self.assign_mode.as_readable_str()
         return split_modes + mid_modes + assign_mode
 
     def splits_trivially(self):
@@ -865,6 +944,8 @@ class GroupMode:
 
     def is_singular(self):
         return not self.split_modes and not self.assign_mode.multiply
+
+    # ========================================= Application ========================================
 
     async def apply(self, items: list[T], pipes: list[P], context: Context, scope: ItemScope) -> list[tuple[ list[T], P|None ]]:
         groups = [(items, False)]

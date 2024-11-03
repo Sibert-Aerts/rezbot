@@ -72,13 +72,6 @@ class ExecutableScript:
 
     # =================================== Static utility methods ===================================
 
-    def __repr__(self):
-        if self.script_str:
-            script = self.script_str
-            script = script if len(script) < 50 else script[:47] + '...'
-            return f'RezbotScript({script})'
-        return f'RezbotScript(id={id(self)})'
-
     @staticmethod
     async def send_print_values(channel: TextChannel, values: list[list[str]], context: Context=None):
         ''' Nicely print the output in rows and columns and even with little arrows.'''
@@ -139,7 +132,7 @@ class ExecutableScript:
             )
             await context.channel.send(embed=new_errors.embed(name=context.origin.name))
 
-    # =================================== Static analysis methods ==================================
+    # ======================================= Representation =======================================
 
     def get_static_errors(self) -> ErrorLog:
         '''
@@ -147,7 +140,12 @@ class ExecutableScript:
         '''
         return self.pipeline.get_static_errors()
 
-    # ====================================== Execution method ======================================
+    def __repr__(self):
+        return 'ExecutableScript(%s)' % repr(self.pipeline)
+    def __str__(self):
+        return '>> ' + str(self.pipeline)
+
+    # ========================================= Application ========================================
 
     async def execute(self, context: 'Context', scope: 'ItemScope'=None):
         '''

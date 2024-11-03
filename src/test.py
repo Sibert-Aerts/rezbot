@@ -213,19 +213,24 @@ async def statically_analyse_all_macros_and_events():
 
     for macro, errors in bad_macros:
         print()
-        print("Bad Macro:", macro.name)
+        print('Bad Macro:', macro.name)
         print(errors)
         print()
 
     for event, errors in bad_events:
         print()
-        print("Bad Event:", event.name)
+        print('Bad Event:', event.name)
         print(errors)
         print()
 
 
 async def test_script(pl_str):
     pl = ExecutableScript.from_string(pl_str)
+
+    print('REPR:')
+    print(repr(pl), '\n')
+    print('STRING:')
+    print(str(pl), '\n')
 
     if static_errors := pl.get_static_errors():
         print('\nSTATIC ERRORS:\n' + str(static_errors))
