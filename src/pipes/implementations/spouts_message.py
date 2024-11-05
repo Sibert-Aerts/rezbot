@@ -5,6 +5,7 @@ from .spouts import Par, Context, with_signature, spout_from_func, set_category
 from .sources import SourceResources
 from pipes.core.signature import parse_bool
 import utils.rand as rand
+import utils.texttools as texttools
 
 
 #####################################################
@@ -48,16 +49,28 @@ async def reply_spout(ctx: Context, values, *, id, mention, earmark):
     member = Par(str, None, 'The member to send the message to. "me/them" or the member\'s handle or ID.'),
     earmark = Par(str, None, 'Earmark to uniquely identify this message in other scripting contexts.', required=False),
 )
-async def direct_message_spout(ctx: Context, values, *, id, earmark):
+async def direct_message_spout(ctx: Context, values, *, member, earmark):
     '''
     Sends input as a direct Discord message to someone.
     If multiple lines of input are given, they're joined with line breaks.
     '''
-    member = await ctx.get_member(id)
+    member = await ctx.get_member(member)
+    activator = ctx.origin.activator
+
     # To prevent abuse (?), log every DM
-    print(f'Executing direct_message spout: Sending DM to {member.name}, invoked by {ctx.origin.activator.name}')
+    print(f'Executing direct_message spout: Sending DM to {member.name}, invoked by {activator.name}')
     print('\tMessage content:', values)
-    message = await member.send('\n'.join(values))
+
+    msg = f'You\'ve received a direct message, invoked by {activator.name}'
+    if ctx.origin.event and (author_id := ctx.origin.event.author_id) != activator.id:
+        try:
+            author = await ctx.get_member(str(author_id))
+            msg += f' via an Event authored by {author.name}'
+        except:
+            msg += f' via an Event authored by {author_id}'
+
+    msg += texttools.block_format('\n'.join(values))
+    message = await member.send(msg)
     if earmark:
         SourceResources.earmarked_messages[earmark] = [message]
 
