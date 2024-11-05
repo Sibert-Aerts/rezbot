@@ -711,7 +711,7 @@ class Pipeline:
                     # Source Macro functioning is implemented in ParsedSource
                     temp_parsed_source = ParsedSource(name, None)
                     new_vals, src_errs = await temp_parsed_source.evaluate(context, group_scope, args)
-                    errors.steal(src_errs, context='source-as-pipe')
+                    errors.extend(src_errs, context='source-as-pipe')
 
                     if new_vals is None or errors.terminal:
                         errors.terminal = True

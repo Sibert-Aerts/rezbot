@@ -1,5 +1,6 @@
 '''
 There are five types of Templated Elements:
+
     * Item: e.g. {}, {0}, {^1}, {2!}, {^^3!}
         These are (implicit) indexes pointing out items to use from the provided ItemScope.
 
@@ -351,7 +352,6 @@ class ParsedInlineScript:
         return values, errors
 
 
-# NOTE: No ParsedSpecialSymbol since that class is never instantiated
 ParsedTemplatedElement: TypeAlias = ParsedItem | ParsedSource | ParsedConditional | ParsedSpecialSymbol | ParsedInlineScript
 
 

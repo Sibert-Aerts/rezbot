@@ -68,21 +68,33 @@ async def message_source(ctx: Context, what, id):
     return messages_get_what([msg], what)
 
 
-@source_from_func({
-    'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
-    'n': Par(int, 1, 'The number of messages'),
-    'i': Par(int, 1, 'From which previous message to start counting. (0 for the message that triggers the script itself)', lambda i: i <= 10000),
-    'by': Par(int, 0, 'A user id, if given will filter the results down to only that users\' messages within the range of messages (if any).'),
-})
-async def previous_message_source(ctx: Context, n, i, what, by):
+@source_from_func(aliases=['previous'])
+@with_signature(
+    what = Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
+    n = Par(int, 1, 'The number of messages to get'),
+    i = Par(int, 0, 'The number of initial messages to skip', lambda i: i <= 10000),
+    by = Par(str, None, 'A user id, if given will try and find the previous N messages by this user.', required=False),
+    max_lookback = Par(int, 100, 'Max number of additional messages looked up when filtering by user ID.', lambda i: i <= 10000)
+)
+async def previous_message_source(ctx: Context, n, i, what, by, max_lookback):
     '''
     A generalization of {that} and {message} that allows more messages and going further back.
 
     The N messages in this channel, counting backwards from the Ith previous message.
     i.e. N messages, ordered newest to oldest, with the newest being the Ith previous message.
     '''
-    messages = [ msg async for msg in ctx.channel.history(limit=n+i) ][i:i+n]
-    if by: messages = [m for m in messages if m.author.id == by]
+    by_member = await ctx.get_member(by) if by is not None else None
+
+    messages = []
+    precount = 0
+    ignore_first = True
+    async for message in ctx.channel.history(limit=(n + i + max_lookback)):
+        if ignore_first: ignore_first = False; continue
+        if by_member is None or message.author == by_member:
+            if precount >= i:
+                messages.append(message)
+                if len(messages) >= n: break
+            precount += 1
 
     return messages_get_what(messages, what)
 
