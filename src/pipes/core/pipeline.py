@@ -524,22 +524,22 @@ class Pipeline:
         if chars > MAXCHARS and not permissions.has(context.origin.activator.id, permissions.owner):
             raise PipelineError(f'Attempted to process a flow of {chars} total characters at once, try staying under {MAXCHARS}.')
 
-    async def apply(self, items: list[str], context: 'Context', parent_scope: 'ItemScope'=None) -> tuple[ list[str], ErrorLog, SpoutState ]:
+    async def apply(self, items: list[str], context: 'Context', parent_scope: 'ItemScope'=None, exclude_static_errors=False) -> tuple[ list[str], ErrorLog, SpoutState ]:
         '''Apply the pipeline to a list of items the denoted amount of times.'''
         errors = ErrorLog()
         spout_state = SpoutState()
 
         NOTHING_BUT_ERRORS = (None, errors, None)
-        # TODO: Re-gathering the static errors each time actually does seem kind of stupid
-        errors.extend(self.parser_errors)
-        if errors.terminal: return NOTHING_BUT_ERRORS
-
-        for _ in range(self.iterations):
-            iter_items, iter_errors, iter_spout_state = await self.apply_iteration(items, context, parent_scope)
-            errors.extend(iter_errors)
+        if not exclude_static_errors:
+            errors.extend(self.get_static_errors())
             if errors.terminal: return NOTHING_BUT_ERRORS
-            items = iter_items
-            spout_state.extend(iter_spout_state, extend_print=True)
+
+        for step in range(self.iterations):
+            step_items, step_errors, step_spout_state = await self.apply_iteration(items, context, parent_scope)
+            errors.extend(step_errors)
+            if errors.terminal: return NOTHING_BUT_ERRORS
+            items = step_items
+            spout_state.extend(step_spout_state, extend_print=True)
 
         return items, errors, spout_state
 
@@ -611,7 +611,7 @@ class Pipeline:
 
                 ## CASE: The pipe is itself an inlined Pipeline (recursion!)
                 if isinstance(parsed_pipe, Pipeline):
-                    items, pl_errors, pl_spout_state = await parsed_pipe.apply(items, context, group_scope)
+                    items, pl_errors, pl_spout_state = await parsed_pipe.apply(items, context, group_scope, exclude_static_errors=True)
                     errors.extend(pl_errors, 'parens')
                     if errors.terminal: return NOTHING_BUT_ERRORS
                     next_items.extend(items)
