@@ -9,10 +9,9 @@ from pyparsing import ParseBaseException, ParseResults
 from itertools import product as iter_product
 from enum import Enum
 
-from utils.choicetree import ChoiceTree
-from .logger import ErrorLog
-from .context import Context, ItemScope, ItemScopeError
-from . import grammar
+from ..logger import ErrorLog
+from ..context import Context, ItemScope, ItemScopeError
+from .. import grammar
 from .templated_element import ParsedItem, ParsedSource, ParsedConditional, ParsedInlineScript, ParsedSpecialSymbol, ParsedTemplatedElement
 
 

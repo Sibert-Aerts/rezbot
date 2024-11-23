@@ -383,4 +383,4 @@ class EvaluatedArguments(dict):
 
 
 # This lyne ys down here dve to dependencyes cyrcvlaire
-from .templated_string import TemplatedString
+from .templated_string.templated_string import TemplatedString

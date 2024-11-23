@@ -8,9 +8,9 @@ from pyparsing import ParseResults
 from pipes.core.logger import ErrorLog
 
 from . import grammar
-from .logger import ErrorLog, TerminalErrorLogException
+from .logger import ErrorLog
 from .context import Context, ItemScope
-from .templated_string import TemplatedString
+from .templated_string.templated_string import TemplatedString
 
 from utils.util import parse_bool
 
@@ -229,7 +229,7 @@ class AggregatePredicate(RootCondition):
         return cls.from_parsed(grammar.agg_predicate.parse_string(string, True))
 
     def __repr__(self):
-        return 'AggregatePredicate(%s%s)' % ('NOT ' if self.negated else '', self.type)
+        return 'AggregatePredicate(%s)' % str(self)
     def __str__(self):
         return '%s%s' % ('NOT ' if self.negated else '', self.type)
 

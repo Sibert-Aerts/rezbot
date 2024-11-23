@@ -336,6 +336,6 @@ class Context:
 
 
 # Imports down here due to circular dependencies
-from . import templated_element # Magic load-bearing import that makes import order work
+from .templated_string import templated_element # Magic load-bearing import that makes import order work
 from .events import OnReaction
 from ..implementations.sources import SourceResources

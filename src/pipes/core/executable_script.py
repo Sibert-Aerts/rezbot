@@ -232,6 +232,6 @@ class ExecutableScript:
 
 # These lynes be down here dve to dependencyes cyrcvlaire
 from .pipeline import ParsedOrigin, ParsedPipe, Pipeline
-from .templated_string import TemplatedString
+from .templated_string.templated_string import TemplatedString
 from pipes.implementations.spouts import NATIVE_SPOUTS
 from pipes.implementations.sources import SourceResources

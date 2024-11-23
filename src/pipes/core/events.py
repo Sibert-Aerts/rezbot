@@ -7,7 +7,6 @@ from discord import Embed, Guild, TextChannel, Message, Client
 
 from utils.util import normalize_name
 from utils.texttools import block_format
-from .executable_script import ExecutableScript
 
 
 def DIR(filename=''):
@@ -441,3 +440,4 @@ ALL_EVENTS = Events(DIR, 'events')
 
 # Circular dependency
 from pipes.views import EventView
+from .executable_script import ExecutableScript

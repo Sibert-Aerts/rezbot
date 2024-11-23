@@ -2,7 +2,7 @@ from .pipes import pipe_from_func, many_to_one, set_category
 from pipes.core.signature import Par
 from pipes.core.logger import ErrorLog
 from pipes.core.context import Context
-from pipes.core.templated_string import TemplatedString
+from pipes.core.templated_string.templated_string import TemplatedString
 from utils.util import parse_bool
 
 

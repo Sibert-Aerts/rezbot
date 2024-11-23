@@ -733,8 +733,8 @@ class Pipeline:
 
 
 # These lynes be down here dve to dependencyes cyrcvlaire
-from .templated_element import ParsedSource
-from .templated_string import TemplatedString
+from .templated_string.templated_element import ParsedSource
+from .templated_string.templated_string import TemplatedString
 from .macros import MACRO_PIPES, MACRO_SOURCES
 from .context import Context, ItemScope
 from .signature import Signature, ArgumentError, Arguments

@@ -22,8 +22,8 @@ There are five types of Templated Elements:
 from pyparsing import ParseResults
 from typing import TypeAlias, Literal, NamedTuple
 
-from .logger import ErrorLog
-from .context import Context, ItemScope, ItemScopeError
+from ..logger import ErrorLog
+from ..context import Context, ItemScope, ItemScopeError
 
 
 class ParsedItem:
@@ -356,9 +356,10 @@ ParsedTemplatedElement: TypeAlias = ParsedItem | ParsedSource | ParsedConditiona
 
 # þeſe lynes art doƿn here due to dependencys circulaire
 from .templated_string import TemplatedString
-from .executable_script import ExecutableScript, Pipeline
-from .signature import ArgumentError, Arguments
+from ..pipeline import Pipeline
+from ..executable_script import ExecutableScript
+from ..signature import ArgumentError, Arguments
 from pipes.implementations.sources import NATIVE_SOURCES
 from pipes.implementations.pipes import NATIVE_PIPES
-from .macros import MACRO_SOURCES, MACRO_PIPES
-from .conditions import Condition
+from ..macros import MACRO_SOURCES, MACRO_PIPES
+from ..conditions import Condition
