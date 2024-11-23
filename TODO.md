@@ -53,7 +53,7 @@
     * **Macros:**
         * Warn about static errors in Macros at edit time, the same way as happens for Events
         * Way of easily turning macros into commands
-        * Custom namespaces for macros and events
+        * Namespace system for macros and events
             * Decreases clutter of the global macros/events lists
             * Can easily see related macros/events in one place
             * Easily enable/disable all events in a namespace at the same time

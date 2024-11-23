@@ -188,7 +188,7 @@ class Arg:
     def __str__(self):
         return str(self.value) if self.predetermined else str(self.string)
 
-    def predetermine(self, errors: ErrorLog):
+    def try_predetermine(self, errors: ErrorLog):
         if self.string.is_string:
             try:
                 self.value = self.param.parse(self.string.string) if self.param else self.string.string
@@ -200,7 +200,7 @@ class Arg:
         if self.predetermined: return self.value
 
         value, arg_errs = await self.string.evaluate(context, scope)
-        errors.extend(arg_errs, context='parameter `{}`'.format(self.name))
+        if arg_errs: errors.extend(arg_errs, context=f'parameter `{self.name}`')
         if errors.terminal: return
 
         try:
@@ -287,10 +287,10 @@ class Arguments:
             if signature is None:
                 # Special case: Naive Arg
                 args[param] = Arg(args[param], param)
-                args[param].predetermine(errors)
+                args[param].try_predetermine(errors)
             elif param in signature:
                 args[param] = Arg(args[param], signature[param])
-                args[param].predetermine(errors)
+                args[param].try_predetermine(errors)
             else:
                 errors.warn(f'Unknown parameter `{param}`')
                 del args[param]
@@ -312,7 +312,7 @@ class Arguments:
                 [param] = missing
                 implicit, remainder = remainder.split_implicit_arg(greedy)
                 args[param] = Arg(implicit, signature[param])
-                args[param].predetermine(errors)
+                args[param].try_predetermine(errors)
 
         ## Step 4: Check if the Signature's first parameter hasn't been assigned yet and try to use the remainder for it
         elif not errors.terminal and greedy and remainder and len(signature) >= 1:
@@ -322,7 +322,7 @@ class Arguments:
                 maybe_errors = ErrorLog()
                 implicit, remainder = remainder.split_implicit_arg(greedy)
                 arg = Arg(implicit, signature[param])
-                arg.predetermine(maybe_errors)
+                arg.try_predetermine(maybe_errors)
 
                 # If it causes no trouble: use it!
                 if not maybe_errors.terminal:

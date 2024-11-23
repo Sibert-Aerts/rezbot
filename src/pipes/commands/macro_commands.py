@@ -195,7 +195,7 @@ class MacroCommands(RezbotCommands):
         MacroCommands.FORCE_MACRO_CACHE = None
 
 
-    @commands.command(aliases=['set_sig', 'add_sig', 'add_arg'], hidden=True)
+    @commands.command(aliases=['add_arg', 'set_sig', 'add_sig', 'set_param', 'add_param'], hidden=True)
     async def set_arg(self, ctx, what, name, signame, sigdefault, sigdesc=None):
         '''Add or change an argument to a macro.'''
         what = what.lower()

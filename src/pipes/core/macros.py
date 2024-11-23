@@ -97,12 +97,19 @@ class Macro:
 
         return embed
 
-    def apply_signature(self, args: dict[str, str]) -> dict[str, str]:
+    def apply_signature(self, args: dict[str, str], source_amount=None) -> dict[str, str]:
         '''Use the Macro's signature to insert default arguments and check for missing arguments.'''
-        # Important: Do not modify args
+        # Important: Do not modify `args`
         result_args = {s: self.signature[s].default for s in self.signature if s not in args}
         result_args.update(args)
-        # Ensure no required arguments are missing
+
+        # Special case: The magic "n" argument in source notation
+        if source_amount is not None:
+            if isinstance(source_amount, str) and source_amount.lower() == 'all':
+                raise ValueError('Cannot request `ALL` items for a source macro.')
+            if 'n' not in args: result_args['n'] = str(source_amount)
+
+        # Ensure no declared required arguments are missing
         missing = [s for s in args if args[s] is None]
         if missing:
             raise ArgumentError(f'Missing required parameter{"s" if len(missing)>1 else ""}: {" ".join("`%s`"%p for p in missing)}')

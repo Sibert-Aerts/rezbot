@@ -232,8 +232,7 @@ class ParsedSource:
             ## STEP 1: Ensure arguments are passed to the Macro
             try:
                 # Get the set of arguments and put them in Context
-                # TODO: Put the implicit 'amount' argument in args
-                args = macro.apply_signature(args)
+                args = macro.apply_signature(args, source_amount=self.amount)
                 macro_ctx = context.into_macro(macro, args)
             except ArgumentError as e:
                 errors.log(e, True, context=self.name)
