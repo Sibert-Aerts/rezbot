@@ -12,8 +12,7 @@ from enum import Enum
 from ..logger import ErrorLog
 from ..context import Context, ItemScope, ItemScopeError
 from .. import grammar
-from .templated_element import ParsedItem, ParsedSource, ParsedConditional, ParsedInlineScript, ParsedSpecialSymbol, ParsedTemplatedElement
-
+# Note: Circular imports below
 
 # Sentinel objects used by TemplatedString.evaluate()
 class FutureSentinel(Enum):
@@ -21,7 +20,6 @@ class FutureSentinel(Enum):
     COND = object()
     SCRIPT = object()
 
-CHOICE_SENTINEL = object()
 
 class TemplatedString:
     '''
@@ -32,7 +30,7 @@ class TemplatedString:
     If there is no need to hold on to the parsed TemplatedString, the static methods `evaluate_string` and `evaluate_origin` can be used instead.
     '''
 
-    pieces: list[str | ParsedTemplatedElement]
+    pieces: list['str | TemplatedElement']
     pre_errors: ErrorLog
     end_index: int = -1
 
@@ -40,15 +38,15 @@ class TemplatedString:
     string: str = None
 
     is_item = False
-    item: 'ParsedItem' = None
+    item: 'TmplItem' = None
 
     is_source = False
-    source: 'ParsedSource' = None
+    source: 'TmplSource' = None
 
     is_inline_script = False
-    inline_script: 'ParsedInlineScript' = None
+    inline_script: 'TmplInlineScript' = None
 
-    def __init__(self, pieces: list[str | ParsedTemplatedElement], start_index: int=0, index_items=True, pre_errors=None):
+    def __init__(self, pieces: list['str | TemplatedElement'], start_index: int=0, index_items=True, pre_errors=None):
         self.pieces = pieces
         self.pre_errors = ErrorLog() if pre_errors is None else pre_errors
         if index_items:
@@ -58,7 +56,7 @@ class TemplatedString:
     @staticmethod
     def from_parsed(result: ParseResults=[], start_index=0):
         pre_errors = ErrorLog()
-        pieces: list[str | ParsedTemplatedElement] = []
+        pieces: list[str | TemplatedElement] = []
 
         # Match and parse the different kinds of pieces that make up the TemplatedString
         for result_piece in result:
@@ -69,27 +67,27 @@ class TemplatedString:
             match result_piece._name:
                 case 'te_special':
                     try:
-                        symbol = ParsedSpecialSymbol.from_parsed(result_piece)
+                        symbol = TmplSpecialSymbol.from_parsed(result_piece)
                         pieces.append(symbol)
                     except ValueError as v:
                         pre_errors.log(str(v), terminal=True)
 
                 case 'te_script':
-                    inline_script = ParsedInlineScript.from_parsed(result_piece)
+                    inline_script = TmplInlineScript.from_parsed(result_piece)
                     pieces.append(inline_script)
                     pre_errors.extend(inline_script.script.get_static_errors(), 'inline script')
 
                 case 'implicit_item' | 'explicit_item':
-                    item = ParsedItem.from_parsed(result_piece)
+                    item = TmplItem.from_parsed(result_piece)
                     pieces.append(item)
 
                 case 'conditional':
-                    conditional = ParsedConditional.from_parsed(result_piece)
+                    conditional = TmplConditional.from_parsed(result_piece)
                     pieces.append(conditional)
                     # TODO: Pre-errors
 
                 case 'source':
-                    source = ParsedSource.from_parsed(result_piece)
+                    source = TmplSource.from_parsed(result_piece)
                     pieces.append(source)
                     pre_errors.steal(source.pre_errors, source.name)
 
@@ -114,9 +112,9 @@ class TemplatedString:
         # TODO: Maybe literally just not allow implicit indices outside of top-level templatedstrings
         for piece in self.pieces:
             # TODO: Account for ParsedConditional
-            if isinstance(piece, ParsedSource):
+            if isinstance(piece, TmplSource):
                 item_index = piece.args.adjust_implicit_item_indices(item_index)
-            elif isinstance(piece, ParsedItem):
+            elif isinstance(piece, TmplItem):
                 if not piece.is_implicit:
                     has_explicit = True
                 else:
@@ -133,9 +131,9 @@ class TemplatedString:
         ''' Recursively adjust all implicit item indices by a flat amount and return the new end index. '''
         for piece in self.pieces:
             # TODO: Account for ParsedConditional
-            if isinstance(piece, ParsedSource):
+            if isinstance(piece, TmplSource):
                 piece.args.adjust_implicit_item_indices(new_start_index)
-            elif isinstance(piece, ParsedItem) and piece.is_implicit:
+            elif isinstance(piece, TmplItem) and piece.is_implicit:
                 piece.implicit_index += new_start_index
         self.end_index += new_start_index
         return self.end_index
@@ -180,13 +178,13 @@ class TemplatedString:
             self.is_string = isinstance(self.pieces[0], str) and not self.pre_errors
             if self.is_string: self.string = self.pieces[0]
 
-            self.is_item = isinstance(self.pieces[0], ParsedItem)
+            self.is_item = isinstance(self.pieces[0], TmplItem)
             if self.is_item: self.item = self.pieces[0]
 
-            self.is_source = isinstance(self.pieces[0], ParsedSource)
+            self.is_source = isinstance(self.pieces[0], TmplSource)
             if self.is_source: self.source = self.pieces[0]
 
-            self.is_inline_script = isinstance(self.pieces[0], ParsedInlineScript)
+            self.is_inline_script = isinstance(self.pieces[0], TmplInlineScript)
             if self.is_inline_script: self.inline_script = self.pieces[0]
 
         return self
@@ -316,10 +314,10 @@ class TemplatedString:
             if isinstance(piece, str):
                 pieces.append(piece)
 
-            elif isinstance(piece, ParsedSpecialSymbol):
+            elif isinstance(piece, TmplSpecialSymbol):
                 pieces.append(piece.symbol)
 
-            elif isinstance(piece, ParsedItem):
+            elif isinstance(piece, TmplItem):
                 try:
                     items = piece.evaluate(scope)
                     pieces.append(items)
@@ -327,15 +325,15 @@ class TemplatedString:
                     msg = f'Error filling in item `{piece}`:\n\tItemScopeError: {e}'
                     errors.log(msg, True)
 
-            elif isinstance(piece, ParsedSource) and not errors.terminal:
+            elif isinstance(piece, TmplSource) and not errors.terminal:
                 pieces.append(FutureSentinel.SOURCE)
                 futures.append(piece.evaluate(context, scope))
 
-            elif isinstance(piece, ParsedConditional) and not errors.terminal:
+            elif isinstance(piece, TmplConditional) and not errors.terminal:
                 pieces.append(FutureSentinel.COND)
                 futures.append(piece.evaluate(context, scope))
 
-            elif isinstance(piece, ParsedInlineScript) and not errors.terminal:
+            elif isinstance(piece, TmplInlineScript) and not errors.terminal:
                 pieces.append(FutureSentinel.SCRIPT)
                 futures.append(piece.evaluate(context, scope))
 
@@ -436,3 +434,7 @@ class TemplatedString:
                 if not errors.terminal: values.append(val)
 
         return (values if not errors.terminal else None, errors)
+
+
+# Circular imports
+from .templated_element import TmplItem, TmplSource, TmplConditional, TmplInlineScript, TmplSpecialSymbol, TemplatedElement

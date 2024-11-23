@@ -335,7 +335,9 @@ class Context:
         return await self.channel.fetch_message(int_key)
 
 
+# Magic load-bearing import that makes all imports work in the right order
+from .templated_string import templated_string
+
 # Imports down here due to circular dependencies
-from .templated_string import templated_element # Magic load-bearing import that makes import order work
 from .events import OnReaction
 from ..implementations.sources import SourceResources

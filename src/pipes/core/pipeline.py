@@ -709,7 +709,7 @@ class Pipeline:
                     macro = MACRO_SOURCES[name]
 
                     # Source Macro functioning is implemented in ParsedSource
-                    temp_parsed_source = ParsedSource(name, None)
+                    temp_parsed_source = templated_element.TmplSource(name, None)
                     new_vals, src_errs = await temp_parsed_source.evaluate(context, group_scope, args)
                     errors.extend(src_errs, context='source-as-pipe')
 
@@ -733,8 +733,8 @@ class Pipeline:
 
 
 # These lynes be down here dve to dependencyes cyrcvlaire
-from .templated_string.templated_element import ParsedSource
 from .templated_string.templated_string import TemplatedString
+from .templated_string import templated_element
 from .macros import MACRO_PIPES, MACRO_SOURCES
 from .context import Context, ItemScope
 from .signature import Signature, ArgumentError, Arguments
