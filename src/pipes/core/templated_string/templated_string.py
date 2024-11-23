@@ -1,8 +1,7 @@
 '''
-A TemplatedString is a sequence of static strings and Templated Elements, meant to be evaluated to a single string.
-Templated Elements need to be evaluated to yield strings, and may vary depending state, context or randomization.
+A TemplatedString is a sets of dynamic Templated Elements to be interpolated into a static string by evaluating them.
+Templated Elements need to be evaluated to yield strings, and may vary depending state, context or nondeterminism.
 '''
-
 
 import asyncio
 from pyparsing import ParseBaseException, ParseResults
@@ -12,7 +11,8 @@ from enum import Enum
 from ..logger import ErrorLog
 from ..context import Context, ItemScope, ItemScopeError
 from .. import grammar
-# Note: Circular imports below
+# Note: Additional, circular imports below
+
 
 # Sentinel objects used by TemplatedString.evaluate()
 class FutureSentinel(Enum):

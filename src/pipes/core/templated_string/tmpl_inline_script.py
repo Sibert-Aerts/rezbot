@@ -2,6 +2,7 @@ from pyparsing import ParseResults
 
 from ..logger import ErrorLog
 from ..context import Context, ItemScope
+from ..executable_script import ExecutableScript
 
 
 class TmplInlineScript:
@@ -24,7 +25,3 @@ class TmplInlineScript:
     async def evaluate(self, context: Context, scope: ItemScope) -> tuple[ list[str] | None, ErrorLog ]:
         values, errors, spout_state = await self.script.execute_without_side_effects(context, scope)
         return values, errors
-
-
-# þeſe lynes art doƿn here due to dependencys circulaire
-from ..executable_script import ExecutableScript

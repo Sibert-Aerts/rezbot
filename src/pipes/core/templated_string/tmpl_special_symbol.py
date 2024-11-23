@@ -1,8 +1,12 @@
+import re
 from pyparsing import ParseResults
 
 
+UNICODE_CODE_RE = re.compile(r"^[xuU]([0-9a-fA-F]+)$")
+
+
 class TmplSpecialSymbol:
-    ''' Templated element representing some otherwise hard to type special symbol. '''
+    ''' Deterministic templated element representing an otherwise hard to type special symbol. '''
     SPECIAL_SYMBOL_MAP = {
         'n': '\n',
         't': '\t',
@@ -17,9 +21,17 @@ class TmplSpecialSymbol:
     @staticmethod
     def from_parsed(result: ParseResults):
         name = result.get('name')
-        symbol = TmplSpecialSymbol.SPECIAL_SYMBOL_MAP.get(name)
-        if symbol is None:
+
+        if symbol := TmplSpecialSymbol.SPECIAL_SYMBOL_MAP.get(name):
+            pass
+
+        elif match := UNICODE_CODE_RE.match(name):
+            symbol_ord = int(match[1], base=16)
+            symbol = chr(symbol_ord)
+
+        else:
             raise ValueError(f'Unknown special symbol "\{name}".')
+
         return TmplSpecialSymbol(symbol)
 
     def __repr__(self):

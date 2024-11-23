@@ -15,7 +15,7 @@ There are five types of Templated Elements:
     * InlineScript: e.g. {>> {word} > find_all . > join +}
         The script (whose syntax is limited) is evaluated.
 
-    * Special: e.g. {\n}, {\t}
+    * Special symbol: e.g. {\n}, {\t}, {\x61}
         These are simply replaced by respective '\n' and '\t' special characters at parse time.
 '''
 
@@ -24,8 +24,8 @@ from typing import TypeAlias
 from .tmpl_item import TmplItem
 from .tmpl_source import TmplSource
 from .tmpl_conditional import TmplConditional
-from .tmpl_special_symbol import TmplSpecialSymbol
 from .tmpl_inline_script import TmplInlineScript
+from .tmpl_special_symbol import TmplSpecialSymbol
 
 
-TemplatedElement: TypeAlias = TmplItem | TmplSource | TmplConditional | TmplSpecialSymbol | TmplInlineScript
+TemplatedElement: TypeAlias = TmplItem | TmplSource | TmplConditional | TmplInlineScript | TmplSpecialSymbol

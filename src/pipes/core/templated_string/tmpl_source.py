@@ -1,8 +1,15 @@
 from pyparsing import ParseResults
-from typing import TYPE_CHECKING
 
 from ..logger import ErrorLog
 from ..context import Context, ItemScope
+from ..pipeline import Pipeline
+from ..signature import ArgumentError, Arguments
+
+from pipes.implementations.sources import NATIVE_SOURCES
+from pipes.implementations.pipes import NATIVE_PIPES
+from ..macros import MACRO_SOURCES, MACRO_PIPES
+
+from .templated_string import TemplatedString
 
 
 class TmplSource:
@@ -19,7 +26,7 @@ class TmplSource:
     pre_errors: ErrorLog
     type: object
 
-    def __init__(self, name: str, args: 'Arguments', amount: str | int | None=None, remainder: 'TemplatedString'=None):
+    def __init__(self, name: str, args: 'Arguments', amount: str | int | None=None, remainder: TemplatedString=None):
         self.name = name.lower()
         self.amount = amount
         self.remainder = remainder
@@ -157,12 +164,3 @@ class TmplSource:
         else:
             errors.log(f'Unknown source `{self.name}`.', True)
             return NOTHING_BUT_ERRORS
-
-
-# þeſe lynes art doƿn here due to dependencys circulaire
-from .templated_string import TemplatedString
-from ..pipeline import Pipeline
-from ..signature import ArgumentError, Arguments
-from pipes.implementations.sources import NATIVE_SOURCES
-from pipes.implementations.pipes import NATIVE_PIPES
-from ..macros import MACRO_SOURCES, MACRO_PIPES

@@ -2,21 +2,23 @@ from pyparsing import ParseResults
 
 from ..logger import ErrorLog
 from ..context import Context, ItemScope
+from ..conditions import Condition
+from .templated_string import TemplatedString
 
 
 class TmplConditional:
     ''' Class representing an inline IF/ELSE conditional expression inside a TemplatedString. '''
 
-    def __init__(self, case_if: 'templated_string.TemplatedString', condition: 'Condition', case_else: 'templated_string.TemplatedString'):
+    def __init__(self, case_if: 'TemplatedString', condition: 'Condition', case_else: 'TemplatedString'):
         self.case_if = case_if
         self.condition = condition
         self.case_else = case_else
 
     @staticmethod
     def from_parsed(parsed: ParseResults):
-        case_if = templated_string.TemplatedString.from_parsed(parsed['case_if'][0])
+        case_if = TemplatedString.from_parsed(parsed['case_if'][0])
         condition = Condition.from_parsed(parsed['condition'])
-        case_else = templated_string.TemplatedString.from_parsed(parsed['case_else'][0])
+        case_else = TemplatedString.from_parsed(parsed['case_else'][0])
         return TmplConditional(case_if, condition, case_else)
 
     def __repr__(self):
@@ -35,8 +37,3 @@ class TmplConditional:
             return await self.case_if.evaluate(context, scope)
         else:
             return await self.case_else.evaluate(context, scope)
-
-
-# þeſe lynes art doƿn here due to dependencys circulaire
-from . import templated_string
-from ..conditions import Condition

@@ -324,6 +324,7 @@ class Pipeline:
                 if i > 0 and string[i-1] == '-':
                     # Special case: '->' is shorthand for '> print >'
                     append_segment(string[start:i-1])
+                    in_origin_str = False
                     append_segment('print')
                 else:
                     append_segment(string[start:i])

@@ -3,9 +3,7 @@ import discord
 
 from .sources import source_from_func, get_which, set_category, Context
 from pipes.core.signature import Par, Option, Multi, regex, parse_bool, with_signature
-from pipes.core.context import ContextError
-from pipes.core.events import OnReaction
-
+import pipes.core.events # NOTE: Load-bearing for some reason
 from utils.texttools import *
 
 #####################################################
