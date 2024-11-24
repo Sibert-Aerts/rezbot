@@ -4,6 +4,7 @@ from pyparsing import ParseResults
 # More import statements at the bottom of the file, due to circular dependencies.
 from .state.error_log import ErrorLog
 from .groupmodes import GroupMode
+from .state.bot_state import BOT_STATE
 from .state.context import Context
 from .state.item_scope import ItemScope
 from .state.spout_state import SpoutState
@@ -203,7 +204,7 @@ class ExecutableScript:
 
             ## Put the thing there
             if context.origin.type == Context.Origin.Type.DIRECT:
-                SourceResources.previous_pipeline_output[context.channel] = end_values
+                BOT_STATE.previous_pipeline_output[context.channel] = end_values
 
             ## Perform all simple style Spout callbacks
             for spout, values, args in spout_state.callbacks:
@@ -235,4 +236,3 @@ class ExecutableScript:
 from .pipeline import ParsedOrigin, ParsedPipe, Pipeline
 from .templated_string.templated_string import TemplatedString
 from pipes.implementations.spouts import NATIVE_SPOUTS
-from pipes.implementations.sources import SourceResources

@@ -1,9 +1,10 @@
 from discord.errors import HTTPException
 
-
 from .spouts import Par, Context, with_signature, spout_from_func, set_category
-from .sources import SourceResources
+
+from pipes.core.state.bot_state import BOT_STATE
 from pipes.core.signature import parse_bool
+
 import utils.rand as rand
 import utils.texttools as texttools
 
@@ -24,7 +25,7 @@ async def send_message_spout(ctx: Context, values, earmark):
     '''
     message = await ctx.channel.send('\n'.join(values))
     if earmark:
-        SourceResources.earmarked_messages[earmark] = [message]
+        BOT_STATE.earmarked_messages[earmark] = [message]
 
 
 @spout_from_func
@@ -41,7 +42,7 @@ async def reply_spout(ctx: Context, values, *, id, mention, earmark):
     message = await ctx.get_message(id)
     reply = await message.reply('\n'.join(values), mention_author=mention)
     if earmark:
-        SourceResources.earmarked_messages[earmark] = [reply]
+        BOT_STATE.earmarked_messages[earmark] = [reply]
 
 
 @spout_from_func
@@ -72,7 +73,7 @@ async def direct_message_spout(ctx: Context, values, *, member, earmark):
     msg += texttools.block_format('\n'.join(values))
     message = await member.send(msg)
     if earmark:
-        SourceResources.earmarked_messages[earmark] = [message]
+        BOT_STATE.earmarked_messages[earmark] = [message]
 
 
 @spout_from_func

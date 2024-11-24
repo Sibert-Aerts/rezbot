@@ -15,10 +15,11 @@ An ItemScope may be created ahead of execution, but often is only created (or de
     Pipes, Sources and Spouts do not have access to items outside of their scope at all.
 '''
 
-from typing import TYPE_CHECKING
-
 from discord import Message, Member, Interaction, TextChannel, Client
 
+from .bot_state import BOT_STATE
+
+from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pipes.core.events import Event
     from pipes.core.macros import Macro
@@ -233,7 +234,7 @@ class Context:
         ## CASE 3: Starts with poundsign (#): Earmarked message(s)
         if len(key) > 1 and key.startswith("#"):
             earmark = key[1:]
-            messages = SourceResources.earmarked_messages.get(earmark)
+            messages = BOT_STATE.earmarked_messages.get(earmark)
             if not messages:
                 raise ValueError(f'Could not find message(s) by earmark "{earmark}".')
             return messages[0]
@@ -253,4 +254,3 @@ from ..templated_string import templated_string
 
 # Imports down here due to circular dependencies
 from ..events import OnReaction
-from ...implementations.sources import SourceResources

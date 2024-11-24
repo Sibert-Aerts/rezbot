@@ -1,5 +1,6 @@
-from .sources import source_from_func, source_from_class, set_category, SourceResources, Context
-from pipes.core.state.context import ContextError
+from .sources import source_from_func, source_from_class, set_category
+from pipes.core.state.bot_state import BOT_STATE
+from pipes.core.state.context import Context, ContextError
 from pipes.core.signature import Par, with_signature, parse_bool
 
 
@@ -11,7 +12,7 @@ set_category('BOT')
 @source_from_func
 async def output_source(ctx: Context):
     '''The full output from the previous script that was ran in this channel.'''
-    return SourceResources.previous_pipeline_output[ctx.channel]
+    return BOT_STATE.previous_pipeline_output[ctx.channel]
 
 
 @source_from_class
@@ -29,7 +30,7 @@ class SourceGet:
     @staticmethod
     async def source_function(ctx: Context, *, name, default, required):
         default = [default] if default is not None else [] if not required else None
-        return SourceResources.variables.get(name, default)
+        return BOT_STATE.variables.get(name, default)
 
 
 @source_from_class

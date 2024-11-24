@@ -1,8 +1,7 @@
 from .spouts import Par, Context, spout_from_func, set_category
+from pipes.core.state.bot_state import BOT_STATE
 from pipes.core.signature import parse_bool
 from resource.upload import uploads
-
-from .sources import SourceResources
 
 
 #####################################################
@@ -20,7 +19,7 @@ async def set_spout(ctx, values, name, persist):
     Variables can be retrieved via the `get` Source.
     If `persist`=True, variables will never disappear until manually deleted by the `delete_var` Spout.
     '''
-    SourceResources.variables.set(name, values, persistent=persist)
+    BOT_STATE.variables.set(name, values, persistent=persist)
 
 
 @spout_from_func({
@@ -30,7 +29,7 @@ async def set_spout(ctx, values, name, persist):
 async def delete_var_spout(ctx, values, name, strict):
     ''' Deletes the variable with the given name. '''
     try:
-        SourceResources.variables.delete(name)
+        BOT_STATE.variables.delete(name)
     except:
         if strict:
             raise KeyError(f'No variable "{name}" found.')

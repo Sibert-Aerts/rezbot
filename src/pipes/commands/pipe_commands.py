@@ -1,8 +1,9 @@
 from discord.ext import commands
 
+from pipes.core.state.bot_state import BOT_STATE
 from pipes.core.pipe import PipeoidStore
 from pipes.implementations.pipes import NATIVE_PIPES
-from pipes.implementations.sources import NATIVE_SOURCES, SourceResources
+from pipes.implementations.sources import NATIVE_SOURCES
 from pipes.implementations.spouts import NATIVE_SPOUTS
 from pipes.core.macros import MACRO_PIPES, MACRO_SOURCES, Macros
 from pipes.views import MacroView
@@ -119,15 +120,15 @@ class PipeCommands(RezbotCommands):
 
     @commands.command(aliases=['list_persistent'])
     async def persistent_variables(self, ctx, pattern=None):
-        await ctx.send( SourceResources.variables.list_names(pattern, True) )
+        await ctx.send( BOT_STATE.variables.list_names(pattern, True) )
 
     @commands.command(aliases=['list_transient'])
     async def transient_variables(self, ctx, pattern=None):
-        await ctx.send( SourceResources.variables.list_names(pattern, False) )
+        await ctx.send( BOT_STATE.variables.list_names(pattern, False) )
 
     @commands.command(aliases=['list_all'])
     async def all_variables(self, ctx, pattern=None):
-        await ctx.send( SourceResources.variables.list_names(pattern, True) +'\n'+ SourceResources.variables.list_names(pattern, False) )
+        await ctx.send( BOT_STATE.variables.list_names(pattern, True) +'\n'+ BOT_STATE.variables.list_names(pattern, False) )
 
 
 # Load the bot cog

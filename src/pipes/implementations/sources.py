@@ -1,15 +1,11 @@
 import asyncio
-from collections import defaultdict
 from functools import wraps
 from typing import TypeVar
-
-from discord.ext.commands import Bot
 
 # Unused imports are so other addons can import them from here
 from pipes.core.signature import Signature, Par, get_signature, with_signature
 from pipes.core.pipe import Source, Sources
 from pipes.core.state.context import Context
-from resource.variables import VariableStore
 
 
 #######################################################
@@ -118,13 +114,6 @@ def source_from_class(cls: type[T]) -> type[T]:
     )
     NATIVE_SOURCES.add(source, get('command', False))
     return cls
-
-
-# Add fields here to make them easily accessible (readable and writable) both inside and outside of this file.
-class SourceResources:
-    previous_pipeline_output = defaultdict(list)
-    variables = VariableStore('variables.json')
-    earmarked_messages = dict()
 
 
 #####################################################
