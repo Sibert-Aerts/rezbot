@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Callable
 
 from discord.ext import commands
 
-from pipes.core.state.context import Context
+from pipes.core.state import Context
 from pipes.core.signature import Signature, Par
 
 if TYPE_CHECKING:

@@ -2,10 +2,10 @@ import asyncio
 from functools import wraps
 from typing import TypeVar
 
-# Unused imports are so other addons can import them from here
+# NOTE: Unused imports are so other addons can import them from here
 from pipes.core.signature import Signature, Par, get_signature, with_signature
+from pipes.core.state import Context
 from pipes.core.pipe import Source, Sources
-from pipes.core.state.context import Context
 
 
 #######################################################

@@ -2,7 +2,7 @@ from discord.errors import HTTPException
 
 from .spouts import Par, Context, with_signature, spout_from_func, set_category
 
-from pipes.core.state.bot_state import BOT_STATE
+from pipes.core.state import BOT_STATE
 from pipes.core.signature import parse_bool
 
 import utils.rand as rand

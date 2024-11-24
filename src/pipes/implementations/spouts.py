@@ -2,8 +2,8 @@ from typing import TypeVar
 
 # NOTE: Unused imports here are so our submodules can import them
 from pipes.core.signature import Par, Signature, get_signature, with_signature
+from pipes.core.state import Context
 from pipes.core.pipe import Spout, Spouts
-from pipes.core.state.context import Context
 
 #######################################################
 #                     Decorations                     #

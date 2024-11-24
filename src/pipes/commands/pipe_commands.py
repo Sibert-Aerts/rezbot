@@ -1,6 +1,6 @@
 from discord.ext import commands
 
-from pipes.core.state.bot_state import BOT_STATE
+from pipes.core.state import BOT_STATE
 from pipes.core.pipe import PipeoidStore
 from pipes.implementations.pipes import NATIVE_PIPES
 from pipes.implementations.sources import NATIVE_SOURCES

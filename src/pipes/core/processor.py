@@ -7,9 +7,7 @@ import re
 
 from discord import Client, Message, TextChannel
 
-from .state.context import Context
-from .state.item_scope import ItemScope
-from .state.error_log import ErrorLog
+from .state import ErrorLog, Context, ItemScope
 from .executable_script import ExecutableScript
 from .events import ALL_EVENTS
 from pipes.commands.macro_commands import parse_macro_command

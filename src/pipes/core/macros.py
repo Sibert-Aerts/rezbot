@@ -6,7 +6,7 @@ from shutil import copyfile
 from discord import Embed, TextChannel, Client
 from .signature import ArgumentError
 from .pipeline import Pipeline
-from .state.error_log import ErrorLog
+from .state import ErrorLog
 import utils.texttools as texttools
 import permissions
 

@@ -9,13 +9,10 @@ import asyncio
 import itertools
 from pprint import pprint
 
-import pipes.core.processor
 import pipes.core.grammar as grammar
-from pipes.core.state.error_log import ErrorLog
+from pipes.core.state import Context, ItemScope, ErrorLog, SpoutState
 import pipes.core.groupmodes as groupmodes
-from pipes.core.state.context import Context, ItemScope
-from pipes.core.state.spout_state import SpoutState
-from pipes.core.templated_string import TemplatedString
+from pipes.core.templated_string.templated_string import TemplatedString
 from pipes.core.conditions import Condition
 from pipes.core.executable_script import ExecutableScript
 

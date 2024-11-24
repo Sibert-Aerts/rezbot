@@ -1,13 +1,11 @@
 from discord import TextChannel
 from pyparsing import ParseResults
 
-# More import statements at the bottom of the file, due to circular dependencies.
-from .state.error_log import ErrorLog
-from .state.bot_state import BOT_STATE
-from .state.context import Context
-from .state.item_scope import ItemScope
-from .state.spout_state import SpoutState
+from .state import ErrorLog, BOT_STATE, Context, ItemScope, SpoutState
 from .groupmodes import GroupMode
+from .templated_string.templated_string import TemplatedString
+from .pipeline import ParsedOrigin, ParsedPipe, Pipeline
+from pipes.implementations.spouts import NATIVE_SPOUTS
 
 import utils.texttools as texttools
 
@@ -231,9 +229,3 @@ class ExecutableScript:
                 await self.send_print_values(context.channel, spout_state.print_values, context=context)
 
             return errors
-
-
-# These lynes be down here dve to dependencyes cyrcvlaire
-from .templated_string.templated_string import TemplatedString
-from .pipeline import ParsedOrigin, ParsedPipe, Pipeline
-from pipes.implementations.spouts import NATIVE_SPOUTS

@@ -3,9 +3,7 @@ from typing import Awaitable, Iterable, Optional, TypeVar, Callable
 from pyparsing import ParseBaseException, ParseResults
 
 from . import grammar
-from .state.error_log import ErrorLog
-from .state.context import Context
-from .state.item_scope import ItemScope
+from .state import ErrorLog, Context, ItemScope
 
 # Make all the signature_types types available through this import
 from .signature_types import *

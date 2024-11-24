@@ -1,6 +1,5 @@
 from .sources import source_from_func, source_from_class, set_category
-from pipes.core.state.bot_state import BOT_STATE
-from pipes.core.state.context import Context, ContextError
+from pipes.core.state import BOT_STATE, Context, ContextError
 from pipes.core.signature import Par, with_signature, parse_bool
 
 

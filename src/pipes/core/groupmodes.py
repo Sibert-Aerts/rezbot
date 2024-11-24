@@ -4,10 +4,8 @@ from random import choice
 from pyparsing import ParseResults
 import itertools
 
-from .state.error_log import ErrorLog
+from .state import ErrorLog, Context, ItemScope
 from .conditions import Condition
-from .state.context import Context
-from .state.item_scope import ItemScope
 from . import grammar
 
 # Pipe grouping syntax!

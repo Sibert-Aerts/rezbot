@@ -12,8 +12,7 @@ import discord
 from discord import Embed
 
 from .signature import Signature
-from .state.context import Context
-from .state.spout_state import SpoutState
+from .state import Context, SpoutState
 
 
 class Pipeoid:
