@@ -11,10 +11,10 @@ from pprint import pprint
 
 import pipes.core.processor
 import pipes.core.grammar as grammar
-from pipes.core.logger import ErrorLog
+from pipes.core.state.logger import ErrorLog
 import pipes.core.groupmodes as groupmodes
-from pipes.core.context import Context, ItemScope
-from pipes.core.spout_state import SpoutState
+from pipes.core.state.context import Context, ItemScope
+from pipes.core.state.spout_state import SpoutState
 from pipes.core.templated_string import TemplatedString
 from pipes.core.conditions import Condition
 from pipes.core.executable_script import ExecutableScript

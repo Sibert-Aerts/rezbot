@@ -1,6 +1,6 @@
 from discord import Message, Client, ui, TextStyle, Interaction
 
-from pipes.core.context import Context
+from pipes.core.state.context import Context
 
 
 class ExecuteScriptModal(ui.Modal):

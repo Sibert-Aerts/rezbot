@@ -2,7 +2,7 @@ from discord.ext import commands
 
 from pipes.core.executable_script import ExecutableScript
 from pipes.core.pipe import Pipe, Source, Spout
-from pipes.core.context import Context
+from pipes.core.state.context import Context
 from pipes.implementations.pipes import NATIVE_PIPES
 from pipes.implementations.sources import NATIVE_SOURCES
 from pipes.implementations.spouts import NATIVE_SPOUTS

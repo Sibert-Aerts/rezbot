@@ -5,11 +5,11 @@ A file containing logic for parsing and evaluating logical conditions in a scrip
 import re
 from pyparsing import ParseResults
 
-from pipes.core.logger import ErrorLog
+from pipes.core.state.logger import ErrorLog
 
 from . import grammar
-from .logger import ErrorLog
-from .context import Context, ItemScope
+from .state.logger import ErrorLog
+from .state.context import Context, ItemScope
 from .templated_string.templated_string import TemplatedString
 
 from utils.util import parse_bool

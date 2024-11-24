@@ -1,7 +1,7 @@
 from pyparsing import ParseResults
 from typing import Literal, NamedTuple
 
-from ..context import ItemScope, ItemScopeError
+from ..state.context import ItemScope, ItemScopeError
 
 
 class TmplItem:

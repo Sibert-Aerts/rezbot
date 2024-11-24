@@ -18,8 +18,8 @@ from discord import Message, Member, Interaction, TextChannel, Client
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     # These are only here for type annotations, they're not used in code
-    from .events import Event
-    from .macros import Macro
+    from ..events import Event
+    from ..macros import Macro
     from pipes.views.generic_views import RezbotButton
 
 
@@ -336,8 +336,8 @@ class Context:
 
 
 # Magic load-bearing import that makes all imports work in the right order
-from .templated_string import templated_string
+from ..templated_string import templated_string
 
 # Imports down here due to circular dependencies
-from .events import OnReaction
-from ..implementations.sources import SourceResources
+from ..events import OnReaction
+from ...implementations.sources import SourceResources

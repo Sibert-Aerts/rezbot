@@ -1,6 +1,6 @@
 from .spouts import spout_from_func, set_category, Par, Context
 from pipes.core.events import ALL_EVENTS
-from pipes.core.context import ContextError
+from pipes.core.state.context import ContextError
 
 
 #####################################################

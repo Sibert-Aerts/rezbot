@@ -1,7 +1,7 @@
 from pyparsing import ParseResults
 
-from ..logger import ErrorLog
-from ..context import Context, ItemScope
+from ..state.logger import ErrorLog
+from ..state.context import Context, ItemScope
 from ..executable_script import ExecutableScript
 
 

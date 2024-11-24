@@ -8,8 +8,8 @@ import re
 from discord import Client, Message, TextChannel
 
 # More import statements at the bottom of the file, due to circular dependencies.
-from .context import Context, ItemScope
-from .logger import ErrorLog
+from .state.context import Context, ItemScope
+from .state.logger import ErrorLog
 
 
 class PipelineProcessor:

@@ -2,7 +2,7 @@ from collections import defaultdict
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from .pipe import Spout
+    from ..pipe import Spout
 
 
 class SpoutState:
@@ -37,7 +37,7 @@ class SpoutState:
         # Extending print is opt-in because it only makes sense sometimes
         if extend_print:
             self.print_values.extend(other.print_values)
-        
+
         self.callbacks.extend(other.callbacks)
 
         for key, values in other.aggregated.items():

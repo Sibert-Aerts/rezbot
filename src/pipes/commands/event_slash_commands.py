@@ -7,7 +7,7 @@ from discord.ext import commands
 from discord import app_commands, Interaction, Message
 
 from pipes.core.events import Event, ALL_EVENTS
-from pipes.core.context import Context, ItemScope
+from pipes.core.state.context import Context, ItemScope
 from pipes.core.processor import PipelineProcessor
 from rezbot_commands import RezbotCommands
 from utils.util import normalize_name
