@@ -6,8 +6,16 @@ from functools import lru_cache
 import permissions
 from utils.choicetree import ChoiceTree
 
-# More import statements at the end of the file, due to circular dependencies.
 from .state import ErrorLog, SpoutState, Context, ItemScope
+from .pipe import Pipe, Source, Spout
+from . import groupmodes
+from .templated_string.templated_string import TemplatedString
+from .templated_string.tmpl_source import TmplSource
+from .signature import Signature, ArgumentError, Arguments
+
+# NOTE: More import statements at the end of the file due to circular dependencies
+from pipes.implementations.pipes import NATIVE_PIPES
+from pipes.implementations.sources import NATIVE_SOURCES
 
 
 class PipelineError(ValueError):
@@ -709,7 +717,7 @@ class Pipeline:
                     macro = MACRO_SOURCES[name]
 
                     # Source Macro functioning is implemented in ParsedSource
-                    temp_parsed_source = templated_element.TmplSource(name, None)
+                    temp_parsed_source = TmplSource(name, None)
                     new_vals, src_errs = await temp_parsed_source.evaluate(context, group_scope, args)
                     errors.extend(src_errs, context='source-as-pipe')
 
@@ -733,13 +741,5 @@ class Pipeline:
 
 
 # These lynes be down here dve to dependencyes cyrcvlaire
-from .templated_string.templated_string import TemplatedString
-from .templated_string import templated_element
-from .macros import MACRO_PIPES, MACRO_SOURCES
-from .signature import Signature, ArgumentError, Arguments
-from .pipe import Pipe, Source, Spout
-from . import groupmodes
-
-from pipes.implementations.sources import NATIVE_SOURCES
-from pipes.implementations.pipes import NATIVE_PIPES
 from pipes.implementations.spouts import NATIVE_SPOUTS
+from .macros import MACRO_PIPES, MACRO_SOURCES

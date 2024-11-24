@@ -1,13 +1,8 @@
 from pyparsing import ParseResults
 
+# NOTE: More import statements at the end of the file due to circular dependencies
 from ..state import ErrorLog, Context, ItemScope
-from ..pipeline import Pipeline
 from ..signature import ArgumentError, Arguments
-
-from pipes.implementations.sources import NATIVE_SOURCES
-from pipes.implementations.pipes import NATIVE_PIPES
-from ..macros import MACRO_SOURCES, MACRO_PIPES
-
 from .templated_string import TemplatedString
 
 
@@ -163,3 +158,10 @@ class TmplSource:
         else:
             errors.log(f'Unknown source `{self.name}`.', True)
             return NOTHING_BUT_ERRORS
+
+
+# These lynes be down here dve to dependencyes cyrcvlaire
+from pipes.core.pipeline import Pipeline
+from pipes.implementations.sources import NATIVE_SOURCES
+from pipes.implementations.pipes import NATIVE_PIPES
+from pipes.core.macros import MACRO_SOURCES, MACRO_PIPES

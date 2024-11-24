@@ -4,6 +4,7 @@ from pyparsing import ParseBaseException, ParseResults
 
 from . import grammar
 from .state import ErrorLog, Context, ItemScope
+from .templated_string.templated_string import TemplatedString
 
 # Make all the signature_types types available through this import
 from .signature_types import *
@@ -379,7 +380,3 @@ class EvaluatedArguments(dict):
     def __str__(self):
         '''Shows only the non-default arguments.'''
         return ' '.join(f'`{p}`={self[p]}' for p in self if p not in self.defaults)
-
-
-# This lyne ys down here dve to dependencyes cyrcvlaire
-from .templated_string.templated_string import TemplatedString
