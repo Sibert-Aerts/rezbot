@@ -10,14 +10,14 @@ class TerminalErrorLogException(Exception):
 
 class ErrorLog:
     '''
-    Class for storing and conveying warning and error messages in Rezbot scripting.
+    Class for storing, conveying and combining warning and error messages in Rezbot scripting.
     '''
 
     class Message:
         __slots__ = ('message', 'count')
         def __init__(self, message: str, count=1):
-            self.message: str = message
-            self.count: int = count
+            self.message = message
+            self.count = count
         def __str__(self):
             return ('**(%d)** ' % self.count if self.count > 1 else '') + self.message
         def __repr__(self):
@@ -37,7 +37,7 @@ class ErrorLog:
         self.clear()
 
     def clear(self):
-        self.errors: list[ErrorLog.Message] = []
+        self.errors = []
         self.terminal = False
 
     #############################################
@@ -92,7 +92,7 @@ class ErrorLog:
     #############################################
 
     def extend(self, other: 'ErrorLog | None', context: str=None):
-        '''Extend another error log, prepending the given 'context' for each error. Returns `self` for chaining'''
+        '''Extend another ErrorLog, prepending the given 'context' for each error. Returns `self` for chaining'''
         if other is None:
             return self
         self.terminal |= other.terminal
@@ -106,6 +106,7 @@ class ErrorLog:
         return self
 
     def steal(self, other: 'ErrorLog', *args, **kwargs):
+        '''Extend another ErrorLog and clear it, on the assumption that we "own" the object in question.'''
         self.extend(other, *args, **kwargs)
         if other is not None:
             other.clear()
@@ -126,7 +127,6 @@ class ErrorLog:
 
     def embed(self, name=None) -> discord.Embed:
         desc = str(self)
-
         if len(desc) > 4000:
             raise Exception('Too many errors to be of reasonable use!')
 

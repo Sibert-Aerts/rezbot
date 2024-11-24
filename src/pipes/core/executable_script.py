@@ -2,9 +2,10 @@ from discord import TextChannel
 from pyparsing import ParseResults
 
 # More import statements at the bottom of the file, due to circular dependencies.
-from .state.logger import ErrorLog
+from .state.error_log import ErrorLog
 from .groupmodes import GroupMode
-from .state.context import Context, ItemScope
+from .state.context import Context
+from .state.item_scope import ItemScope
 from .state.spout_state import SpoutState
 import utils.texttools as texttools
 

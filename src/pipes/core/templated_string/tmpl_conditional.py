@@ -1,7 +1,8 @@
 from pyparsing import ParseResults
 
-from ..state.logger import ErrorLog
-from ..state.context import Context, ItemScope
+from ..state.error_log import ErrorLog
+from ..state.context import Context
+from ..state.item_scope import ItemScope
 from ..conditions import Condition
 from .templated_string import TemplatedString
 

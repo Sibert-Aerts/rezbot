@@ -8,8 +8,9 @@ from pyparsing import ParseBaseException, ParseResults
 from itertools import product as iter_product
 from enum import Enum
 
-from ..state.logger import ErrorLog
-from ..state.context import Context, ItemScope, ItemScopeError
+from ..state.error_log import ErrorLog
+from ..state.context import Context
+from ..state.item_scope import ItemScope, ItemScopeError
 from .. import grammar
 # Note: Additional, circular imports below
 

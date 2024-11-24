@@ -7,7 +7,7 @@ import permissions
 from utils.choicetree import ChoiceTree
 
 # More import statements at the end of the file, due to circular dependencies.
-from .state.logger import ErrorLog
+from .state.error_log import ErrorLog
 from .state.spout_state import SpoutState
 
 
@@ -737,7 +737,8 @@ class Pipeline:
 from .templated_string.templated_string import TemplatedString
 from .templated_string import templated_element
 from .macros import MACRO_PIPES, MACRO_SOURCES
-from .state.context import Context, ItemScope
+from .state.context import Context
+from .state.item_scope import ItemScope
 from .signature import Signature, ArgumentError, Arguments
 from .pipe import Pipe, Source, Spout
 from . import groupmodes
