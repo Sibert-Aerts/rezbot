@@ -3,7 +3,7 @@ import random
 from datetime import datetime, timezone, timedelta
 
 from .sources import source_from_func, multi_source, set_category, with_signature
-from pipes.core.signature import Par, regex, Multi, Option
+from pipes.core.signature import Par, regex, ListOf, Option
 
 from utils.rand import choose, sample
 from utils.util import format_doc
@@ -149,7 +149,7 @@ WEATHER_WHAT = Option(
 @source_from_func(command=True)
 @with_signature(
     location = Par(str, None, 'The Location.'),
-    what = Par(Multi(WEATHER_WHAT), None, 'Which properties to fetch, separated by commas.'),
+    what = Par(ListOf(WEATHER_WHAT), None, 'Which properties to fetch, separated by commas.'),
 )
 @format_doc(options=', '.join(WEATHER_WHAT))
 async def weather_source(ctx, location: str, what: list[str]):

@@ -2,7 +2,7 @@ import re
 from functools import lru_cache
 
 from .sources import source_from_func, set_category
-from pipes.core.signature import Par, Option, Multi
+from pipes.core.signature import Par, Option, ListOf
 
 from utils.rand import choose, sample, ordered_sample, choose_slice
 from utils.texttools import *
@@ -146,7 +146,7 @@ def _wikipedia_get_what(page: WikipediaPage, what, n):
 
 
 @source_from_func({
-    'what': Par(Multi(WIKIPEDIA_WHAT), 'summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
+    'what': Par(ListOf(WIKIPEDIA_WHAT), 'summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
     'language': Par(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
     'lines': Par(int, 1, 'The number of (what) you want ,for summary/content this means number of sentences.'),
     'n' : Par(int, 1, 'The number of random pages to fetch')
@@ -180,7 +180,7 @@ async def wikipedia_random_source(ctx, what, language, lines, n):
 
 @source_from_func({
     'page': Par(str, None, 'The page you want information from. (For a random page, use wikipedia_random.)', lambda s: s),
-    'what': Par(Multi(WIKIPEDIA_WHAT), 'summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
+    'what': Par(ListOf(WIKIPEDIA_WHAT), 'summary', 'Which part(s) of the pages you want: ' + '/'.join(WIKIPEDIA_WHAT)),
     'language': Par(str, 'en', 'Which language Wikipedia you want to use. (list: https://meta.wikimedia.org/wiki/List_of_Wikipedias)'),
     'n'   : Par(int, 1, 'The number of (what) you want, for summary/content this means number of sentences.')
 }, depletable=True)

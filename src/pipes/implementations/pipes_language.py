@@ -10,7 +10,7 @@ spacy.LOADED_NLP = None
 import num2words
 
 from .pipes import pipe_from_func, one_to_one, one_to_many, set_category, with_signature
-from pipes.core.signature import Par, Option, Multi
+from pipes.core.signature import Par, Option, ListOf
 from utils.util import parse_bool, format_doc
 from utils.google_translate_languages import LANGUAGES_BY_CODE_LOWER, ALL_LANGUAGE_KEYS, get_language
 from resource.upload import uploads
@@ -142,8 +142,8 @@ POS_TAG = Option('ADJ', 'ADJ', 'ADP', 'PUNCT', 'ADV', 'AUX', 'SYM', 'INTJ', 'CON
 'X', 'NOUN', 'DET', 'PROPN', 'NUM', 'VERB', 'PART', 'PRON', 'SCONJ', 'SPACE', name='POS tag', stringy=True, prefer_upper=True)
 
 @pipe_from_func({
-    'include': Par(Multi(POS_TAG), None, 'Which POS tags to replace, separated by commas. If blank, uses the `exclude` list instead.', required=False),
-    'exclude': Par(Multi(POS_TAG), 'PUNCT,SPACE,SYM,X', 'Which POS tags not to replace, separated by commas. Ignored if `include` is given.')
+    'include': Par(ListOf(POS_TAG), None, 'Which POS tags to replace, separated by commas. If blank, uses the `exclude` list instead.', required=False),
+    'exclude': Par(ListOf(POS_TAG), 'PUNCT,SPACE,SYM,X', 'Which POS tags not to replace, separated by commas. Ignored if `include` is given.')
 })
 @one_to_one
 def pos_unfill_pipe(text, include, exclude):

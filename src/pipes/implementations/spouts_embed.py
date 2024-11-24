@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from discord import Embed, Message
 
 from .spouts import spout_from_class, spout_from_func, set_category, Par, with_signature, Context
-from pipes.core.signature import url, Hex, Multi
+from pipes.core.signature import url, Hex, ListOf
 
 
 #####################################################
@@ -22,7 +22,7 @@ class SpoutEmbed:
         author      = Par(str, None, 'A name presented as the author\'s.', required=False),
         author_icon = Par(url, None, 'Link to the author\'s portrait.', required=False),
         thumb       = Par(url, None, 'Link to an image shown as a thumbnail.', required=False),
-        image       = Par(Multi(url), None, 'Up to four links to images to display in big, separated by commas.', required=False),
+        image       = Par(ListOf(url), None, 'Up to four links to images to display in big, separated by commas.', required=False),
         footer      = Par(str, None, 'The footer text.', required=False),
         footer_icon = Par(url, None, 'Link to the footer icon.', required=False),
         timestamp   = Par(int, None, 'A timestamp representing the date that shows up in the footer.', required=False),

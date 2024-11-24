@@ -2,7 +2,7 @@ from datetime import timezone
 import discord
 
 from .sources import source_from_func, get_which, set_category, Context
-from pipes.core.signature import Par, Option, Multi, regex, parse_bool, with_signature
+from pipes.core.signature import Par, Option, ListOf, regex, parse_bool, with_signature
 from utils.texttools import *
 
 #####################################################
@@ -27,7 +27,7 @@ def messages_get_what(messages, what):
 
 @source_from_func(plural='those')
 @with_signature(
-    what = Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT))
+    what = Par(ListOf(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT))
 )
 async def that_source(ctx: Context, what):
     '''The message being replied to, or the previous message in the channel.'''
@@ -36,7 +36,7 @@ async def that_source(ctx: Context, what):
 
 
 @source_from_func({
-    'what': Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
+    'what': Par(ListOf(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
     'n': Par(int, 1, 'The number of next messages to wait for.', lambda n: n < 1000),
 })
 async def next_message_source(ctx: Context, n, what):
@@ -56,7 +56,7 @@ async def next_message_source(ctx: Context, n, what):
 
 @source_from_func(aliases=['this'])
 @with_signature(
-    what = Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
+    what = Par(ListOf(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
     id = Par(str, 'this', 'Which message to read from: That/this or message ID (in this channel).'),
 )
 async def message_source(ctx: Context, what, id):
@@ -67,7 +67,7 @@ async def message_source(ctx: Context, what, id):
 
 @source_from_func(aliases=['previous'])
 @with_signature(
-    what = Par(Multi(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
+    what = Par(ListOf(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
     n = Par(int, 1, 'The number of messages to get'),
     i = Par(int, 0, 'The number of initial messages to skip', lambda i: i <= 10000),
     by = Par(str, None, 'A user id, if given will try and find the previous N messages by this user.', required=False),
@@ -126,7 +126,7 @@ def members_get_what(members: list[discord.Member], what):
 
 @source_from_func(aliases=['my'])
 @with_signature(
-    what = Par(Multi(MEMBER_WHAT), 'name', '/'.join(MEMBER_WHAT)),
+    what = Par(ListOf(MEMBER_WHAT), 'name', '/'.join(MEMBER_WHAT)),
 )
 async def me_source(ctx: Context, what):
     '''The name (or other attribute) of the member invoking the script or event.'''
@@ -136,7 +136,7 @@ async def me_source(ctx: Context, what):
 
 @source_from_func(aliases=['them', 'their'])
 @with_signature(
-    what = Par(Multi(MEMBER_WHAT), 'name', '/'.join(MEMBER_WHAT)),
+    what = Par(ListOf(MEMBER_WHAT), 'name', '/'.join(MEMBER_WHAT)),
 )
 async def they_source(ctx: Context, what):
     '''
@@ -151,7 +151,7 @@ async def they_source(ctx: Context, what):
 
 @source_from_func
 @with_signature(
-    what = Par(Multi(MEMBER_WHAT), 'name', '/'.join(MEMBER_WHAT)),
+    what = Par(ListOf(MEMBER_WHAT), 'name', '/'.join(MEMBER_WHAT)),
 )
 async def bot_source(ctx: Context, what):
     '''The name (or other attribute) of the bot's own Discord member.'''
@@ -161,7 +161,7 @@ async def bot_source(ctx: Context, what):
 
 @source_from_func(depletable=True)
 @with_signature(
-    what = Par(Multi(MEMBER_WHAT), 'name', '/'.join(MEMBER_WHAT)),
+    what = Par(ListOf(MEMBER_WHAT), 'name', '/'.join(MEMBER_WHAT)),
     n    = Par(int, 1, 'The maximum number of members to return.'),
     id   = Par(str, None, 'The member\'s unique ID or handle.', required=False),
     name = Par(regex, None, 'A pattern that should match their one of their names.', required=False),

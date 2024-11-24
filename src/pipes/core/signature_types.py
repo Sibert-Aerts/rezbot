@@ -81,6 +81,7 @@ class Option:
 
     ----
     With `stringy=True`, it essentially acts as a filter/normaliser for a set of strings.
+
         >>> Color = Option('red', 'green', 'blue', stringy=True)
         >>> Color('red') == Color.red == 'red'
         True
@@ -142,15 +143,15 @@ class Option:
         return self._options.__iter__()
 
 
-class Multi:
+class ListOf:
     '''
-    A Multi object wraps a "type" to be a comma (or otherwise) separated list of said type.
+    A ListOf object wraps a "type" to be a comma (or otherwise) separated list of said type.
     The output type is a list but with __repr__ changed to resemble the original input.
 
-    >>> intList = Multi(int)
-    >>> intList('10,20,30') == [10, 20, 30]
+    >>> ListOfInt = ListOf(int)
+    >>> ListOfInt('10,20,30') == [10, 20, 30]
     True
-    >>> intList('10,20,30')
+    >>> ListOfInt('10,20,30')
     10,20,30
     '''
 
@@ -161,12 +162,12 @@ class Multi:
         def __repr__(self): return self.sep.join(str(s) for s in self)
 
     def __init__(self, type, sep=','):
-        self.__name__ = type.__name__ + ' list'
+        self.__name__ = 'list of ' + type.__name__
         self.type = type
         self.sep = sep
 
     def __call__(self, text: str):
-        out = Multi.List(self.sep)
+        out = ListOf.List(self.sep)
         for item in text.split(self.sep):
             try:
                 out.append(self.type(item))

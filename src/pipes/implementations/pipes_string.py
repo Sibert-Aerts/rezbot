@@ -2,7 +2,7 @@ import math
 import textwrap
 
 from .pipes import pipe_from_func, many_to_one, one_to_one, one_to_many, set_category
-from pipes.core.signature import Par, Option, Multi, parse_bool, regex
+from pipes.core.signature import Par, Option, ListOf, parse_bool, regex
 from utils.texttools import min_dist, case_pattern
 from utils.choicetree import ChoiceTree
 from resource.upload import uploads
@@ -175,7 +175,7 @@ def case_pipe(inputs, pattern):
 
 @pipe_from_func({
     'columns':    Par(str, None, 'The names of the different columns separated by commas, OR an integer giving the number of columns.'),
-    'alignments': Par(Multi(DIRECTION), 'l', 'How the columns should be aligned: l/c/r separated by commas.'),
+    'alignments': Par(ListOf(DIRECTION), 'l', 'How the columns should be aligned: l/c/r separated by commas.'),
     'sep':        Par(str, ' │ ', 'The column separator'),
     'max_width':  Par(int, 100, 'The maximum desired width the output table should have, -1 for no limit.'),
     'code_block': Par(parse_bool, True, 'If the table should be wrapped in a Discord code block (triple backticks).'),
