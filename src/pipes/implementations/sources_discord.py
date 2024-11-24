@@ -3,7 +3,6 @@ import discord
 
 from .sources import source_from_func, get_which, set_category, Context
 from pipes.core.signature import Par, Option, Multi, regex, parse_bool, with_signature
-import pipes.core.events # NOTE: Load-bearing for some reason
 from utils.texttools import *
 
 #####################################################

@@ -2,7 +2,7 @@ import discord
 from discord.ext import commands
 
 from pipes.core.events import ALL_EVENTS
-from pipes.views import EventView
+from pipes.views.event_views import EventView
 from rezbot_commands import RezbotCommands
 from utils.texttools import chunk_lines
 import permissions

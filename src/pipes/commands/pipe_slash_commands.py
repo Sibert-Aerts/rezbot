@@ -14,7 +14,8 @@ from pipes.core.events import Event
 from rezbot_commands import RezbotCommands
 import utils.texttools as texttools
 
-from pipes.views import MacroView, EventView
+from pipes.views.macro_views import MacroView
+from pipes.views.event_views import EventView
 from .slash_commands_util import autocomplete_scriptoid, choice_to_scriptoid
 
 

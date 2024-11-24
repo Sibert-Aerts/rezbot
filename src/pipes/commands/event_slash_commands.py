@@ -9,12 +9,11 @@ from discord import app_commands, Interaction, Message
 from pipes.core.events import Event, ALL_EVENTS
 from pipes.core.state.context import Context
 from pipes.core.state.item_scope import ItemScope
-from pipes.core.processor import PipelineProcessor
 from rezbot_commands import RezbotCommands
 from utils.util import normalize_name
 from utils.texttools import chunk_lines
 
-from pipes.views import EventView
+from pipes.views.event_views import EventView
 from .slash_commands_util import event_type_map, autocomplete_event, choice_to_scriptoid, autocomplete_invoke_command
 
 
@@ -233,9 +232,8 @@ class EventSlashCommands(RezbotCommands):
                 interaction=interaction,
                 arguments={'message': message},
             )
-            processor: PipelineProcessor = self.bot.pipeline_processor
             scope = ItemScope(items=[message])
-            await processor.execute_script(event.script, context, scope)
+            await self.bot.pipeline_processor.execute_script(event.script, context, scope)
 
             # In case the script does not resolve the interaction. There is no way to resolve a slash command without a reply, so reply.
             if not interaction.response.is_done():

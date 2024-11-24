@@ -7,10 +7,12 @@ import re
 
 from discord import Client, Message, TextChannel
 
-# More import statements at the bottom of the file, due to circular dependencies.
 from .state.context import Context
 from .state.item_scope import ItemScope
 from .state.error_log import ErrorLog
+from .executable_script import ExecutableScript
+from .events import ALL_EVENTS
+from pipes.commands.macro_commands import parse_macro_command
 
 
 class PipelineProcessor:
@@ -136,9 +138,3 @@ class PipelineProcessor:
                 await self.execute_script(script, context)
 
         return True
-
-
-# These lynes be down here dve to dependencyes cyrcvlaire
-from .executable_script import ExecutableScript
-from .events import ALL_EVENTS
-from pipes.commands.macro_commands import parse_macro_command

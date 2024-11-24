@@ -12,7 +12,7 @@ from rezbot_commands import RezbotCommands
 import utils.texttools as texttools
 from utils.util import normalize_name
 
-from pipes.views import MacroView
+from pipes.views.macro_views import MacroView
 from .slash_commands_util import (
     scriptoid_type_map, macro_check_map, autocomplete_macro, choice_to_scriptoid,
 )

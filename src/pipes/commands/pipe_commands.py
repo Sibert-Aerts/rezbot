@@ -6,7 +6,7 @@ from pipes.implementations.pipes import NATIVE_PIPES
 from pipes.implementations.sources import NATIVE_SOURCES
 from pipes.implementations.spouts import NATIVE_SPOUTS
 from pipes.core.macros import MACRO_PIPES, MACRO_SOURCES, Macros
-from pipes.views import MacroView
+from pipes.views.macro_views import MacroView
 from rezbot_commands import RezbotCommands
 import utils.texttools as texttools
 

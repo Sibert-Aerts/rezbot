@@ -4,7 +4,7 @@ from typing import Callable
 import discord
 from discord.ext import commands
 
-from pipes.views import MacroView
+from pipes.views.macro_views import MacroView
 
 from pipes.core.pipe import Pipes
 from pipes.core.pipeline import Pipeline

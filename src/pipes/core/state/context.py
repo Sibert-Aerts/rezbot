@@ -242,6 +242,3 @@ class Context:
 
         return await self.channel.fetch_message(int_key)
 
-
-# Magic load-bearing import that makes all imports work in the right order
-from ..templated_string import templated_string
