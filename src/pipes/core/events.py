@@ -20,6 +20,8 @@ def DIR(filename=''):
 class Event:
     CURRENT_VERSION = 6
 
+    targets_current_message = False
+
     def __init__(self, *, name: str, desc: str='', author_id: int, channels: list[int]=None, script: str):
         self.name: str = name
         self.desc: str = desc
@@ -166,6 +168,8 @@ class OnMessage(Event):
 
 class OnReaction(Event):
     emotes: list[str]
+
+    targets_current_message = False
 
     def __init__(self, *, emotes: list[str]=None, **kwargs):
         super().__init__(**kwargs)
@@ -439,5 +443,5 @@ ALL_EVENTS = Events(DIR, 'events')
 
 
 # Circular dependency
-from pipes.views import EventView
+from pipes.views.event_views import EventView
 from .executable_script import ExecutableScript

@@ -168,21 +168,10 @@ class Context:
         if key in ('me', 'my'):
             return self.origin.activator
 
-        ## CASE 2; THEY: The person that's being replied to, or reacted on
+        ## CASE 2; THEY: The author of 'that' message (cf. get_message)
         if key in ('they', 'them', 'their'):
-            if (
-                self.origin.type is Context.Origin.Type.DIRECT_TARGETING_MESSAGE
-                or (self.origin.event and isinstance(self.origin.event, OnReaction))
-            ):
-                # CASE 2.1: OnReact Event: Reacted message's author.
-                return self.message.author
-            elif self.message.reference and self.message.reference.message_id:
-                # CASE 2.2: Context message is replying to another message, that message's author.
-                msg_id = self.message.reference.message_id
-                msg = await self.channel.fetch_message(msg_id)
-                return msg.author
-            else:
-                raise ContextError('No known "them" in the current context.')
+            msg = await self.get_message('that')
+            return msg.author
 
         ## CASE 3; BOT: The bot itself
         if key == 'bot':
@@ -222,9 +211,14 @@ class Context:
         if key == 'this':
             return self.message
 
-        ## CASE 2; THAT: Either the message being replied to, or the message preceding the current message
+        ## CASE 2; THAT: The message being directly targeted, being replied to, or immediately preceding the current message
         if key == 'that':
-            if self.message.reference and self.message.reference.message_id:
+            if (
+                self.origin.type is Context.Origin.Type.DIRECT_TARGETING_MESSAGE
+                or (self.origin.event and self.origin.event.targets_current_message)
+            ):
+                return self.message
+            elif self.message.reference and self.message.reference.message_id:
                 msg_id = self.message.reference.message_id
                 return await self.channel.fetch_message(msg_id)
             else:
@@ -251,6 +245,3 @@ class Context:
 
 # Magic load-bearing import that makes all imports work in the right order
 from ..templated_string import templated_string
-
-# Imports down here due to circular dependencies
-from ..events import OnReaction
