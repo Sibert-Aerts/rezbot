@@ -83,7 +83,7 @@ class TmplItem:
     def evaluate(self, scope: ItemScope) -> list[str]:
         if scope is None: raise ItemScopeError('No scope!')
         if self.is_implicit:
-            return [scope.get_item(0, self.implicit_index, self.implicit_bang)]
+            return [scope.get_item(self.implicit_carrots, self.implicit_index, self.implicit_bang)]
         items = []
         for index in self.indices:
             if isinstance(index, TmplItem.Index):
