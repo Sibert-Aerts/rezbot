@@ -280,7 +280,8 @@ class Arguments:
             else:
                 Exception()
 
-        remainder = TemplatedString.join(remainder_pieces)
+        # Combine the remainder pieces (if any) into a single TString or None
+        remainder = TemplatedString.join(remainder_pieces) if remainder_pieces else None
 
         ## Step 2: Turn into Arg objects
         for param in list(args):
@@ -302,7 +303,7 @@ class Arguments:
         ## Step 3: Check if required arguments are missing
         missing = [param for param in signature if param not in args and signature[param].required]
         if missing:
-            if not remainder or len(missing) > 1:
+            if remainder is None or len(missing) > 1:
                 # There's no implicit argument left to use for a missing argument
                 # OR: There's more than 1 missing argument, which we can't handle in any case
                 errors.log(f'Missing required parameter{"s" if len(missing)>1 else ""} {" ".join("`%s`"%p for p in missing)}', True)
