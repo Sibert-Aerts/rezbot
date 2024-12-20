@@ -171,7 +171,7 @@ class OnMessage(Event):
 class OnReaction(Event):
     emotes: list[str]
 
-    targets_current_message = False
+    targets_current_message = True
 
     def __init__(self, *, emotes: list[str]=None, **kwargs):
         super().__init__(**kwargs)
