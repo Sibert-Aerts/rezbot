@@ -7,7 +7,7 @@
 
     * Ability to create/modify events and macros en-masse by uploading a JSON file
         * Allow uploading JSON to merge with existing file
-        * Allow uploading JSON to replace existing file
+        * Allow uploading JSON to replace existing file entirely
 
     * Finish Conditions (see below)
 

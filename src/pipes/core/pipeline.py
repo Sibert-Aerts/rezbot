@@ -250,14 +250,14 @@ class Pipeline:
     @classmethod
     def split_into_segments(cls, string: str, start_with_origin=False) -> list[str | ParsedOrigin]:
         '''
-        Split the pipeline into top-level segments (segment > segment > segment)
+        Split the pipeline into top-level segments (segment > segment > segment >> segment > segment)
         '''
         OPEN_PAREN, CLOSE_PAREN = '()'
         OPEN_BRACE, CLOSE_BRACE = '{}'
         OPEN_BRACK, CLOSE_BRACK = '[]'
         TRIPLE_QUOTES = ('"""', "'''")
         SINGLE_QUOTES = ('"', "'")
-        ALL_QUOTES = ('"""', "'''", '"', "'")
+        ALL_QUOTES = TRIPLE_QUOTES + SINGLE_QUOTES
 
         segments = []
 
@@ -271,42 +271,59 @@ class Pipeline:
             segments.append(s if not in_origin_str else ParsedOrigin(s))
 
         def find_next_segment_start():
+            '''Skips any leading whitespace at the start of a segment.'''
             nonlocal i, start
             ls = len(string)
             while i < ls and string[i].isspace():
                 i += 1
             start = i
 
+        find_next_segment_start()
+
         while i < len(string):
             c = string[i]
             escaped = i > 0 and string[i-1] == '~'
+            stack_top = stack[-1] if stack else None
 
             if not in_origin_str:
                 ## Parentheses: Only top-level or within other parentheses, unescapable
-                if c == OPEN_PAREN and (not stack or stack[-1] == OPEN_PAREN):
+                if c == OPEN_PAREN and (not stack or stack_top == OPEN_PAREN):
                     stack.append(c)
                     i += 1; continue
-                if c == CLOSE_PAREN and stack and stack[-1] == OPEN_PAREN:
+                if c == CLOSE_PAREN and stack_top == OPEN_PAREN:
                     stack.pop()
                     i += 1; continue
 
             if not escaped:
-                ## Braces and brackets
-                if c in (OPEN_BRACE, OPEN_BRACK):
+                ## Braces
+                if c == OPEN_BRACE:
                     stack.append(c)
                     i += 1; continue
-                if c == CLOSE_BRACE and stack and stack[-1] == OPEN_BRACE:
-                    stack.pop()
-                    i += 1; continue
-                if c == CLOSE_BRACK and stack and stack[-1] == OPEN_BRACK:
+                if c == CLOSE_BRACE and stack_top == OPEN_BRACE:
                     stack.pop()
                     i += 1; continue
 
-                may_open_quotes = (
-                    i == start
-                    if in_origin_str else
-                    not stack or stack[-1] not in ALL_QUOTES
-                )
+                ## Brackets: Not openable if anywhere inside triple quotes
+                # I'm actually not sure what merit there is to taking consideration of
+                # square brackets in this parse anyway. I guess I thought it couldn't hurt.
+                if c == OPEN_BRACK and not any(s in TRIPLE_QUOTES for s in stack):
+                    stack.append(c)
+                    i += 1; continue
+                if c == CLOSE_BRACK and stack_top == OPEN_BRACK:
+                    stack.pop()
+                    i += 1; continue
+
+                if in_origin_str:
+                    may_open_quotes = (i == start)
+                else:
+                    may_open_quotes = True
+                    # May only open quotes if we're not already inside a quoted string
+                    #   (with optionally some brackets inside the quoted string)
+                    for s in stack[::-1]:
+                        if s == OPEN_BRACK: continue
+                        if s in ALL_QUOTES:
+                            may_open_quotes = False
+                        break
 
                 # Triple quotes
                 if (ccc := string[i:i+3]) in TRIPLE_QUOTES:
