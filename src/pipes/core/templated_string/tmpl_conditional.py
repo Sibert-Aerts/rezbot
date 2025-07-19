@@ -8,7 +8,12 @@ from .templated_string import TemplatedString
 class TmplConditional:
     ''' Class representing an inline IF/ELSE conditional expression inside a TemplatedString. '''
 
-    def __init__(self, case_if: 'TemplatedString', condition: 'Condition', case_else: 'TemplatedString'):
+    __slots__ = ("case_if", "condition", "case_else")
+    case_if: TemplatedString
+    condition: Condition
+    case_else: TemplatedString
+
+    def __init__(self, case_if: TemplatedString, condition: Condition, case_else: TemplatedString):
         self.case_if = case_if
         self.condition = condition
         self.case_else = case_else

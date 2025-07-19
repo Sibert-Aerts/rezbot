@@ -48,7 +48,7 @@ class ItemScope:
         return scope.items[index]
 
     def get_items(self, carrots: int, start: int | None, end: int | None, bang: bool) -> list[str]:
-        '''Retrieves a range of items from this scope or a parent's scope, and possibly marks it for ignoring/removal.'''
+        '''Retrieves a range of items from this scope or a parent's scope, and possibly marks them for ignoring/removal.'''
         scope = self
         # For each ^ go up a scope
         for _ in range(carrots):

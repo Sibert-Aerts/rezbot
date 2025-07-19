@@ -10,7 +10,7 @@ from enum import Enum
 
 from ..state import ErrorLog, Context, ItemScope, ItemScopeError
 from .. import grammar
-# Note: Additional, circular imports below
+# NOTE: Additional, circular imports below
 
 
 # Sentinel objects used by TemplatedString.evaluate()
@@ -118,7 +118,7 @@ class TemplatedString:
                     has_explicit = True
                 else:
                     has_implicit = True
-                    piece.implicit_index = item_index
+                    piece.index = item_index
                     item_index += 1
 
         self.end_index = item_index
@@ -133,7 +133,7 @@ class TemplatedString:
             if isinstance(piece, TmplSource):
                 piece.args.adjust_implicit_item_indices(new_start_index)
             elif isinstance(piece, TmplItem) and piece.is_implicit:
-                piece.implicit_index += new_start_index
+                piece.index += new_start_index
         self.end_index += new_start_index
         return self.end_index
 
