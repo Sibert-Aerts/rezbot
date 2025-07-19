@@ -18,6 +18,8 @@ class TmplItem:
         else:
             raise Exception(f'Unexpected ParseResult._name: {result._name}')
 
+    def evaluate(self, scope: ItemScope) -> list[str]:
+        raise NotImplementedError()
 
 class ImplicitTmplItem(TmplItem):
     ''' Class representing an implicitly-indexed item Item inside a TemplatedString, less featureful than an explicitly-indexed item. '''

@@ -1,8 +1,12 @@
 import math
 import textwrap
+import re
+
 
 from .pipes import pipe_from_func, many_to_one, one_to_one, one_to_many, set_category
+from pipes.core.state.context import Context
 from pipes.core.signature import Par, Option, ListOf, parse_bool, regex
+from pipes.core.pipeline import Pipeline
 from utils.texttools import min_dist, case_pattern
 from utils.choicetree import ChoiceTree
 from resource.upload import uploads
@@ -84,6 +88,48 @@ def sub_pipe(text, to, **kwargs):
     Use \\1, \\2, ... in the `to` string to insert matched groups (parentheses) of the regex pattern.
     '''
     return kwargs['from'].sub(to, text)
+
+@pipe_from_func({
+    'from': Par(regex, None, 'Pattern to replace'),
+    'script': Par(Pipeline.from_string, desc='Script to apply to each match.'),
+})
+async def sub_script_pipe(items: list[str], script: Pipeline, **kwargs):
+    '''
+    Substitutes regex patterns in text by applying the given script to each match.
+    Match groups are provided as items to the script, or just the full match if there are none.
+    '''
+    _from: re.Pattern = kwargs['from']
+
+    context = Context(
+        origin=Context.Origin(
+            name='sub_script',
+            type=Context.Origin.Type.GENERIC_APPLY_PIPE,
+            activator=None,
+        ),
+        author=None,
+        message=None,
+    )
+    async def replace(match: re.Match):
+        match_groups = match.groups() or [match.group()]
+        match_groups = [m or "" for m in match_groups]
+        results, errors, spoutstate = await script.apply(match_groups, context)
+        return "".join(results) if results else ""
+
+    result_items = []
+    for text in items:
+        # re.sub() allows giving a replacement function, but this does not work if it's async.
+        # So we replicate its behavior with an async replacement function instead.
+        result = []
+        prev_end = 0
+        for match in _from.finditer(text):
+            start, end = match.span()
+            result.append(text[prev_end:start])
+            result.append(await replace(match))
+            prev_end = end
+        result.append(text[prev_end:])
+        result_items.append(''.join(result))
+
+    return result_items
 
 
 DIRECTION = Option(

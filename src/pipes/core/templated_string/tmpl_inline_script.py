@@ -21,6 +21,6 @@ class TmplInlineScript:
 
     # ================ Evaluation
 
-    async def evaluate(self, context: Context, scope: ItemScope) -> tuple[ list[str] | None, ErrorLog ]:
+    async def evaluate(self, context: Context, scope: ItemScope=None) -> tuple[ list[str] | None, ErrorLog ]:
         values, errors, spout_state = await self.script.execute_without_side_effects(context, scope)
         return values, errors

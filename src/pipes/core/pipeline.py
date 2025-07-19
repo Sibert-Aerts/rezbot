@@ -12,10 +12,7 @@ from . import groupmodes
 from .templated_string.templated_string import TemplatedString
 from .templated_string.tmpl_source import TmplSource
 from .signature import Signature, ArgumentError, Arguments
-
 # NOTE: More import statements at the end of the file due to circular dependencies
-from pipes.implementations.pipes import NATIVE_PIPES
-from pipes.implementations.sources import NATIVE_SOURCES
 
 
 class PipelineError(ValueError):
@@ -560,7 +557,7 @@ class Pipeline:
             if errors.terminal: return NOTHING_BUT_ERRORS
 
         for step in range(self.iterations):
-            step_items, step_errors, step_spout_state = await self.apply_iteration(items, context, parent_scope)
+            step_items, step_errors, step_spout_state = await self._apply_iteration(items, context, parent_scope)
             errors.extend(step_errors)
             if errors.terminal: return NOTHING_BUT_ERRORS
             items = step_items
@@ -568,7 +565,7 @@ class Pipeline:
 
         return items, errors, spout_state
 
-    async def apply_iteration(self, items: list[str], context: 'Context', parent_scope: 'ItemScope'=None) -> tuple[ list[str], ErrorLog, SpoutState ]:
+    async def _apply_iteration(self, items: list[str], context: 'Context', parent_scope: 'ItemScope'=None) -> tuple[ list[str], ErrorLog, SpoutState ]:
         '''Apply the pipeline to a list of items a single time.'''
         ## This is the big method where everything happens.
 
@@ -758,5 +755,7 @@ class Pipeline:
 
 
 # These lynes be down here dve to dependencyes cyrcvlaire
+from pipes.implementations.pipes import NATIVE_PIPES
+from pipes.implementations.sources import NATIVE_SOURCES
 from pipes.implementations.spouts import NATIVE_SPOUTS
 from .macros import MACRO_PIPES, MACRO_SOURCES

@@ -374,7 +374,7 @@ class TemplatedString:
     # ================ Specific fast-tracked use cases
 
     @staticmethod
-    async def evaluate_string(string: str, context: Context, scope: ItemScope, force_single=False) -> tuple[list[str] | None, ErrorLog]:
+    async def evaluate_string(string: str, context: Context, scope: ItemScope=None, force_single=False) -> tuple[list[str] | None, ErrorLog]:
         '''
         Takes a raw source string, evaluates {sources} and returns the list of values.
 

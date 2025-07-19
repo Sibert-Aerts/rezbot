@@ -78,7 +78,7 @@ class TmplSource:
 
     # ================ Evaluation
 
-    async def evaluate(self, context: Context, scope: ItemScope, args: dict=None) -> tuple[ list[str] | None, ErrorLog ]:
+    async def evaluate(self, context: Context, scope: ItemScope=None, args: dict=None) -> tuple[ list[str] | None, ErrorLog ]:
         '''
         Evaluate this `{source}` expression, there are four cases:
         * We are a Native Source: Straightforwardly call Source.generate

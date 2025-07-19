@@ -47,6 +47,8 @@ class Context:
             COMMAND = object()
             EVENT = object()
             INTERACTION_CALLBACK = object()
+            # Special
+            GENERIC_APPLY_PIPE = object()
             EVALUATE_SOURCES_PIPE = object()
 
         name: str
