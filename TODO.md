@@ -82,8 +82,6 @@
         * WIP: How does implicit `{}` tracking work? It should probably just refuse it entirely, right?
 
     * **SPECULATIVE:**
-        * Allow pipe(line)s as arguments, somehow?
-            * e.g. `sub_func from=\b(\w) to=( convert fraktur )`
         * Option to post minimal warnings logs + command to show most recent warnings log
             * Per Channel/per Event?
         * Special mode to analyse how a pipeline is parsed for debugging or learning purposes
