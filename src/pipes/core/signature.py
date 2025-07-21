@@ -1,4 +1,4 @@
-from typing import Optional, TypeVar, Callable
+from typing import Optional, TypeVar, Callable, Union
 from pyparsing import ParseBaseException, ParseResults
 
 from . import grammar
@@ -88,8 +88,11 @@ class Par:
         out.append(')')
         return ''.join(out)
 
-    def accepts_pipeline_args(self):
-        return self.type is Pipeline.from_string
+    def accepts_pipeline(self):
+        return self.type in (Pipeline.from_string, Pipeline.from_string_with_origin)
+
+    def accepts_executable_script(self):
+        return self.type is ExecutableScript.from_string
 
     def parse(self, raw: str):
         ''' Attempt to parse and check the given string as an argument for this parameter, raises ArgumentError if it fails. '''
@@ -237,9 +240,9 @@ class DefaultValueArg(ValueArg):
 
 class PipelineAsArg(Arg):
     '''Object representing a parsed Pipeline assigned to a specific parameter.'''
-    value: 'Pipeline'
+    value: Union['Pipeline', 'ExecutableScript']
 
-    def __init__(self, param: Par | str, pipeline: 'Pipeline'):
+    def __init__(self, param: Par | str, pipeline: Union['Pipeline', 'ExecutableScript']):
         super().__init__(param)
         self.predetermined = True
         self.value = pipeline
@@ -292,12 +295,12 @@ class Arguments:
 
         for pr_arg in pr_arg_list or []:
             pr_arg: ParseResults
-            if 'pipeline' in pr_arg:
+            if 'pipeline' in pr_arg or 'script' in pr_arg:
                 p = pr_arg['param_name'].lower()
                 if p in arg_values:
                     errors.warn(f'Repeated assignment of parameter `{p}`.')
                     continue
-                pl = Pipeline.from_parsed_simple_script_or_pipeline(pr_arg['pipeline'])
+                pl = Pipeline.from_parsed_simple_script_or_pipeline(pr_arg['pipeline'] if 'pipeline' in pr_arg else pr_arg['script'])
                 errors.extend(pl.get_static_errors(), p)
                 arg_values[p] = pl
             elif 'param_name' in pr_arg:
@@ -343,10 +346,12 @@ class Arguments:
                     args[p] = ValueArg(par, value)
                     args[p].try_predetermine(errors)
                 elif isinstance(value, Pipeline):
-                    if par.accepts_pipeline_args():
+                    if par.accepts_pipeline():
                         args[p] = PipelineAsArg(par, value)
+                    elif par.accepts_executable_script():
+                        args[p] = PipelineAsArg(par, ExecutableScript(value))
                     else:
-                        errors.log(f'Parameter `%s` does not accept Pipeline as argument.' % p, terminal=True)
+                        errors.log(f'Parameter `%s` does not accept Script as argument.' % p, terminal=True)
                 else:
                     Exception()
 
@@ -444,3 +449,4 @@ class EvaluatedArguments(dict):
 # Circular imports
 from .templated_string.templated_string import TemplatedString
 from .pipeline import Pipeline
+from .executable_script import ExecutableScript

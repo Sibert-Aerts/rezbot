@@ -23,7 +23,6 @@ right_brace     = Suppress('}')
 left_paren      = Suppress('(')
 right_paren     = Suppress(')')
 eq              = Suppress('=')
-eq_chevron      = Suppress('=>')
 escaped_symbol  = Suppress('~') + Char('{}~"\'/')
 question_mark   = Suppress('?')
 colon           = Suppress(':')
@@ -82,18 +81,22 @@ explicit_arg_start = (identifier('param_name') + eq.leave_whitespace())
 explicit_arg = Group(explicit_arg_start - explicit_arg_value + optional_white).set_name('Argument Assignment')
 'An explicit "param=<templated_string>" assignment'
 
-explicit_pl_arg_start = (identifier('param_name') + eq_chevron.leave_whitespace())
+explicit_pl_arg_start = (identifier('param_name') + eq.leave_whitespace() + chevron.leave_whitespace())
 explicit_pl_arg = Group(explicit_pl_arg_start - left_paren + Group(simple_pipeline)('pipeline') + right_paren).set_name('Pipeline-as-argument Assignment')
-'An explicit "param=>( %pipeline% )" assignment'
+'An explicit "param=>( pipeline )" assignment'
+
+explicit_script_arg_start = (identifier('param_name') + eq.leave_whitespace() + double_chevron.leave_whitespace())
+explicit_script_arg = Group(explicit_script_arg_start - left_paren + Group(simple_script)('script') + right_paren).set_name('Script-as-argument Assignment')
+'An explicit "param=>>( script )" assignment'
 
 quoted_implicit_arg = Group(quoted_templated_string)('quoted_implicit_arg')
 '(Part of) an implicit argument value wrapped in quotes'
 
 implicit_string_bit = Combine(ZeroOrMore(White()) + OneOrMore(escaped_symbol | Regex('[^{}\s>()]', re.S)) | OneOrMore(White()))('string_bit').leave_whitespace()
-implicit_arg = Group( OneOrMore( ~explicit_arg_start + ~explicit_pl_arg_start + (templated_element | implicit_string_bit) )('implicit_arg') ).set_name('Implicit Argument')
+implicit_arg = Group( OneOrMore( ~explicit_arg_start + (templated_element | implicit_string_bit) )('implicit_arg') ).set_name('Implicit Argument')
 'Literally anything that is not an explicit argument assignment, but immediately parsed as a stripped templated string.'
 
-argument_list = optional_white + ZeroOrMore(explicit_pl_arg | explicit_arg | quoted_implicit_arg | implicit_arg).set_name('Argument List')
+argument_list = optional_white + ZeroOrMore(explicit_script_arg | explicit_pl_arg | explicit_arg | quoted_implicit_arg | implicit_arg).set_name('Argument List')
 'A free mixture of explicit and implicit argument assignments.'
 
 
@@ -237,9 +240,9 @@ simple_script <<= (simple_origin + simple_segments).set_name('Simple Script')
 Note to self about Rezbot Script's grammar and the current model:
 
 The above grammar is currently used via three entry points:
-    Given a string, interpret the entire thing as a TemplatedString
-    Given a string, interpret the leading part as a GroupMode
-    Given a string, interpret the entire thing as an Arguments object
+    Given a string, parse the entire thing as a TemplatedString using grammar.absolute_templated_string
+    Given a string, parse the leading part as a GroupMode using grammar.group_mode
+    Given a string, parse the entire thing as an Arguments object using grammar.argument_list
 
 That does not however cover the entire grammar.
 There's places in code where some form of manual parsing is done, often in a naive way that does not

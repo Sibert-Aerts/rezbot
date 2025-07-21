@@ -383,8 +383,10 @@ class Pipeline:
 
             ## Un-nested >, ending the segment
             if not stack and c == '>':
-                if i > 0 and string[i-1] == '=':
-                    # Special case: '>' is (probably) part of '=>' Pipeline-as-argument assignment; don't end the segment
+                if (i > 0 and string[i-1] == '=') or (i > 1 and string[i-2:i] == '=>'):
+                    # Special case: '>' is probably part of
+                    #   '=>' Pipeline-as-argument or
+                    #   '=>>' Script-as-argument assignment; don't end the segment
                     i += 1
                     continue
 

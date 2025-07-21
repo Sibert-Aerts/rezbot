@@ -2,10 +2,8 @@ from discord import TextChannel
 from pyparsing import ParseResults
 
 from .state import ErrorLog, BOT_STATE, Context, ItemScope, SpoutState
-from .groupmodes import GroupMode
-from .templated_string.templated_string import TemplatedString
-from .pipeline import ParsedOrigin, ParsedPipe, Pipeline
-from pipes.implementations.spouts import NATIVE_SPOUTS
+from .pipeline import Pipeline
+# NOTE: Circular dependency imports at end of file
 
 import utils.texttools as texttools
 
@@ -200,3 +198,7 @@ class ExecutableScript:
                 await self.send_print_values(context.channel, spout_state.print_values, context=context)
 
             return errors
+
+
+# Circular dependencies
+from pipes.implementations.spouts import NATIVE_SPOUTS
