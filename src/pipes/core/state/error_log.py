@@ -4,8 +4,9 @@ import discord
 
 
 class TerminalErrorLogException(Exception):
-    def __init__(self, errors: 'ErrorLog'):
+    def __init__(self, errors: 'ErrorLog', context=None):
         self.errors = errors
+        self.context = context
 
 
 class ErrorLog:
@@ -63,6 +64,14 @@ class ErrorLog:
     def warn(self, message):
         return self.log(message, terminal=False)
 
+    def log_exception(self, message, e: Exception, terminal=True):
+        if isinstance(e, TerminalErrorLogException):
+            self.log(message, terminal=terminal)
+            return self.extend(e.errors, e.context)
+        else:
+            message = f'{message}:\n\t{type(e).__name__}: {e}'
+            return self.log(message, terminal=terminal)
+
     def log_parse_exception(self, e: ParseBaseException):
         ''' Bespoke formatting for a not-uncommon terminal exception. '''
         print('Logging parse exception:', str(e))
@@ -111,6 +120,9 @@ class ErrorLog:
         if other is not None:
             other.clear()
         return self
+
+    def raise_exception(self, context=None):
+        raise TerminalErrorLogException(self, context)
 
     #############################################
     ## Log viewing and presenting methods

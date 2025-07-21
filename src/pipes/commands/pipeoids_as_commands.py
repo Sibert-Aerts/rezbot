@@ -50,7 +50,7 @@ async def setup(bot: commands.Bot):
                 await ExecutableScript.send_print_values(ctx.channel, [results])
 
             except Exception as e:
-                err.log(f'With args {args}:\n\t{type(e).__name__}: {e}', True)
+                err.log_exception(f'With args {args}', e)
                 await ctx.send(embed=err.embed())
 
         func.__name__ = pipe.name
@@ -96,7 +96,7 @@ async def setup(bot: commands.Bot):
                 await ExecutableScript.send_print_values(ctx.channel, [results])
 
             except Exception as e:
-                err.log(f'With args {args}:\n\t{type(e).__name__}: {e}', True)
+                err.log_exception(f'With args {args}', e)
                 await ctx.send(embed=err.embed())
 
         func.__name__ = source.name
@@ -141,7 +141,7 @@ async def setup(bot: commands.Bot):
                 await spout.do_simple_callback(ctx.bot, script_context, [text], **args)
 
             except Exception as e:
-                err.log(f'With args {args}:\n\t{type(e).__name__}: {e}', True)
+                err.log_exception(f'With args {args}', e)
                 await ctx.send(embed=err.embed())
 
         func.__name__ = spout.name

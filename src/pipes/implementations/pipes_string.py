@@ -113,6 +113,8 @@ async def sub_script_pipe(items: list[str], script: Pipeline, **kwargs):
         match_groups = match.groups() or [match.group()]
         match_groups = [m or "" for m in match_groups]
         results, errors, spoutstate = await script.apply(match_groups, context)
+        if errors.terminal:
+            errors.raise_exception("sub_script script")
         return "".join(results) if results else ""
 
     result_items = []

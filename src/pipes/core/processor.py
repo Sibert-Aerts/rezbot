@@ -91,7 +91,7 @@ class PipelineProcessor:
             executable_script = ExecutableScript.from_string(script)
         except Exception as e:
             # Make a single-use error log so we can use the send_error_log method
-            errors = ErrorLog().log(f'🛑 **Unexpected script parsing error:**\n {type(e).__name__}: {e}', terminal=True)
+            errors = ErrorLog().log_exception(f'🛑 **Unexpected script parsing error**', e)
             await ExecutableScript.send_error_log(context, errors)
             raise e
         else:

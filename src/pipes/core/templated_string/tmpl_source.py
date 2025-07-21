@@ -102,7 +102,7 @@ class TmplSource:
             try:
                 return await self.source.generate(context, args, n=self.amount), errors
             except Exception as e:
-                errors.log(f'Failed to evaluate Source `{self.name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
+                errors.log_exception(f'Failed to evaluate Source `{self.name}` with args {args}', e)
                 return NOTHING_BUT_ERRORS
 
         ### CASE: Native Pipe
@@ -114,7 +114,7 @@ class TmplSource:
             try:
                 return await self.pipe.apply([remainder_str], **args), errors
             except Exception as e:
-                errors.log(f'Failed to evaluate Pipe-as-Source `{self.name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
+                errors.log_exception(f'Failed to evaluate Pipe-as-Source `{self.name}` with args {args}', e)
                 return NOTHING_BUT_ERRORS
 
         ### CASE: Macro Source

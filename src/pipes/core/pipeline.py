@@ -620,10 +620,6 @@ class Pipeline:
         # This suggestively named tuple is for such cases.
         NOTHING_BUT_ERRORS = (None, errors, None)
 
-        # Turns out this pipeline just isn't even executable due to parsing errors! abort!
-        if errors.terminal:
-            return NOTHING_BUT_ERRORS
-
         # Set up some objects we'll likely need
         item_scope = ItemScope(parent_scope)
         spout_state = SpoutState()
@@ -726,7 +722,7 @@ class Pipeline:
                     try:
                         next_items.extend(await pipe.apply(items, **args))
                     except Exception as e:
-                        errors.log(f'Failed to process Pipe `{name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
+                        errors.log_exception(f'Failed to process Pipe `{name}` with args {args}', e)
                         return NOTHING_BUT_ERRORS
 
                 ## A SPOUT
@@ -749,7 +745,7 @@ class Pipeline:
                     try:
                        next_items.extend( await source.generate(context, args) )
                     except Exception as e:
-                        errors.log(f'Failed to process Source-as-Pipe `{name}` with args {args}:\n\t{type(e).__name__}: {e}', True)
+                        errors.log_exception(f'Failed to process Source-as-Pipe `{name}` with args {args}', e)
                         return NOTHING_BUT_ERRORS
 
                 ## A PIPE MACRO

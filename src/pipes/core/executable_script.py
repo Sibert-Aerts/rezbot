@@ -153,7 +153,7 @@ class ExecutableScript:
             ## An actual error has occurred in executing the script that we did not catch.
             # No script, no matter how poorly formed or thought-out, should be able to trigger this; if this occurs it's a Rezbot bug.
             print('Script execution halted unexpectedly!')
-            errors.log(f'🛑 **Unexpected pipeline error:**\n {type(e).__name__}: {e}', terminal=True)
+            errors.log_exception(f'🛑 **Unexpected pipeline error**', e)
             await self.send_error_log(context, errors)
             raise e
 
@@ -181,7 +181,7 @@ class ExecutableScript:
                 try:
                     await spout.spout_function(context, values, **args)
                 except Exception as e:
-                    errors.log(f'Failed to execute spout `{spout.name}`:\n\t{type(e).__name__}: {e}', True)
+                    errors.log_exception(f'Failed to execute spout `{spout.name}`', e)
                     return errors
 
             ## Perform all aggregated-style Spout callbacks
@@ -189,7 +189,7 @@ class ExecutableScript:
                 try:
                     await spout.spout_function(context, spout_state.aggregated[spout.name])
                 except Exception as e:
-                    errors.log(f'Failed to execute spout `{spout.name}`:\n\t{type(e).__name__}: {e}', True)
+                    errors.log_exception(f'Failed to execute spout `{spout.name}`', e)
                     return errors
 
             ## Perform `print` if either: No other spout has been encountered all script OR if a print spout has been explicitly encountered.

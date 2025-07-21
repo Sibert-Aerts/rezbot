@@ -69,7 +69,7 @@ class TemplatedString:
                         symbol = TmplSpecialSymbol.from_parsed(result_piece)
                         pieces.append(symbol)
                     except ValueError as v:
-                        pre_errors.log(str(v), terminal=True)
+                        pre_errors.log(v, terminal=True)
 
                 case 'te_script':
                     inline_script = TmplInlineScript.from_parsed(result_piece)
@@ -321,8 +321,7 @@ class TemplatedString:
                     items = piece.evaluate(scope)
                     pieces.append(items)
                 except ItemScopeError as e:
-                    msg = f'Error filling in item `{piece}`:\n\tItemScopeError: {e}'
-                    errors.log(msg, True)
+                    errors.log_exception(f'Error filling in item `{piece}`', e)
 
             elif isinstance(piece, TmplSource) and not errors.terminal:
                 pieces.append(FutureSentinel.SOURCE)
@@ -416,8 +415,7 @@ class TemplatedString:
                 try:
                     vals = tstring.item.evaluate(scope)
                 except ItemScopeError as e:
-                    msg = f'Error filling in item `{tstring.item}`:\n\tItemScopeError: {e}'
-                    errors.log(msg, True)
+                    errors.log_exception( f'Error filling in item `{tstring.item}`', e)
                 if not errors.terminal: values.extend(vals)
             elif tstring.is_source:
                 vals, errs = await tstring.source.evaluate(context, scope)
