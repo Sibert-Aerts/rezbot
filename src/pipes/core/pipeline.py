@@ -7,11 +7,7 @@ import permissions
 from utils.choicetree import ChoiceTree
 
 from .state import ErrorLog, SpoutState, Context, ItemScope
-from .pipe import Pipe, Source, Spout
 from . import groupmodes
-from .templated_string.templated_string import TemplatedString
-from .templated_string.tmpl_source import TmplSource
-from .signature import Signature, ArgumentError, Arguments
 # NOTE: More import statements at the end of the file due to circular dependencies
 
 
@@ -242,6 +238,51 @@ class Pipeline:
     def from_string_with_origin(string: str, *, iterations: str=None):
         return Pipeline.from_string(string, iterations=iterations, start_with_origin=True)
 
+    @staticmethod
+    def from_parsed_simple_script_or_pipeline(parsed: ParseResults) -> 'Pipeline':
+        parsed_segments = []
+
+        # Simple Script: Parse assumed origin
+        if 'simple_origin' in parsed:
+            simple_origin_parsed = parsed['simple_origin']
+            if 'quoted_simple_origin' in simple_origin_parsed:
+                origin_tstr = TemplatedString.from_parsed(simple_origin_parsed['quoted_simple_origin'])
+            else:
+                origin_tstr = TemplatedString.from_parsed(simple_origin_parsed).strip()
+            parsed_segments.append(ParsedOrigin([origin_tstr]))
+
+        # Simple Pipeline: Parse assumed first pipe
+        if 'first_pipe' in parsed:
+            first_pipe_parsed = parsed['first_pipe']
+            if 'nop' in first_pipe_parsed:
+                pass
+            else:
+                simple_pipe_parsed = first_pipe_parsed['simple_pipe']
+                groupmode = groupmodes.GroupMode.from_parsed(simple_pipe_parsed['groupmode'])
+                parsed_pipe = ParsedPipe.from_parsed(simple_pipe_parsed)
+                parsed_segments.append((groupmode, (parsed_pipe,)))
+
+        # Either case: Parse pipe segments
+        for simple_segment in parsed['simple_segments']:
+            if 'simple_pipe' in simple_segment:
+                simple_pipe_parsed = simple_segment['simple_pipe']
+                groupmode = groupmodes.GroupMode.from_parsed(simple_pipe_parsed['groupmode'])
+                parsed_pipe = ParsedPipe.from_parsed(simple_pipe_parsed)
+                parsed_segments.append((groupmode, (parsed_pipe,)))
+            elif 'simple_origin' in simple_segment:
+                simple_origin_parsed = simple_segment['simple_origin']
+                if 'quoted_simple_origin' in simple_origin_parsed:
+                    origin_tstr = TemplatedString.from_parsed(simple_origin_parsed['quoted_simple_origin'])
+                else:
+                    origin_tstr = TemplatedString.from_parsed(simple_origin_parsed).strip()
+                parsed_segments.append(ParsedOrigin([origin_tstr]))
+            elif 'nop' in simple_segment:
+                continue
+            else:
+                raise Exception()
+
+        return Pipeline(parsed_segments)
+
     # =========================================== Parsing ==========================================
 
     @classmethod
@@ -342,7 +383,12 @@ class Pipeline:
 
             ## Un-nested >, ending the segment
             if not stack and c == '>':
-                if i > 0 and string[i-1] == '-':
+                if i > 0 and string[i-1] == '=':
+                    # Special case: '>' is (probably) part of '=>' Pipeline-as-argument assignment; don't end the segment
+                    i += 1
+                    continue
+
+                elif i > 0 and string[i-1] == '-':
                     # Special case: '->' is shorthand for '> print >'
                     append_segment(string[start:i-1])
                     in_origin_str = False
@@ -533,7 +579,7 @@ class Pipeline:
                     pieces.append(pipes_strs[0])
                 else:
                     pieces.append('[ ' + ' | '.join(pipes_strs) + ' ]')
-        return ' '.join(pieces[1:]) # Crop off the leading >> or >
+        return ' '.join(pieces[1:])
 
     # ========================================= Application ========================================
 
@@ -755,6 +801,10 @@ class Pipeline:
 
 
 # These lynes be down here dve to dependencyes cyrcvlaire
+from .templated_string.templated_string import TemplatedString
+from .templated_string.tmpl_source import TmplSource
+from .signature import Signature, ArgumentError, Arguments
+from .pipe import Pipe, Source, Spout
 from pipes.implementations.pipes import NATIVE_PIPES
 from pipes.implementations.sources import NATIVE_SOURCES
 from pipes.implementations.spouts import NATIVE_SPOUTS

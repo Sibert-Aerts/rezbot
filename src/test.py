@@ -12,10 +12,12 @@ from pprint import pprint
 import pipes.core.grammar as grammar
 from pipes.core.state import Context, ItemScope, ErrorLog, SpoutState
 import pipes.core.groupmodes as groupmodes
+from pipes.core.signature import Arguments
 from pipes.core.templated_string.templated_string import TemplatedString
 from pipes.core.conditions import Condition
 from pipes.core.executable_script import ExecutableScript
 
+from pipes.implementations.pipes import NATIVE_PIPES
 from pipes.core.macros import Macro, MACRO_SOURCES, MACRO_PIPES
 from pipes.core.events import Event, ALL_EVENTS
 
@@ -179,6 +181,28 @@ async def time_groupmode_parse():
     print('NEW TIME:', timeit.timeit('parse()', globals={'parse': new_parse}, number=1))
 
 
+async def test_script_arg_parse():
+
+    # s = "foo=>(>> doo and {yes} and {no} and you > foo)"
+    # pr = grammar.explicit_pl_arg.parse_string(s, parse_all=True)
+    # grammar.print_parse_result(pr)
+    # return
+
+
+    pipeoid = NATIVE_PIPES["sub"]
+    argstr = 'from=a to=>(b)'
+    print()
+    print('ARGSTR: ', argstr)
+
+    args, remainder, errors = Arguments.from_string(argstr, pipeoid.signature)
+
+    print()
+    print('REPR:', repr(args))
+    print()
+    print('STR: ', str(args))
+    print()
+
+
 async def test_multiple_evaluate():
 
     # NOTE: Multiple-evaluates to 200k strings
@@ -224,7 +248,7 @@ async def statically_analyse_all_macros_and_events():
 async def test_script(pl_str):
     pl = ExecutableScript.from_string(pl_str)
 
-    print('REPR:')
+    print('\nREPR:')
     print(repr(pl), '\n')
     print('STRING:')
     print(str(pl), '\n')
@@ -260,6 +284,7 @@ if __name__ == '__main__':
         # asyncio.run(test_condition())
         # asyncio.run(test_groupmode())
         # asyncio.run(time_groupmode_parse())
+        # asyncio.run(test_script_arg_parse())
 
         # asyncio.run(test_multiple_evaluate())
 

@@ -1,10 +1,9 @@
-import asyncio
-from typing import Awaitable, Iterable, Optional, TypeVar, Callable
+from typing import Optional, TypeVar, Callable
 from pyparsing import ParseBaseException, ParseResults
 
 from . import grammar
 from .state import ErrorLog, Context, ItemScope
-from .templated_string.templated_string import TemplatedString
+# NOTE: Additional circular imports at the bottom of the file
 
 # Make all the signature_types types available through this import
 from .signature_types import *
@@ -89,6 +88,9 @@ class Par:
         out.append(')')
         return ''.join(out)
 
+    def accepts_pipeline_args(self):
+        return self.type is Pipeline.from_string
+
     def parse(self, raw: str):
         ''' Attempt to parse and check the given string as an argument for this parameter, raises ArgumentError if it fails. '''
         try:
@@ -170,23 +172,39 @@ def get_signature(f: Callable, default=None):
 #####################################################
 
 class Arg:
-    ''' Object representing a parsed TemplatedString assigned to a specific parameter. '''
+    ''' Abstract class representing something being passed as an argument to a parameter. '''
     param: Par | None
     'The Par that this is argument is assigned to. If None, this Arg is a "naive" stringy argument.'
     name: str
-    string: 'TemplatedString'
-    value: T = None
     predetermined: bool = False
+    value: T = None
 
-    def __init__(self, string: 'TemplatedString', param: Par | str):
+    def __init__(self, param: Par | str):
         self.param = param if isinstance(param, Par) else None
         self.name = param.name if isinstance(param, Par) else param
+
+    def __repr__(self):
+        raise NotImplementedError()
+    def __str__(self):
+        raise NotImplementedError()
+
+    async def determine(self, context: Context, scope: ItemScope, errors: ErrorLog) -> T | None:
+        if self.predetermined: return self.value
+        raise NotImplementedError()
+
+
+class ValueArg(Arg):
+    ''' Object representing a parsed TemplatedString assigned to a specific parameter, the most common type of Arg. '''
+    string: 'TemplatedString'
+
+    def __init__(self, param: Par | str, string: 'TemplatedString'):
+        super().__init__(param)
         self.string = string
 
     def __repr__(self):
         return repr(self.value) if self.predetermined else repr(self.string)
     def __str__(self):
-        return str(self.value) if self.predetermined else str(self.string)
+        return '%s=%s' % (self.name, self.string)
 
     def try_predetermine(self, errors: ErrorLog):
         if self.string.is_string:
@@ -210,11 +228,26 @@ class Arg:
             return
 
 
-class DefaultArg(Arg):
-    ''' Special-case Arg representing a default argument. '''
+class DefaultValueArg(ValueArg):
+    ''' Special-case ValueArg representing a default argument. '''
     def __init__(self, value):
         self.predetermined = True
         self.value = value
+
+
+class PipelineAsArg(Arg):
+    '''Object representing a parsed Pipeline assigned to a specific parameter.'''
+    value: 'Pipeline'
+
+    def __init__(self, param: Par | str, pipeline: 'Pipeline'):
+        super().__init__(param)
+        self.predetermined = True
+        self.value = pipeline
+
+    def __repr__(self):
+        return '%s' % repr(self.value)
+    def __str__(self):
+        return '%s=>( %s )' % (self.name, str(self.value))
 
 
 class Arguments:
@@ -229,7 +262,7 @@ class Arguments:
 
     def __init__(self, args: dict[str, Arg]):
         self.args = args
-        self.defaults = [p for p in args if isinstance(args[p], DefaultArg)]
+        self.defaults = [p for p in args if isinstance(args[p], DefaultValueArg)]
         self.predetermined = all(args[p].predetermined for p in args)
         if self.predetermined:
             # Special case: Every single arg is already predetermined; we can build the value dict now already.
@@ -245,7 +278,7 @@ class Arguments:
         return Arguments.from_parsed(parsed, signature, greedy=greedy)
 
     @staticmethod
-    def from_parsed(argList: ParseResults, signature: Signature=None, greedy: bool=True) -> tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
+    def from_parsed(pr_arg_list: ParseResults, signature: Signature=None, greedy: bool=True) -> tuple['Arguments', Optional['TemplatedString'], ErrorLog]:
         '''
         Compiles an argList ParseResult into a ParsedArguments object.
         If Signature is not given, will create a "naive" ParsedArguments object that Macros use.
@@ -254,29 +287,38 @@ class Arguments:
 
         ## Step 1: Collect explicitly and implicitly assigned parameters
         remainder_pieces = []
-        args: dict[str, Arg] = {}
+        arg_values: dict[str, TemplatedString | Pipeline] = {}
         start_index = 0
 
-        for arg in argList or []:
-            if 'param_name' in arg:
-                param = arg['param_name'].lower()
-                if param in args:
-                    errors.warn(f'Repeated assignment of parameter `{param}`.')
+        for pr_arg in pr_arg_list or []:
+            pr_arg: ParseResults
+            if 'pipeline' in pr_arg:
+                p = pr_arg['param_name'].lower()
+                if p in arg_values:
+                    errors.warn(f'Repeated assignment of parameter `{p}`.')
                     continue
-                remainder_piece = TemplatedString.from_parsed(arg['value'], start_index)
-                errors.extend(remainder_piece.pre_errors, param)
-                start_index = remainder_piece.end_index
-                args[param] = remainder_piece
-            elif arg._name == 'quoted_implicit_arg':
-                remainder_piece = TemplatedString.from_parsed(arg, start_index)
-                errors.extend(remainder_piece.pre_errors, 'implicit arg')
-                start_index = remainder_piece.end_index
-                remainder_pieces.append(remainder_piece)
-            elif arg._name == 'implicit_arg':
-                remainder_piece = TemplatedString.from_parsed(arg['implicit_arg'], start_index).strip()
-                errors.extend(remainder_piece.pre_errors, 'implicit arg')
-                start_index = remainder_piece.end_index
-                remainder_pieces.append(remainder_piece)
+                pl = Pipeline.from_parsed_simple_script_or_pipeline(pr_arg['pipeline'])
+                errors.extend(pl.get_static_errors(), p)
+                arg_values[p] = pl
+            elif 'param_name' in pr_arg:
+                p = pr_arg['param_name'].lower()
+                if p in arg_values:
+                    errors.warn(f'Repeated assignment of parameter `{p}`.')
+                    continue
+                tstring = TemplatedString.from_parsed(pr_arg['value'], start_index)
+                errors.extend(tstring.pre_errors, p)
+                start_index = tstring.end_index
+                arg_values[p] = tstring
+            elif pr_arg._name == 'quoted_implicit_arg':
+                tstring = TemplatedString.from_parsed(pr_arg, start_index)
+                errors.extend(tstring.pre_errors, 'implicit arg')
+                start_index = tstring.end_index
+                remainder_pieces.append(tstring)
+            elif pr_arg._name == 'implicit_arg':
+                tstring = TemplatedString.from_parsed(pr_arg['implicit_arg'], start_index).strip()
+                errors.extend(tstring.pre_errors, 'implicit arg')
+                start_index = tstring.end_index
+                remainder_pieces.append(tstring)
             else:
                 Exception()
 
@@ -284,20 +326,35 @@ class Arguments:
         remainder = TemplatedString.join(remainder_pieces) if remainder_pieces else None
 
         ## Step 2: Turn into Arg objects
-        for param in list(args):
+        args: dict[str, Arg] = {}
+        for p, value in arg_values.items():
             if signature is None:
-                # Special case: Naive Arg
-                args[param] = Arg(args[param], param)
-                args[param].try_predetermine(errors)
-            elif param in signature:
-                args[param] = Arg(args[param], signature[param])
-                args[param].try_predetermine(errors)
+                # Special case: 'Naive' signature that just wants whatever args it finds
+                if isinstance(value, TemplatedString):
+                    args[p] = ValueArg(p, value)
+                    args[p].try_predetermine(errors)
+                else:
+                    errors.log(f'Exotic argument used in naive signature.', terminal=True)
+
+            elif p in signature:
+                # Normal case: Signature with rich parsing/validation info per parameter
+                par = signature[p]
+                if isinstance(value, TemplatedString):
+                    args[p] = ValueArg(par, value)
+                    args[p].try_predetermine(errors)
+                elif isinstance(value, Pipeline):
+                    if par.accepts_pipeline_args():
+                        args[p] = PipelineAsArg(par, value)
+                    else:
+                        errors.log(f'Parameter `%s` does not accept Pipeline as argument.' % p, terminal=True)
+                else:
+                    Exception()
+
             else:
-                errors.warn(f'Unknown parameter `{param}`')
-                del args[param]
+                errors.warn(f'Unknown parameter `{p}`')
 
         ## If there's no signature to check against: we're done already.
-        if not signature:
+        if not signature or errors.terminal:
             return Arguments(args), remainder, errors
 
         ## Step 3: Check if required arguments are missing
@@ -310,30 +367,30 @@ class Arguments:
 
             elif len(missing) == 1:
                 ## Only one required parameter is missing; use the implicit parameter
-                [param] = missing
+                [p] = missing
                 implicit, remainder = remainder.split_implicit_arg(greedy)
-                args[param] = Arg(implicit, signature[param])
-                args[param].try_predetermine(errors)
+                args[p] = ValueArg(signature[p], implicit)
+                args[p].try_predetermine(errors)
 
         ## Step 4: Check if the Signature's first parameter hasn't been assigned yet and try to use the remainder for it
         elif not errors.terminal and greedy and remainder and len(signature) >= 1:
-            param = next(p for p in signature)
-            if param not in args:
+            p = next(p for p in signature)
+            if p not in args:
                 # Try using the implicit parameter, but if it causes errors, pretend we didn't see anything!
                 maybe_errors = ErrorLog()
                 implicit, remainder = remainder.split_implicit_arg(greedy)
-                arg = Arg(implicit, signature[param])
-                arg.try_predetermine(maybe_errors)
+                pr_arg = ValueArg(signature[p], implicit)
+                pr_arg.try_predetermine(maybe_errors)
 
                 # If it causes no trouble: use it!
                 if not maybe_errors.terminal:
-                    args[param] = arg
+                    args[p] = pr_arg
                     remainder = None
 
         ## Last step: Fill out default values of unassigned non-required parameters
-        for param in signature:
-            if param not in args and not signature[param].required:
-                args[param] = DefaultArg(signature[param].default)
+        for p in signature:
+            if p not in args and not signature[p].required:
+                args[p] = DefaultValueArg(signature[p].default)
 
         return Arguments(args), remainder, errors
 
@@ -353,7 +410,7 @@ class Arguments:
     def __repr__(self):
         return 'Args(%s)' % ', '.join(f'{p}={repr(a)}' for p, a in self.args.items() if p not in self.defaults)
     def __str__(self):
-        return ' '.join(f'{p}={a}' for p, a in self.args.items() if p not in self.defaults)
+        return ' '.join(str(a) for p, a in self.args.items() if p not in self.defaults)
     def __bool__(self):
         # Truthy if and only if it contains any non-default arguments
         return len(self.args) > len(self.defaults)
@@ -363,21 +420,27 @@ class Arguments:
         errors = ErrorLog()
         if self.predetermined: return self.predetermined_args, errors
 
-        futures = [self.args[p].determine(context, scope, errors) for p in self.args]
-        values = await EvaluatedArguments.from_gather(self.args, futures)
+        values = EvaluatedArguments()
         values.defaults = self.defaults
+        # Gather values
+        for p, a in self.args.items():
+            if a.predetermined:
+                values[p] = a.value
+            else:
+                values[p] = await a.determine(context, scope, errors)
+
         return values, errors
 
 
 class EvaluatedArguments(dict):
-    '''dict-subclass representing {arg: value} pairs, but with useful meta-info and methods bolted on.'''
+    '''dict-subclass representing {arg: value} pairs, but with useful meta-info bolted on.'''
     defaults: list[str]
-
-    @staticmethod
-    async def from_gather(keys: Iterable[str], futures: Iterable[Awaitable]):
-        values = await asyncio.gather(*futures)
-        return EvaluatedArguments(zip(keys, values))
 
     def __str__(self):
         '''Shows only the non-default arguments.'''
         return ' '.join(f'`{p}`={self[p]}' for p in self if p not in self.defaults)
+
+
+# Circular imports
+from .templated_string.templated_string import TemplatedString
+from .pipeline import Pipeline

@@ -39,36 +39,7 @@ class ExecutableScript:
 
     @staticmethod
     def from_parsed_simple_script(parsed: ParseResults) -> 'ExecutableScript':
-        parsed_segments = []
-
-        # Parse origin
-        simple_origin_parsed = parsed['simple_origin']
-        if 'quoted_simple_origin' in simple_origin_parsed:
-            origin_tstr = TemplatedString.from_parsed(simple_origin_parsed['quoted_simple_origin'])
-        else:
-            origin_tstr = TemplatedString.from_parsed(simple_origin_parsed).strip()
-        parsed_segments.append(ParsedOrigin([origin_tstr]))
-
-        # Parse pipe segments
-        for simple_segment in parsed['simple_segments']:
-            if 'simple_pipe' in simple_segment:
-                simple_pipe_parsed = simple_segment['simple_pipe']
-                groupmode = GroupMode.from_parsed(simple_pipe_parsed['groupmode'])
-                parsed_pipe = ParsedPipe.from_parsed(simple_pipe_parsed)
-                parsed_segments.append((groupmode, (parsed_pipe,)))
-            elif 'simple_origin' in simple_segment:
-                simple_origin_parsed = simple_segment['simple_origin']
-                if 'quoted_simple_origin' in simple_origin_parsed:
-                    origin_tstr = TemplatedString.from_parsed(simple_origin_parsed['quoted_simple_origin'])
-                else:
-                    origin_tstr = TemplatedString.from_parsed(simple_origin_parsed).strip()
-                parsed_segments.append(ParsedOrigin([origin_tstr]))
-            elif 'nop' in simple_segment:
-                continue
-            else:
-                raise Exception()
-
-        return ExecutableScript(Pipeline(parsed_segments))
+        return ExecutableScript(Pipeline.from_parsed_simple_script_or_pipeline(parsed))
 
     # =================================== Static utility methods ===================================
 

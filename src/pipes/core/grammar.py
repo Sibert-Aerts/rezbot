@@ -23,6 +23,7 @@ right_brace     = Suppress('}')
 left_paren      = Suppress('(')
 right_paren     = Suppress(')')
 eq              = Suppress('=')
+eq_chevron      = Suppress('=>')
 escaped_symbol  = Suppress('~') + Char('{}~"\'/')
 question_mark   = Suppress('?')
 colon           = Suppress(':')
@@ -43,6 +44,7 @@ interval        = Group(Opt(integer)('start') + (colon | Suppress('..')) + Opt(i
 
 # ======================== Forward definitions
 
+simple_pipeline: ParserElement = Forward().set_name('Simple Pipeline')
 simple_script: ParserElement = Forward().set_name('Simple Script')
 
 templated_element: ParserElement = Forward().set_name('Templated Element')
@@ -57,34 +59,41 @@ def make_quoted_ts(q):
     quoted_string = q - (OneOrMore(templated_element | quoted_string_bit) | Empty())('value') + q
     return quoted_string.set_name('Quoted Templated String')
 
-quoted_templated_string = (make_quoted_ts('"""') | make_quoted_ts('"') | make_quoted_ts("'") | make_quoted_ts('/')).set_name('Quoted Templated String')
-'A templated string, wrapped in either triple quotes """, regular quotes ", single quotes \' or forward slashes /'
+quoted_templated_string = (make_quoted_ts('"""') | make_quoted_ts("''''") | make_quoted_ts('"') | make_quoted_ts("'") | make_quoted_ts('/')).set_name('Quoted Templated String')
+'A templated string, wrapped in either triple quotes """, triple apostrophes \'\'\', single quotes ", single apostrophes \' or forward slashes /'
 
-string_bit_no_space = Combine(OneOrMore(escaped_symbol | Regex('[^{}>\s]', re.S)))('string_bit').leave_whitespace()
+string_bit_no_space = Combine(OneOrMore(escaped_symbol | Regex('[^{}>()\s]', re.S)))('string_bit').leave_whitespace()
 unquoted_spaceless_templated_string = OneOrMore(templated_element | string_bit_no_space)('value').set_name('Inline Templated String')
-'A nonempty templated string, without wrapping quotes, without any spaces or chevrons in the literal parts, (nb. containing sources and items may have spaces or chevrons)'
+'A nonempty templated string, without wrapping quotes, without any spaces or chevrons in the literal parts, (nb. constituent templated elements may have spaces or chevrons)'
 
 absolute_string_bit = Combine(OneOrMore(escaped_symbol | Regex('[^{}]', re.S)))('string_bit').leave_whitespace()
 absolute_templated_string = (OneOrMore(templated_element | absolute_string_bit) | Empty())('value').set_name('Templated String')
-'A templated string, parsed in a context where we are supposed to take the ENTIRE thing as the templated string, without enclosing quotes.'
+'A templated string, parsed manually outside of grammatical contexts; always assumes the ENTIRE string is the templated string, does not care about wrapping quotes or special characters.'
 
-origin_safe_string_bit = Combine(OneOrMore(escaped_symbol | Regex('[^{}>]', re.S)))('string_bit').leave_whitespace()
+origin_safe_string_bit = Combine(OneOrMore(escaped_symbol | Regex('[^{}>()]', re.S)))('string_bit').leave_whitespace()
 origin_safe_templated_string = (OneOrMore(templated_element | origin_safe_string_bit) | Empty())('value').set_name('Templated String')
 'A templated string whose literal parts may contain anything but the > symbol.'
 
 
 # ======================== Argument Assignments
 
-arg_value = (quoted_templated_string | unquoted_spaceless_templated_string).leave_whitespace().set_name('Argument Value')
-explicit_arg = Group(identifier('param_name') + eq.leave_whitespace() - arg_value + optional_white).set_name('Argument Assignment')
-'An explicity "param=<templated_string>" assignment'
+explicit_arg_value = (quoted_templated_string | unquoted_spaceless_templated_string).leave_whitespace().set_name('Argument Value')
+explicit_arg_start = (identifier('param_name') + eq.leave_whitespace())
+explicit_arg = Group(explicit_arg_start - explicit_arg_value + optional_white).set_name('Argument Assignment')
+'An explicit "param=<templated_string>" assignment'
 
-implicit_string_bit = Combine(ZeroOrMore(White()) + OneOrMore(escaped_symbol | Regex('[^{}\s>]', re.S)) | OneOrMore(White()))('string_bit').leave_whitespace()
-implicit_arg = Group( OneOrMore( ~explicit_arg + (templated_element | implicit_string_bit) )('implicit_arg') ).set_name('Implicit Argument')
-'Literally anything that is not an explicit argument assignment, but immediately parsed as a stripped templated string.'
+explicit_pl_arg_start = (identifier('param_name') + eq_chevron.leave_whitespace())
+explicit_pl_arg = Group(explicit_pl_arg_start - left_paren + Group(simple_pipeline)('pipeline') + right_paren).set_name('Pipeline-as-argument Assignment')
+'An explicit "param=>( %pipeline% )" assignment'
+
 quoted_implicit_arg = Group(quoted_templated_string)('quoted_implicit_arg')
+'(Part of) an implicit argument value wrapped in quotes'
 
-argument_list = optional_white + ZeroOrMore(explicit_arg | quoted_implicit_arg | implicit_arg).set_name('Argument List')
+implicit_string_bit = Combine(ZeroOrMore(White()) + OneOrMore(escaped_symbol | Regex('[^{}\s>()]', re.S)) | OneOrMore(White()))('string_bit').leave_whitespace()
+implicit_arg = Group( OneOrMore( ~explicit_arg_start + ~explicit_pl_arg_start + (templated_element | implicit_string_bit) )('implicit_arg') ).set_name('Implicit Argument')
+'Literally anything that is not an explicit argument assignment, but immediately parsed as a stripped templated string.'
+
+argument_list = optional_white + ZeroOrMore(explicit_pl_arg | explicit_arg | quoted_implicit_arg | implicit_arg).set_name('Argument List')
 'A free mixture of explicit and implicit argument assignments.'
 
 
@@ -105,7 +114,7 @@ source = Group( left_brace + Opt(source_amount)('amount') + identifier('source_n
 
 # ======================== Templated Element: Inline script
 
-te_script = Group( left_brace + Suppress('>>') + Group(simple_script)('inline_script') + right_brace)('te_script').set_name('Templated Inline Script')
+te_script = Group( left_brace + Suppress('>>') - Group(simple_script)('inline_script') + right_brace)('te_script').set_name('Templated Inline Script')
 
 # ======================== Templated Element: Special Symbol
 
@@ -216,8 +225,11 @@ groupmode_and_remainder = groupmode + Regex('.*', flags=re.S)('remainder')
 
 simple_origin = Group(Group(quoted_templated_string)('quoted_simple_origin') | origin_safe_templated_string)('simple_origin').set_name('Simple Origin')
 simple_pipe = Group(Opt(groupmode('groupmode')) + identifier('pipe_name') + Opt(argument_list('args')))('simple_pipe').set_name('Simple Pipe')
-simple_segment = Group((double_chevron - simple_origin) | (chevron - (simple_pipe | Group(Empty())('nop'))))
-simple_script <<= (simple_origin + Group(ZeroOrMore(simple_segment))('simple_segments')).set_name('Simple Script')
+simple_segment = Group((double_chevron - simple_origin) | (chevron - (simple_pipe | Group(Empty())('nop')))).set_name('Simple Pipeline Segment')
+simple_segments = Group(ZeroOrMore(simple_segment))('simple_segments')
+
+simple_pipeline <<= (Group(simple_pipe | Group(Empty())('nop'))('first_pipe') + simple_segments).set_name('Simple Pipeline')
+simple_script <<= (simple_origin + simple_segments).set_name('Simple Script')
 
 
 

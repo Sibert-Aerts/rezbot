@@ -436,4 +436,5 @@ class TemplatedString:
 
 
 # Circular imports
+from ..pipeline import Pipeline # Load-bearing unused import
 from .templated_element import TmplItem, TmplSource, TmplConditional, TmplInlineScript, TmplSpecialSymbol, TemplatedElement
