@@ -1,26 +1,27 @@
 from pyparsing import ParseResults
 
 from ..state import ErrorLog, Context, ItemScope
-from ..executable_script import ExecutableScript
+from ..pipeline import Pipeline
 
 
 class TmplInlineScript:
     ''' Class representing an inline script inside a TemplatedString. '''
 
-    def __init__(self, script: 'ExecutableScript'):
-        self.script = script
+    def __init__(self, pipeline: Pipeline):
+        self.pipeline = pipeline
 
     @staticmethod
     def from_parsed(parsed: ParseResults):
-        return TmplInlineScript(ExecutableScript.from_parsed_simple_script(parsed['inline_script']))
+        return TmplInlineScript(Pipeline.from_parsed_simple_script_or_pipeline(parsed['inline_script']))
 
     def __repr__(self):
-        return 'InlScript(%s)' % repr(self.script)
+        return 'InlScript(%s)' % repr(self.pipeline)
     def __str__(self):
-        return '{>> %s}' % str(self.script)
+        return '{>> %s}' % str(self.pipeline)
 
     # ================ Evaluation
 
     async def evaluate(self, context: Context, scope: ItemScope=None) -> tuple[ list[str] | None, ErrorLog ]:
-        values, errors, spout_state = await self.script.execute_without_side_effects(context, scope)
+        items = scope.items if scope is not None else ()
+        values, errors, spout_state = await self.pipeline.apply(items, context, scope)
         return values, errors

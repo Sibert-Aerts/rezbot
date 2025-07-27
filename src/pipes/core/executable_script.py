@@ -26,18 +26,12 @@ class ExecutableScript:
 
     # ======================================== Constructors ========================================
 
-    def __init__(self, pipeline: 'Pipeline', *, script_str: str=None):
+    def __init__(self, pipeline: 'Pipeline'):
         self.pipeline = pipeline
-        self.script_str = script_str
 
     @staticmethod
     def from_string(script: str) -> 'ExecutableScript':
-        pipeline = Pipeline.from_string_with_origin(script)
-        return ExecutableScript(pipeline, script_str=script)
-
-    @staticmethod
-    def from_parsed_simple_script(parsed: ParseResults) -> 'ExecutableScript':
-        return ExecutableScript(Pipeline.from_parsed_simple_script_or_pipeline(parsed))
+        return ExecutableScript(Pipeline.from_string_with_origin(script))
 
     # =================================== Static utility methods ===================================
 
@@ -104,9 +98,7 @@ class ExecutableScript:
     # ======================================= Representation =======================================
 
     def get_static_errors(self) -> ErrorLog:
-        '''
-        Collects errors that can be known before execution time.
-        '''
+        ''' Collects errors that can be known before execution time. '''
         return self.pipeline.get_static_errors()
 
     def __repr__(self):
@@ -116,11 +108,25 @@ class ExecutableScript:
 
     # ========================================= Application ========================================
 
+    @staticmethod
+    async def execute_from_string(script: str, context: Context, scope: ItemScope=None):
+        ''' Parse and immediately execute an ExecutableScript without holding on to any parsed objects or results. '''
+        try:
+            executable_script = ExecutableScript.from_string(script)
+        except Exception as e:
+            # Make a single-use error log so we can use the send_error_log method
+            errors = ErrorLog().log_exception(f'🛑 **Unexpected script parsing error**', e)
+            await ExecutableScript.send_error_log(context, errors)
+            raise e
+        else:
+            await executable_script.execute(context, scope)
+
     async def execute(self, context: 'Context', scope: 'ItemScope'=None):
         '''
-        This function connects the three major steps of executing a script:
+        This function connects the three parts of executing a script:
             * Executing the pipeline
-            * Performing side effects
+            * Performing its side effects
+            * Sending errors and warnings if needed
 
         All while handling and communicating any errors that may arise during that process.
         '''

@@ -6,6 +6,7 @@ from typing import Literal
 from discord.ext import commands
 from discord import app_commands, Interaction, Message
 
+from pipes.core.executable_script import ExecutableScript
 from pipes.core.events import Event, ALL_EVENTS
 from pipes.core.state import Context, ItemScope
 from rezbot_commands import RezbotCommands
@@ -232,7 +233,7 @@ class EventSlashCommands(RezbotCommands):
                 arguments={'message': message},
             )
             scope = ItemScope(items=[message])
-            await self.bot.pipeline_processor.execute_script(event.script, context, scope)
+            await ExecutableScript.execute_from_string(event.script, context, scope)
 
             # In case the script does not resolve the interaction. There is no way to resolve a slash command without a reply, so reply.
             if not interaction.response.is_done():

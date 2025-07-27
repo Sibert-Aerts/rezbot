@@ -7,7 +7,7 @@ import re
 
 from discord import Client, Message, TextChannel
 
-from .state import ErrorLog, Context, ItemScope
+from .state import Context, ItemScope
 from .executable_script import ExecutableScript
 from .events import ALL_EVENTS
 from pipes.commands.macro_commands import parse_macro_command
@@ -51,7 +51,7 @@ class PipelineProcessor:
                 message=message,
                 arguments=arguments,
             )
-            await self.execute_script(event.script, context, ItemScope(items=items))
+            await ExecutableScript.execute_from_string(event.script, context, ItemScope(items=items))
 
     async def on_reaction(self, channel: TextChannel, emoji: str, user_id: int, msg_id: int):
         '''Check if an incoming reaction triggers any custom Events.'''
@@ -81,21 +81,9 @@ class PipelineProcessor:
                 arguments={'emoji': emoji},
             )
             scope = ItemScope(items=[emoji, str(user_id)]) # Legacy way of conveying who reacted
-            await self.execute_script(event.script, context, scope)
+            await ExecutableScript.execute_from_string(event.script, context, scope)
 
     # ====================================== Script execution ======================================
-
-    @staticmethod
-    async def execute_script(script: str, context: Context, scope: ItemScope=None):
-        try:
-            executable_script = ExecutableScript.from_string(script)
-        except Exception as e:
-            # Make a single-use error log so we can use the send_error_log method
-            errors = ErrorLog().log_exception(f'🛑 **Unexpected script parsing error**', e)
-            await ExecutableScript.send_error_log(context, errors)
-            raise e
-        else:
-            await executable_script.execute(context, scope)
 
     async def interpret_incoming_message(self, message: Message):
         '''
@@ -133,6 +121,6 @@ class PipelineProcessor:
                     author=message.author,
                     message=message,
                 )
-                await self.execute_script(script, context)
+                await ExecutableScript.execute_from_string(script, context)
 
         return True

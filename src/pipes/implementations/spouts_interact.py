@@ -144,7 +144,7 @@ class ModalSpout:
         label    = Par(str, default='Text', desc='The text field\'s label'),
         default  = Par(str, required=False, desc='The text field\'s default content'),
         required = Par(parse_bool, default=False, desc='If the text field is required'),
-        defer   = Par(parse_bool, default=True, desc='Whether to instantly defer (=close) the Interaction generated, set to False if you want to respond yourself.'),
+        defer    = Par(parse_bool, default=True, desc='Whether to instantly defer (=close) the Interaction generated, set to False if you want to respond yourself.'),
     )
     @staticmethod
     async def spout_function(ctx: Context, values, *, script, title, label, default, required, defer):
@@ -191,10 +191,10 @@ class ModalButtonSpout:
         title = Par(str, default='Modal', desc='The modal\'s title'),
         button_label = Par(str, default='Button', desc='The button\'s label'),
         button_style = Par(ButtonSpout.ButtonStyleOption, default='primary', desc='The button\'s style: primary/secondary/success/danger.'),
-        emoji   = Par(str, required=False, desc='The button\'s emoji'),
+        emoji = Par(str, required=False, desc='The button\'s emoji'),
         timeout = Par(int, default=86400, desc='Amount of seconds the button stays alive without being clicked.'),
         input_label = Par(str, default='Text', desc='The text field\'s label'),
-        default  = Par(str, required=False, desc='The text field\'s default content'),
+        default = Par(str, required=False, desc='The text field\'s default content'),
         required = Par(parse_bool, default=False, desc='If the text field is required'),
         defer = Par(parse_bool, default=True, desc='Whether to instantly defer (=close) the Interaction generated, set to False if you want to respond yourself.'),
     )

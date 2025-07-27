@@ -74,7 +74,7 @@ class TemplatedString:
                 case 'te_script':
                     inline_script = TmplInlineScript.from_parsed(result_piece)
                     pieces.append(inline_script)
-                    pre_errors.extend(inline_script.script.get_static_errors(), 'inline script')
+                    pre_errors.extend(inline_script.pipeline.get_static_errors(), 'inline script')
 
                 case 'implicit_item' | 'explicit_item':
                     item = TmplItem.from_parsed(result_piece)

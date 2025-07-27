@@ -1,6 +1,8 @@
 from discord import Message, ui, TextStyle, Interaction
 
 from pipes.core.state import Context
+from pipes.core.executable_script import ExecutableScript
+
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from bot import Rezbot
@@ -29,7 +31,7 @@ class ExecuteScriptModal(ui.Modal):
             interaction=interaction,
             message=self.target_message,
         )
-        await self.bot.pipeline_processor.execute_script(script, context)
+        await ExecutableScript.execute_from_string(script, context)
 
         # In case the script does not resolve the interaction. There is no way to resolve a slash command without a reply, so reply.
         if not interaction.response.is_done():
