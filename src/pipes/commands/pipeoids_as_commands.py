@@ -46,7 +46,7 @@ async def setup(bot: commands.Bot):
 
             try:
                 # Apply the pipe to what remains of the command string
-                results = await pipe.apply([text], **args)
+                results = await pipe.apply([text], ctx, args)
                 await ExecutableScript.send_print_values(ctx.channel, [results])
 
             except Exception as e:

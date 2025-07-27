@@ -112,7 +112,7 @@ class TmplSource:
             errors.extend(remainder_errors, self.name)
             if errors.terminal: return NOTHING_BUT_ERRORS
             try:
-                return await self.pipe.apply([remainder_str], **args), errors
+                return await self.pipe.apply([remainder_str], context, args), errors
             except Exception as e:
                 errors.log_exception(f'Failed to evaluate Pipe-as-Source `{self.name}` with args {args}', e)
                 return NOTHING_BUT_ERRORS

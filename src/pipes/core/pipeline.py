@@ -722,7 +722,7 @@ class Pipeline:
                         errors.log(f'User lacks permission to use Pipe `{name}`.', True)
                         return NOTHING_BUT_ERRORS
                     try:
-                        next_items.extend(await pipe.apply(items, **args))
+                        next_items.extend(await pipe.apply(items, context, args))
                     except Exception as e:
                         errors.log_exception(f'Failed to process Pipe `{name}` with args {args}', e)
                         return NOTHING_BUT_ERRORS

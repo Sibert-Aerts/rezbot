@@ -80,6 +80,11 @@ def pipe_from_func(signature: dict[str, Par]=None, /, *, command=False, **kwargs
     if func: return _pipe_from_func(func)
     return _pipe_from_func
 
+def smart_pipe(func: Callable):
+    ''' Decorate the pipe function as a smart pipe, meaning it expects a Context argument (+ more?). '''
+    func.is_smart_pipe = True
+    return func
+
 T = TypeVar('T')
 
 def pipe_from_class(cls: type[T]) -> type[T]:

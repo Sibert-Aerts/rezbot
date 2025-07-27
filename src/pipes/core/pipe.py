@@ -110,21 +110,29 @@ class Pipe(Pipeoid):
     Represents a functional function that can be used in a script.
     '''
     pipe_function: Callable[..., list[str]]
+    is_smart: bool
     is_coroutine: bool
 
-    def __init__(self, signature: Signature, function: Callable[..., list[str]], **kwargs):
+    def __init__(self, signature: Signature, function: Callable[..., list[str]], is_smart=False, **kwargs):
         super().__init__(signature=signature, **kwargs)
 
         self.pipe_function = function
+        self.is_smart = bool(is_smart or getattr(function, "is_smart_pipe", False))
         self.is_coroutine = inspect.iscoroutinefunction(function)
 
-    async def apply(self, items: list[str], **args) -> list[str]:
+    async def apply(self, items: list[str], context: Context, pipe_args: dict[str]) -> list[str]:
         ''' Apply the pipe to a list of items. '''
         # TODO: Call may_use here?
-        if self.is_coroutine:
-            return await self.pipe_function(items, **args)
+        if self.is_smart:
+            if self.is_coroutine:
+                return await self.pipe_function(items, context, **pipe_args)
+            else:
+                return self.pipe_function(items, context, **pipe_args)
         else:
-            return self.pipe_function(items, **args)
+            if self.is_coroutine:
+                return await self.pipe_function(items, **pipe_args)
+            else:
+                return self.pipe_function(items, **pipe_args)
 
     def get_source_code_url(self):
         return self._get_github_url(self.pipe_function)

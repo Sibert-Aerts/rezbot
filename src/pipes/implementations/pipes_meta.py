@@ -1,4 +1,4 @@
-from .pipes import pipe_from_func, many_to_one, set_category
+from .pipes import pipe_from_func, many_to_one, set_category, smart_pipe
 from pipes.core.signature import Par
 from pipes.core.state import ErrorLog, Context
 from pipes.core.templated_string.templated_string import TemplatedString
@@ -34,27 +34,28 @@ def format2_pipe(input, f):
 @pipe_from_func({
     'force_single': Par(parse_bool, False, 'Whether to force each input string to evaluate to one output string.')
 })
-async def evaluate_sources_pipe(items, force_single: bool):
+@smart_pipe
+async def evaluate_sources_pipe(items: list[str], context: Context, force_single: bool):
     '''
     Evaluates Sources in the literal strings it receives.
 
     Evaluation of these Sources is constrained for safety reasons.
     '''
     errors = ErrorLog()
-    # NOTE: This carries over NONE of the existing context
-    context = Context(
+    # Create a limited (?) Context for evaluating the TemplatedStrings
+    eval_context = Context(
         origin=Context.Origin(
             name='evaluate sources',
             type=Context.Origin.Type.EVALUATE_SOURCES_PIPE,
-            activator=None,
+            activator=context.origin.activator,
         ),
         author=None,
-        message=None,
+        message=context.message,
     )
     output = []
     try:
         for item in items:
-            values, errs = await TemplatedString.evaluate_string(item, context, force_single=force_single)
+            values, errs = await TemplatedString.evaluate_string(item, eval_context, force_single=force_single)
             if values: output.extend(values)
             errors.extend(errs)
     except:
@@ -63,6 +64,3 @@ async def evaluate_sources_pipe(items, force_single: bool):
         raise ValueError('Bad source strings! (Can\'t tell you specific errors right now sorry.)')
     # TODO: pipes can produce/access error logs?
     return output
-
-
-# TODO: "apply" pipe, whose args may be a pipe or even pipeline

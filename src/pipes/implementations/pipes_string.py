@@ -3,7 +3,7 @@ import textwrap
 import re
 
 
-from .pipes import pipe_from_func, many_to_one, one_to_one, one_to_many, set_category
+from .pipes import pipe_from_func, many_to_one, one_to_one, one_to_many, set_category, smart_pipe
 from pipes.core.state.context import Context
 from pipes.core.signature import Par, Option, ListOf, parse_bool, regex
 from pipes.core.pipeline import Pipeline
@@ -93,26 +93,18 @@ def sub_pipe(text, to, **kwargs):
     'from': Par(regex, None, 'Pattern to replace'),
     'script': Par(Pipeline.from_string, desc='Script to apply to each match.'),
 })
-async def sub_script_pipe(items: list[str], script: Pipeline, **kwargs):
+@smart_pipe
+async def sub_script_pipe(items: list[str], context: Context, *, script: Pipeline, **kwargs):
     '''
     Substitutes regex patterns in text by applying the given script to each match.
     Match groups are provided as items to the script, or just the full match if there are none.
     '''
     _from: re.Pattern = kwargs['from']
 
-    context = Context(
-        origin=Context.Origin(
-            name='sub_script',
-            type=Context.Origin.Type.GENERIC_APPLY_PIPE,
-            activator=None,
-        ),
-        author=None,
-        message=None,
-    )
     async def replace(match: re.Match):
         match_groups = match.groups() or [match.group()]
         match_groups = [m or "" for m in match_groups]
-        results, errors, spoutstate = await script.apply(match_groups, context)
+        results, errors, spout_state = await script.apply(match_groups, context)
         if errors.terminal:
             errors.raise_exception("sub_script script")
         return "".join(results) if results else ""
