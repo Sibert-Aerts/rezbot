@@ -46,12 +46,12 @@ class ButtonSpout:
             if self.locked:
                 await interaction.response.send_message('Someone else already clicked this button.', ephemeral=True)
                 return
+            if self.script and self.lockout:
+                self.locked = True
             if self.defer:
                 await interaction.response.defer()
             if not self.script:
                 return
-            if self.lockout:
-                self.locked = True
             context = Context(
                 origin=Context.Origin(
                     name='button script',
