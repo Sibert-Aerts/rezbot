@@ -1,11 +1,12 @@
 from discord import ui, ButtonStyle, Interaction, Message
-from discord.interactions import Interaction
 
 import permissions
 
 
 class ConfirmView(ui.View):
-    """Generic Confirm/Cancel functionality."""
+    '''
+    Generic View prompting Confirm/Cancel buttons.
+    '''
     def __init__(self):
         super().__init__()
         self.value = None
@@ -26,19 +27,20 @@ class ConfirmView(ui.View):
 
 
 class RezbotButton(ui.Button):
-    '''Bespoke-er Button class, maybe?'''
+    '''Bespoke-er Button class, in case it's ever needed?'''
     pass
 
 
 class RezbotView(ui.View):
     '''Bespoke-er View class for my purposes.'''
+
+    # New attributes
     message: Message = None
-    buttons: list[RezbotButton]
+    remove_on_timeout: bool = False
 
     def __init__(self, remove_on_timeout=False, timeout=86400):
         super().__init__(timeout=timeout)
         self.remove_on_timeout = remove_on_timeout
-        self.buttons = []
 
     def set_message(self, message: Message):
         self.message = message

@@ -83,6 +83,7 @@ def spout_from_class(cls: type[T]) -> type[T]:
 from . import spouts_print
 from . import spouts_message
 from . import spouts_embed
+from . import spouts_component
 from . import spouts_interact
 from . import spouts_state
 from . import spouts_meta

@@ -1,5 +1,4 @@
-from discord import Message, ui, ButtonStyle, TextStyle, Interaction
-from discord.interactions import Interaction
+from discord import ui, ButtonStyle, TextStyle, Interaction
 
 from .generic_views import ConfirmView, RezbotView
 from pipes.core.macros import Macro, Macros

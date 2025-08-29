@@ -17,7 +17,7 @@ from .state import Context, SpoutState
 
 class Pipeoid:
     '''
-    Base class of Pipe, Source and Spout.
+    Abstract base class of Pipe, Source and Spout.
     '''
     name: str
     aliases: list[str]
@@ -35,7 +35,7 @@ class Pipeoid:
         aliases: list[str]=None,
         category: str=None,
         doc: str=None,
-        may_use: Callable[[discord.User], bool]=None
+        may_use: Callable[[discord.User], bool]=None,
     ):
         self.name = name
         self.aliases = aliases or []
@@ -160,13 +160,16 @@ class Source(Pipeoid):
 
     def generate(self, context: Context, args: dict[str, Any], n=None):
         ''' Call the Source to produce items using a parsed dict of arguments. '''
+        # TODO: Call may_use here?
+
+        # Handle the magic `n` argument that may be given using the {n sources} syntax
         if n is not None:
-            # Handle the `n` that may be given using the {n sources} notation
             if isinstance(n, str) and n.lower() == 'all':
                 if self.depletable: n = -1
                 else: raise ValueError('Requested `all` items but the source is not depletable.')
             if 'n' in args: args['n'] = int(n)
             elif 'N' in args: args['N'] = int(n)
+
         return self.source_function(context, **args)
 
     def get_source_code_url(self):
@@ -201,6 +204,9 @@ class Spout(Pipeoid):
         return self._get_github_url(self.spout_function)
 
     def hook(self, spout_state: SpoutState, items: list[str], **args):
+        ''' Register this spout's received items and args with the spout state. '''
+        # TODO: Call may_use here?
+
         if self.mode == Spout.Mode.simple:
             # Classic system: Spouts that are simply independent function calls at the end of execution
             spout_state.add_simple_callback(self, items, args)
@@ -212,12 +218,17 @@ class Spout(Pipeoid):
         else:
             raise Exception(f'Spout {self.name} has invalid mode.')
 
-    async def do_simple_callback(self, bot: discord.Client, context: Context, values: list[str], **args):
-        '''Instantly performs a simple spout callback.'''
+    async def do_simple_callback(self, context: Context, values: list[str], **args):
+        '''Special case method: Instantly performs a simple spout callback, used when directly invoking spouts outside of scripts.'''
+        if self._validate_args:
+            self._validate_args(args)
+
         if self.mode == Spout.Mode.simple:
             await self.spout_function(context, values, **args)
         elif self.mode == Spout.Mode.aggregated:
             await self.spout_function(context, [(values, args)])
+        else:
+            raise Exception(f'Spout {self.name} has invalid mode.')
 
 
 P = TypeVar('P', bound=Pipeoid)
