@@ -227,11 +227,11 @@ groupmode_and_remainder = groupmode + Regex('.*', flags=re.S)('remainder')
 # ======================== Scripts
 
 simple_origin = Group(Group(quoted_templated_string)('quoted_simple_origin') | origin_safe_templated_string)('simple_origin').set_name('Simple Origin')
-simple_pipe = Group(Opt(groupmode('groupmode')) + identifier('pipe_name') + Opt(argument_list('args')))('simple_pipe').set_name('Simple Pipe')
-simple_segment = Group((double_chevron - simple_origin) | (chevron - (simple_pipe | Group(Empty())('nop')))).set_name('Simple Pipeline Segment')
-simple_segments = Group(ZeroOrMore(simple_segment))('simple_segments')
+simple_pipe_segment = Group(Opt(groupmode('groupmode')) + identifier('pipe_name') + Opt(argument_list('args')))('simple_pipe_segment').set_name('Simple Pipe')
+simple_prefixed_segment = Group((double_chevron - simple_origin) | (chevron - (simple_pipe_segment | Group(Empty())('nop')))).set_name('Simple Pipeline Segment')
+simple_segments = Group(ZeroOrMore(simple_prefixed_segment))('simple_segments')
 
-simple_pipeline <<= (Group(simple_pipe | Group(Empty())('nop'))('first_pipe') + simple_segments).set_name('Simple Pipeline')
+simple_pipeline <<= (Group(simple_pipe_segment | Group(Empty())('nop'))('first_pipe') + simple_segments).set_name('Simple Pipeline')
 simple_script <<= (simple_origin + simple_segments).set_name('Simple Script')
 
 
