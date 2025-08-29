@@ -5,29 +5,34 @@ from .sources import source_from_func, get_which, set_category, Context
 from pipes.core.signature import Par, Option, ListOf, regex, parse_bool, with_signature
 from utils.texttools import *
 
+
 #####################################################
 #                 Sources : DISCORD                 #
 #####################################################
 set_category('DISCORD')
 
+
 #### MESSAGES #######################################
 
 MESSAGE_WHAT = Option('content', 'id', 'timestamp', 'author_id')
+
 @get_which
 def messages_get_what(messages, what):
-    if what == MESSAGE_WHAT.content:
-        return (msg.content for msg in messages)
-    if what == MESSAGE_WHAT.id:
-        return (str(msg.id) for msg in messages)
-    if what == MESSAGE_WHAT.timestamp:
-        return (str(int((msg.created_at.replace(tzinfo=timezone.utc)).timestamp())) for msg in messages)
-    if what == MESSAGE_WHAT.author_id:
-        return (str(msg.author.id) for msg in messages)
+    match what:
+        case MESSAGE_WHAT.content:
+            return (msg.content for msg in messages)
+        case MESSAGE_WHAT.id:
+            return (str(msg.id) for msg in messages)
+        case MESSAGE_WHAT.timestamp:
+            return (str(int((msg.created_at.replace(tzinfo=timezone.utc)).timestamp())) for msg in messages)
+        case MESSAGE_WHAT.author_id:
+            return (str(msg.author.id) for msg in messages)
+    raise ValueError()
 
 
 @source_from_func(plural='those')
 @with_signature(
-    what = Par(ListOf(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT))
+    what = Par(ListOf(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
 )
 async def that_source(ctx: Context, what):
     '''The message being replied to, or the previous message in the channel.'''
@@ -35,10 +40,11 @@ async def that_source(ctx: Context, what):
     return messages_get_what([msg], what)
 
 
-@source_from_func({
-    'what': Par(ListOf(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
-    'n': Par(int, 1, 'The number of next messages to wait for.', lambda n: n < 1000),
-})
+@source_from_func
+@with_signature(
+    what = Par(ListOf(MESSAGE_WHAT), 'content', '/'.join(MESSAGE_WHAT)),
+    n = Par(int, 1, 'The number of next messages to wait for.', lambda n: n < 1000),
+)
 async def next_message_source(ctx: Context, n, what):
     '''The next message to be sent in the channel.'''
     messages = []
@@ -51,6 +57,7 @@ async def next_message_source(ctx: Context, n, what):
 
     while len(messages) < n:
         messages.append( await ctx.bot.wait_for('message', check=check) )
+
     return messages_get_what(messages, what)
 
 
@@ -98,31 +105,54 @@ async def previous_message_source(ctx: Context, n, i, what, by, max_lookback):
 
 #### MEMBERS ########################################
 
-MEMBER_WHAT = Option('name', 'global_name', 'username', 'mention', 'id', 'avatar', 'global_avatar', 'activity', 'color', 'is_bot',
-    aliases={'name': ['display_name', 'nickname'], 'username': ['handle'], 'avatar': ['display_avatar']})
+MEMBER_WHAT = Option(
+    options=[
+        "name",
+        "global_name",
+        "username",
+        "mention",
+        "id",
+        "avatar",
+        "global_avatar",
+        "activity",
+        "color",
+        "guild_tag",
+        "is_bot",
+    ],
+    aliases={
+        "name": ["display_name", "nickname"],
+        "username": ["handle"],
+        "avatar": ["display_avatar"],
+    },
+)
+
 @get_which
 def members_get_what(members: list[discord.Member], what):
-    if what == MEMBER_WHAT.display_name:
-        return (member.display_name for member in members)
-    elif what == MEMBER_WHAT.global_name:
-        return (member.global_name or member.name for member in members)
-    elif what == MEMBER_WHAT.username:
-        return (member.name for member in members)
-    elif what == MEMBER_WHAT.mention:
-        return (member.mention for member in members)
-    elif what == MEMBER_WHAT.id:
-        return (str(member.id) for member in members)
-    elif what == MEMBER_WHAT.avatar:
-        return (str(member.display_avatar) for member in members)
-    elif what == MEMBER_WHAT.global_avatar:
-        return (str(member._user.avatar or member._user.default_avatar) for member in members)
-    elif what == MEMBER_WHAT.activity:
-        return (str(member.activities[0]) if member.activities else '' for member in members)
-    elif what == MEMBER_WHAT.color:
-        return (str(member.color) for member in members)
-    elif what == MEMBER_WHAT.is_bot:
-        return (str(member.bot) for member in members)
+    match what:
+        case MEMBER_WHAT.display_name:
+            return (member.display_name for member in members)
+        case MEMBER_WHAT.global_name:
+            return (member.global_name or member.name for member in members)
+        case MEMBER_WHAT.username:
+            return (member.name for member in members)
+        case MEMBER_WHAT.mention:
+            return (member.mention for member in members)
+        case MEMBER_WHAT.id:
+            return (str(member.id) for member in members)
+        case MEMBER_WHAT.avatar:
+            return (str(member.display_avatar) for member in members)
+        case MEMBER_WHAT.global_avatar:
+            return (str(member._user.avatar or member._user.default_avatar) for member in members)
+        case MEMBER_WHAT.activity:
+            return (str(member.activities[0]) if member.activities else '' for member in members)
+        case MEMBER_WHAT.color:
+            return (str(member.color) for member in members)
+        case MEMBER_WHAT.guild_tag:
+            return (str(member.primary_guild.tag or '') for member in members)
+        case MEMBER_WHAT.is_bot:
+            return (str(member.bot) for member in members)
     raise ValueError()
+
 
 @source_from_func(aliases=['my'])
 @with_signature(
@@ -164,8 +194,7 @@ async def bot_source(ctx: Context, what):
     what = Par(ListOf(MEMBER_WHAT), 'name', '/'.join(MEMBER_WHAT)),
     n    = Par(int, 1, 'The maximum number of members to return.'),
     id   = Par(str, None, 'The member\'s unique ID or handle.', required=False),
-    name = Par(regex, None, 'A pattern that should match their one of their names.', required=False),
-    # rank = Par(...)?
+    name = Par(regex, None, 'A pattern that should match one of their names.', required=False),
 )
 async def member_source(ctx: Context, n, what, id, name):
     '''The name (or other attribute) of a server member.'''
@@ -192,46 +221,52 @@ async def member_source(ctx: Context, n, what, id, name):
 
 CHANNEL_WHAT = Option('name', 'id', 'topic', 'category', 'mention', 'is_nsfw')
 
-@source_from_func({
-    'what': Par(CHANNEL_WHAT, 'name', '/'.join(CHANNEL_WHAT)),
-})
+@source_from_func
+@with_signature(
+    what = Par(CHANNEL_WHAT, 'name', '/'.join(CHANNEL_WHAT)),
+)
 async def channel_source(ctx: Context, what):
     '''The name (or other attribute) of the current channel.'''
     channel = ctx.channel
-    if what == CHANNEL_WHAT.name:
-        return [channel.name or '']
-    if what == CHANNEL_WHAT.id:
-        return [str(channel.id)]
-    if what == CHANNEL_WHAT.topic:
-        return [channel.topic or '']
-    if what == CHANNEL_WHAT.category:
-        return [channel.category and channel.category.name or '']
-    if what == CHANNEL_WHAT.mention:
-        return [channel.mention]
-    if what == CHANNEL_WHAT.is_nsfw:
-        return [str(channel.nsfw)]
+    match what:
+        case CHANNEL_WHAT.name:
+            return [channel.name or '']
+        case CHANNEL_WHAT.id:
+            return [str(channel.id)]
+        case CHANNEL_WHAT.topic:
+            return [channel.topic or '']
+        case CHANNEL_WHAT.category:
+            return [channel.category and channel.category.name or '']
+        case CHANNEL_WHAT.mention:
+            return [channel.mention]
+        case CHANNEL_WHAT.is_nsfw:
+            return [str(channel.nsfw)]
+    raise ValueError()
 
 
 #### SERVER ########################################
 
 SERVER_WHAT = Option('name', 'description', 'icon', 'member_count', 'id')
 
-@source_from_func({
-    'what': Par(SERVER_WHAT, SERVER_WHAT.name, '/'.join(SERVER_WHAT)),
-})
+@source_from_func
+@with_signature(
+    what = Par(SERVER_WHAT, SERVER_WHAT.name, '/'.join(SERVER_WHAT)),
+)
 async def server_source(ctx: Context, what):
     '''The name (or other attribute) of the current server.'''
     server = ctx.message.guild
-    if what == SERVER_WHAT.name:
-        return [server.name]
-    if what == SERVER_WHAT.description:
-        return [server.description or '']
-    if what == SERVER_WHAT.icon:
-        return [str(server.icon or '')]
-    if what == SERVER_WHAT.member_count:
-        return [str(server.member_count)]
-    if what == SERVER_WHAT.id:
-        return [str(server.id)]
+    match what:
+        case SERVER_WHAT.name:
+            return [server.name]
+        case SERVER_WHAT.description:
+            return [server.description or '']
+        case SERVER_WHAT.icon:
+            return [str(server.icon or '')]
+        case SERVER_WHAT.member_count:
+            return [str(server.member_count)]
+        case SERVER_WHAT.id:
+            return [str(server.id)]
+    raise ValueError()
 
 
 @source_from_func(depletable=True, aliases=['emote', 'emotes'])

@@ -93,7 +93,13 @@ class Option:
         def __repr__(self): return self.str
         def __str__(self): return self.str
 
-    def __init__(self, *options, name='option', aliases: dict[str, list[str]]=None, case_sensitive=False, prefer_upper=False, stringy=False):
+    def __init__(self, *args, options: list[str]=None, name='option', aliases: dict[str, list[str]]=None, case_sensitive=False, prefer_upper=False, stringy=False):
+        if args and options:
+            raise Exception('Pass options either as args or via the options kwarg, not both.')
+        options = list(args) if args else options
+        if not options:
+            raise Exception('Can\'t make an empty Options instance.')
+
         self.__name__ = name
         self._case_sens = case_sensitive
         self._stringy = stringy
