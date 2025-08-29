@@ -15,7 +15,7 @@ markovify==0.9.4
 mediawikiapi==1.2
 nltk==3.8.1
 num2words==0.5.13
-numpy==1.24.3
+numpy==1.26.4
 openai==0.27.8
 Pint==0.22
 pyparsing==3.1.1
