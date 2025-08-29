@@ -8,8 +8,8 @@ google-auth==2.17.3
 google-cloud-core==2.3.2
 google-cloud-translate==3.11.1
 googleapis-common-protos==1.59.0
-grpcio==1.54.0
-grpcio-status==1.54.0
+grpcio==1.60.0
+grpcio-status==1.60.0
 lru-dict==1.1.8
 markovify==0.9.4
 mediawikiapi==1.2
