@@ -17,8 +17,9 @@ from utils.util import parse_bool
 class Condition:
     '''
     Abstract base Condition class.
-    Never instantiated, but its from_parsed and from_string constructors instantiate appropriate Condition subclasses.
+    Never instantiated itself, but its from_parsed and from_string constructors instantiate appropriate Condition subclasses.
     '''
+
     @classmethod
     def from_parsed(cls, parse_result: ParseResults):
         match parse_result._name:
@@ -35,7 +36,7 @@ class Condition:
             case 'predicate':
                 return Predicate.from_parsed(parse_result)
             case bad_name:
-                raise Exception()
+                raise Exception(f'Unimplemented ParseResult name "{bad_name}"')
 
     @classmethod
     def from_string(cls, string):
@@ -115,23 +116,25 @@ class Comparison(RootCondition):
         if errors.terminal:
             return None, errors
 
-        if self.op is Operation.STR_EQUALS:
+        op = self.op
+        if op is Operation.STR_EQUALS:
             return (lhs == rhs), errors
-        if self.op is Operation.STR_NEQUALS:
+        if op is Operation.STR_NEQUALS:
             return (lhs != rhs), errors
-        if self.op is Operation.NUM_LT:
+        if op is Operation.NUM_LT:
             return (float(lhs) < float(rhs)), errors
-        if self.op is Operation.NUM_GT:
+        if op is Operation.NUM_GT:
             return (float(lhs) > float(rhs)), errors
-        if self.op is Operation.NUM_LTE:
+        if op is Operation.NUM_LTE:
             return (float(lhs) <= float(rhs)), errors
-        if self.op is Operation.NUM_GTE:
+        if op is Operation.NUM_GTE:
             return (float(lhs) >= float(rhs)), errors
-        if self.op is Operation.LIKE:
+        if op is Operation.LIKE:
             return re.search(rhs, lhs), errors
-        if self.op is Operation.NLIKE:
+        if op is Operation.NLIKE:
             return not re.search(rhs, lhs), errors
-        raise Exception()
+
+        raise Exception(f'Unimplemented comparison operation "{op}"')
 
 
 # ======================== Predicate
@@ -184,23 +187,25 @@ class Predicate(RootCondition):
         if errors.terminal:
             return None, errors
 
-        if self.category is Predicate.Category.WHITE:
-            return neg ^ (subject.isspace() or not subject), errors
-        elif self.category is Predicate.Category.EMPTY:
+        category = self.category
+        if category is Predicate.Category.WHITE:
+            return neg ^ (not subject or subject.isspace()), errors
+        elif category is Predicate.Category.EMPTY:
             return neg ^ (not subject), errors
-        elif self.category is Predicate.Category.BOOL:
+        elif category is Predicate.Category.BOOL:
             return neg ^ type_check(subject, parse_bool), errors
-        elif self.category is Predicate.Category.FALSE:
+        elif category is Predicate.Category.FALSE:
             try: return neg ^ (parse_bool(subject) is False), errors
             except: return neg, errors
-        elif self.category is Predicate.Category.TRUE:
+        elif category is Predicate.Category.TRUE:
             try: return neg ^ (parse_bool(subject) is True), errors
             except: return neg, errors
-        elif self.category is Predicate.Category.INT:
+        elif category is Predicate.Category.INT:
             return neg ^ type_check(subject, int), errors
-        elif self.category is Predicate.Category.FLOAT:
+        elif category is Predicate.Category.FLOAT:
             return neg ^ type_check(subject, float), errors
-        raise Exception()
+
+        raise Exception(f'Unimplemented predicate category "{category}"')
 
 
 # ======================== Aggregate Predicate
@@ -236,7 +241,8 @@ class AggregatePredicate(RootCondition):
             return neg ^ bool(scope.items), None
         if self.type is AggregatePredicate.Type.NOTHING:
             return neg ^ (not scope.items), None
-        raise Exception()
+
+        raise Exception(f'Unimplemented aggregate predicate type "{self.type}"')
 
 
 # ======================================== Joined Conditions =======================================
