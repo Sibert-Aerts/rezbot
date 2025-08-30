@@ -50,7 +50,7 @@ class Pipeoid:
 
     # ======================================= SCRIPTING API =======================================
 
-    def may_use(self, user):
+    def may_use(self, user: discord.Member | discord.User) -> bool:
         return True
 
     # ======================================= REPRESENTATION ======================================
@@ -63,14 +63,14 @@ class Pipeoid:
         '''Returns the human-facing qualified name, e.g. `Pipe: repeat`'''
         return type(self).__name__ + ': ' + self.name
 
-    def get_command_doc(self):
+    def get_command_doc(self) -> str:
         out = self.doc or ''
         if self.signature:
             out += '\nParameters:\n'
             out += '\n'.join(f'• {s.simple_str()}' for s in self.signature.values())
         return out
 
-    def _get_github_url(self, func: 'function'):
+    def _get_github_url(self, func: 'function') -> str | None:
         while getattr(func, '__wrapped__', False):
             func = func.__wrapped__
         code = func.__code__
@@ -80,10 +80,10 @@ class Pipeoid:
             return f'https://github.com/sibert-aerts/rezbot/blob/master{file_path[i:]}#L{line}'
         return None
 
-    def get_source_code_url(self):
+    def get_source_code_url(self) -> str | None:
         return None
 
-    def embed(self, bot: discord.Client=None, **kwargs):
+    def embed(self, bot: discord.Client=None, **kwargs) -> Embed:
         ''' Build an embed to display in Discord. '''
         title = str(self)
         if self.aliases:
@@ -91,7 +91,7 @@ class Pipeoid:
 
         description = self.doc or ''
         if (source_url := self.get_source_code_url()):
-            description += f'\n[(View source)]({source_url})'
+            description += f'\n-# [(View source)]({source_url})'
 
         embed = Embed(title=title, description=description, color=0xfdca4b)
 

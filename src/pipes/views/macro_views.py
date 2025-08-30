@@ -7,7 +7,7 @@ from pipes.core.macros import Macro, Macros
 
 class EditMacroModal(ui.Modal):
     '''Modal for editing a macro's code and description fields.'''
-    # If Discord ever adds checkboxes, dropdowns, etc. to modals, extend this to allow editing other fields
+    # TODO: Selection fields to allow modifying more Macro attributes
     desc_input = ui.TextInput(label='Description', style=TextStyle.long, required=False)
     code_input = ui.TextInput(label='Code', style=TextStyle.long)
 

@@ -52,14 +52,14 @@ class Event:
         guild_channels = [c.id for c in guild.channels]
         self.channels = [c for c in self.channels if not c in guild_channels]
 
-    def embed(self, *, bot: Client=None, channel: TextChannel=None, **kwargs):
+    def embed(self, *, bot: Client=None, channel: TextChannel=None, **kwargs) -> Embed:
         ''' Make a Discord Embed. '''
         ## Description
         desc_lines = []
         if self.desc:
             desc_lines.append(self.desc)
         if channel:
-            desc_lines.append('{}abled in this channel'.format( 'En' if self.is_enabled(channel) else 'Dis' ))
+            desc_lines.append('-# {}abled in this channel'.format( 'En' if self.is_enabled(channel) else 'Dis' ))
 
         embed = Embed(title='Event: ' + self.name, description='\n'.join(desc_lines), color=0x7628cc)
 

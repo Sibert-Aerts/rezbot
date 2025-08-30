@@ -9,22 +9,24 @@ from pipes.core.events import Event, Events, OnMessage, OnReaction, OnInvoke
 
 class EditEventModal(ui.Modal):
     '''Modal for editing an Event.'''
-    # If Discord ever adds checkboxes, dropdowns, etc. to modals, extend this to allow editing other fields
-    desc_input = ui.TextInput(label='Description', row=1, style=TextStyle.long, required=False)
-    script_input = ui.TextInput(label='Script', row=2, style=TextStyle.long)
 
     def __init__(self, bot: Client=None, event: Event=None, **kwargs):
         super().__init__(title=f'Edit {event.name}'[:52], **kwargs)
         self.bot = bot
         self.event = event
-        self.desc_input.default = event.desc
-        self.script_input.default = event.script
 
+        # Build the input fields
+        # TODO: Dropdowns to allow configuring other Event attributes
         if isinstance(event, (OnMessage, OnReaction, OnInvoke)):
             trigger_label = f'Trigger ({type(event).__name__})'
             trigger_value = event.get_trigger_str()
-            self.trigger_input = ui.TextInput(label=trigger_label, default=trigger_value, row=0, required=True)
+            self.trigger_input = ui.TextInput(label=trigger_label, default=trigger_value, required=True)
             self.add_item(self.trigger_input)
+
+        self.desc_input = ui.TextInput(label='Description', style=TextStyle.long, default=event.desc, required=False)
+        self.add_item(self.desc_input)
+        self.script_input = ui.TextInput(label='Script', style=TextStyle.long, default=event.script)
+        self.add_item(self.script_input)
 
         self.confirmed = False
 
@@ -39,6 +41,7 @@ class EditEventModal(ui.Modal):
                     msg = f'Failed to update Event script\n{block_format(script_value)} due to errors:'
                     # TODO: "save changes anyway" View
                     return await interaction.response.send_message(msg, embed=errors.embed(), ephemeral=True)
+
             ## Save new script + trigger string
             self.event.update(script_value, self.trigger_input.value)
 
@@ -49,6 +52,7 @@ class EditEventModal(ui.Modal):
 
 class EventView(RezbotView):
     '''View which is to be added to a message containing the Event's embed.'''
+
     def __init__(self, bot: Client, event: Event, events: Events, channel: TextChannel, timeout=86400):
         super().__init__(remove_on_timeout=True, timeout=timeout)
         self.bot = bot
