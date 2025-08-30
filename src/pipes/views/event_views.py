@@ -1,8 +1,8 @@
-from discord import Message, Client, TextChannel, ui, ButtonStyle, TextStyle, Interaction
-from discord.interactions import Interaction
+from discord import Client, TextChannel, ui, ButtonStyle, TextStyle, Interaction
 
 from utils.texttools import block_format
-from .generic_views import ConfirmView, RezbotView
+from generic_views import ConfirmView, RezbotView
+
 from pipes.core.executable_script import ExecutableScript
 from pipes.core.events import Event, Events, OnMessage, OnReaction, OnInvoke
 

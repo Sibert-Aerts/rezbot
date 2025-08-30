@@ -5,7 +5,8 @@ from .spouts import spout_from_class, spout_from_func, set_category, with_signat
 from pipes.core.signature import Option, parse_bool
 from pipes.core.executable_script import ExecutableScript
 from pipes.core.state import ItemScope
-from pipes.views.generic_views import RezbotButton, RezbotView
+from generic_views import RezbotButton, RezbotView
+
 
 ################################################################################
 #                               Spouts : INTERACT                              #

@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pipes.core.events import Event
     from pipes.core.macros import Macro
-    from pipes.views.generic_views import RezbotButton
+    from generic_views import RezbotButton
 
 
 class ContextError(ValueError):

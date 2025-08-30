@@ -1,12 +1,24 @@
 from discord import ui, ButtonStyle, Interaction, Message
+from discord.components import SelectOption
 
 import permissions
+
+
+def make_yn_select(default=None) -> ui.Select:
+    return ui.Select(
+        options=[
+            SelectOption(label='Yes', value='yes', default=default is True),
+            SelectOption(label='No', value='no', default=default is False),
+        ],
+        required=True,
+    )
 
 
 class ConfirmView(ui.View):
     '''
     Generic View prompting Confirm/Cancel buttons.
     '''
+
     def __init__(self):
         super().__init__()
         self.value = None
@@ -28,6 +40,7 @@ class ConfirmView(ui.View):
 
 class RezbotButton(ui.Button):
     '''Bespoke-er Button class, in case it's ever needed?'''
+
     pass
 
 
