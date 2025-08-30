@@ -3,11 +3,12 @@ import aiohttp
 import discord
 from discord.ext import commands
 
-import permissions
 from rezbot_commands import RezbotCommands, command_with_signature, Par
 from resource.upload import uploads, Files
 import utils.texttools as texttools
 from utils.util import parse_bool
+
+from .views import FileView
 
 
 class UploadCommands(RezbotCommands):
@@ -45,13 +46,12 @@ class UploadCommands(RezbotCommands):
         if file not in uploads:
             return await ctx.send('No file by name `%s` found!' % file)
         file = uploads[file]
-        discFile = discord.File(file.get_raw_path())
-        await ctx.send(file=discFile)
+        await ctx.send(file=discord.File(file.get_raw_path()))
 
 
     @commands.command(aliases=['file', 'uploads'])
-    async def files(self, ctx, name:str=None):
-        '''List all uploaded txt files, or show the contents of a specific file.'''
+    async def files(self, ctx: commands.Context, name:str=None):
+        '''List all uploaded txt files, or show the details of a specific file.'''
 
         categories = uploads.get_categories()
 
@@ -59,9 +59,9 @@ class UploadCommands(RezbotCommands):
         if not name:
             lines = ['Categories:\n']
 
-            colW = len(max(categories, key=len)) + 2
+            col_w = len(max(categories, key=len)) + 2
             for category in categories:
-                line = category.ljust(colW)
+                line = category.ljust(col_w)
                 line += ', '.join(file.info.name for file in categories[category])
                 lines.append(line)
 
@@ -83,9 +83,9 @@ class UploadCommands(RezbotCommands):
 
             if described:
                 lines.append('')
-                colW = len(max(described, key=lambda f: len(f.info.name)).info.name) + 2
+                col_w = len(max(described, key=lambda f: len(f.info.name)).info.name) + 2
                 for file in described:
-                    line = file.info.name.ljust(colW)
+                    line = file.info.name.ljust(col_w)
                     desc = file.info.description.split('\n', 1)[0]
                     line += desc if len(desc) <= 80 else desc[:75] + '(...)'
                     lines.append(line)
@@ -104,40 +104,11 @@ class UploadCommands(RezbotCommands):
         #### Print info on a specific file
         if name not in uploads:
             return await ctx.send(f'No file by name `{name}` found!')
-        name = uploads[name]
-        info = name.info
-        lines = name.get()
-
-        # TODO: make this a little File.embed() ?
-        # TODO: make this a little View, even?
-        text = '**File:** ' + info.name
-        text += ', **Uploader:** ' + info.author_name + '\n'
-        text += '**Order:** ' + ('Sequential' if info.sequential else 'Random')
-        text += ', **Split on:** ' + (('`' + repr(info.splitter)[1:-1] + '`') if not info.sentences else 'Sentences')
-        text += ', **Entries:** ' + str(len(lines)) + '\n'
-        text += '**Categories:** ' + (', '.join(info.categories) if info.categories else "(none)")
-        text += ', **Editable:** ' + str(info.editable) + '\n'
-
-        MAXLINES = 8
-        MAXCHARS = 600
-        print_lines = []
-        chars = 0
-        for line in lines:
-            if len(line) + chars > MAXCHARS:
-                if not print_lines:
-                    print_lines.append(line[:MAXCHARS - 40] + '(...)')
-                if len(lines) > len(print_lines):
-                    print_lines.append('...%d more lines omitted' % (len(lines) - len(print_lines)))
-                break
-            print_lines.append(line)
-            chars += len(line)
-            if len(print_lines) > MAXLINES:
-                print_lines[MAXLINES:] = []
-                print_lines.append('...%d more lines omitted' % (len(lines) - len(print_lines)))
-                break
-
-        text += texttools.block_format('\n'.join(print_lines))
-        await ctx.send(text)
+        file = uploads[name]
+        embed = file.embed(bot=ctx.bot, channel=ctx.channel)
+        view = FileView(ctx.bot, file, uploads, ctx.channel)
+        message = await ctx.send(embed=embed, file=discord.File(file.get_raw_path()), view=view)
+        view.set_message(message)
 
 
     @commands.command(aliases=['set_file'])
@@ -251,18 +222,18 @@ class UploadCommands(RezbotCommands):
 
 
     @commands.command(aliases=['file_delete'])
-    async def delete_file(self, ctx, filename):
+    async def delete_file(self, ctx: commands.Context, filename):
         ''' Delete an uploaded file. Can only be done by owners of the bot or the file. '''
 
         if filename not in uploads:
             return await ctx.send('No file by name `%s` found!' % filename)
         file = uploads[filename]
 
-        if permissions.has(ctx.author.id, permissions.owner) or ctx.author.id == file.info.author_id:
-            uploads.delete_file(filename)
-            await ctx.send('File `%s` successfully deleted.' % file.info.name)
-        else:
-            await ctx.send('Files can only be deleted by bot owners or the owner of the file.')
+        if not file.may_delete(ctx.author):
+            return await ctx.send('Files can only be deleted by bot owners or the owner of the file.')
+
+        uploads.delete_file(filename)
+        await ctx.send('File `%s` successfully deleted.' % file.info.name)
 
 
 # Commands cog

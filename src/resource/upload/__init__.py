@@ -8,11 +8,16 @@ import nltk
 import markovify
 import spacy
 
+import discord
+
+import permissions
 from utils.util import normalize_name
 spacy.LOADED_NLP = None
 
+
 def DIR(filename=''):
     return os.path.join(os.path.dirname(__file__), 'files', filename)
+
 
 searchify_regex = re.compile(r'[^\w\s\-]')
 def searchify(text):
@@ -21,14 +26,30 @@ def searchify(text):
 
 class FileInfo:
     '''Metadata class for a File. These are pickled and don't store any of the file's actual contents.'''
-    def __init__(self, name, author_name, author_id, editable=False, sequential=True, sentences=False, splitter=None, categories: str | list=None):
+    def __init__(
+            self,
+            name: str,
+            *,
+            title: str='',
+            description: str='',
+            author_name: str,
+            author_id: str,
+            editable=False,
+            sequential=True,
+            sentences=False,
+            splitter=None,
+            categories: str | list=None,
+        ):
         # File metadata:
-        self.version = 2
+        self.version = 3
         self.name = name
+
+        self.title = title or name
+        self.description = description or ''
+
         self.author_name = author_name
         self.author_id = author_id
 
-        self.description = None
         self.upload_date = datetime.now()
         self.last_modified = datetime.now()
 
@@ -44,7 +65,7 @@ class FileInfo:
         self.raw_file = name + '.txt'
 
     @staticmethod
-    def normalize_categories(categories: str|list=None):
+    def normalize_categories(categories: str|list=None) -> list[str]:
         if not categories:
             return []
         if isinstance(categories, str):
@@ -89,7 +110,7 @@ class File:
     @staticmethod
     def new(name, author_name, author_id, raw, **kwargs):
         '''Constructor used when a file is first created.'''
-        info = FileInfo(name, author_name, author_id, **kwargs)
+        info = FileInfo(name, author_name=author_name, author_id=author_id, **kwargs)
         info.write()
         file = File(info)
         file.process_raw(raw)
@@ -98,6 +119,47 @@ class File:
 
     def delete(self):
         self.info.delete()
+
+    # ======================================= Representation =======================================
+
+    def embed(self, *, bot: discord.Client=None, channel: discord.TextChannel=None) -> discord.Embed:
+        info = self.info
+        lines = self.get()
+
+        embed_title = f'File: {info.name}.txt'
+        embed_description = info.description
+        if info.title != info.name:
+            embed_description = f"### {info.title}\n" + embed_description
+
+        embed = discord.Embed(title=embed_title, description=embed_description, color=0x4466ee)
+
+        # Basic info fields
+        embed.add_field(name='Entries', value=str(len(lines)))
+        embed.add_field(name='Order', value='Sequential' if info.sequential else 'Random')
+        embed.add_field(name='Split on', value=f'`{repr(info.splitter)[1:-1]}`' if not info.sentences else 'Sentences')
+        embed.add_field(name='Categories', value=', '.join(info.categories) if info.categories else "(none)")
+        embed.timestamp = info.upload_date
+
+        # Author credit footer
+        author = None
+        if channel and channel.guild:
+            author = channel.guild.get_member(info.author_id)
+        if not author and bot:
+            author = bot.get_user(info.author_id)
+        if author:
+            embed.set_footer(text=author.display_name, icon_url=author.avatar)
+        else:
+            embed.set_footer(text=info.author_name)
+
+        return embed
+
+    # ======================================== Meta-interface ======================================
+
+    def may_delete(self, user: discord.User | discord.Member) -> bool:
+        return (
+            permissions.has(user.id, permissions.owner)
+            or user.id == self.info.author_id
+        )
 
     # ====================================== Raw file handling =====================================
 
@@ -274,9 +336,9 @@ class Files:
         for filename in os.listdir(DIR()):
             if not filename.endswith('.p'):
                 continue
-            file_info = pickle.load(open(DIR(filename), 'rb'))
+            file_info: FileInfo = pickle.load(open(DIR(filename), 'rb'))
 
-            # Upgrade v1's to v2
+            # Migrate v1 to v2
             if file_info.version == 1:
                 file_info.version = 2
                 file_info.description = None
@@ -284,6 +346,13 @@ class Files:
                 file_info.upload_date = datetime.fromtimestamp(1577836800)
                 file_info.last_modified = datetime.fromtimestamp(1577836800)
                 file_info.categories = []
+                file_info.write()
+
+            # Migrate v2 to v3
+            if file_info.version == 2:
+                file_info.version = 3
+                file_info.title = file_info.name
+                file_info.description = ''
                 file_info.write()
 
             # Make sure to normalize categories
