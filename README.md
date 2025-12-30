@@ -8,6 +8,7 @@ A python-based discord bot using `discord.py` for python 3.11.
 * Install python modules from `requirements.txt`
 * Install python module `spacy` and then its English language model via `py -3.11 -m spacy download en_core_web_sm`
 * (Optional) Get a Google Cloud Translation API key [here](https://cloud.google.com/translate/docs/quickstart) and set it as an environment variable as described.
+* (Optional) Get a Google Cloud 'parent' string for your project and fill it out in `src/config.ini` [(documentation)](https://docs.cloud.google.com/translate/docs/reference/rest/v3/projects/translateText)
 * Go to `src/` and run `py -3.11 ./bot.py`
 
 ## Contains

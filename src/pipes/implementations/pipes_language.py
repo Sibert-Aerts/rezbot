@@ -1,9 +1,10 @@
+from configparser import ConfigParser
 import random
 import re
 from decimal import InvalidOperation
 from functools import lru_cache
 
-from google.cloud import translate_v2 as translate
+from google.cloud import translate_v2, translate_v3
 import nltk
 import spacy
 spacy.LOADED_NLP = None
@@ -20,17 +21,39 @@ from resource.upload import uploads
 #                  Pipes : LANGUAGE                 #
 #####################################################
 set_category('LANGUAGE')
-translate_client = None
 
-try:
-    translate_client = translate.Client()
-except Exception as e:
-    print(e)
-    print('[WARNING] Failed to initialise Google Cloud Translate client, translate features will be unavailable!')
+translate_v2_client = None
+translate_v3_client = None
+translate_v3_parent = None
+
+def _translate_setup():
+    global translate_v2_client, translate_v3_client, translate_v3_parent
+
+    # Attempt creating clients
+    try:
+        translate_v2_client = translate_v2.Client()
+    except Exception as e:
+        print(e)
+        print('[WARNING] Failed to initialise Google Cloud Translate V2 client, some translation features will be unavailable!')
+    try:
+        translate_v3_client = translate_v3.TranslationServiceClient()
+    except Exception as e:
+        print(e)
+        print('[WARNING] Failed to initialise Google Cloud Translate V3 client, some translation features will be unavailable!')
+
+    # Attempt to read V3 API parent from config
+    config = ConfigParser()
+    config.read('config.ini')
+    translate_v3_parent = config['TRANSLATE']['parent']
+    if not translate_v3_parent or translate_v3_parent == 'projects/YOUR_PROJECT_ID/locations/global':
+        return print('[WARNING] Google Cloud Translate V3 "parent" value not set in config.ini, some translation features will be unavailable!')
+
+_translate_setup()
+
 
 @lru_cache(100)
 def translate_func(text, fro, to):
-    response = translate_client.translate(text, source_language=fro, target_language=to, format_="text")
+    response = translate_v2_client.translate(text, source_language=fro, target_language=to, format_="text")
     return response['translatedText']
 
 
@@ -48,13 +71,13 @@ def translate_pipe(text, to, **kwargs):
     or https://github.com/Sibert-Aerts/rezbot/blob/master/src/utils/google_translate_languages.py
     '''
     # Trivial cases
-    if translate_client is None: return text
+    if translate_v2_client is None: return text
     if not text.strip(): return text
 
     # kwarg 'from' is not allowed since it's a keyword
     fro = kwargs['from']
 
-    # Ensure fro and to are language codes
+    # Map 'fro' and 'to' to language codes
     if fro == 'auto':
         fro = ''
     else:
@@ -67,6 +90,68 @@ def translate_pipe(text, to, **kwargs):
     return translate_func(text, fro, to)
 
 
+@pipe_from_func({
+    'from': Par(LANGUAGE + ['auto'], 'auto', 'The language to transliterate from, "auto" to automatically detect the language. The API is weird and you\'re often better off leaving this as auto.'),
+    'to':   Par(LANGUAGE, 'en', 'The language to translate the transliterated text to. Setting "from" as "en" is recommended if you want to transliterate within the same language.'),
+}, command=True)
+@one_to_one
+def transliterate_pipe(text, to, **kwargs):
+    '''
+    Transliterates text using Google Translate.
+    The list of possible languages can be browsed at https://docs.cloud.google.com/translate/docs/languages#roman
+    '''
+    # Trivial cases
+    if not (translate_v3_client and translate_v3_parent): return text
+    if not text.strip(): return text
+
+    # variable named 'from' is not allowed since it's a keyword
+    fro = kwargs['from']
+
+    # Map 'fro' and 'to' to language codes
+    if fro == 'auto':
+        fro = ''
+    else:
+        fro = get_language(fro)['language']
+    to = get_language(to)['language']
+
+    result = translate_v3_client.translate_text({
+        "parent": translate_v3_parent,
+        "contents": [text],
+        "source_language_code": fro,
+        "target_language_code": to,
+        "transliteration_config": {"enable_transliteration": True},
+        "mime_type": "text/plain",
+    })
+    return result.translations[0].translated_text
+
+
+@pipe_from_func({
+    'from': Par(LANGUAGE + ['auto'], 'auto', 'The language to transliterate from, "auto" to automatically detect the language.'),
+}, command=True)
+def romanize_pipe(inputs: list[str], **kwargs):
+    '''
+    Romanizes text using Google Translate.
+    The list of possible languages can be browsed at https://docs.cloud.google.com/translate/docs/languages#roman
+    '''
+    if not (translate_v3_client and translate_v3_parent): return inputs
+
+    # variable named 'from' is not allowed since it's a keyword
+    fro = kwargs['from']
+
+    # Map 'fro' to a language code
+    if fro == 'auto':
+        fro = ''
+    else:
+        fro = get_language(fro)['language']
+
+    result = translate_v3_client.romanize_text({
+        "parent": translate_v3_parent,
+        "contents": inputs,
+        "source_language_code": fro,
+    })
+    return [r.romanized_text for r in result.romanizations]
+
+
 @pipe_from_func
 @one_to_one
 def detect_language_pipe(text):
@@ -75,9 +160,9 @@ def detect_language_pipe(text):
     Returns "und" if it cannot be determined.
     The list of languages can be browsed at https://cloud.google.com/translate/docs/languages
     '''
-    if translate_client is None: return 'und'
+    if translate_v2_client is None: return 'und'
     if text.strip() == '': return 'und'
-    return translate_client.detect_language(text)['language']
+    return translate_v2_client.detect_language(text)['language']
 
 
 @pipe_from_func
