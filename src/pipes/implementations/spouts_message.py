@@ -4,6 +4,7 @@ from .spouts import Par, Context, with_signature, spout_from_func, set_category
 
 from pipes.core.state import BOT_STATE
 from pipes.core.signature import parse_bool
+from pipes.core.executable_script import ExecutableScript
 
 import utils.rand as rand
 import utils.texttools as texttools
@@ -49,8 +50,9 @@ async def reply_spout(ctx: Context, values, *, id, mention, earmark):
 @with_signature(
     member = Par(str, None, 'The member to send the message to. "me/them" or the member\'s handle or ID.'),
     earmark = Par(str, None, 'Earmark to uniquely identify this message in other scripting contexts.', required=False),
+    script = Par(ExecutableScript.from_string, required=False, desc='Script to execute when the direct message is replied to, if any.'),
 )
-async def direct_message_spout(ctx: Context, values, *, member, earmark):
+async def direct_message_spout(ctx: Context, values, *, member: str, earmark: str, script: ExecutableScript):
     '''
     Sends input as a direct Discord message to someone.
     If multiple lines of input are given, they're joined with line breaks.
@@ -71,7 +73,27 @@ async def direct_message_spout(ctx: Context, values, *, member, earmark):
             msg += f' via an Event authored by {author_id}'
 
     msg += texttools.block_format('\n'.join(values))
+    if script:
+        msg += f'\nThere is an on-reply hook script that will trigger on your reply to this message.'
+
     message = await member.send(msg)
+    if earmark:
+        BOT_STATE.earmarked_messages[earmark] = [message]
+    if script:
+        BOT_STATE.awaiting_dm_reply[member.id].append((message, script, ctx.author, ctx.channel))
+
+
+@spout_from_func
+@with_signature(
+    earmark = Par(str, None, 'Earmark to uniquely identify this message in other scripting contexts.', required=False),
+)
+async def tunnel_message_spout(ctx: Context, values: list[str], earmark: str):
+    '''
+    Sends input as a Discord message in the contextual 'tunnel channel'.
+    If multiple lines of input are given, they're joined with line breaks.
+    '''
+    channel = ctx.tunnel_channel or ctx.channel
+    message = await channel.send('\n'.join(values))
     if earmark:
         BOT_STATE.earmarked_messages[earmark] = [message]
 

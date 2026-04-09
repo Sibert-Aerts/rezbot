@@ -7,7 +7,7 @@ import re
 
 from discord import Client, Message, TextChannel
 
-from .state import Context, ItemScope
+from .state import Context, ItemScope, BOT_STATE
 from .executable_script import ExecutableScript
 from .events import ALL_EVENTS
 from pipes.commands.macro_commands import parse_macro_command
@@ -82,6 +82,26 @@ class PipelineProcessor:
             )
             scope = ItemScope(items=[emoji, str(user_id)]) # Legacy way of conveying who reacted
             await ExecutableScript.execute_from_string(event.script, context, scope)
+
+    async def on_direct_message(self, message: Message):
+        if message.author.id in BOT_STATE.awaiting_dm_reply:
+            for replying_to_msg, script, author, channel in BOT_STATE.awaiting_dm_reply[message.author.id]:
+                # TODO: Actually check if the received message actually 'replied' to the replying_to_msg
+                script: ExecutableScript
+                # Create execution context
+                context = Context(
+                    origin=Context.Origin(
+                        type=Context.Origin.Type.DM_CALLBACK,
+                        activator=message.author,
+                    ),
+                    author=author,
+                    message=message,
+                    tunnel_channel=channel,
+                )
+                await script.execute(context, ItemScope(items=[message.content]))
+
+            del BOT_STATE.awaiting_dm_reply[message.author.id]
+
 
     # ====================================== Script execution ======================================
 
