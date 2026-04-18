@@ -13,7 +13,7 @@ grpcio-status==1.60.0
 lru-dict==1.1.8
 markovify==0.9.4
 mediawikiapi==1.2
-nltk==3.8.1
+nltk==3.9.4
 num2words==0.5.13
 numpy==1.26.4
 openai==0.27.8
