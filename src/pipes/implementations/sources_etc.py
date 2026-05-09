@@ -93,9 +93,9 @@ async def timestamp_source(ctx, utc, parse, pformat):
 async def word_source(ctx, pattern, n):
     '''Random dictionary words, optionally matching a pattern.'''
     if pattern:
-        items = [w for w in allWords if pattern.search(w)]
+        items = [w for w in ALL_WORDS if pattern.search(w)]
     else:
-        items = allWords
+        items = ALL_WORDS
     return sample(items, n)
 
 
