@@ -21,7 +21,7 @@ Pint==0.22
 pyparsing==3.1.1
 python-datamuse==2.0.1
 python-Levenshtein==0.27.1
-python-weather==1.1.0
+python-weather==2.2.3
 simpleeval==0.9.13
 spacy==3.7.2
 spacy-legacy==3.0.12

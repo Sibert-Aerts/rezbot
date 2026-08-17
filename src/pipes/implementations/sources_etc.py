@@ -129,7 +129,7 @@ WEATHER_WHAT = Option(
     'feels_like',
     'humidity',
     'pressure',
-    'date',
+    'datetime',
     'timestamp',
     'country',
     'location',
@@ -141,7 +141,7 @@ WEATHER_WHAT = Option(
     'visibility',
     'wind_direction',
     'wind_speed',
-    aliases={'temperature': ['temp']},
+    aliases={'temperature': ['temp'], 'datetime': ['date']},
     name='Weather Property',
     stringy=True,
 )
@@ -162,14 +162,12 @@ async def weather_source(ctx, location: str, what: list[str]):
         weather = await client.get(location)
         res = []
         for w in what:
-            if w == 'emoji':
-                res.append(weather.current.kind.emoji)
-            elif w == 'country':
-                res.append(weather.nearest_area.country)
-            elif w == 'location':
-                res.append(weather.nearest_area.name)
+            if w == 'kind':
+                res.append(weather.kind.name)
+            elif w == 'emoji':
+                res.append(weather.kind.emoji)
             elif w == 'timestamp':
-                res.append(str(int((weather.current.date.timestamp()))))
+                res.append(str(int((weather.datetime.timestamp()))))
             else:
-                res.append(str(getattr(weather.current, w)))
+                res.append(str(getattr(weather, w)))
         return res
