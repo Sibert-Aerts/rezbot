@@ -103,14 +103,14 @@ WIKIPEDIA_WHAT = Option(
     'title', 'url', 'summary', 'content', 'images', 'videos', 'audio', 'links', 'infobox',
     aliases={'title': ['name'], 'images': ['image', 'pictures', 'picture'], 'videos': ['video']},
 )
-_img_re = re.compile(r'(?i)(png|jpe?g|gif|webp)$')
-_banned_imgs = [
+_img_re = re.compile(r'(?i)\.(png|jpe?g|gif|webp)($|\?)')
+_banned_imgs = {
     'https://upload.wikimedia.org/wikipedia/commons/7/74/Red_Pencil_Icon.png',
     'https://upload.wikimedia.org/wikipedia/commons/f/f9/Double-dagger-14-plain.png'
-]
-_vid_re = re.compile(r'(?i)(webm|gif|mp4|ogv)$')
-_aud_re = re.compile(r'(?i)(mp3|ogg|wav)$')
-_svg_re = re.compile(r'(?i)(svg)$')
+}
+_vid_re = re.compile(r'(?i)\.(webm|gif|mp4|ogv)($|\?)')
+_aud_re = re.compile(r'(?i)\.(mp3|ogg|wav)($|\?)')
+_svg_re = re.compile(r'(?i)\.(svg)($|\?)')
 
 def _wikipedia_get_what(page: WikipediaPage, what, n):
     if what == WIKIPEDIA_WHAT.title:
@@ -191,7 +191,7 @@ async def wikipedia_source(ctx, page, what, language, n):
     Donate to wikimedia: https://donate.wikimedia.org/
     '''
     page = get_wikipedia_page(page, language)
-    return [ s for wh in what for s in _wikipedia_get_what(page, wh, n) ]
+    return [s for wh in what for s in _wikipedia_get_what(page, wh, n)]
 
 
 @source_from_func({
