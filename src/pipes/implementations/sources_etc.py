@@ -158,12 +158,16 @@ async def weather_source(ctx, location: str, what: list[str]):
 
     Available properties: {options}
     '''
+    def _unmangle_enum(s: str):
+        # 'FOO_BAR' → 'Foo Bar'
+        return s.replace('_', ' ').title()
+
     async with python_weather.Client() as client:
         weather = await client.get(location)
         res = []
         for w in what:
             if w == 'kind':
-                res.append(weather.kind.name)
+                res.append(_unmangle_enum(weather.kind.name))
             elif w == 'emoji':
                 res.append(weather.kind.emoji)
             elif w == 'timestamp':
