@@ -220,9 +220,6 @@ class Spout(Pipeoid):
 
     async def do_simple_callback(self, context: Context, values: list[str], **args):
         '''Special case method: Instantly performs a simple spout callback, used when directly invoking spouts outside of scripts.'''
-        if self._validate_args:
-            self._validate_args(args)
-
         if self.mode == Spout.Mode.simple:
             await self.spout_function(context, values, **args)
         elif self.mode == Spout.Mode.aggregated:
