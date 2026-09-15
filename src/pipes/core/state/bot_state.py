@@ -2,10 +2,11 @@ from collections import defaultdict
 from resource.variables import VariableStore
 
 
-class BotState():
+class BotState:
     previous_pipeline_output: defaultdict[list]
     variables: VariableStore
     earmarked_messages: dict
+    awaiting_dm_reply: defaultdict[list[tuple]]
 
 
 BOT_STATE = BotState()
@@ -14,3 +15,4 @@ BOT_STATE = BotState()
 BOT_STATE.previous_pipeline_output = defaultdict(list)
 BOT_STATE.variables = VariableStore('variables.json')
 BOT_STATE.earmarked_messages = dict()
+BOT_STATE.awaiting_dm_reply = defaultdict(list)

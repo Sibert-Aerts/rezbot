@@ -77,14 +77,22 @@ class Rezbot(commands.Bot):
         if await self.pipeline_processor.interpret_incoming_message(message):
             return
 
-        # Try for patterns and custom Events if it doesn't look like a command
+        # It doesn't look like a command
         if message.content[:len(command_prefix)] != command_prefix:
+            # Try for dynamic Events
             await self.pipeline_processor.on_message(message)
+
+            # See if it's a DM that we're interested in
+            if isinstance(message.channel, discord.DMChannel):
+                await self.pipeline_processor.on_direct_message(message)
+
+            # Try for hard-coded patterns
             if (not message.guild or message.guild.id not in patterns_blacklist) and message.channel.id not in patterns_blacklist:
                 await self.pattern_processor.process_patterns(message)
 
-        # Try for commands
-        await self.process_commands(message)
+        else:
+            # Try for commands
+            await self.process_commands(message)
 
     async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         guild = self.get_guild(payload.guild_id)

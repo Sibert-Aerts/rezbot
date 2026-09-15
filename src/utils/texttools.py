@@ -15,9 +15,9 @@ digs = '0123456789'
 ABCabc = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
 
 # words
-allWords = open('resource/words.txt', encoding='utf-8').read().split()
+ALL_WORDS = open('resource/words.txt', encoding='utf-8').read().split()
 # remove proper nouns
-allWords = [w for w in allWords if not w[:1].isupper() and not w[-2:] == "'s"]
+ALL_WORDS = [w for w in ALL_WORDS if not w[:1].isupper() and not w[-2:] == "'s"]
 
 
 def block_format(s):
@@ -274,26 +274,33 @@ def ed(x, y):
 
 
 def min_dist(w, min_min=0, corpus=None):
-    if corpus is None: corpus = allWords
+    if corpus is None:
+        corpus = ALL_WORDS
     w = w.lower()
     key = lambda x: distance(x.lower(), w)
     return choose(util.minima(corpus, key=key, min_min=min_min))
 
 
-def avg_dist(w1, w2, p=0.5):
-    q = 1-p
-    squares = [(ed(w, w1)**2)*q + (ed(w, w2)**2)*p for w in allWords]
-    mini, mins = choose(util.minima(enumerate(squares), key=lambda x:x[1]))
-    return allWords[mini]
+def lin_interp_words(w1, w2, p=0.5, corpus=None):
+    if p <= 0:
+        return w1
+    if p >= 1:
+        return w2
+    if corpus is None:
+        corpus = ALL_WORDS
+    squares = [(ed(w, w1)**2)/p + (ed(w, w2)**2)/(1-p) for w in corpus]
+    mini, mins = choose(util.minima(enumerate(squares), key=lambda x: x[1]))
+    return ALL_WORDS[mini]
 
 
 def dist_gradient(w1, w2, num=1):
     words = []
-    fromWord = w1
+    intermediate_word = w1
     for n in range(num):
-        p = (n+1)/(num+1)
-        w = avg_dist(fromWord, w2, p)
-        fromWord = w
+        # nb. p iterates from (1/(num+1)) to (1/2)
+        p = 1/(num+1 - n)
+        w = lin_interp_words(intermediate_word, w2, p)
+        intermediate_word = w
         words.append(w)
     return words
 

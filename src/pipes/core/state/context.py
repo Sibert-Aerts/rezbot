@@ -47,6 +47,7 @@ class Context:
             COMMAND = object()
             EVENT = object()
             INTERACTION_CALLBACK = object()
+            DM_CALLBACK = object()
             # Special
             GENERIC_APPLY_PIPE = object()
             EVALUATE_SOURCES_PIPE = object()
@@ -102,6 +103,9 @@ class Context:
     channel: TextChannel = None
     'The channel of either the subject message or interaction, if any.'
 
+    tunnel_channel: TextChannel = None
+    'The specific tunnel channel in case of cross-channel scripts, if any.'
+
     button: 'RezbotButton' = None
     'The specific button that triggered this interaction.'
 
@@ -123,6 +127,7 @@ class Context:
         author: Member=None,
         message: Message=None,
         interaction: Interaction=None,
+        tunnel_channel: TextChannel=None,
         button=None,
 
         macro: 'Macro'=None,
@@ -146,6 +151,7 @@ class Context:
             or (self.interaction and self.interaction.channel)
             or self.channel
         )
+        self.tunnel_channel = tunnel_channel
         self.button = button or self.button
 
         self.macro = macro or self.macro

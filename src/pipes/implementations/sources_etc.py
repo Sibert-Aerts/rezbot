@@ -93,9 +93,9 @@ async def timestamp_source(ctx, utc, parse, pformat):
 async def word_source(ctx, pattern, n):
     '''Random dictionary words, optionally matching a pattern.'''
     if pattern:
-        items = [w for w in allWords if pattern.search(w)]
+        items = [w for w in ALL_WORDS if pattern.search(w)]
     else:
-        items = allWords
+        items = ALL_WORDS
     return sample(items, n)
 
 
@@ -129,7 +129,7 @@ WEATHER_WHAT = Option(
     'feels_like',
     'humidity',
     'pressure',
-    'date',
+    'datetime',
     'timestamp',
     'country',
     'location',
@@ -141,7 +141,7 @@ WEATHER_WHAT = Option(
     'visibility',
     'wind_direction',
     'wind_speed',
-    aliases={'temperature': ['temp']},
+    aliases={'temperature': ['temp'], 'datetime': ['date']},
     name='Weather Property',
     stringy=True,
 )
@@ -158,18 +158,20 @@ async def weather_source(ctx, location: str, what: list[str]):
 
     Available properties: {options}
     '''
+    def _unmangle_enum(s: str):
+        # 'FOO_BAR' → 'Foo Bar'
+        return s.replace('_', ' ').title()
+
     async with python_weather.Client() as client:
         weather = await client.get(location)
         res = []
         for w in what:
-            if w == 'emoji':
-                res.append(weather.current.kind.emoji)
-            elif w == 'country':
-                res.append(weather.nearest_area.country)
-            elif w == 'location':
-                res.append(weather.nearest_area.name)
+            if w == 'kind':
+                res.append(_unmangle_enum(weather.kind.name))
+            elif w == 'emoji':
+                res.append(weather.kind.emoji)
             elif w == 'timestamp':
-                res.append(str(int((weather.current.date.timestamp()))))
+                res.append(str(int((weather.datetime.timestamp()))))
             else:
-                res.append(str(getattr(weather.current, w)))
+                res.append(str(getattr(weather, w)))
         return res
